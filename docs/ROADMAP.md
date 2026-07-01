@@ -9,14 +9,15 @@
 
 ## M0: Public Benchmark CLI
 
-- Rust workspace with `morphojet-core` and `morphojet` CLI.
-- TIFF and common 2D image reading.
-- Label mask traversal.
-- Intensity and size/shape core features.
-- CSV writer.
-- CellProfiler output normalizer.
-- `benchmark/run.sh` for CellProfiler vs MorphoJet.
-- `docs/PARITY.md` compatibility ledger.
+- [x] Rust workspace with `morphojet-core` and `morphojet` CLI.
+- [x] Common 2D image reading through the Rust `image` crate.
+- [x] Label mask traversal.
+- [x] Intensity and size/shape starter features.
+- [x] CSV writer.
+- [x] Synthetic smoke corpus generator.
+- [ ] CellProfiler output normalizer.
+- [ ] `benchmark/run.sh` CellProfiler oracle leg.
+- [x] `docs/PARITY.md` compatibility ledger.
 
 ## M1: Lab Trial
 

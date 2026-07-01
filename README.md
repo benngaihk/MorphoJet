@@ -38,6 +38,14 @@ ImageNumber,ImagePath,MaskPath,Channel,Plate,Well,Site
 2,images/A01_s1_CD3.tif,masks/A01_s1_cells.tif,CD3,P001,A01,1
 ```
 
+## Smoke Benchmark
+
+```bash
+python3 corpus/generate_smoke.py --images 16
+benchmark/run.sh benchmark/data/smoke/images.csv benchmark/results/smoke
+python3 benchmark/summarize.py benchmark/results/smoke
+```
+
 ## M0 Gate
 
 | Area | Target |

@@ -17,6 +17,14 @@ python3 -m py_compile benchmark/summarize.py tests/parity/normalize_measurements
 git diff --check
 ```
 
+## Smoke Benchmark
+
+```bash
+python3 corpus/generate_smoke.py --images 16
+benchmark/run.sh benchmark/data/smoke/images.csv benchmark/results/smoke
+python3 benchmark/summarize.py benchmark/results/smoke
+```
+
 ## Measurement Convention
 
 For grayscale 8-bit and 16-bit images, MorphoJet preserves raw pixel values during intensity accumulation. Non-grayscale inputs are converted to grayscale as a starter behavior and must be checked against CellProfiler oracle outputs before being marked parity-safe.
