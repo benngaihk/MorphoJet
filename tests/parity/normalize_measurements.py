@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Normalize measurement CSVs before parity diffs.
+"""Normalize measurement CSVs before parity comparisons.
 
 This starter keeps the operation deliberately small: sort rows by stable keys
 and round numeric values. Dataset-specific column aliases should be added only

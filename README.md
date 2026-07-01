@@ -46,6 +46,14 @@ benchmark/run.sh benchmark/data/smoke/images.csv benchmark/results/smoke
 python3 benchmark/summarize.py benchmark/results/smoke
 ```
 
+## Parity Report
+
+```bash
+python3 tests/parity/normalize_measurements.py CellProfiler_Objects.csv normalized/cp_objects.csv
+python3 tests/parity/normalize_measurements.py benchmark/results/smoke/Objects.csv normalized/morphojet_objects.csv
+python3 tests/parity/compare_measurements.py normalized/cp_objects.csv normalized/morphojet_objects.csv --fail-on-gap
+```
+
 ## M0 Gate
 
 | Area | Target |

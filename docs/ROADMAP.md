@@ -15,7 +15,7 @@
 - [x] Intensity and size/shape starter features.
 - [x] CSV writer.
 - [x] Synthetic smoke corpus generator.
-- [ ] CellProfiler output normalizer.
+- [x] CellProfiler output normalizer and CSV comparator.
 - [ ] `benchmark/run.sh` CellProfiler oracle leg.
 - [x] `docs/PARITY.md` compatibility ledger.
 

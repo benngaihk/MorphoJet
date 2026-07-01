@@ -13,7 +13,7 @@ $HOME/.cargo/bin/cargo
 ```bash
 $HOME/.cargo/bin/cargo fmt -- --check
 $HOME/.cargo/bin/cargo test
-python3 -m py_compile benchmark/summarize.py tests/parity/normalize_measurements.py
+python3 -m py_compile benchmark/summarize.py corpus/generate_smoke.py tests/parity/*.py
 git diff --check
 ```
 
@@ -23,6 +23,15 @@ git diff --check
 python3 corpus/generate_smoke.py --images 16
 benchmark/run.sh benchmark/data/smoke/images.csv benchmark/results/smoke
 python3 benchmark/summarize.py benchmark/results/smoke
+```
+
+## Parity Report Smoke
+
+```bash
+python3 tests/parity/compare_measurements.py \
+  benchmark/results/smoke/Objects.csv \
+  benchmark/results/smoke/Objects.csv \
+  --fail-on-gap
 ```
 
 ## Measurement Convention
