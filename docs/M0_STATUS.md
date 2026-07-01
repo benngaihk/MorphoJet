@@ -28,6 +28,7 @@ Updated: 2026-07-01
 - L2/L3 oracle validation checklist in `docs/ORACLE_VALIDATION.md`.
 - Production readiness checklist in `docs/PRODUCTION_READINESS.md`.
 - CLI safety hardening: thread validation, non-empty input table, duplicate row identity detection, readable path preflight, overwrite protection.
+- CLI integration tests for success and major failure modes.
 
 ## Verified Locally
 

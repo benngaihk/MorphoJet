@@ -338,8 +338,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "image",
  "morphojet-core",
  "rayon",
+ "tempfile",
 ]
 
 [[package]]
