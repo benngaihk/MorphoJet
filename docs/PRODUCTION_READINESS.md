@@ -21,7 +21,7 @@ Production-grade means:
 | Output safety | Avoid partial final `Image.csv` / `Objects.csv` files on failure | Implemented through staging writes for current CLI |
 | Correctness | CellProfiler oracle parity report for public data | Not complete |
 | Testing | Unit, integration, CLI failure-mode, Clippy, and benchmark smoke tests in CI | Implemented for current CLI |
-| Performance | Synthetic regression benchmark plus real CellProfiler benchmark | Synthetic only |
+| Performance | Synthetic regression benchmark plus real CellProfiler benchmark | Synthetic plus reusable RSS/elapsed metrics wrapper |
 | Observability | Clear stderr summary, actionable error context, and runtime diagnostics | Runtime `doctor` implemented; richer structured logs pending |
 | Release | GitHub release workflow and checksums | Implemented for tagged macOS/Linux builds |
 | Documentation | Supported inputs, unsupported scope, parity gaps, and production caveats documented | In progress |
@@ -31,7 +31,7 @@ Production-grade means:
 Priority order:
 
 1. Add a pinned public CellProfiler oracle benchmark.
-2. Add structured benchmark metadata and RSS capture.
+2. Wire metrics JSON directly into impact report generation.
 
 ## Claim Policy
 

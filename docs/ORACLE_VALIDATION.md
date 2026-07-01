@@ -52,7 +52,14 @@ Checklist:
 2. Run at least 1k image rows.
 3. Measure wall-clock time.
 4. Measure peak RSS.
-5. Generate impact gate report:
+5. Capture both tools through the same metrics wrapper:
+
+```bash
+python3 benchmark/run_command_metrics.py --name cellprofiler --out benchmark/results/metrics --fail-on-nonzero -- cellprofiler -c -r -p benchmark/cellprofiler/pipeline.cppipe -o benchmark/results/cellprofiler
+python3 benchmark/run_command_metrics.py --name morphojet --out benchmark/results/metrics --fail-on-nonzero -- target/release/morphojet measure --images benchmark/cellprofiler/images.csv --out benchmark/results/morphojet --cellprofiler-compatible --overwrite
+```
+
+6. Generate impact gate report:
 
 ```bash
 python3 benchmark/impact_report.py \

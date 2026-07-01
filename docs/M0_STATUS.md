@@ -33,6 +33,7 @@ Updated: 2026-07-01
 - Clippy quality gate in CI.
 - Tagged release workflow for macOS/Linux binary archives and SHA-256 checksums.
 - Runtime diagnostics via `morphojet doctor`.
+- Reusable command metrics wrapper for elapsed time and peak RSS capture.
 
 ## Verified Locally
 

@@ -53,3 +53,12 @@ jobs:
             --cellprofiler-rss-mb 8000 \
             --morphojet-rss-mb 4000 \
             --fail-on-gap
+
+      - name: Run command metrics smoke
+        run: |
+          cargo build --release -p morphojet
+          python3 benchmark/run_command_metrics.py \
+            --name morphojet-smoke \
+            --out benchmark/results/metrics \
+            --fail-on-nonzero \
+            -- target/release/morphojet doctor

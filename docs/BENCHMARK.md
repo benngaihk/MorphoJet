@@ -74,3 +74,21 @@ python3 benchmark/impact_report.py \
   --morphojet-rss-mb 4000 \
   --fail-on-gap
 ```
+
+## Command Metrics
+
+Use one metrics wrapper for both CellProfiler and MorphoJet when collecting production evidence:
+
+```bash
+python3 benchmark/run_command_metrics.py \
+  --name morphojet \
+  --out benchmark/results/metrics \
+  --fail-on-nonzero \
+  -- target/release/morphojet measure \
+    --images benchmark/data/smoke/images.csv \
+    --out benchmark/results/smoke \
+    --cellprofiler-compatible \
+    --overwrite
+```
+
+The wrapper writes stdout/stderr logs plus `<name>.metrics.json` with elapsed seconds and peak RSS.
