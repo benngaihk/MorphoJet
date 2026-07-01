@@ -64,3 +64,5 @@ python3 tests/parity/compare_measurements.py normalized/cp_objects.csv normalize
 | Peak RSS | <=50% of CellProfiler |
 
 See [docs/PARITY.md](docs/PARITY.md) for the current compatibility ledger.
+
+Current milestone status is tracked in [docs/M0_STATUS.md](docs/M0_STATUS.md).

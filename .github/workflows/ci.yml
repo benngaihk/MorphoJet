@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Run Rust tests
+        run: cargo test
+
+      - name: Check Python helpers
+        run: python3 -m py_compile benchmark/summarize.py corpus/generate_smoke.py tests/parity/*.py
+
+      - name: Run smoke benchmark
+        run: |
+          python3 corpus/generate_smoke.py --images 16
+          benchmark/run.sh benchmark/data/smoke/images.csv benchmark/results/smoke
+          python3 benchmark/summarize.py benchmark/results/smoke
+
+      - name: Run parity self-check
+        run: |
+          python3 tests/parity/compare_measurements.py \
+            benchmark/results/smoke/Objects.csv \
+            benchmark/results/smoke/Objects.csv \
+            --fail-on-gap

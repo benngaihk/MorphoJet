@@ -17,6 +17,8 @@ python3 -m py_compile benchmark/summarize.py corpus/generate_smoke.py tests/pari
 git diff --check
 ```
 
+CI runs the same core path on GitHub Actions: Rust formatting, Rust tests, Python helper compilation, smoke benchmark, and parity self-check.
+
 ## Smoke Benchmark
 
 ```bash

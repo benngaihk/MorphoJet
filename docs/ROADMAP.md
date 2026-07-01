@@ -16,6 +16,7 @@
 - [x] CSV writer.
 - [x] Synthetic smoke corpus generator.
 - [x] CellProfiler output normalizer and CSV comparator.
+- [x] CI smoke benchmark and parity self-check.
 - [ ] `benchmark/run.sh` CellProfiler oracle leg.
 - [x] `docs/PARITY.md` compatibility ledger.
 
