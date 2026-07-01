@@ -36,6 +36,7 @@ Updated: 2026-07-01
 - Reusable command metrics wrapper for elapsed time and peak RSS capture.
 - Impact gate report can consume metrics JSON directly.
 - Manifest-driven CellProfiler oracle benchmark runner and manifest validator.
+- Impact gate report can derive parity metrics from parity JSON.
 
 ## Verified Locally
 

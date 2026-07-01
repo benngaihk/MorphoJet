@@ -49,8 +49,9 @@ def render_report(gates: list[Gate], output: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--image-rows", type=int, required=True)
-    parser.add_argument("--object-count-parity", type=float, required=True)
-    parser.add_argument("--numeric-parity", type=float, required=True)
+    parser.add_argument("--object-count-parity", type=float)
+    parser.add_argument("--numeric-parity", type=float)
+    parser.add_argument("--parity-json", type=Path)
     parser.add_argument("--cellprofiler-seconds", type=float)
     parser.add_argument("--morphojet-seconds", type=float)
     parser.add_argument("--cellprofiler-rss-mb", type=float)
@@ -62,6 +63,11 @@ def main() -> int:
     parser.add_argument("--fail-on-gap", action="store_true")
     args = parser.parse_args()
 
+    object_count_parity, numeric_parity = parity_values(
+        args.parity_json,
+        args.object_count_parity,
+        args.numeric_parity,
+    )
     cellprofiler_seconds, cellprofiler_rss_mb = metric_values(
         args.cellprofiler_metrics_json,
         args.cellprofiler_seconds,
@@ -79,8 +85,8 @@ def main() -> int:
     rss_ratio = morphojet_rss_mb / cellprofiler_rss_mb if cellprofiler_rss_mb else 1.0
     gates = [
         Gate("Scale", ">=1000 image rows", str(args.image_rows), args.image_rows >= 1000),
-        Gate("Object count parity", "100%", f"{args.object_count_parity:.4%}", args.object_count_parity >= 1.0),
-        Gate("Core numeric parity", ">=99%", f"{args.numeric_parity:.4%}", args.numeric_parity >= 0.99),
+        Gate("Object count parity", "100%", f"{object_count_parity:.4%}", object_count_parity >= 1.0),
+        Gate("Core numeric parity", ">=99%", f"{numeric_parity:.4%}", numeric_parity >= 0.99),
         Gate("Wall-clock speedup", ">=10x", f"{speedup:.2f}x", speedup >= 10.0),
         Gate("Peak RSS ratio", "<=50%", f"{rss_ratio:.2%}", rss_ratio <= 0.50),
     ]
@@ -96,6 +102,8 @@ def main() -> int:
                 "morphojet_seconds": morphojet_seconds,
                 "cellprofiler_rss_mb": cellprofiler_rss_mb,
                 "morphojet_rss_mb": morphojet_rss_mb,
+                "object_count_parity": object_count_parity,
+                "numeric_parity": numeric_parity,
                 "gates": [gate.__dict__ for gate in gates],
             },
             indent=2,
@@ -105,6 +113,34 @@ def main() -> int:
     print(f"wrote {args.out}")
     print(f"wrote {args.json_out}")
     return 1 if args.fail_on_gap and not all(gate.passed for gate in gates) else 0
+
+
+def parity_values(
+    parity_json: Path | None,
+    object_count_parity: float | None,
+    numeric_parity: float | None,
+) -> tuple[float, float]:
+    if parity_json:
+        parity = json.loads(parity_json.read_text())
+        expected_rows = int(parity["expected_rows"])
+        actual_rows = int(parity["actual_rows"])
+        shared_rows = int(parity["shared_rows"])
+        row_denominator = max(expected_rows, actual_rows, 1)
+        object_count_parity = shared_rows / row_denominator
+
+        numeric_compared = int(parity["numeric_compared"])
+        numeric_failures = int(parity["numeric_failures"])
+        if numeric_compared > 0:
+            numeric_parity = 1.0 - (numeric_failures / numeric_compared)
+        else:
+            numeric_parity = 0.0
+
+    if object_count_parity is None:
+        raise SystemExit("object count parity missing; pass --object-count-parity or --parity-json")
+    if numeric_parity is None:
+        raise SystemExit("numeric parity missing; pass --numeric-parity or --parity-json")
+
+    return object_count_parity, numeric_parity
 
 
 def metric_values(metrics_json: Path | None, seconds: float | None, rss_mb: float | None, label: str) -> tuple[float, float]:

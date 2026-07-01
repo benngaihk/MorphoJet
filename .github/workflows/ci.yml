@@ -55,8 +55,7 @@ jobs:
           printf '{"elapsed_seconds":60,"peak_rss_mb":4000}\n' > benchmark/results/impact-smoke/morphojet.metrics.json
           python3 benchmark/impact_report.py \
             --image-rows 1000 \
-            --object-count-parity 1.0 \
-            --numeric-parity 0.99 \
+            --parity-json benchmark/results/smoke/objects_parity.json \
             --cellprofiler-metrics-json benchmark/results/impact-smoke/cellprofiler.metrics.json \
             --morphojet-metrics-json benchmark/results/impact-smoke/morphojet.metrics.json \
             --fail-on-gap

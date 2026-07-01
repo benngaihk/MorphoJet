@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import csv
 import os
 import shutil
 import subprocess
@@ -86,6 +87,11 @@ def morphojet_command(manifest: dict[str, Any]) -> list[str]:
     ]
 
 
+def count_csv_rows(path: Path) -> int:
+    with path.open(newline="") as handle:
+        return sum(1 for _ in csv.DictReader(handle))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("manifest", type=Path)
@@ -139,6 +145,26 @@ def main() -> int:
             str(parity_dir / "objects_parity.md"),
             "--json-out",
             str(parity_dir / "objects_parity.json"),
+            "--fail-on-gap",
+        ],
+        root,
+    )
+    run(
+        [
+            "python3",
+            "benchmark/impact_report.py",
+            "--image-rows",
+            str(count_csv_rows(root / manifest["morphojet"]["image_table"])),
+            "--parity-json",
+            str(parity_dir / "objects_parity.json"),
+            "--cellprofiler-metrics-json",
+            "benchmark/results/metrics/cellprofiler.metrics.json",
+            "--morphojet-metrics-json",
+            "benchmark/results/metrics/morphojet.metrics.json",
+            "--out",
+            "benchmark/results/impact/summary.md",
+            "--json-out",
+            "benchmark/results/impact/summary.json",
             "--fail-on-gap",
         ],
         root,

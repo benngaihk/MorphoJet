@@ -70,8 +70,7 @@ After a real CellProfiler oracle run, generate the final gate report with:
 ```bash
 python3 benchmark/impact_report.py \
   --image-rows 1000 \
-  --object-count-parity 1.0 \
-  --numeric-parity 0.99 \
+  --parity-json benchmark/results/parity/objects_parity.json \
   --cellprofiler-metrics-json benchmark/results/metrics/cellprofiler.metrics.json \
   --morphojet-metrics-json benchmark/results/metrics/morphojet.metrics.json \
   --fail-on-gap
