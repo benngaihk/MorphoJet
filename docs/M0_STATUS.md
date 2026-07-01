@@ -35,6 +35,7 @@ Updated: 2026-07-01
 - Runtime diagnostics via `morphojet doctor`.
 - Reusable command metrics wrapper for elapsed time and peak RSS capture.
 - Impact gate report can consume metrics JSON directly.
+- Manifest-driven CellProfiler oracle benchmark runner and manifest validator.
 
 ## Verified Locally
 

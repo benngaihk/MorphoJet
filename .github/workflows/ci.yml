@@ -29,6 +29,11 @@ jobs:
       - name: Check Python helpers
         run: python3 -m py_compile benchmark/*.py corpus/generate_smoke.py tests/parity/*.py
 
+      - name: Validate oracle manifest template
+        run: |
+          python3 benchmark/validate_benchmark_manifest.py benchmark/cellprofiler/manifest.example.json
+          python3 benchmark/run_oracle_benchmark.py --help
+
       - name: Run smoke benchmark
         run: |
           python3 corpus/generate_smoke.py --images 16
@@ -40,6 +45,7 @@ jobs:
           python3 tests/parity/compare_measurements.py \
             benchmark/results/smoke/Objects.csv \
             benchmark/results/smoke/Objects.csv \
+            --json-out benchmark/results/smoke/objects_parity.json \
             --fail-on-gap
 
       - name: Run impact reporter smoke

@@ -29,22 +29,26 @@ Committed validation summaries are tracked in `docs/VALIDATION_RESULTS.md`.
 
 ## CellProfiler Oracle
 
-When a pinned `.cppipe` and oracle corpus are available, provide the complete CellProfiler command through `CELLPROFILER_CMD`.
+When a pinned `.cppipe` and oracle corpus are available, prefer the manifest-driven oracle runner.
 
 Example:
 
 ```bash
-CELLPROFILER_CMD='cellprofiler -c -r -p benchmark/cellprofiler/pipeline.cppipe -o benchmark/results/cellprofiler' \
-CELLPROFILER_OBJECTS_CSV='benchmark/results/cellprofiler/Objects.csv' \
-benchmark/run.sh benchmark/data/cellprofiler/images.csv benchmark/results/morphojet
+cp benchmark/cellprofiler/manifest.example.json benchmark/cellprofiler/manifest.json
+python3 benchmark/validate_benchmark_manifest.py benchmark/cellprofiler/manifest.json --check-files
+python3 benchmark/run_oracle_benchmark.py benchmark/cellprofiler/manifest.json
 ```
 
-`benchmark/run.sh` will:
+The runner will:
 
-1. Run MorphoJet.
-2. Run the provided CellProfiler command.
-3. Normalize both object CSVs when `CELLPROFILER_OBJECTS_CSV` is set.
-4. Write `benchmark/results/parity/objects_parity.md`.
+1. Build MorphoJet release binary.
+2. Run CellProfiler through either `cellprofiler.command` or `cellprofiler.docker_image`.
+3. Run MorphoJet on the manifest image table.
+4. Capture elapsed time and peak RSS for both tools.
+5. Normalize both object CSV files.
+6. Write Markdown and JSON parity reports.
+
+`benchmark/run.sh` still supports ad hoc runs through `CELLPROFILER_CMD`, but the manifest path is the production validation path.
 
 ## Required Benchmark Metadata
 

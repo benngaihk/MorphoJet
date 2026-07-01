@@ -21,16 +21,20 @@ Required files:
 - `benchmark/results/cellprofiler/Objects.csv`
 - `benchmark/results/morphojet/Objects.csv`
 - `benchmark/results/parity/objects_parity.md`
+- `benchmark/results/parity/objects_parity.json`
 
 Checklist:
 
-1. Pin CellProfiler version.
-2. Select a public image/mask corpus with clear license and download URL.
-3. Run CellProfiler headless with `ExportToSpreadsheet`.
-4. Run MorphoJet on the equivalent image table.
-5. Normalize both object CSV files.
-6. Generate parity report.
-7. Record every mismatch in `docs/PARITY.md`.
+1. Copy `benchmark/cellprofiler/manifest.example.json` to a real manifest.
+2. Pin CellProfiler version or Docker image.
+3. Select a public image/mask corpus with clear license and download URL.
+4. Run the manifest-driven oracle benchmark:
+
+```bash
+python3 benchmark/run_oracle_benchmark.py benchmark/cellprofiler/manifest.json
+```
+
+5. Record every mismatch in `docs/PARITY.md`.
 
 Pass condition:
 

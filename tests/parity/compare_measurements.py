@@ -5,8 +5,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import math
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 
@@ -52,7 +53,7 @@ def compare(
     keys: list[str],
     abs_tol: float,
     rel_tol: float,
-) -> tuple[bool, str]:
+) -> tuple[bool, str, dict[str, object]]:
     expected_columns, expected_rows = read_rows(expected_path)
     actual_columns, actual_rows = read_rows(actual_path)
 
@@ -141,7 +142,22 @@ def compare(
         if len(string_failures) > 20:
             lines.append(f"- ... {len(string_failures) - 20} more")
 
-    return passed, "\n".join(lines) + "\n"
+    summary = {
+        "status": "PASS" if passed else "FAIL",
+        "expected_rows": len(expected_rows),
+        "actual_rows": len(actual_rows),
+        "shared_rows": len(shared_keys),
+        "missing_actual_columns": missing_actual_columns,
+        "extra_actual_columns": extra_actual_columns,
+        "missing_rows": len(missing_rows),
+        "extra_rows": len(extra_rows),
+        "string_failures": len(string_failures),
+        "numeric_compared": sum(diff.compared for diff in column_diffs.values()),
+        "numeric_failures": sum(diff.failures for diff in column_diffs.values()),
+        "columns": [asdict(diff) for diff in column_diffs.values()],
+    }
+
+    return passed, "\n".join(lines) + "\n", summary
 
 
 def main() -> int:
@@ -152,16 +168,20 @@ def main() -> int:
     parser.add_argument("--abs-tol", type=float, default=1e-6)
     parser.add_argument("--rel-tol", type=float, default=1e-5)
     parser.add_argument("--out", type=Path)
+    parser.add_argument("--json-out", type=Path)
     parser.add_argument("--fail-on-gap", action="store_true")
     args = parser.parse_args()
 
     keys = [key.strip() for key in args.keys.split(",") if key.strip()]
-    passed, report = compare(args.expected, args.actual, keys, args.abs_tol, args.rel_tol)
+    passed, report, summary = compare(args.expected, args.actual, keys, args.abs_tol, args.rel_tol)
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(report)
     else:
         print(report, end="")
+    if args.json_out:
+        args.json_out.parent.mkdir(parents=True, exist_ok=True)
+        args.json_out.write_text(json.dumps(summary, indent=2) + "\n")
     return 1 if args.fail_on_gap and not passed else 0
 
 

@@ -1,0 +1,36 @@
+{
+  "benchmark_id": "cellprofiler-public-example-v1",
+  "description": "Template for a pinned public CellProfiler oracle benchmark.",
+  "dataset": {
+    "name": "CellProfiler public example or tutorial dataset",
+    "source_url": "https://cellprofiler.org/examples",
+    "license": "record dataset license here",
+    "download_instructions": "record exact commands or manual steps here"
+  },
+  "cellprofiler": {
+    "version": "pin exact version here",
+    "docker_image": "cellprofiler/cellprofiler:latest",
+    "pipeline_path": "benchmark/cellprofiler/pipeline.cppipe",
+    "output_dir": "benchmark/results/cellprofiler",
+    "objects_csv": "benchmark/results/cellprofiler/Objects.csv"
+  },
+  "morphojet": {
+    "image_table": "benchmark/cellprofiler/images.csv",
+    "output_dir": "benchmark/results/morphojet",
+    "objects_csv": "benchmark/results/morphojet/Objects.csv",
+    "threads": 8
+  },
+  "parity": {
+    "keys": "ImageNumber,ObjectNumber,Channel",
+    "abs_tol": 1e-6,
+    "rel_tol": 1e-5,
+    "output_dir": "benchmark/results/parity"
+  },
+  "impact": {
+    "minimum_image_rows": 1000,
+    "minimum_object_count_parity": 1.0,
+    "minimum_numeric_parity": 0.99,
+    "minimum_speedup": 10.0,
+    "maximum_rss_ratio": 0.5
+  }
+}
