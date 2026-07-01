@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use morphojet_core::{
-    measure_rows, read_image_table, validate_image_table, write_image_csv, write_object_csv,
+    measure_rows, read_image_table, validate_image_table, write_measurement_csvs_atomic,
 };
 use std::path::PathBuf;
 
@@ -58,8 +58,7 @@ fn run_measure(args: MeasureArgs) -> Result<()> {
     let rows = read_image_table(&args.images)?;
     validate_image_table(&rows)?;
     let results = measure_rows(&rows)?;
-    write_image_csv(args.out.join("Image.csv"), &results)?;
-    write_object_csv(args.out.join("Objects.csv"), &results)?;
+    write_measurement_csvs_atomic(&args.out, &results)?;
 
     let object_count: usize = results.iter().map(|result| result.objects.len()).sum();
     eprintln!(

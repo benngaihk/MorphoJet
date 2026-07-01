@@ -3,6 +3,7 @@ use anyhow::{Context, Result};
 use csv::Writer;
 use std::collections::BTreeSet;
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const IMAGE_COLUMNS: &[&str] = &[
     "ImageNumber",
@@ -56,6 +57,48 @@ pub fn write_image_csv(path: impl AsRef<Path>, results: &[MeasureResult]) -> Res
     Ok(())
 }
 
+pub fn write_measurement_csvs_atomic(
+    out_dir: impl AsRef<Path>,
+    results: &[MeasureResult],
+) -> Result<()> {
+    let out_dir = out_dir.as_ref();
+    std::fs::create_dir_all(out_dir)
+        .with_context(|| format!("failed to create output directory {}", out_dir.display()))?;
+    let staging_dir = out_dir.join(staging_dir_name());
+    std::fs::create_dir(&staging_dir).with_context(|| {
+        format!(
+            "failed to create staging output directory {}",
+            staging_dir.display()
+        )
+    })?;
+
+    let result = (|| -> Result<()> {
+        let staging_image = staging_dir.join("Image.csv");
+        let staging_objects = staging_dir.join("Objects.csv");
+        write_image_csv(&staging_image, results)?;
+        write_object_csv(&staging_objects, results)?;
+        std::fs::rename(&staging_image, out_dir.join("Image.csv"))
+            .with_context(|| "failed to publish Image.csv")?;
+        std::fs::rename(&staging_objects, out_dir.join("Objects.csv"))
+            .with_context(|| "failed to publish Objects.csv")?;
+        Ok(())
+    })();
+
+    let cleanup = std::fs::remove_dir_all(&staging_dir);
+    if result.is_ok() {
+        cleanup.with_context(|| {
+            format!(
+                "failed to remove staging output directory {}",
+                staging_dir.display()
+            )
+        })?;
+    } else {
+        let _ = cleanup;
+    }
+
+    result
+}
+
 pub fn write_object_csv(path: impl AsRef<Path>, results: &[MeasureResult]) -> Result<()> {
     let path = path.as_ref();
     let mut writer = Writer::from_path(path)
@@ -76,6 +119,15 @@ fn image_metadata_columns(results: &[MeasureResult]) -> Vec<String> {
         columns.extend(result.image.metadata.keys().cloned());
     }
     columns.into_iter().collect()
+}
+
+fn staging_dir_name() -> String {
+    let pid = std::process::id();
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    format!(".morphojet-write-{pid}-{nanos}")
 }
 
 fn write_image_record(

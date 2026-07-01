@@ -56,6 +56,17 @@ fn measure_success_writes_expected_csvs() {
     assert!(output.status.success(), "{}", stderr(&output));
     assert!(out.join("Image.csv").exists());
     assert!(out.join("Objects.csv").exists());
+    let staging_dirs = fs::read_dir(&out)
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".morphojet-write-")
+        })
+        .count();
+    assert_eq!(staging_dirs, 0);
 }
 
 #[test]
@@ -140,4 +151,6 @@ fn rejects_dimension_mismatch() {
 
     assert!(!output.status.success());
     assert!(stderr(&output).contains("image and mask dimensions differ"));
+    assert!(!out.join("Image.csv").exists());
+    assert!(!out.join("Objects.csv").exists());
 }
