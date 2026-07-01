@@ -46,6 +46,8 @@ benchmark/run.sh benchmark/data/smoke/images.csv benchmark/results/smoke
 python3 benchmark/summarize.py benchmark/results/smoke
 ```
 
+Real CellProfiler oracle benchmark setup is documented in [docs/BENCHMARK.md](docs/BENCHMARK.md).
+
 ## Parity Report
 
 ```bash

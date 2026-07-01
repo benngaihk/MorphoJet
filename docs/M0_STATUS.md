@@ -21,6 +21,7 @@ Updated: 2026-07-01
 - Synthetic smoke corpus generator.
 - Benchmark smoke path.
 - Normalization and parity comparison scripts.
+- Configurable CellProfiler oracle benchmark hook.
 - CI workflow for formatting, tests, smoke benchmark, and parity self-check.
 
 ## Verified Locally

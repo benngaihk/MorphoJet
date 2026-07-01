@@ -27,6 +27,8 @@ benchmark/run.sh benchmark/data/smoke/images.csv benchmark/results/smoke
 python3 benchmark/summarize.py benchmark/results/smoke
 ```
 
+For real oracle runs, see `docs/BENCHMARK.md`.
+
 ## Parity Report Smoke
 
 ```bash

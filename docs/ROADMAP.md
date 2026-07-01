@@ -17,7 +17,8 @@
 - [x] Synthetic smoke corpus generator.
 - [x] CellProfiler output normalizer and CSV comparator.
 - [x] CI smoke benchmark and parity self-check.
-- [ ] `benchmark/run.sh` CellProfiler oracle leg.
+- [x] `benchmark/run.sh` configurable CellProfiler oracle hook.
+- [ ] Pinned public CellProfiler oracle dataset and `.cppipe`.
 - [x] `docs/PARITY.md` compatibility ledger.
 
 ## M1: Lab Trial
