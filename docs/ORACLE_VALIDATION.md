@@ -66,10 +66,8 @@ python3 benchmark/impact_report.py \
   --image-rows 1000 \
   --object-count-parity 1.0 \
   --numeric-parity 0.99 \
-  --cellprofiler-seconds 600 \
-  --morphojet-seconds 60 \
-  --cellprofiler-rss-mb 8000 \
-  --morphojet-rss-mb 4000 \
+  --cellprofiler-metrics-json benchmark/results/metrics/cellprofiler.metrics.json \
+  --morphojet-metrics-json benchmark/results/metrics/morphojet.metrics.json \
   --fail-on-gap
 ```
 

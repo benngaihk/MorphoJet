@@ -34,6 +34,7 @@ Updated: 2026-07-01
 - Tagged release workflow for macOS/Linux binary archives and SHA-256 checksums.
 - Runtime diagnostics via `morphojet doctor`.
 - Reusable command metrics wrapper for elapsed time and peak RSS capture.
+- Impact gate report can consume metrics JSON directly.
 
 ## Verified Locally
 

@@ -31,7 +31,6 @@ Production-grade means:
 Priority order:
 
 1. Add a pinned public CellProfiler oracle benchmark.
-2. Wire metrics JSON directly into impact report generation.
 
 ## Claim Policy
 

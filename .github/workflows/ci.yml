@@ -44,14 +44,15 @@ jobs:
 
       - name: Run impact reporter smoke
         run: |
+          mkdir -p benchmark/results/impact-smoke
+          printf '{"elapsed_seconds":600,"peak_rss_mb":8000}\n' > benchmark/results/impact-smoke/cellprofiler.metrics.json
+          printf '{"elapsed_seconds":60,"peak_rss_mb":4000}\n' > benchmark/results/impact-smoke/morphojet.metrics.json
           python3 benchmark/impact_report.py \
             --image-rows 1000 \
             --object-count-parity 1.0 \
             --numeric-parity 0.99 \
-            --cellprofiler-seconds 600 \
-            --morphojet-seconds 60 \
-            --cellprofiler-rss-mb 8000 \
-            --morphojet-rss-mb 4000 \
+            --cellprofiler-metrics-json benchmark/results/impact-smoke/cellprofiler.metrics.json \
+            --morphojet-metrics-json benchmark/results/impact-smoke/morphojet.metrics.json \
             --fail-on-gap
 
       - name: Run command metrics smoke
