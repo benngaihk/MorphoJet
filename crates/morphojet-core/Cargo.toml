@@ -1,0 +1,16 @@
+[package]
+name = "morphojet-core"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+csv.workspace = true
+image.workspace = true
+rayon.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
