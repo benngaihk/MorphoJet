@@ -32,6 +32,7 @@ Updated: 2026-07-01
 - Output staging writes: final `Image.csv` and `Objects.csv` are published only after both staging files are written.
 - Clippy quality gate in CI.
 - Tagged release workflow for macOS/Linux binary archives and SHA-256 checksums.
+- Runtime diagnostics via `morphojet doctor`.
 
 ## Verified Locally
 

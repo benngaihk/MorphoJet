@@ -16,6 +16,7 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Command {
     Measure(MeasureArgs),
+    Doctor,
 }
 
 #[derive(Debug, Parser)]
@@ -36,7 +37,19 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Command::Measure(args) => run_measure(args),
+        Command::Doctor => run_doctor(),
     }
+}
+
+fn run_doctor() -> Result<()> {
+    let current_exe = std::env::current_exe()?;
+    println!("morphojet.version={}", env!("CARGO_PKG_VERSION"));
+    println!("morphojet.commit={}", env!("MORPHOJET_BUILD_COMMIT"));
+    println!("platform.os={}", std::env::consts::OS);
+    println!("platform.arch={}", std::env::consts::ARCH);
+    println!("parallel.default_threads={}", rayon::current_num_threads());
+    println!("runtime.current_exe={}", current_exe.display());
+    Ok(())
 }
 
 fn run_measure(args: MeasureArgs) -> Result<()> {

@@ -28,6 +28,14 @@ CI runs the same core path on GitHub Actions: Rust formatting, Rust tests, Clipp
 - Image and mask paths must resolve to readable files before measurement starts.
 - `Image.csv` and `Objects.csv` are not overwritten unless `--overwrite` is passed.
 
+## Diagnostics
+
+```bash
+cargo run -p morphojet -- doctor
+```
+
+The output includes the package version, git commit, OS, CPU architecture, Rayon default thread count, and current executable path.
+
 ## Smoke Benchmark
 
 ```bash

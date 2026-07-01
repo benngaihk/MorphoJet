@@ -40,6 +40,13 @@ fn run_measure(table: &Path, out: &Path, extra_args: &[&str]) -> Output {
     command.output().unwrap()
 }
 
+fn run_doctor() -> Output {
+    Command::new(env!("CARGO_BIN_EXE_morphojet"))
+        .arg("doctor")
+        .output()
+        .unwrap()
+}
+
 fn stderr(output: &Output) -> String {
     String::from_utf8_lossy(&output.stderr).to_string()
 }
@@ -153,4 +160,18 @@ fn rejects_dimension_mismatch() {
     assert!(stderr(&output).contains("image and mask dimensions differ"));
     assert!(!out.join("Image.csv").exists());
     assert!(!out.join("Objects.csv").exists());
+}
+
+#[test]
+fn doctor_reports_build_and_runtime_context() {
+    let output = run_doctor();
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("morphojet.version="));
+    assert!(stdout.contains("morphojet.commit="));
+    assert!(stdout.contains("platform.os="));
+    assert!(stdout.contains("platform.arch="));
+    assert!(stdout.contains("parallel.default_threads="));
+    assert!(stdout.contains("runtime.current_exe="));
 }

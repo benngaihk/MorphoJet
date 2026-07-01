@@ -22,7 +22,7 @@ Production-grade means:
 | Correctness | CellProfiler oracle parity report for public data | Not complete |
 | Testing | Unit, integration, CLI failure-mode, Clippy, and benchmark smoke tests in CI | Implemented for current CLI |
 | Performance | Synthetic regression benchmark plus real CellProfiler benchmark | Synthetic only |
-| Observability | Clear stderr summary and actionable error context | In progress |
+| Observability | Clear stderr summary, actionable error context, and runtime diagnostics | Runtime `doctor` implemented; richer structured logs pending |
 | Release | GitHub release workflow and checksums | Implemented for tagged macOS/Linux builds |
 | Documentation | Supported inputs, unsupported scope, parity gaps, and production caveats documented | In progress |
 

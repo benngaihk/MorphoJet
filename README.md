@@ -36,6 +36,14 @@ cargo run -p morphojet -- measure \
 
 Tagged releases (`v*`) build macOS and Linux CLI archives with SHA-256 checksums through GitHub Actions.
 
+## Diagnostics
+
+```bash
+morphojet doctor
+```
+
+The `doctor` command prints version, commit, platform, thread, and executable-path context for reproducible bug reports.
+
 `images.csv`:
 
 ```csv
