@@ -27,6 +27,12 @@ benchmark/run.sh benchmark/data/smoke/images.csv benchmark/results/smoke
 python3 benchmark/summarize.py benchmark/results/smoke
 ```
 
+## Scale Benchmark
+
+```bash
+python3 benchmark/run_scale.py --cases 16,256,1024 --width 96 --height 96
+```
+
 For real oracle runs, see `docs/BENCHMARK.md`.
 
 ## Parity Report Smoke

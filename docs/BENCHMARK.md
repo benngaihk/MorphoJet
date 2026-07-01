@@ -10,6 +10,21 @@ benchmark/run.sh benchmark/data/smoke/images.csv benchmark/results/smoke
 python3 benchmark/summarize.py benchmark/results/smoke
 ```
 
+## Synthetic Scale Benchmark
+
+The scale benchmark validates local release-path throughput on deterministic synthetic data. It is useful for regression tracking, but it is not a CellProfiler oracle comparison.
+
+```bash
+python3 benchmark/run_scale.py --cases 16,256,1024 --width 96 --height 96
+cat benchmark/results/scale/summary.md
+```
+
+Outputs:
+
+- `benchmark/results/scale/scale.csv`
+- `benchmark/results/scale/summary.md`
+- `benchmark/results/scale/metadata.json`
+
 ## CellProfiler Oracle
 
 When a pinned `.cppipe` and oracle corpus are available, provide the complete CellProfiler command through `CELLPROFILER_CMD`.
