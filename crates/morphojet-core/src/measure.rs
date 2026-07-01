@@ -204,11 +204,19 @@ fn load_intensity(row: &ImageTableRow) -> Result<(Vec<f64>, u32, u32)> {
     let image = image::open(&row.image_path)
         .with_context(|| format!("failed to open image {}", row.image_path.display()))?;
     let (width, height) = image.dimensions();
-    let gray = image.to_luma32f();
-    let pixels = gray
-        .pixels()
-        .map(|pixel| pixel.0[0] as f64)
-        .collect::<Vec<_>>();
+    let pixels = match image {
+        DynamicImage::ImageLuma8(buffer) => {
+            buffer.pixels().map(|pixel| pixel.0[0] as f64).collect()
+        }
+        DynamicImage::ImageLuma16(buffer) => {
+            buffer.pixels().map(|pixel| pixel.0[0] as f64).collect()
+        }
+        other => other
+            .to_luma32f()
+            .pixels()
+            .map(|pixel| pixel.0[0] as f64)
+            .collect(),
+    };
     Ok((pixels, width, height))
 }
 
@@ -217,7 +225,9 @@ fn load_labels(row: &ImageTableRow) -> Result<(Vec<u32>, u32, u32)> {
         .with_context(|| format!("failed to open mask {}", row.mask_path.display()))?;
     let (width, height) = image.dimensions();
     let labels = match image {
-        DynamicImage::ImageLuma8(buffer) => buffer.pixels().map(|pixel| pixel.0[0] as u32).collect(),
+        DynamicImage::ImageLuma8(buffer) => {
+            buffer.pixels().map(|pixel| pixel.0[0] as u32).collect()
+        }
         DynamicImage::ImageLuma16(buffer) => {
             buffer.pixels().map(|pixel| pixel.0[0] as u32).collect()
         }

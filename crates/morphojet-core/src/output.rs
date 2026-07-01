@@ -41,7 +41,10 @@ pub fn write_image_csv(path: impl AsRef<Path>, results: &[MeasureResult]) -> Res
     let metadata_columns = image_metadata_columns(results);
     let mut writer = Writer::from_path(path)
         .with_context(|| format!("failed to create image CSV {}", path.display()))?;
-    let mut header = IMAGE_COLUMNS.iter().map(|value| value.to_string()).collect::<Vec<_>>();
+    let mut header = IMAGE_COLUMNS
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>();
     header.extend(metadata_columns.iter().cloned());
     writer.write_record(header)?;
 
@@ -95,7 +98,10 @@ fn write_image_record(
     Ok(())
 }
 
-fn write_object_record(writer: &mut Writer<std::fs::File>, object: &ObjectMeasurement) -> Result<()> {
+fn write_object_record(
+    writer: &mut Writer<std::fs::File>,
+    object: &ObjectMeasurement,
+) -> Result<()> {
     writer.write_record([
         object.image_number.to_string(),
         object.object_number.to_string(),

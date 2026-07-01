@@ -68,8 +68,12 @@ pub fn read_image_table(path: impl AsRef<Path>) -> Result<Vec<ImageTableRow>> {
 }
 
 fn required_header(headers: &StringRecord, names: &[&str]) -> Result<usize> {
-    optional_header(headers, names)
-        .ok_or_else(|| anyhow!("missing required column; expected one of {}", names.join(", ")))
+    optional_header(headers, names).ok_or_else(|| {
+        anyhow!(
+            "missing required column; expected one of {}",
+            names.join(", ")
+        )
+    })
 }
 
 fn optional_header(headers: &StringRecord, names: &[&str]) -> Option<usize> {
