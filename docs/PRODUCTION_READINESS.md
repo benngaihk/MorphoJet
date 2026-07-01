@@ -23,16 +23,15 @@ Production-grade means:
 | Testing | Unit, integration, CLI failure-mode, Clippy, and benchmark smoke tests in CI | Implemented for current CLI |
 | Performance | Synthetic regression benchmark plus real CellProfiler benchmark | Synthetic only |
 | Observability | Clear stderr summary and actionable error context | In progress |
-| Release | GitHub release workflow and checksums | Not complete |
+| Release | GitHub release workflow and checksums | Implemented for tagged macOS/Linux builds |
 | Documentation | Supported inputs, unsupported scope, parity gaps, and production caveats documented | In progress |
 
 ## Production Hardening Backlog
 
 Priority order:
 
-1. Add release packaging workflow for macOS/Linux binaries and checksums.
-2. Add a pinned public CellProfiler oracle benchmark.
-3. Add structured benchmark metadata and RSS capture.
+1. Add a pinned public CellProfiler oracle benchmark.
+2. Add structured benchmark metadata and RSS capture.
 
 ## Claim Policy
 

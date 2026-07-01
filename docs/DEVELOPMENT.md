@@ -44,6 +44,15 @@ python3 benchmark/run_scale.py --cases 16,256,1024 --width 96 --height 96
 
 For real oracle runs, see `docs/BENCHMARK.md`.
 
+## Release
+
+Push a `v*` tag to build release archives and checksums:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
 ## Parity Report Smoke
 
 ```bash

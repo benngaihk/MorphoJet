@@ -32,6 +32,10 @@ cargo run -p morphojet -- measure \
   --overwrite
 ```
 
+## Release Builds
+
+Tagged releases (`v*`) build macOS and Linux CLI archives with SHA-256 checksums through GitHub Actions.
+
 `images.csv`:
 
 ```csv
