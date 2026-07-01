@@ -25,6 +25,8 @@ Outputs:
 - `benchmark/results/scale/summary.md`
 - `benchmark/results/scale/metadata.json`
 
+Committed validation summaries are tracked in `docs/VALIDATION_RESULTS.md`.
+
 ## CellProfiler Oracle
 
 When a pinned `.cppipe` and oracle corpus are available, provide the complete CellProfiler command through `CELLPROFILER_CMD`.

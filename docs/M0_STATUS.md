@@ -24,6 +24,7 @@ Updated: 2026-07-01
 - Configurable CellProfiler oracle benchmark hook.
 - CI workflow for formatting, tests, smoke benchmark, and parity self-check.
 - Industry-impact validation gates in `docs/INDUSTRY_VALIDATION.md`.
+- L1 synthetic scale benchmark results in `docs/VALIDATION_RESULTS.md`.
 
 ## Verified Locally
 
@@ -49,7 +50,7 @@ Smoke output from local run:
 - Pinned CellProfiler headless oracle run.
 - Public tutorial or Cell Painting corpus.
 - Real CellProfiler CSV parity report.
-- 1k image benchmark.
+- 1k real/public CellProfiler benchmark.
 - 10x speedup claim.
 - Peak RSS comparison.
 - Full CellProfiler coordinate and shape formula parity.

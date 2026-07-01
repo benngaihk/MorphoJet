@@ -70,3 +70,5 @@ See [docs/PARITY.md](docs/PARITY.md) for the current compatibility ledger.
 Current milestone status is tracked in [docs/M0_STATUS.md](docs/M0_STATUS.md).
 
 Industry-impact claims are gated by [docs/INDUSTRY_VALIDATION.md](docs/INDUSTRY_VALIDATION.md); synthetic benchmarks alone are not enough to claim CellProfiler replacement value.
+
+Current validation results are summarized in [docs/VALIDATION_RESULTS.md](docs/VALIDATION_RESULTS.md).
