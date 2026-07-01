@@ -28,7 +28,8 @@ time "$CARGO_BIN" run --release -p morphojet -- measure \
   --images "$IMAGE_TABLE" \
   --out "$OUT_DIR" \
   --threads "$THREADS" \
-  --cellprofiler-compatible
+  --cellprofiler-compatible \
+  --overwrite
 
 if [[ -n "$CELLPROFILER_CMD" ]]; then
   echo

@@ -81,6 +81,7 @@ def run_case(root: Path, images: int, width: int, height: int, threads: int, rel
             "--threads",
             str(threads),
             "--cellprofiler-compatible",
+            "--overwrite",
         ],
         root,
     )

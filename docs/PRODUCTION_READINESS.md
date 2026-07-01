@@ -17,7 +17,7 @@ Production-grade means:
 
 | Area | Gate | Current Status |
 |---|---|---|
-| CLI safety | Validate required paths, reject empty image tables, reject invalid thread counts, protect existing outputs unless explicitly overwritten | In progress |
+| CLI safety | Validate required paths, reject empty image tables, reject invalid thread counts, protect existing outputs unless explicitly overwritten | Implemented for current CLI |
 | Output safety | Avoid partial final `Image.csv` / `Objects.csv` files on failure | Not complete |
 | Correctness | CellProfiler oracle parity report for public data | Not complete |
 | Testing | Unit, integration, CLI failure-mode, and benchmark smoke tests in CI | In progress |
@@ -30,10 +30,8 @@ Production-grade means:
 
 Priority order:
 
-1. Add CLI `--overwrite` and fail when output files already exist.
-2. Validate image table before measurement: non-empty, unique `ImageNumber`, readable image and mask paths.
-3. Write outputs through temporary files and rename into place only after success.
-4. Add CLI integration tests for success, overwrite protection, invalid paths, empty table, duplicate image numbers, and dimension mismatch.
+1. Write outputs through temporary files and rename into place only after success.
+2. Add CLI integration tests for success, overwrite protection, invalid paths, empty table, duplicate image numbers, and dimension mismatch.
 5. Add `cargo clippy` to CI.
 6. Add release packaging workflow for macOS/Linux binaries and checksums.
 7. Add a pinned public CellProfiler oracle benchmark.

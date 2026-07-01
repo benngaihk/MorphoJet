@@ -12,6 +12,7 @@ M0 supports an intentionally small path:
 - Existing label masks where `0` is background and positive integer labels are objects.
 - Image table CSV with `ImageNumber`, `ImagePath`, `MaskPath`, and optional `Channel` plus metadata columns.
 - `Image.csv` and `Objects.csv` outputs.
+- Existing outputs are protected unless `--overwrite` is passed.
 
 Not supported yet:
 
@@ -27,7 +28,8 @@ cargo run -p morphojet -- measure \
   --images images.csv \
   --out measurements \
   --threads 16 \
-  --cellprofiler-compatible
+  --cellprofiler-compatible \
+  --overwrite
 ```
 
 `images.csv`:

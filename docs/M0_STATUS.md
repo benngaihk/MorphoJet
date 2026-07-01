@@ -27,6 +27,7 @@ Updated: 2026-07-01
 - L1 synthetic scale benchmark results in `docs/VALIDATION_RESULTS.md`.
 - L2/L3 oracle validation checklist in `docs/ORACLE_VALIDATION.md`.
 - Production readiness checklist in `docs/PRODUCTION_READINESS.md`.
+- CLI safety hardening: thread validation, non-empty input table, duplicate row identity detection, readable path preflight, overwrite protection.
 
 ## Verified Locally
 

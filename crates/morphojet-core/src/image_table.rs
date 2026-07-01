@@ -1,6 +1,6 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use csv::StringRecord;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,6 +65,49 @@ pub fn read_image_table(path: impl AsRef<Path>) -> Result<Vec<ImageTableRow>> {
     }
 
     Ok(rows)
+}
+
+pub fn validate_image_table(rows: &[ImageTableRow]) -> Result<()> {
+    if rows.is_empty() {
+        bail!("image table contains no rows");
+    }
+
+    let mut identities = HashSet::new();
+    for row in rows {
+        let identity = (row.image_number, row.channel.clone().unwrap_or_default());
+        if !identities.insert(identity) {
+            bail!(
+                "duplicate image row identity: ImageNumber={} Channel={}",
+                row.image_number,
+                row.channel.as_deref().unwrap_or("")
+            );
+        }
+
+        ensure_readable_file(&row.image_path, "image", row.image_number)?;
+        ensure_readable_file(&row.mask_path, "mask", row.image_number)?;
+    }
+
+    Ok(())
+}
+
+fn ensure_readable_file(path: &Path, kind: &str, image_number: u32) -> Result<()> {
+    let metadata = std::fs::metadata(path).with_context(|| {
+        format!(
+            "{} path for ImageNumber {} is not readable: {}",
+            kind,
+            image_number,
+            path.display()
+        )
+    })?;
+    if !metadata.is_file() {
+        bail!(
+            "{} path for ImageNumber {} is not a file: {}",
+            kind,
+            image_number,
+            path.display()
+        );
+    }
+    Ok(())
 }
 
 fn required_header(headers: &StringRecord, names: &[&str]) -> Result<usize> {
