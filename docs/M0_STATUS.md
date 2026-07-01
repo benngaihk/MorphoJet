@@ -26,6 +26,7 @@ Updated: 2026-07-01
 - Industry-impact validation gates in `docs/INDUSTRY_VALIDATION.md`.
 - L1 synthetic scale benchmark results in `docs/VALIDATION_RESULTS.md`.
 - L2/L3 oracle validation checklist in `docs/ORACLE_VALIDATION.md`.
+- Production readiness checklist in `docs/PRODUCTION_READINESS.md`.
 
 ## Verified Locally
 
@@ -56,6 +57,7 @@ Smoke output from local run:
 - Peak RSS comparison.
 - Full CellProfiler coordinate and shape formula parity.
 - L2-L4 industry-impact evidence.
+- Production release workflow and output-safety hardening.
 
 ## Next Gate
 

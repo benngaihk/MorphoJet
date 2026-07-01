@@ -25,6 +25,13 @@
 
 ## M1: Lab Trial
 
+- Production hardening before any lab trial:
+  - CLI overwrite protection.
+  - Output atomicity.
+  - CLI integration failure-mode tests.
+  - Release packaging and checksums.
+  - Public CellProfiler oracle benchmark.
+
 - Multi-channel and plate/well/site metadata polish.
 - More morphology features.
 - Better error reporting.

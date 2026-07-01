@@ -74,3 +74,5 @@ Industry-impact claims are gated by [docs/INDUSTRY_VALIDATION.md](docs/INDUSTRY_
 Current validation results are summarized in [docs/VALIDATION_RESULTS.md](docs/VALIDATION_RESULTS.md).
 
 The CellProfiler oracle validation checklist is in [docs/ORACLE_VALIDATION.md](docs/ORACLE_VALIDATION.md).
+
+Production-readiness gates are tracked in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). MorphoJet should be treated as an M0 candidate until those gates pass.
