@@ -21,6 +21,7 @@ CellProfiler is the oracle. MorphoJet is a measurement-only execution engine for
 - Min, max, mean, median, and integrated intensity.
 - 4-neighbor boundary perimeter approximation.
 - Major axis, minor axis, and eccentricity from second central moments.
+- Solidity from object area divided by convex hull area over pixel square corners.
 
 ## Compatibility Notes
 

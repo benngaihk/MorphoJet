@@ -45,4 +45,5 @@ fn measures_two_labeled_objects() {
     assert!(image_csv.contains("P001"));
     assert!(object_csv.contains("AreaShape_Area"));
     assert!(object_csv.contains("Intensity_IntegratedIntensity"));
+    assert!(object_csv.contains("AreaShape_Solidity"));
 }

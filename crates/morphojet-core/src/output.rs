@@ -34,6 +34,7 @@ const OBJECT_COLUMNS: &[&str] = &[
     "AreaShape_Eccentricity",
     "AreaShape_MajorAxisLength",
     "AreaShape_MinorAxisLength",
+    "AreaShape_Solidity",
 ];
 
 pub fn write_image_csv(path: impl AsRef<Path>, results: &[MeasureResult]) -> Result<()> {
@@ -122,6 +123,7 @@ fn write_object_record(
         format_float(object.eccentricity),
         format_float(object.major_axis_length),
         format_float(object.minor_axis_length),
+        format_float(object.solidity),
     ])?;
     Ok(())
 }

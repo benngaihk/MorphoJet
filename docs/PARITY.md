@@ -16,7 +16,7 @@ This file is the public compatibility ledger. Do not claim full parity from benc
 | Normalized CSV comparison | FIX | `tests/parity/normalize_measurements.py` and `tests/parity/compare_measurements.py` provide deterministic parity reports. |
 | Perimeter | GAP | Current value is a 4-neighbor boundary-edge approximation. |
 | Eccentricity and axis lengths | GAP | Derived from second central moments; CellProfiler formula and tolerance need oracle comparison. |
-| Solidity | GAP | Not implemented in M0 starter. |
+| Solidity | GAP | Implemented as area divided by convex hull area over pixel square corners; CellProfiler formula and tolerance need oracle comparison. |
 
 ## Default Numeric Tolerance
 

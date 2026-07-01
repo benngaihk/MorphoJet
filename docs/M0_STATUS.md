@@ -17,6 +17,7 @@ Updated: 2026-07-01
   - min, max, mean, median, integrated intensity
   - 4-neighbor perimeter approximation
   - eccentricity, major axis, minor axis from second moments
+  - solidity from convex hull over pixel square corners
 - Synthetic smoke corpus generator.
 - Benchmark smoke path.
 - Normalization and parity comparison scripts.

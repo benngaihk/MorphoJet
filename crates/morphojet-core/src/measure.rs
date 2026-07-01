@@ -43,6 +43,7 @@ pub struct ObjectMeasurement {
     pub eccentricity: f64,
     pub major_axis_length: f64,
     pub minor_axis_length: f64,
+    pub solidity: f64,
 }
 
 #[derive(Debug)]
@@ -63,6 +64,7 @@ struct ObjectAccumulator {
     intensity_sum: f64,
     intensity_values: Vec<f64>,
     perimeter: u64,
+    points: Vec<Point>,
 }
 
 impl ObjectAccumulator {
@@ -84,6 +86,7 @@ impl ObjectAccumulator {
             intensity_sum: 0.0,
             intensity_values: Vec::new(),
             perimeter: 0,
+            points: Vec::new(),
         }
     }
 
@@ -105,6 +108,7 @@ impl ObjectAccumulator {
         self.intensity_sum += intensity;
         self.intensity_values.push(intensity);
         self.perimeter += boundary_edges;
+        self.points.extend(pixel_corners(xf, yf));
     }
 
     fn finish(mut self, image_number: u32, channel: Option<String>) -> ObjectMeasurement {
@@ -120,6 +124,7 @@ impl ObjectAccumulator {
             self.sum_y2 / area - centroid_y * centroid_y,
             self.sum_xy / area - centroid_x * centroid_y,
         );
+        let solidity = solidity(area, &self.points);
 
         ObjectMeasurement {
             image_number,
@@ -141,8 +146,15 @@ impl ObjectAccumulator {
             eccentricity,
             major_axis_length,
             minor_axis_length,
+            solidity,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Point {
+    x: f64,
+    y: f64,
 }
 
 pub fn measure_rows(rows: &[ImageTableRow]) -> Result<Vec<MeasureResult>> {
@@ -283,4 +295,93 @@ fn axis_features(var_x: f64, var_y: f64, cov_xy: f64) -> (f64, f64, f64) {
         (1.0 - lambda_minor / lambda_major).clamp(0.0, 1.0).sqrt()
     };
     (major_axis_length, minor_axis_length, eccentricity)
+}
+
+fn solidity(area: f64, points: &[Point]) -> f64 {
+    let hull_area = convex_hull_area(points);
+    if hull_area <= f64::EPSILON {
+        1.0
+    } else {
+        (area / hull_area).clamp(0.0, 1.0)
+    }
+}
+
+fn pixel_corners(x: f64, y: f64) -> [Point; 4] {
+    [
+        Point {
+            x: x - 0.5,
+            y: y - 0.5,
+        },
+        Point {
+            x: x + 0.5,
+            y: y - 0.5,
+        },
+        Point {
+            x: x + 0.5,
+            y: y + 0.5,
+        },
+        Point {
+            x: x - 0.5,
+            y: y + 0.5,
+        },
+    ]
+}
+
+fn convex_hull_area(points: &[Point]) -> f64 {
+    if points.len() < 3 {
+        return 0.0;
+    }
+
+    let mut points = points.to_vec();
+    points.sort_by(|left, right| {
+        left.x
+            .total_cmp(&right.x)
+            .then_with(|| left.y.total_cmp(&right.y))
+    });
+    points.dedup_by(|left, right| left.x == right.x && left.y == right.y);
+
+    if points.len() < 3 {
+        return 0.0;
+    }
+
+    let mut lower = Vec::new();
+    for point in &points {
+        while lower.len() >= 2
+            && cross(lower[lower.len() - 2], lower[lower.len() - 1], *point) <= 0.0
+        {
+            lower.pop();
+        }
+        lower.push(*point);
+    }
+
+    let mut upper = Vec::new();
+    for point in points.iter().rev() {
+        while upper.len() >= 2
+            && cross(upper[upper.len() - 2], upper[upper.len() - 1], *point) <= 0.0
+        {
+            upper.pop();
+        }
+        upper.push(*point);
+    }
+
+    lower.pop();
+    upper.pop();
+    let hull = lower.into_iter().chain(upper).collect::<Vec<_>>();
+    polygon_area(&hull)
+}
+
+fn cross(origin: Point, a: Point, b: Point) -> f64 {
+    (a.x - origin.x) * (b.y - origin.y) - (a.y - origin.y) * (b.x - origin.x)
+}
+
+fn polygon_area(points: &[Point]) -> f64 {
+    if points.len() < 3 {
+        return 0.0;
+    }
+    let mut area = 0.0;
+    for idx in 0..points.len() {
+        let next = (idx + 1) % points.len();
+        area += points[idx].x * points[next].y - points[next].x * points[idx].y;
+    }
+    area.abs() / 2.0
 }
