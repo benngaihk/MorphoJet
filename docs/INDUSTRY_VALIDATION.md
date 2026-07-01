@@ -60,3 +60,5 @@ The first credible validation package should contain:
 6. A parity report.
 7. A speed/RSS report.
 8. A short conclusion that says exactly which claim passed and which claims remain unproven.
+
+See `docs/ORACLE_VALIDATION.md` for the L2/L3 execution checklist and `benchmark/impact_report.py` for PASS/FAIL gate reporting.

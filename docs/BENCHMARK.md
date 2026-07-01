@@ -58,3 +58,19 @@ Each real benchmark result should record:
 - Wall-clock time.
 - Peak RSS.
 - Dataset source and license.
+
+## Impact Gate Report
+
+After a real CellProfiler oracle run, generate the final gate report with:
+
+```bash
+python3 benchmark/impact_report.py \
+  --image-rows 1000 \
+  --object-count-parity 1.0 \
+  --numeric-parity 0.99 \
+  --cellprofiler-seconds 600 \
+  --morphojet-seconds 60 \
+  --cellprofiler-rss-mb 8000 \
+  --morphojet-rss-mb 4000 \
+  --fail-on-gap
+```

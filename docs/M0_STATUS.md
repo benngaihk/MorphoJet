@@ -25,6 +25,7 @@ Updated: 2026-07-01
 - CI workflow for formatting, tests, smoke benchmark, and parity self-check.
 - Industry-impact validation gates in `docs/INDUSTRY_VALIDATION.md`.
 - L1 synthetic scale benchmark results in `docs/VALIDATION_RESULTS.md`.
+- L2/L3 oracle validation checklist in `docs/ORACLE_VALIDATION.md`.
 
 ## Verified Locally
 

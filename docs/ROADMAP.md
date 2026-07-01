@@ -21,6 +21,7 @@
 - [ ] Pinned public CellProfiler oracle dataset and `.cppipe`.
 - [x] `docs/PARITY.md` compatibility ledger.
 - [x] Industry-impact validation gate document.
+- [x] L2/L3 oracle validation checklist and impact gate reporter.
 
 ## M1: Lab Trial
 
