@@ -20,6 +20,7 @@
 - [x] `benchmark/run.sh` configurable CellProfiler oracle hook.
 - [ ] Pinned public CellProfiler oracle dataset and `.cppipe`.
 - [x] `docs/PARITY.md` compatibility ledger.
+- [x] Industry-impact validation gate document.
 
 ## M1: Lab Trial
 

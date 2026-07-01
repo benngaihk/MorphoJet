@@ -23,6 +23,7 @@ Updated: 2026-07-01
 - Normalization and parity comparison scripts.
 - Configurable CellProfiler oracle benchmark hook.
 - CI workflow for formatting, tests, smoke benchmark, and parity self-check.
+- Industry-impact validation gates in `docs/INDUSTRY_VALIDATION.md`.
 
 ## Verified Locally
 
@@ -52,6 +53,7 @@ Smoke output from local run:
 - 10x speedup claim.
 - Peak RSS comparison.
 - Full CellProfiler coordinate and shape formula parity.
+- L2-L4 industry-impact evidence.
 
 ## Next Gate
 
