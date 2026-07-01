@@ -30,6 +30,7 @@ Updated: 2026-07-01
 - CLI safety hardening: thread validation, non-empty input table, duplicate row identity detection, readable path preflight, overwrite protection.
 - CLI integration tests for success and major failure modes.
 - Output staging writes: final `Image.csv` and `Objects.csv` are published only after both staging files are written.
+- Clippy quality gate in CI.
 
 ## Verified Locally
 

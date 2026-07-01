@@ -13,11 +13,12 @@ $HOME/.cargo/bin/cargo
 ```bash
 $HOME/.cargo/bin/cargo fmt -- --check
 $HOME/.cargo/bin/cargo test
+$HOME/.cargo/bin/cargo clippy --all-targets -- -D warnings
 python3 -m py_compile benchmark/summarize.py corpus/generate_smoke.py tests/parity/*.py
 git diff --check
 ```
 
-CI runs the same core path on GitHub Actions: Rust formatting, Rust tests, Python helper compilation, smoke benchmark, and parity self-check.
+CI runs the same core path on GitHub Actions: Rust formatting, Rust tests, Clippy, Python helper compilation, smoke benchmark, and parity self-check.
 
 ## CLI Safety Rules
 

@@ -120,9 +120,7 @@ fn required_header(headers: &StringRecord, names: &[&str]) -> Result<usize> {
 }
 
 fn optional_header(headers: &StringRecord, names: &[&str]) -> Option<usize> {
-    headers
-        .iter()
-        .position(|header| names.iter().any(|name| header == *name))
+    headers.iter().position(|header| names.contains(&header))
 }
 
 fn get<'a>(record: &'a StringRecord, idx: usize, name: &str) -> Result<&'a str> {

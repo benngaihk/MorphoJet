@@ -23,6 +23,9 @@ jobs:
       - name: Run Rust tests
         run: cargo test
 
+      - name: Run Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
       - name: Check Python helpers
         run: python3 -m py_compile benchmark/*.py corpus/generate_smoke.py tests/parity/*.py
 
