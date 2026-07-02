@@ -61,10 +61,19 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
+Before tagging, build and verify a local archive with the same package shape:
+
+```bash
+python3 benchmark/build_release_archive.py --version rc-preflight --out-dir benchmark/results/release-artifacts
+python3 benchmark/verify_release_archive.py \
+  benchmark/results/release-artifacts/morphojet-rc-preflight-macos-arm64.tar.gz \
+  --json-out benchmark/results/release-artifacts/verification.json
+```
+
 Before cutting a release candidate, run:
 
 ```bash
-python3 benchmark/release_gate.py --run-l3
+python3 benchmark/release_gate.py --run-l3 --build-release-artifact --release-version rc-preflight
 ```
 
 This runs the standard code gates, downloads/uses the pinned CellBinDB archive, runs the full CellProfiler oracle benchmark, runs the supported CellProfiler-style handoff trial, and writes parity, workflow-bridge, handoff-trial, impact, metrics, and release-gate reports. For a fast local audit of already-generated L3 artifacts, run:

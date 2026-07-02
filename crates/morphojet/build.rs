@@ -1,6 +1,8 @@
 use std::process::Command;
 
 fn main() {
+    emit_git_rerun_paths();
+
     let commit = Command::new("git")
         .args(["rev-parse", "--short=12", "HEAD"])
         .output()
@@ -12,5 +14,19 @@ fn main() {
         .unwrap_or_else(|| "unknown".to_owned());
 
     println!("cargo:rustc-env=MORPHOJET_BUILD_COMMIT={commit}");
-    println!("cargo:rerun-if-changed=../../.git/HEAD");
+}
+
+fn emit_git_rerun_paths() {
+    let git_head = "../../.git/HEAD";
+    println!("cargo:rerun-if-changed={git_head}");
+
+    let Ok(head) = std::fs::read_to_string(git_head) else {
+        return;
+    };
+    let Some(reference) = head.trim().strip_prefix("ref: ") else {
+        return;
+    };
+
+    println!("cargo:rerun-if-changed=../../.git/{reference}");
+    println!("cargo:rerun-if-changed=../../.git/packed-refs");
 }

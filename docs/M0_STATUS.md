@@ -32,6 +32,7 @@ Updated: 2026-07-02
 - Output staging writes: final `Image.csv` and `Objects.csv` are published only after both staging files are written.
 - Clippy quality gate in CI.
 - Tagged release workflow for macOS/Linux binary archives and SHA-256 checksums.
+- Local release archive builder and verifier for pre-tag package validation.
 - Runtime diagnostics via `morphojet doctor`.
 - Reusable command metrics wrapper for elapsed time and peak RSS capture.
 - Impact gate report can consume metrics JSON directly.
@@ -91,6 +92,7 @@ Latest M0 oracle gate verification:
 - CellBinDB workflow bridge passes: 107,936 CellProfiler rows, 107,936 MorphoJet wide rows, 21 compared columns, 2,266,656 numeric comparisons, 0 numeric failures. The comparator records 29 unsupported CellProfiler columns as ignored, not claimed.
 - CellBinDB handoff preflight passes: 3 manifest steps, 107,936 wide rows, 23 required contract columns, 0 missing columns, 0 duplicate keys, 0 empty keys.
 - Release gate script can run code gates and validate or rerun the CellBinDB L3 benchmark plus the workflow bridge and handoff trial artifacts, writing JSON and Markdown reports.
+- Local release artifact preflight passes on macOS arm64: archive checksum verified and packaged `morphojet doctor` reports version, current commit, OS, and architecture.
 
 ## Not Yet Achieved
 
@@ -99,13 +101,13 @@ Latest M0 oracle gate verification:
 - Scheduled/nightly validation job for the 1k real/public CellProfiler benchmark.
 - Broader CellProfiler coordinate and shape formula parity beyond ExampleHuman.
 - L4 external lab workflow replacement evidence beyond the supported-column handoff preflight.
-- A tagged release candidate validated with `python3 benchmark/release_gate.py --run-l3`.
+- A tagged GitHub release candidate validated after `python3 benchmark/release_gate.py --run-l3 --build-release-artifact --release-version rc-preflight`.
 
 ## Next Gate
 
 The next gate toward production readiness is no longer L3 evidence; it is repeatability and L4 workflow fit:
 
-- Run `python3 benchmark/release_gate.py --run-l3` before release candidates.
+- Run `python3 benchmark/release_gate.py --run-l3 --build-release-artifact --release-version rc-preflight` before release candidates.
 - Promote the CellBinDB full benchmark into scheduled/nightly validation.
 - Run an external lab workflow trial with real handoff files.
 - Exercise the manifest-driven handoff trial in that external workflow without manual CSV editing.

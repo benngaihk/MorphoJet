@@ -173,6 +173,25 @@ def validate_handoff_trial_artifacts() -> Gate:
     )
 
 
+def local_release_archive_name(version: str) -> str:
+    import platform
+
+    system = platform.system().lower()
+    release_os = "macos" if system == "darwin" else system
+    return f"morphojet-{version}-{release_os}-{platform.machine()}.tar.gz"
+
+
+def git_commit() -> str:
+    completed = subprocess.run(
+        ["git", "rev-parse", "--short=12", "HEAD"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return completed.stdout.strip()
+
+
 def render_markdown(gates: list[Gate], out_json: Path) -> str:
     status = "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL"
     lines = [
@@ -207,6 +226,8 @@ def main() -> int:
     parser.add_argument("--out-json", type=Path, default=Path("benchmark/results/release-gate/report.json"))
     parser.add_argument("--out-md", type=Path, default=Path("benchmark/results/release-gate/report.md"))
     parser.add_argument("--run-l3", action="store_true", help="Rerun the full CellBinDB L3 benchmark")
+    parser.add_argument("--build-release-artifact", action="store_true", help="Build and verify a local release archive")
+    parser.add_argument("--release-version", default="local", help="Version label for --build-release-artifact")
     args = parser.parse_args()
 
     cargo = cargo_bin()
@@ -221,6 +242,36 @@ def main() -> int:
         run_command("Rust clippy", [cargo, "clippy", "--all-targets", "--", "-D", "warnings"]),
         run_command("Python helper compilation", ["python3", "-m", "py_compile", *python_files]),
     ]
+    if args.build_release_artifact:
+        gates.append(
+            run_command(
+                "Build local release archive",
+                [
+                    "python3",
+                    "benchmark/build_release_archive.py",
+                    "--version",
+                    args.release_version,
+                    "--out-dir",
+                    "benchmark/results/release-artifacts",
+                ],
+            )
+        )
+        archive = Path("benchmark/results/release-artifacts") / local_release_archive_name(args.release_version)
+        expected_commit = git_commit()
+        gates.append(
+            run_command(
+                "Verify local release archive",
+                [
+                    "python3",
+                    "benchmark/verify_release_archive.py",
+                    str(archive),
+                    "--expect-commit",
+                    expected_commit,
+                    "--json-out",
+                    "benchmark/results/release-artifacts/verification.json",
+                ],
+            )
+        )
     if args.run_l3:
         gates.append(run_command("Run CellBinDB L3 benchmark", ["python3", "benchmark/run_cellbindb_oracle.py", "--threads", "8"]))
     gates.append(validate_l3_artifacts())

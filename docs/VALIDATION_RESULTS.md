@@ -267,6 +267,34 @@ Compared columns include supported area/center/bounding-box/perimeter/eccentrici
 
 Conclusion: this removes one CSV-shape and handoff-automation blocker for workflow trials on the supported subset. L4 remains incomplete until an external lab workflow consumes these files without manual CSV editing.
 
+## Local Release Artifact Preflight
+
+This preflight validates the local release archive shape before a GitHub `v*` tag builds macOS/Linux release assets.
+
+Artifacts:
+
+- Builder: `benchmark/build_release_archive.py`
+- Verifier: `benchmark/verify_release_archive.py`
+- Release gate flag: `python3 benchmark/release_gate.py --build-release-artifact --release-version local`
+- Local archive: `benchmark/results/release-artifacts/morphojet-local-macos-arm64.tar.gz`
+- Checksum: `benchmark/results/release-artifacts/morphojet-local-macos-arm64.tar.gz.sha256`
+- Verification JSON: `benchmark/results/release-artifacts/verification.json`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Archive contains `morphojet` | PASS |
+| Archive contains `README.md` | PASS |
+| Archive contains `LICENSE` | PASS |
+| SHA-256 verification | PASS |
+| Packaged `morphojet doctor` smoke | PASS |
+| Packaged commit matches HEAD | PASS |
+| Local platform | macOS arm64 |
+| SHA-256 | Recorded in `benchmark/results/release-artifacts/verification.json` |
+
+Conclusion: local release artifact shape is validated. Production release evidence still requires a tagged GitHub release with published macOS and Linux archives and checksums.
+
 ## L1 Synthetic Scale Benchmark
 
 These results validate MorphoJet's local release CLI path on deterministic synthetic data. They do not prove CellProfiler parity or industry impact by themselves.

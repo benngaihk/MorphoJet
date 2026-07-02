@@ -36,6 +36,12 @@ cargo run -p morphojet -- measure \
 
 Tagged releases (`v*`) build macOS and Linux CLI archives with SHA-256 checksums through GitHub Actions.
 
+To validate the local release archive shape before tagging:
+
+```bash
+python3 benchmark/release_gate.py --build-release-artifact --release-version local
+```
+
 ## Diagnostics
 
 ```bash
@@ -65,7 +71,7 @@ Real CellProfiler oracle benchmark setup is documented in [docs/BENCHMARK.md](do
 Before a release candidate, run:
 
 ```bash
-python3 benchmark/release_gate.py --run-l3
+python3 benchmark/release_gate.py --run-l3 --build-release-artifact --release-version rc-preflight
 ```
 
 For a fast audit of already-generated L3 artifacts, run `python3 benchmark/release_gate.py`.
