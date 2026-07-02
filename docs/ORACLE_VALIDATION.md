@@ -39,6 +39,8 @@ python3 benchmark/inspect_cellprofiler_pipeline.py \
 
 For `ExampleHuman`, the inspector finds measured objects `Nuclei`, `PH3`, `Cells`, and `Cytoplasm`; all currently need label-image export before MorphoJet can run a fair M0 oracle comparison.
 
+CI covers the inspector with `benchmark/cellprofiler/fixtures/example_human_minimal.cppipe`.
+
 ## L2 Package: Correctness
 
 Required files:
