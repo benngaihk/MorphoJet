@@ -1,0 +1,40 @@
+{
+  "source": {
+    "name": "CellProfiler examples",
+    "repo": "https://github.com/CellProfiler/examples.git",
+    "pinned_head": "4972b59e670a4ae96c3d453803c92eeff378d054",
+    "examples_page": "https://cellprofiler.org/examples"
+  },
+  "candidates": [
+    {
+      "id": "example-human",
+      "path": "ExampleHuman",
+      "pipeline": "ExampleHuman/ExampleHuman.cppipe",
+      "images_glob": "ExampleHuman/images/*.tif",
+      "license": "CC-0 per ExampleHuman README",
+      "why": "Small public human-cell example with object intensity, size/shape, and ExportToSpreadsheet modules.",
+      "m0_status": "not_direct",
+      "m0_gap": "Pipeline segments objects internally and does not provide pre-existing label masks; MorphoJet M0 needs a mask-export bridge or separate public masks."
+    },
+    {
+      "id": "example-fly",
+      "path": "ExampleFly",
+      "pipeline": "ExampleFly/ExampleFly.cppipe",
+      "images_glob": "ExampleFly/images/*",
+      "license": "See upstream example metadata",
+      "why": "Public multi-channel example with nuclei/cell/cytoplasm measurements and ExportToSpreadsheet.",
+      "m0_status": "not_direct",
+      "m0_gap": "Pipeline segments objects internally and does not provide pre-existing label masks; MorphoJet M0 needs a mask-export bridge or separate public masks."
+    },
+    {
+      "id": "example-percent-positive",
+      "path": "ExamplePercentPositive",
+      "pipeline": "ExamplePercentPositive/ExamplePercentPositive.cppipe",
+      "images_glob": "ExamplePercentPositive/images/*.tif",
+      "license": "See upstream example metadata",
+      "why": "Small public example with object intensity measurement and ExportToSpreadsheet.",
+      "m0_status": "not_direct",
+      "m0_gap": "Pipeline segments objects internally and does not provide pre-existing label masks; MorphoJet M0 needs a mask-export bridge or separate public masks."
+    }
+  ]
+}

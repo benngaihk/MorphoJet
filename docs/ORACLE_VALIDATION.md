@@ -11,6 +11,23 @@ Use public sources first so every result can be reproduced:
 - Cell Painting / JUMP public data for larger follow-up benchmarks: https://jump-cellpainting.broadinstitute.org/
 - Nyxus as a high-performance feature extraction reference: https://nyxus.readthedocs.io/
 
+The tracked candidate catalog is `benchmark/cellprofiler/candidates.json`.
+
+Current finding: official CellProfiler examples provide public images and measurement pipelines, but the inspected candidates segment objects inside CellProfiler and do not provide pre-existing label masks. They are useful public oracle candidates only after a mask-export bridge is added, or after a separate public label-mask dataset is selected.
+
+Fetch a pinned candidate for inspection:
+
+```bash
+python3 benchmark/fetch_cellprofiler_examples.py --candidate example-human
+```
+
+Verified local preflight:
+
+- `example-human` fetches from `CellProfiler/examples` commit `4972b59e670a4ae96c3d453803c92eeff378d054`.
+- It materializes `ExampleHuman.cppipe`, README, and 3 TIFF images.
+- Its README states the images are CC-0.
+- It remains `m0_status=not_direct` because the pipeline identifies objects internally and does not ship label masks.
+
 ## L2 Package: Correctness
 
 Required files:

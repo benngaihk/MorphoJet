@@ -3,5 +3,6 @@
 /measurements/
 /benchmark/data/
 /benchmark/results/
+/benchmark/cellprofiler/manifest.candidate.json
 __pycache__/
 *.log

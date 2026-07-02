@@ -37,6 +37,8 @@ Updated: 2026-07-01
 - Impact gate report can consume metrics JSON directly.
 - Manifest-driven CellProfiler oracle benchmark runner and manifest validator.
 - Impact gate report can derive parity metrics from parity JSON.
+- Public CellProfiler examples candidate catalog and fetch script.
+- `example-human` CellProfiler candidate fetch preflight: 3 CC-0 TIFF images and pipeline materialized, but still not direct M0 oracle because masks are not provided.
 
 ## Verified Locally
 
