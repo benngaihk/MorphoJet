@@ -87,6 +87,73 @@ fn measure_success_writes_expected_csvs() {
 }
 
 #[test]
+fn measure_success_writes_summary_json() {
+    let dir = tempfile::tempdir().unwrap();
+    write_images(dir.path(), (3, 2), (3, 2));
+    let table = write_object_set_table(dir.path(), "1,image.tif,mask.tif,DAPI,Nuclei\n");
+    let out = dir.path().join("out");
+    let summary = dir.path().join("summary.json");
+
+    let output = run_measure(
+        &table,
+        &out,
+        &["--overwrite", "--summary-json", summary.to_str().unwrap()],
+    );
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    let payload: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(summary).unwrap()).unwrap();
+    assert_eq!(payload["status"], "PASS");
+    assert_eq!(payload["image_rows"], 1);
+    assert_eq!(payload["object_rows"], 1);
+    assert_eq!(payload["channels"][0], "DAPI");
+    assert_eq!(payload["object_sets"][0], "Nuclei");
+    assert_eq!(payload["cellprofiler_compatible"], true);
+    assert!(payload["elapsed_seconds"].as_f64().unwrap() >= 0.0);
+    assert!(payload["image_csv"]
+        .as_str()
+        .unwrap()
+        .ends_with("Image.csv"));
+    assert!(payload["objects_csv"]
+        .as_str()
+        .unwrap()
+        .ends_with("Objects.csv"));
+}
+
+#[test]
+fn refuses_to_overwrite_existing_summary_without_flag() {
+    let dir = tempfile::tempdir().unwrap();
+    write_images(dir.path(), (3, 2), (3, 2));
+    let table = write_table(dir.path(), "1,image.tif,mask.tif,DAPI\n");
+    let out = dir.path().join("out");
+    let summary = dir.path().join("summary.json");
+    fs::write(&summary, "{}\n").unwrap();
+
+    let output = run_measure(&table, &out, &["--summary-json", summary.to_str().unwrap()]);
+
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("refusing to overwrite"));
+}
+
+#[test]
+fn rejects_summary_json_that_collides_with_measurement_csvs() {
+    let dir = tempfile::tempdir().unwrap();
+    write_images(dir.path(), (3, 2), (3, 2));
+    let table = write_table(dir.path(), "1,image.tif,mask.tif,DAPI\n");
+    let out = dir.path().join("out");
+    let summary = out.join("Image.csv");
+
+    let output = run_measure(
+        &table,
+        &out,
+        &["--overwrite", "--summary-json", summary.to_str().unwrap()],
+    );
+
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("--summary-json must not point at"));
+}
+
+#[test]
 fn refuses_to_overwrite_existing_outputs_without_flag() {
     let dir = tempfile::tempdir().unwrap();
     write_images(dir.path(), (3, 2), (3, 2));

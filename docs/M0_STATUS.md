@@ -95,6 +95,7 @@ Latest M0 oracle gate verification:
 - Handoff manifest gates pass for the CellBinDB preflight manifest and the external lab template.
 - Release gate script can run code gates and validate or rerun the CellBinDB L3 benchmark plus the workflow bridge and handoff trial artifacts, writing JSON and Markdown reports.
 - Scheduler-ready CellBinDB L3 validation script is implemented with Zenodo archive verification, pinned CellProfiler Docker image pull, and full oracle execution.
+- CLI observability includes `morphojet doctor` plus optional `measure --summary-json` run metadata for machine-readable batch monitoring.
 - Local release artifact preflight passes on macOS arm64: archive checksum verified and packaged `morphojet doctor` reports version, current commit, OS, and architecture.
 - GitHub release candidate `v0.1.0-rc.1` passes: release workflow built Linux/macOS archives, all published checksums match, release is marked prerelease, and the macOS packaged binary reports the tag commit.
 

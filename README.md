@@ -29,6 +29,7 @@ cargo run -p morphojet -- measure \
   --out measurements \
   --threads 16 \
   --cellprofiler-compatible \
+  --summary-json measurements/run-summary.json \
   --overwrite
 ```
 
@@ -55,6 +56,8 @@ morphojet doctor
 ```
 
 The `doctor` command prints version, commit, platform, thread, and executable-path context for reproducible bug reports.
+
+For batch monitoring, `measure --summary-json path/to/run-summary.json` writes a machine-readable run summary after successful measurement. The summary includes version, commit, platform, elapsed seconds, image row count, object row count, observed channels/object sets, output paths, compatibility mode, and effective thread count. Existing summary files are protected by the same `--overwrite` rule as measurement CSVs.
 
 `images.csv`:
 

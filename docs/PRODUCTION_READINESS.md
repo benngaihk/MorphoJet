@@ -23,7 +23,7 @@ Production-grade means:
 | Testing | Unit, integration, CLI failure-mode, Clippy, benchmark smoke tests, and scheduler-ready L3 validation | Implemented for current CLI; CellBinDB L3 validation script added |
 | Performance | Synthetic regression benchmark plus real CellProfiler benchmark | L3 CellBinDB benchmark PASS: 597.54x speedup, 12.15% RSS ratio |
 | Workflow fit | CellProfiler-style object CSV handoff can run without manual CSV editing | CellBinDB L4-preflight handoff PASS with 35 contract columns; manifest schema gate and external lab template implemented |
-| Observability | Clear stderr summary, actionable error context, and runtime diagnostics | Runtime `doctor` implemented; richer structured logs pending |
+| Observability | Clear stderr summary, actionable error context, runtime diagnostics, and machine-readable run metadata | Runtime `doctor` and optional `measure --summary-json` implemented; richer error taxonomy pending |
 | Release | GitHub release workflow and checksums | `v0.1.0-rc.1` prerelease PASS: GitHub Actions built Linux/macOS archives, checksums verified, macOS packaged `doctor` commit verified |
 | Documentation | Supported inputs, unsupported scope, parity gaps, and production caveats documented | L3 evidence and release gate documented; L4 workflow caveats remain |
 

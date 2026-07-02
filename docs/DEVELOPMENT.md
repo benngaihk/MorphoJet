@@ -27,6 +27,7 @@ CI runs the same core path on GitHub Actions: Rust formatting, Rust tests, Clipp
 - `(ImageNumber, Channel, ObjectSet)` identities must be unique.
 - Image and mask paths must resolve to readable files before measurement starts.
 - `Image.csv` and `Objects.csv` are not overwritten unless `--overwrite` is passed.
+- `--summary-json` writes only after successful measurement, must not collide with `Image.csv` or `Objects.csv`, and follows the same `--overwrite` protection.
 
 ## Diagnostics
 
@@ -35,6 +36,8 @@ cargo run -p morphojet -- doctor
 ```
 
 The output includes the package version, git commit, OS, CPU architecture, Rayon default thread count, and current executable path.
+
+For machine-readable batch observability, pass `--summary-json path/to/run-summary.json` to `measure`. The JSON summary records version, commit, platform, elapsed seconds, image rows, object rows, channels, object sets, output paths, compatibility mode, and effective thread count.
 
 ## Smoke Benchmark
 
