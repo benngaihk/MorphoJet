@@ -41,6 +41,75 @@ python3 benchmark/fetch_zenodo_file.py \
   --skip-existing
 ```
 
+Inspect and prepare a small MorphoJet smoke table:
+
+```bash
+python3 benchmark/prepare_cellbindb.py \
+  --zip benchmark/data/cellbindb/CellBinDB.zip \
+  --extract-dir benchmark/data/cellbindb/extracted-smoke \
+  --out benchmark/results/cellbindb/images-smoke.csv \
+  --summary-json benchmark/results/cellbindb/summary-smoke.json \
+  --limit 8 \
+  --extract \
+  --overwrite
+```
+
+Prepare the full >=1,000 row image table after the archive has been verified:
+
+```bash
+python3 benchmark/prepare_cellbindb.py \
+  --zip benchmark/data/cellbindb/CellBinDB.zip \
+  --extract-dir benchmark/data/cellbindb/extracted \
+  --out benchmark/results/cellbindb/images.csv \
+  --summary-json benchmark/results/cellbindb/summary.json \
+  --extract \
+  --overwrite
+```
+
+Run MorphoJet on the full direct-mask table:
+
+```bash
+python3 benchmark/run_command_metrics.py \
+  --name morphojet-cellbindb-full \
+  --out benchmark/results/cellbindb \
+  --fail-on-nonzero \
+  -- target/release/morphojet measure \
+    --images benchmark/results/cellbindb/images.csv \
+    --out benchmark/results/cellbindb/morphojet-full \
+    --threads 8 \
+    --cellprofiler-compatible \
+    --overwrite
+```
+
+## Local Preflight Results
+
+Verified locally on 2026-07-02:
+
+| Check | Result |
+|---|---:|
+| Zenodo metadata fetch | PASS |
+| `CellBinDB.zip` download | PASS |
+| MD5 verification | PASS |
+| ZIP sample groups | 1,044 complete groups |
+| Image files | 1,044 `*-img.tif` |
+| Instance masks | 1,044 `*-instancemask.tif` |
+| Semantic masks | 1,044 `*-mask.tif` |
+| MorphoJet image rows | 1,044 |
+| MorphoJet object rows | 107,936 |
+| MorphoJet elapsed seconds | 0.879788 |
+| MorphoJet peak RSS MB | 89.875 |
+
+Stain breakdown from the generated table:
+
+| Stain | Rows |
+|---|---:|
+| DAPI | 303 |
+| HE | 405 |
+| mIF | 60 |
+| ssDNA | 276 |
+
+This is a MorphoJet-side scale preflight only. It does not prove L3 until CellProfiler reads the same direct masks as objects, emits the same measurement subset, and passes parity plus speed/RSS gates.
+
 ## Next Implementation Gates
 
 1. Inspect the archive layout without committing data files.

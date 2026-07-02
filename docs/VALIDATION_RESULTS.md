@@ -108,6 +108,32 @@ Raw metrics:
 
 Conclusion: this is a strong smoke signal for the ExampleHuman path, but the overall L3 industry-impact gate remains FAIL until the same criteria pass on a >=1,000 image-row public benchmark with stronger memory sampling.
 
+## CellBinDB MorphoJet-Only Scale Preflight
+
+This is not an L3 PASS because it has no CellProfiler oracle/parity result yet. It proves the next public direct-mask corpus is downloaded, verified, tabled, and readable by MorphoJet at >=1,000 image rows.
+
+Environment:
+
+- Source: Zenodo record `15370205`, `CellBinDB.zip`
+- License: Zenodo record reports `cc-zero`; bundled source licenses are listed in `mixed_licenses.txt`
+- Archive size: 285,956,212 bytes
+- MD5: `e770f1287619eb45e74d131430e20fe5`
+- Image/mask layout: `*-img.tif`, `*-instancemask.tif`, `*-mask.tif`
+- MorphoJet command: `target/release/morphojet measure --threads 8 --cellprofiler-compatible`
+
+Result:
+
+| Metric | Value |
+|---|---:|
+| Complete sample groups | 1,044 |
+| MorphoJet image rows | 1,044 |
+| MorphoJet object rows | 107,936 |
+| Elapsed seconds | 0.879788 |
+| Peak RSS MB | 89.875 |
+| Gate status | PREFLIGHT ONLY |
+
+Conclusion: CellBinDB is a viable L3 corpus candidate for the MorphoJet side. The remaining blocking item is a CellProfiler measurement-only oracle pipeline for the same `*-instancemask.tif` labels.
+
 ## L1 Synthetic Scale Benchmark
 
 These results validate MorphoJet's local release CLI path on deterministic synthetic data. They do not prove CellProfiler parity or industry impact by themselves.
