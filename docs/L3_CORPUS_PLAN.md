@@ -156,15 +156,15 @@ Verified full L3 candidate:
 | Scale | >=1000 image rows | 1044 | PASS |
 | Object count parity | 100% | 100.0000% | PASS |
 | Core numeric parity | >=99% | 100.0000% | PASS |
-| Wall-clock speedup | >=10x | 707.94x | PASS |
-| Peak RSS ratio | <=50% | 11.65% | PASS |
+| Wall-clock speedup | >=10x | 701.66x | PASS |
+| Peak RSS ratio | <=50% | 11.72% | PASS |
 
 Raw full-run metrics:
 
 | Tool | Seconds | Peak RSS MB |
 |---|---:|---:|
-| CellProfiler | 602.903886 | 723.700 |
-| MorphoJet | 0.851634 | 84.328 |
+| CellProfiler | 618.794942 | 724.700 |
+| MorphoJet | 0.881905 | 84.922 |
 
 ## Next Implementation Gates
 
