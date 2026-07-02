@@ -77,16 +77,18 @@ Latest M0 oracle gate verification:
 - Converted ExampleHuman NPY labels to uint16 TIFF; MorphoJet measured 6 image rows and 1734 object rows from those masks.
 - Materialized CellProfiler object CSVs into a long oracle CSV with 1734 rows.
 - ExampleHuman parity now passes: 1734 expected rows, 1734 actual rows, 0 row/schema gaps, 0 numeric failures.
+- ExampleHuman oracle smoke runner captures CellProfiler Docker metrics and MorphoJet release metrics end-to-end.
+- ExampleHuman L3 smoke report: scale FAIL at 6 image rows, object parity PASS at 100%, numeric parity PASS at 100%, speedup PASS at 196.74x, RSS ratio PASS at 6.89%.
 
 ## Not Yet Achieved
 
-- Manifest-driven pinned CellProfiler oracle parity run.
+- Manifest-driven bridge-aware pinned CellProfiler oracle parity run.
 - Public tutorial or Cell Painting corpus.
 - 1k real/public CellProfiler benchmark.
-- 10x speedup claim.
-- Peak RSS comparison.
+- 10x speedup claim on >=1k real/public image rows.
+- Peak RSS comparison on >=1k real/public image rows.
 - Broader CellProfiler coordinate and shape formula parity beyond ExampleHuman.
-- L2-L4 industry-impact evidence.
+- L3-L4 industry-impact evidence.
 - Production release workflow and output-safety hardening.
 
 ## Next Gate
@@ -95,5 +97,5 @@ M0 should only be called complete after a pinned CellProfiler oracle dataset pro
 
 - 100% object count parity.
 - >=99% core numeric parity within documented tolerance.
-- >=10x wall-clock speedup on 1k images.
+- >=10x wall-clock speedup on >=1k real/public image rows.
 - Peak RSS <=50% of CellProfiler on the same machine.

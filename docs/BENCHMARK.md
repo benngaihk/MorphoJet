@@ -44,16 +44,16 @@ After CellProfiler writes the `.npy` masks, convert them to uint16 TIFF and mate
 ```bash
 python3 benchmark/convert_npy_masks_to_tiff.py \
   --base-dir benchmark/results/cellprofiler-run-426-npy \
-  --out-dir benchmark/results/cellprofiler-run-426-labels
+  --out-dir benchmark/results/cellprofiler-run-426-labels-tiff
 
 python3 benchmark/build_oracle_image_table.py \
   --base-dir . \
   --bridge-json benchmark/results/cellprofiler/example-human-masks.json \
-  --channel DNA 'benchmark/data/cellprofiler/prepared/ExampleHuman/images/*d0.tif' '(.+)_d0\\.tif$' \
-  --channel PH3 'benchmark/data/cellprofiler/prepared/ExampleHuman/images/*d1.tif' '(.+)_d1\\.tif$' \
-  --mask-glob-template 'benchmark/results/cellprofiler/morphojet_masks/{safe_name}/*_MorphoJetMask_{safe_name}.tif' \
-  --mask-key-regex-template '(.+)_d0_MorphoJetMask_{safe_name}\\.tif$' \
-  --out benchmark/cellprofiler/images.csv
+  --channel DNA 'benchmark/data/cellprofiler/prepared/ExampleHuman/images/*d0.tif' '(.+)d0\\.tif$' \
+  --channel PH3 'benchmark/data/cellprofiler/prepared/ExampleHuman/images/*d1.tif' '(.+)d1\\.tif$' \
+  --mask-glob-template 'benchmark/results/cellprofiler-run-426-labels-tiff/morphojet_masks/{safe_name}/*_MorphoJetMask_{safe_name}.tif' \
+  --mask-key-regex-template '(.+)d0_MorphoJetMask_{safe_name}\\.tif$' \
+  --out benchmark/results/cellprofiler-run-426-labels-tiff/morphojet-images.csv
 ```
 
 Materialize CellProfiler's per-object CSVs into MorphoJet's long object format before parity comparison:
@@ -85,6 +85,29 @@ The runner will:
 6. Write Markdown and JSON parity reports.
 
 `benchmark/run.sh` still supports ad hoc runs through `CELLPROFILER_CMD`, but the manifest path is the production validation path.
+
+## ExampleHuman Oracle Smoke
+
+Use the turnkey smoke runner to reproduce the current pinned ExampleHuman path, including CellProfiler mask export, MorphoJet measurement, parity comparison, and an impact-gate report:
+
+```bash
+python3 benchmark/run_examplehuman_oracle.py --threads 8
+```
+
+When the CellProfiler outputs and Docker metrics already exist, rerun only the MorphoJet/parity/report side with:
+
+```bash
+python3 benchmark/run_examplehuman_oracle.py --skip-cellprofiler --threads 8
+```
+
+Outputs:
+
+- `benchmark/results/metrics-examplehuman/cellprofiler-examplehuman.metrics.json`
+- `benchmark/results/metrics-examplehuman/morphojet-examplehuman.metrics.json`
+- `benchmark/results/parity/example-human-objects-parity.md`
+- `benchmark/results/impact-examplehuman/summary.md`
+
+The CellProfiler metrics path uses `benchmark/run_docker_metrics.py`, which samples `docker stats` while the named container is running. Short runs can have few RSS samples, so treat this as smoke evidence; the production L3 run should use a larger corpus and longer sampling window.
 
 ## Required Benchmark Metadata
 
@@ -129,3 +152,21 @@ python3 benchmark/run_command_metrics.py \
 ```
 
 The wrapper writes stdout/stderr logs plus `<name>.metrics.json` with elapsed seconds and peak RSS.
+
+For Dockerized tools, use:
+
+```bash
+python3 benchmark/run_docker_metrics.py \
+  --name cellprofiler-examplehuman \
+  --container-name morphojet-examplehuman-cellprofiler \
+  --image cellprofiler/cellprofiler:4.2.6 \
+  --platform linux/amd64 \
+  --volume "$PWD:/work" \
+  --workdir /work \
+  --out benchmark/results/metrics-examplehuman \
+  --fail-on-nonzero \
+  -- cellprofiler -c -r \
+    -p benchmark/results/cellprofiler/example-human-masks.cppipe \
+    -i benchmark/data/cellprofiler/prepared/ExampleHuman/images \
+    -o benchmark/results/cellprofiler-run-426-npy
+```

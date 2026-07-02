@@ -66,6 +66,48 @@ Max residual numeric differences are floating-point noise only:
 
 Conclusion: L2 passes for ExampleHuman and the current measurement subset. Production-grade status remains unproven until L3 performance/RSS and a larger public corpus pass.
 
+## L3 ExampleHuman Smoke
+
+This run exercises the same pinned ExampleHuman oracle path with elapsed-time and peak-RSS capture for both tools. It is a smoke benchmark, not the production L3 gate, because the dataset only materializes 6 MorphoJet image rows. The production L3 claim still requires >=1,000 real/public image rows.
+
+Environment:
+
+- CellProfiler Docker image: `cellprofiler/cellprofiler:4.2.6`
+- CellProfiler platform: `linux/amd64`
+- CellProfiler examples commit: `4972b59e670a4ae96c3d453803c92eeff378d054`
+- Dataset: `ExampleHuman`, 1 image set, 3 object sets, 2 channels
+- MorphoJet command: `target/release/morphojet measure --threads 8 --cellprofiler-compatible`
+- CellProfiler RSS source: `docker stats MemUsage sampled during container run`
+- MorphoJet RSS source: local process `ru_maxrss` captured by `benchmark/run_command_metrics.py`
+
+Artifacts:
+
+- Runner: `benchmark/run_examplehuman_oracle.py`
+- Docker metrics wrapper: `benchmark/run_docker_metrics.py`
+- CellProfiler metrics: `benchmark/results/metrics-examplehuman/cellprofiler-examplehuman.metrics.json`
+- MorphoJet metrics: `benchmark/results/metrics-examplehuman/morphojet-examplehuman.metrics.json`
+- Gate report: `benchmark/results/impact-examplehuman/summary.md`
+- Gate JSON: `benchmark/results/impact-examplehuman/summary.json`
+
+Result:
+
+| Gate | Required | Observed | Status |
+|---|---:|---:|---:|
+| Scale | >=1000 image rows | 6 | FAIL |
+| Object count parity | 100% | 100.0000% | PASS |
+| Core numeric parity | >=99% | 100.0000% | PASS |
+| Wall-clock speedup | >=10x | 196.74x | PASS |
+| Peak RSS ratio | <=50% | 6.89% | PASS |
+
+Raw metrics:
+
+| Tool | Seconds | Peak RSS MB | Notes |
+|---|---:|---:|---|
+| CellProfiler | 7.191819 | 556.900 | Docker stats, 3 samples |
+| MorphoJet | 0.036554 | 38.344 | Local release binary |
+
+Conclusion: this is a strong smoke signal for the ExampleHuman path, but the overall L3 industry-impact gate remains FAIL until the same criteria pass on a >=1,000 image-row public benchmark with stronger memory sampling.
+
 ## L1 Synthetic Scale Benchmark
 
 These results validate MorphoJet's local release CLI path on deterministic synthetic data. They do not prove CellProfiler parity or industry impact by themselves.
@@ -99,10 +141,9 @@ Environment:
 
 L1 is now complete: the release binary can process deterministic synthetic batches at high throughput and produce stable CSV outputs. This is an engineering viability signal.
 
-The industry-impact claim remains unproven until L2-L4 pass:
+The industry-impact claim remains unproven until the remaining L3-L4 gates pass:
 
-- L2: CellProfiler oracle parity on a public dataset.
-- L3: >=10x speedup and <=50% RSS vs CellProfiler headless on >=1k images.
+- L3: >=10x speedup and <=50% RSS vs CellProfiler headless on >=1k real/public image rows.
 - L4: external lab workflow replacement.
 
 ## Reproduction
@@ -110,4 +151,5 @@ The industry-impact claim remains unproven until L2-L4 pass:
 ```bash
 python3 benchmark/run_scale.py --cases 16,256,1024 --width 96 --height 96
 python3 benchmark/run_scale.py --cases 128,512,1024 --width 512 --height 512 --out benchmark/results/scale_512
+python3 benchmark/run_examplehuman_oracle.py --threads 8
 ```
