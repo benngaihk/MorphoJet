@@ -44,6 +44,7 @@ Updated: 2026-07-02
 - Oracle runner now refuses benchmark manifests unless `dataset.m0_status` is explicitly `direct`.
 - CellProfiler mask-export bridge can generate a patched pipeline copy that saves missing measured objects as TIFF labels.
 - `ObjectSet` is now a first-class image-table, output, and parity key for multi-object pipelines.
+- Multi-channel oracle image-table materializer can combine bridge objects, intensity channels, and emitted masks into one MorphoJet table.
 
 ## Verified Locally
 
@@ -70,6 +71,7 @@ Latest M0 oracle gate verification:
 - `example-human` generated candidate manifest with `m0_status=not_direct`: correctly rejected by `--require-m0-ready`.
 - `export_cellprofiler_masks.py` patched fixture and ExampleHuman pipelines; inspector accepted both patched copies as M0-ready.
 - Multi-object-set smoke keeps 16 image rows and 64 object rows, with parity keys `ImageNumber,ObjectSet,ObjectNumber,Channel`: PASS.
+- `build_oracle_image_table.py` fixture wrote 8 rows for 2 samples x 2 object sets x 2 channels.
 
 ## Not Yet Achieved
 

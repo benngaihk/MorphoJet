@@ -1,0 +1,12 @@
+{
+  "objects": [
+    {
+      "name": "Nuclei",
+      "safe_name": "Nuclei"
+    },
+    {
+      "name": "Cells",
+      "safe_name": "Cells"
+    }
+  ]
+}

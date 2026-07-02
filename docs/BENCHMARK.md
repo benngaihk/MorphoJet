@@ -39,6 +39,19 @@ python3 benchmark/export_cellprofiler_masks.py \
   --bridge-json benchmark/results/cellprofiler/example-human-masks.json
 ```
 
+After CellProfiler writes the masks, materialize the multi-channel, multi-object-set MorphoJet image table:
+
+```bash
+python3 benchmark/build_oracle_image_table.py \
+  --base-dir . \
+  --bridge-json benchmark/results/cellprofiler/example-human-masks.json \
+  --channel DNA 'benchmark/data/cellprofiler/prepared/ExampleHuman/images/*d0.tif' '(.+)_d0\\.tif$' \
+  --channel PH3 'benchmark/data/cellprofiler/prepared/ExampleHuman/images/*d1.tif' '(.+)_d1\\.tif$' \
+  --mask-glob-template 'benchmark/results/cellprofiler/morphojet_masks/{safe_name}/*_MorphoJetMask_{safe_name}.tif' \
+  --mask-key-regex-template '(.+)_d0_MorphoJetMask_{safe_name}\\.tif$' \
+  --out benchmark/cellprofiler/images.csv
+```
+
 Example:
 
 ```bash
