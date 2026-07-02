@@ -149,11 +149,29 @@ Verified CellProfiler oracle smoke:
 
 The smoke confirms that CellProfiler `ConvertImageToObjects` must use compact labels (`Preserve original labels: No`) for parity with `morphojet measure --cellprofiler-compatible`.
 
+Verified full L3 candidate:
+
+| Gate | Required | Observed | Status |
+|---|---:|---:|---:|
+| Scale | >=1000 image rows | 1044 | PASS |
+| Object count parity | 100% | 100.0000% | PASS |
+| Core numeric parity | >=99% | 100.0000% | PASS |
+| Wall-clock speedup | >=10x | 673.38x | PASS |
+| Peak RSS ratio | <=50% | 14.92% | PASS |
+
+Raw full-run metrics:
+
+| Tool | Seconds | Peak RSS MB |
+|---|---:|---:|
+| CellProfiler | 608.864953 | 587.300 |
+| MorphoJet | 0.904186 | 87.641 |
+
 ## Next Implementation Gates
 
 1. Inspect the archive layout without committing data files.
 2. Build a CellBinDB image/mask table generator.
-3. Run the full >=1,000 image-row benchmark with the existing metrics wrappers.
+3. Promote the full L3 command into a CI/nightly or release validation job.
+4. Prepare an external lab workflow trial for L4.
 
 ## Claim Boundary
 

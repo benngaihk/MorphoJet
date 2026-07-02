@@ -84,23 +84,21 @@ Latest M0 oracle gate verification:
 - CellBinDB preparation script can pair `*-img.tif` with `*-instancemask.tif`, extract selected rows, and write a MorphoJet image table.
 - CellBinDB archive was downloaded locally and MD5 verified; MorphoJet processed the full 1,044-row direct-mask table into 107,936 object rows in 0.879788 seconds with 89.875 MB peak RSS.
 - CellBinDB 8-row CellProfiler oracle smoke passes: 590 expected rows, 590 actual rows, 0 row gaps, 0 numeric failures.
+- CellBinDB full L3 benchmark passes: 1,044 image rows, 107,936 expected rows, 107,936 actual rows, 0 row gaps, 0 numeric failures, 673.38x speedup, 14.92% RSS ratio.
 
 ## Not Yet Achieved
 
 - Manifest-driven bridge-aware pinned CellProfiler oracle parity run.
 - Public tutorial or Cell Painting corpus.
-- 1k real/public CellProfiler benchmark.
-- 10x speedup claim on >=1k real/public image rows.
-- Peak RSS comparison on >=1k real/public image rows.
+- Nightly or release validation job for the 1k real/public CellProfiler benchmark.
 - Broader CellProfiler coordinate and shape formula parity beyond ExampleHuman.
-- L3-L4 industry-impact evidence.
-- Production release workflow and output-safety hardening.
+- L4 external lab workflow replacement evidence.
+- Production release validation using the L3 benchmark artifacts.
 
 ## Next Gate
 
-M0 should only be called complete after a pinned CellProfiler oracle dataset produces:
+The next gate toward production readiness is no longer L3 evidence; it is repeatability and L4 workflow fit:
 
-- 100% object count parity.
-- >=99% core numeric parity within documented tolerance.
-- >=10x wall-clock speedup on >=1k real/public image rows.
-- Peak RSS <=50% of CellProfiler on the same machine.
+- Promote the CellBinDB full benchmark into release/nightly validation.
+- Run an external lab workflow trial with real handoff files.
+- Broaden compatibility beyond the current measurement subset.

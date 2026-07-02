@@ -19,9 +19,9 @@ Production-grade means:
 |---|---|---|
 | CLI safety | Validate required paths, reject empty image tables, reject invalid thread counts, protect existing outputs unless explicitly overwritten | Implemented for current CLI |
 | Output safety | Avoid partial final `Image.csv` / `Objects.csv` files on failure | Implemented through staging writes for current CLI |
-| Correctness | CellProfiler oracle parity report for public data | Public CellProfiler candidates cataloged and fetch-preflighted; real M0-compatible oracle still not complete |
+| Correctness | CellProfiler oracle parity report for public data | L2 ExampleHuman PASS and L3 CellBinDB direct-mask PASS for the current measurement subset |
 | Testing | Unit, integration, CLI failure-mode, Clippy, and benchmark smoke tests in CI | Implemented for current CLI |
-| Performance | Synthetic regression benchmark plus real CellProfiler benchmark | Synthetic plus reusable RSS/elapsed metrics wrapper |
+| Performance | Synthetic regression benchmark plus real CellProfiler benchmark | L3 CellBinDB benchmark PASS: 673.38x speedup, 14.92% RSS ratio |
 | Observability | Clear stderr summary, actionable error context, and runtime diagnostics | Runtime `doctor` implemented; richer structured logs pending |
 | Release | GitHub release workflow and checksums | Implemented for tagged macOS/Linux builds |
 | Documentation | Supported inputs, unsupported scope, parity gaps, and production caveats documented | In progress |
@@ -30,9 +30,10 @@ Production-grade means:
 
 Priority order:
 
-1. Add a mask-export bridge for public CellProfiler examples or select a public dataset with pre-existing label masks.
-2. Fill and run a real public CellProfiler oracle manifest.
+1. Promote the CellBinDB L3 command into repeatable release or nightly validation.
+2. Run an external lab workflow trial against real batch handoff files.
+3. Broaden the supported measurement subset beyond the current intensity and size/shape columns.
 
 ## Claim Policy
 
-Until every required gate is complete, documentation should say "prototype", "validation harness", or "M0 candidate", not "production-ready".
+Until every required gate is complete, documentation may claim the narrow L3 benchmark result, but must not say "production-ready" or "replaces CellProfiler workflows" without an external workflow trial.

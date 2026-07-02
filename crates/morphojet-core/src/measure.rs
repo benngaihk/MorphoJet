@@ -280,6 +280,22 @@ fn load_intensity(row: &ImageTableRow) -> Result<(Vec<f64>, u32, u32)> {
             .pixels()
             .map(|pixel| pixel.0[0] as f64 / u16::MAX as f64)
             .collect(),
+        DynamicImage::ImageRgb8(buffer) => buffer
+            .pixels()
+            .map(|pixel| cellprofiler_rgb_to_gray(pixel.0[0], pixel.0[1], pixel.0[2], u8::MAX))
+            .collect(),
+        DynamicImage::ImageRgba8(buffer) => buffer
+            .pixels()
+            .map(|pixel| cellprofiler_rgb_to_gray(pixel.0[0], pixel.0[1], pixel.0[2], u8::MAX))
+            .collect(),
+        DynamicImage::ImageRgb16(buffer) => buffer
+            .pixels()
+            .map(|pixel| cellprofiler_rgb_to_gray(pixel.0[0], pixel.0[1], pixel.0[2], u16::MAX))
+            .collect(),
+        DynamicImage::ImageRgba16(buffer) => buffer
+            .pixels()
+            .map(|pixel| cellprofiler_rgb_to_gray(pixel.0[0], pixel.0[1], pixel.0[2], u16::MAX))
+            .collect(),
         other => other
             .to_luma32f()
             .pixels()
@@ -287,6 +303,13 @@ fn load_intensity(row: &ImageTableRow) -> Result<(Vec<f64>, u32, u32)> {
             .collect(),
     };
     Ok((pixels, width, height))
+}
+
+fn cellprofiler_rgb_to_gray<T>(red: T, green: T, blue: T, max: T) -> f64
+where
+    T: Into<f64> + Copy,
+{
+    (0.2125 * red.into() + 0.7154 * green.into() + 0.0721 * blue.into()) / max.into()
 }
 
 fn load_labels(row: &ImageTableRow) -> Result<(Vec<u32>, u32, u32)> {

@@ -1,4 +1,4 @@
-use image::{GrayImage, ImageBuffer, Luma};
+use image::{GrayImage, ImageBuffer, Luma, RgbImage};
 use morphojet_core::{
     measure_rows, measure_rows_with_options, read_image_table, write_image_csv, write_object_csv,
     MeasureOptions,
@@ -89,4 +89,31 @@ fn compact_object_numbers_match_cellprofiler_conversion() {
     assert_eq!(compact_results[0].objects[1].object_number, 2);
     assert_eq!(compact_results[0].objects[0].area, 2);
     assert_eq!(compact_results[0].objects[1].area, 2);
+}
+
+#[test]
+fn rgb_intensity_uses_cellprofiler_grayscale_weights() {
+    let dir = tempfile::tempdir().unwrap();
+    let image_path = dir.path().join("image.tif");
+    let mask_path = dir.path().join("mask.tif");
+    let table_path = dir.path().join("images.csv");
+
+    let image = RgbImage::from_vec(1, 1, vec![10, 20, 30]).unwrap();
+    image.save(&image_path).unwrap();
+
+    let mask: ImageBuffer<Luma<u16>, Vec<u16>> = ImageBuffer::from_vec(1, 1, vec![1]).unwrap();
+    mask.save(&mask_path).unwrap();
+
+    fs::write(
+        &table_path,
+        "ImageNumber,ImagePath,MaskPath,Channel\n1,image.tif,mask.tif,HE\n",
+    )
+    .unwrap();
+
+    let rows = read_image_table(&table_path).unwrap();
+    let results = measure_rows(&rows).unwrap();
+    let expected = (0.2125 * 10.0 + 0.7154 * 20.0 + 0.0721 * 30.0) / 255.0;
+
+    assert_eq!(results[0].objects.len(), 1);
+    assert!((results[0].objects[0].intensity_mean - expected).abs() < 1e-12);
 }

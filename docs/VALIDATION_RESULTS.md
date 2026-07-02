@@ -169,6 +169,61 @@ Result:
 
 Conclusion: the L3 candidate now has a proven small CellProfiler oracle path. Production L3 remains unproven until the same runner passes on all 1,044 rows with CellProfiler/MorphoJet elapsed time and RSS metrics.
 
+## L3 CellBinDB Benchmark
+
+This is the first >=1,000 image-row public direct-mask CellProfiler oracle benchmark. It supports the narrow L3 claim for the tested measurement subset: MorphoJet matches CellProfiler object rows and core measurements on this reproducible benchmark while running much faster and with lower peak RSS.
+
+Environment:
+
+- Source: Zenodo record `15370205`, `CellBinDB.zip`
+- Dataset rows: 1,044 image rows
+- Object rows: 107,936
+- CellProfiler Docker image: `cellprofiler/cellprofiler:4.2.6`
+- CellProfiler platform: `linux/amd64`
+- MorphoJet command: `target/release/morphojet measure --threads 8 --cellprofiler-compatible`
+- CellProfiler RSS source: `docker stats MemUsage sampled during container run`
+- MorphoJet RSS source: local process `ru_maxrss` captured by `benchmark/run_command_metrics.py`
+
+Artifacts:
+
+- Turnkey runner: `benchmark/run_cellbindb_oracle.py`
+- CellProfiler pipeline generator: `benchmark/build_cellbindb_cellprofiler_pipeline.py`
+- Image table: `benchmark/results/cellbindb/oracle-full/images.csv`
+- CellProfiler long oracle: `benchmark/results/cellbindb/oracle-full/cellprofiler/Objects.long.csv`
+- MorphoJet output: `benchmark/results/cellbindb/oracle-full/morphojet/Objects.csv`
+- Parity report: `benchmark/results/cellbindb/oracle-full/parity.md`
+- Impact report: `benchmark/results/cellbindb/oracle-full/impact.md`
+
+Result:
+
+| Gate | Required | Observed | Status |
+|---|---:|---:|---:|
+| Scale | >=1000 image rows | 1044 | PASS |
+| Object count parity | 100% | 100.0000% | PASS |
+| Core numeric parity | >=99% | 100.0000% | PASS |
+| Wall-clock speedup | >=10x | 673.38x | PASS |
+| Peak RSS ratio | <=50% | 14.92% | PASS |
+
+Raw metrics:
+
+| Tool | Seconds | Peak RSS MB |
+|---|---:|---:|
+| CellProfiler | 608.864953 | 587.300 |
+| MorphoJet | 0.904186 | 87.641 |
+
+Parity:
+
+| Metric | Value |
+|---|---:|
+| Expected rows | 107,936 |
+| Actual rows | 107,936 |
+| Missing rows | 0 |
+| Extra rows | 0 |
+| Numeric compared | 1,834,912 |
+| Numeric failures | 0 |
+
+Conclusion: L3 passes for this CellBinDB direct-mask measurement benchmark. This does not prove full CellProfiler replacement, upstream segmentation replacement, or external lab workflow fit; those remain L4/production-readiness work.
+
 ## L1 Synthetic Scale Benchmark
 
 These results validate MorphoJet's local release CLI path on deterministic synthetic data. They do not prove CellProfiler parity or industry impact by themselves.

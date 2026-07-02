@@ -18,7 +18,7 @@
 - [x] CellProfiler output normalizer and CSV comparator.
 - [x] CI smoke benchmark and parity self-check.
 - [x] `benchmark/run.sh` configurable CellProfiler oracle hook.
-- [ ] Pinned public CellProfiler oracle dataset and `.cppipe`.
+- [x] Pinned public CellProfiler oracle dataset and `.cppipe`.
 - [x] `docs/PARITY.md` compatibility ledger.
 - [x] Industry-impact validation gate document.
 - [x] L2/L3 oracle validation checklist and impact gate reporter.
@@ -26,11 +26,13 @@
 ## M1: Lab Trial
 
 - Production hardening before any lab trial:
-  - CLI overwrite protection.
-  - Output atomicity.
-  - CLI integration failure-mode tests.
-  - Release packaging and checksums.
-  - Public CellProfiler oracle benchmark.
+  - [x] CLI overwrite protection.
+  - [x] Output atomicity.
+  - [x] CLI integration failure-mode tests.
+  - [x] Release packaging and checksums.
+  - [x] Public CellProfiler oracle benchmark.
+  - [ ] Nightly/release validation for CellBinDB L3.
+  - [ ] External workflow trial.
 
 - Multi-channel and plate/well/site metadata polish.
 - More morphology features.

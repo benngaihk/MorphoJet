@@ -167,9 +167,20 @@ Pass condition:
 - >=10x wall-clock speedup.
 - MorphoJet peak RSS <=50% of CellProfiler.
 
+Current full L3 result:
+
+- Dataset: CellBinDB direct-mask benchmark.
+- Image rows: 1,044.
+- Object rows: 107,936.
+- Object count parity: 100%.
+- Core numeric parity: 100%.
+- Wall-clock speedup: 673.38x.
+- Peak RSS ratio: 14.92%.
+- Artifact: `benchmark/results/cellbindb/oracle-full/impact.md`.
+
 ## Claim Language
 
-Allowed only after L2 and L3 pass:
+Allowed for the CellBinDB direct-mask benchmark after L2 and L3 pass:
 
 > MorphoJet is 10x faster than CellProfiler headless on this reproducible measurement-only benchmark while matching the tested measurement subset within documented tolerance.
 
