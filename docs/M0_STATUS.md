@@ -1,6 +1,6 @@
 # M0 Status
 
-Updated: 2026-07-01
+Updated: 2026-07-02
 
 ## Achieved
 
@@ -41,6 +41,7 @@ Updated: 2026-07-01
 - `example-human` CellProfiler candidate fetch preflight: 3 CC-0 TIFF images and pipeline materialized, but still not direct M0 oracle because masks are not provided.
 - CellProfiler pipeline inspector for identifying measured objects and missing label exports.
 - Image table materializer for pairing exported label masks with intensity images.
+- Oracle runner now refuses benchmark manifests unless `dataset.m0_status` is explicitly `direct`.
 
 ## Verified Locally
 
@@ -60,6 +61,11 @@ Smoke output from local run:
 - image rows: 16
 - object rows: 64
 - parity self-check: PASS
+
+Latest M0 oracle gate verification:
+
+- `benchmark/cellprofiler/manifest.example.json --require-m0-ready`: PASS.
+- `example-human` generated candidate manifest with `m0_status=not_direct`: correctly rejected by `--require-m0-ready`.
 
 ## Not Yet Achieved
 

@@ -78,7 +78,8 @@ Checklist:
 python3 benchmark/run_oracle_benchmark.py benchmark/cellprofiler/manifest.json
 ```
 
-5. Record every mismatch in `docs/PARITY.md`.
+5. The runner requires manifests to declare `dataset.m0_status: "direct"`; export label masks or select a direct mask dataset first.
+6. Record every mismatch in `docs/PARITY.md`.
 
 Pass condition:
 

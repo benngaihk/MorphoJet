@@ -5,7 +5,9 @@
     "name": "CellProfiler public example or tutorial dataset",
     "source_url": "https://cellprofiler.org/examples",
     "license": "record dataset license here",
-    "download_instructions": "record exact commands or manual steps here"
+    "download_instructions": "record exact commands or manual steps here",
+    "m0_status": "direct",
+    "m0_gap": ""
   },
   "cellprofiler": {
     "version": "pin exact version here",

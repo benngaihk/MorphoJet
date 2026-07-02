@@ -37,7 +37,7 @@ def get_nested(data: dict[str, Any], path: tuple[str, ...]) -> Any:
     return value
 
 
-def validate_schema(data: dict[str, Any]) -> list[str]:
+def validate_schema(data: dict[str, Any], require_m0_ready: bool) -> list[str]:
     issues = []
     for path in REQUIRED_PATHS:
         try:
@@ -55,6 +55,13 @@ def validate_schema(data: dict[str, Any]) -> list[str]:
     morphojet_threads = data.get("morphojet", {}).get("threads")
     if morphojet_threads is not None and int(morphojet_threads) <= 0:
         issues.append("morphojet.threads must be greater than 0")
+
+    m0_status = data.get("dataset", {}).get("m0_status")
+    if require_m0_ready and m0_status != "direct":
+        issues.append(
+            "dataset is not direct M0 input: "
+            f"m0_status={m0_status or '<missing>'}; {data.get('dataset', {}).get('m0_gap', '')}"
+        )
 
     return issues
 
@@ -75,11 +82,12 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("manifest", type=Path)
     parser.add_argument("--check-files", action="store_true")
+    parser.add_argument("--require-m0-ready", action="store_true")
     args = parser.parse_args()
 
     data = json.loads(args.manifest.read_text())
     root = Path.cwd()
-    issues = validate_schema(data)
+    issues = validate_schema(data, args.require_m0_ready)
     if args.check_files and not issues:
         issues.extend(validate_files(data, root))
 

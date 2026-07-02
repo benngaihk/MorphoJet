@@ -99,7 +99,16 @@ def main() -> int:
 
     root = Path.cwd()
     manifest = json.loads(args.manifest.read_text())
-    run(["python3", "benchmark/validate_benchmark_manifest.py", str(args.manifest), "--check-files"], root)
+    run(
+        [
+            "python3",
+            "benchmark/validate_benchmark_manifest.py",
+            str(args.manifest),
+            "--check-files",
+            "--require-m0-ready",
+        ],
+        root,
+    )
     run([cargo_bin(), "build", "--release", "-p", "morphojet"], root)
 
     metrics_dir = "benchmark/results/metrics"
