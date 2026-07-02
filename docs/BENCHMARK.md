@@ -86,6 +86,17 @@ python3 benchmark/compare_cellprofiler_wide_subset.py \
 
 This bridge compares only columns MorphoJet currently emits or can derive without adding new feature semantics. Unsupported CellProfiler columns are reported as ignored, not silently claimed.
 
+For a no-manual-CSV-edit handoff preflight, use a manifest so the same structure can be rerun on real lab handoff files:
+
+```bash
+python3 benchmark/run_handoff_trial.py benchmark/handoff/cellbindb_supported_columns.json \
+  --var base_dir=benchmark/results/cellbindb/oracle-full \
+  --out-json benchmark/results/cellbindb/oracle-full/handoff_trial.json \
+  --out-md benchmark/results/cellbindb/oracle-full/handoff_trial.md
+```
+
+The CellBinDB handoff manifest materializes `Cells.wide.csv`, compares the supported columns to CellProfiler, then runs `benchmark/check_cellprofiler_wide_contract.py` as a downstream contract check.
+
 Example:
 
 ```bash
@@ -101,8 +112,8 @@ The runner will:
 3. Run MorphoJet on the manifest image table.
 4. Capture elapsed time and peak RSS for both tools.
 5. Normalize both object CSV files.
-6. Materialize and validate a CellProfiler-style wide object CSV for the supported subset.
-7. Write Markdown and JSON parity, workflow-bridge, and impact reports.
+6. Run the manifest-driven handoff trial for the supported CellProfiler-style wide object CSV subset.
+7. Write Markdown and JSON parity, workflow-bridge, handoff-trial, and impact reports.
 
 `benchmark/run.sh` still supports ad hoc runs through `CELLPROFILER_CMD`, but the manifest path is the production validation path.
 

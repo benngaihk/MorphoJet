@@ -62,10 +62,11 @@ def main() -> int:
     parity_json = base_dir / "parity.json"
     workflow_bridge_md = base_dir / "workflow_bridge.md"
     workflow_bridge_json = base_dir / "workflow_bridge.json"
+    handoff_trial_md = base_dir / "handoff_trial.md"
+    handoff_trial_json = base_dir / "handoff_trial.json"
     impact_md = base_dir / "impact.md"
     impact_json = base_dir / "impact.json"
     cp_long = cp_dir / "Objects.long.csv"
-    mj_wide = mj_dir / "Cells.wide.csv"
 
     prepare_command = [
         "python3",
@@ -178,28 +179,14 @@ def main() -> int:
     run(
         [
             "python3",
-            "benchmark/materialize_morphojet_cellprofiler_wide.py",
-            "--objects",
-            str(mj_dir / "Objects.csv"),
-            "--object-set",
-            "Cells",
-            "--channels",
-            "Intensity",
-            "--out",
-            str(mj_wide),
-        ]
-    )
-    run(
-        [
-            "python3",
-            "benchmark/compare_cellprofiler_wide_subset.py",
-            str(cp_dir / "Cells.csv"),
-            str(mj_wide),
-            "--out",
-            str(workflow_bridge_md),
-            "--json-out",
-            str(workflow_bridge_json),
-            "--fail-on-gap",
+            "benchmark/run_handoff_trial.py",
+            "benchmark/handoff/cellbindb_supported_columns.json",
+            "--var",
+            f"base_dir={base_dir}",
+            "--out-json",
+            str(handoff_trial_json),
+            "--out-md",
+            str(handoff_trial_md),
         ]
     )
     rows = args.limit if args.limit is not None else 1044
@@ -225,6 +212,7 @@ def main() -> int:
     print(f"summary: {summary_json}")
     print(f"parity: {parity_md}")
     print(f"workflow_bridge: {workflow_bridge_md}")
+    print(f"handoff_trial: {handoff_trial_md}")
     print(f"impact: {impact_md}")
     return 0
 

@@ -1,0 +1,33 @@
+{
+  "trial_id": "cellbindb-supported-columns-handoff",
+  "description": "L4-preflight handoff trial for CellBinDB using MorphoJet's supported CellProfiler-style wide object CSV subset.",
+  "morphojet_objects_csv": "{base_dir}/morphojet/Objects.csv",
+  "exports": [
+    {
+      "name": "Cells",
+      "object_set": "Cells",
+      "channels": ["Intensity"],
+      "out_csv": "{base_dir}/morphojet/Cells.wide.csv",
+      "expected_cellprofiler_csv": "{base_dir}/cellprofiler/Cells.csv",
+      "comparison_report": "{base_dir}/workflow_bridge.md",
+      "comparison_json": "{base_dir}/workflow_bridge.json"
+    }
+  ],
+  "downstream_checks": [
+    {
+      "name": "Validate Cells wide CSV downstream contract",
+      "command": [
+        "python3",
+        "benchmark/check_cellprofiler_wide_contract.py",
+        "{base_dir}/morphojet/Cells.wide.csv",
+        "--channels",
+        "Intensity",
+        "--min-rows",
+        "100000",
+        "--json-out",
+        "{base_dir}/handoff_contract.json"
+      ],
+      "artifacts": ["{base_dir}/handoff_contract.json"]
+    }
+  ]
+}

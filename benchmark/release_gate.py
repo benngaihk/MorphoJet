@@ -135,6 +135,44 @@ def validate_workflow_bridge_artifacts() -> Gate:
     )
 
 
+def validate_handoff_trial_artifacts() -> Gate:
+    started = time.perf_counter()
+    try:
+        trial = load_json(ROOT / "benchmark/results/cellbindb/oracle-full/handoff_trial.json")
+        contract = load_json(ROOT / "benchmark/results/cellbindb/oracle-full/handoff_contract.json")
+        failures = []
+        if trial.get("status") != "PASS":
+            failures.append(f"trial status is {trial.get('status')}")
+        steps = trial.get("steps") or []
+        if not steps:
+            failures.append("trial has no steps")
+        failed_steps = [step.get("name", "<unnamed>") for step in steps if step.get("status") != "PASS"]
+        if failed_steps:
+            failures.append(f"failed trial steps={','.join(failed_steps)}")
+        if contract.get("status") != "PASS":
+            failures.append(f"contract status is {contract.get('status')}")
+        if contract.get("rows") != 107936:
+            failures.append(f"contract rows={contract.get('rows')}")
+        if contract.get("missing_columns"):
+            failures.append(f"missing contract columns={','.join(contract.get('missing_columns', []))}")
+        status = "FAIL" if failures else "PASS"
+        detail = "; ".join(failures) if failures else (
+            "CellBinDB handoff trial PASS: "
+            f"steps={len(steps)}, rows={contract.get('rows')}, "
+            f"columns={contract.get('columns')}"
+        )
+    except Exception as exc:  # noqa: BLE001 - report exact release gate failure.
+        status = "FAIL"
+        detail = f"{type(exc).__name__}: {exc}"
+    return Gate(
+        name="Validate CellBinDB handoff trial artifacts",
+        command=None,
+        status=status,
+        elapsed_seconds=time.perf_counter() - started,
+        detail=detail,
+    )
+
+
 def render_markdown(gates: list[Gate], out_json: Path) -> str:
     status = "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL"
     lines = [
@@ -187,6 +225,7 @@ def main() -> int:
         gates.append(run_command("Run CellBinDB L3 benchmark", ["python3", "benchmark/run_cellbindb_oracle.py", "--threads", "8"]))
     gates.append(validate_l3_artifacts())
     gates.append(validate_workflow_bridge_artifacts())
+    gates.append(validate_handoff_trial_artifacts())
 
     payload = {
         "status": "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL",

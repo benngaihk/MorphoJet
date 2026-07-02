@@ -36,7 +36,7 @@ MorphoJet must not compete on "most features" in M0. The useful wedge is narrowe
 | L3 | >=1k image CellProfiler benchmark passes speed/RSS gates | "10x faster on this reproducible CellProfiler benchmark." |
 | L4 | External lab dataset and workflow replacement passes | "Useful for real batch measurement workflows." |
 
-Current status: **L0 and L1 complete; L2 complete on ExampleHuman; L3 complete on the CellBinDB direct-mask benchmark; L4 has a supported-column CSV bridge PASS, but external workflow fit is not yet achieved.**
+Current status: **L0 and L1 complete; L2 complete on ExampleHuman; L3 complete on the CellBinDB direct-mask benchmark; L4 has a supported-column handoff preflight PASS, but external workflow fit is not yet achieved.**
 
 ## Stop Conditions
 

@@ -174,36 +174,37 @@ Current full L3 result:
 - Object rows: 107,936.
 - Object count parity: 100%.
 - Core numeric parity: 100%.
-- Wall-clock speedup: 696.80x.
-- Peak RSS ratio: 11.72%.
+- Wall-clock speedup: 707.94x.
+- Peak RSS ratio: 11.65%.
 - Artifact: `benchmark/results/cellbindb/oracle-full/impact.md`.
 
 ## L4 Package: Workflow Fit
 
-The first workflow-fit bridge is a CellProfiler-style object CSV materializer for MorphoJet output:
+The first workflow-fit preflight is a manifest-driven handoff trial for MorphoJet output:
 
 ```bash
-python3 benchmark/materialize_morphojet_cellprofiler_wide.py \
-  --objects benchmark/results/cellbindb/oracle-full/morphojet/Objects.csv \
-  --object-set Cells \
-  --channels Intensity \
-  --out benchmark/results/cellbindb/oracle-full/morphojet/Cells.wide.csv
-
-python3 benchmark/compare_cellprofiler_wide_subset.py \
-  benchmark/results/cellbindb/oracle-full/cellprofiler/Cells.csv \
-  benchmark/results/cellbindb/oracle-full/morphojet/Cells.wide.csv \
-  --out benchmark/results/cellbindb/oracle-full/workflow_bridge.md \
-  --json-out benchmark/results/cellbindb/oracle-full/workflow_bridge.json \
-  --fail-on-gap
+python3 benchmark/run_handoff_trial.py benchmark/handoff/cellbindb_supported_columns.json \
+  --var base_dir=benchmark/results/cellbindb/oracle-full \
+  --out-json benchmark/results/cellbindb/oracle-full/handoff_trial.json \
+  --out-md benchmark/results/cellbindb/oracle-full/handoff_trial.md
 ```
 
-Current bridge result:
+The CellBinDB preflight manifest runs three no-manual-edit steps:
+
+1. Materialize MorphoJet `Objects.csv` into `Cells.wide.csv`.
+2. Compare supported wide columns against CellProfiler `Cells.csv`.
+3. Validate the downstream CSV contract with `benchmark/check_cellprofiler_wide_contract.py`.
+
+Current handoff preflight result:
 
 - Rows: 107,936 CellProfiler rows and 107,936 MorphoJet wide rows.
 - Compared columns: 21.
 - Numeric comparisons: 2,266,656.
 - Numeric failures: 0.
 - Ignored CellProfiler columns: 29 unsupported columns are reported as out of scope.
+- Contract columns: 23 required columns.
+- Duplicate keys: 0.
+- Empty keys: 0.
 
 Pass condition for full L4 remains stricter: an external lab batch workflow must consume MorphoJet's input table and CellProfiler-style CSV outputs without manual CSV editing.
 

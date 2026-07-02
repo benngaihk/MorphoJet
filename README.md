@@ -88,6 +88,15 @@ Validate the supported wide columns against a CellProfiler object CSV with:
 python3 benchmark/compare_cellprofiler_wide_subset.py CellProfiler/Cells.csv measurements/Cells.wide.csv --fail-on-gap
 ```
 
+For a no-manual-CSV-edit handoff preflight, run a manifest-driven trial:
+
+```bash
+python3 benchmark/run_handoff_trial.py benchmark/handoff/cellbindb_supported_columns.json \
+  --var base_dir=benchmark/results/cellbindb/oracle-full \
+  --out-json benchmark/results/cellbindb/oracle-full/handoff_trial.json \
+  --out-md benchmark/results/cellbindb/oracle-full/handoff_trial.md
+```
+
 ## Parity Report
 
 ```bash
@@ -115,4 +124,4 @@ Current validation results are summarized in [docs/VALIDATION_RESULTS.md](docs/V
 
 The CellProfiler oracle validation checklist is in [docs/ORACLE_VALIDATION.md](docs/ORACLE_VALIDATION.md).
 
-Production-readiness gates are tracked in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). MorphoJet has a passing L3 public direct-mask benchmark, but should not be described as production-ready until release validation and external workflow-fit gates pass.
+Production-readiness gates are tracked in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). MorphoJet has a passing L3 public direct-mask benchmark and an L4-preflight handoff harness, but should not be described as production-ready until release validation and an external workflow-fit trial pass.
