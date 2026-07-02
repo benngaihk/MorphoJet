@@ -39,6 +39,7 @@ Updated: 2026-07-01
 - Impact gate report can derive parity metrics from parity JSON.
 - Public CellProfiler examples candidate catalog and fetch script.
 - `example-human` CellProfiler candidate fetch preflight: 3 CC-0 TIFF images and pipeline materialized, but still not direct M0 oracle because masks are not provided.
+- CellProfiler pipeline inspector for identifying measured objects and missing label exports.
 
 ## Verified Locally
 

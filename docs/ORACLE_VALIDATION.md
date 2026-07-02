@@ -28,6 +28,17 @@ Verified local preflight:
 - Its README states the images are CC-0.
 - It remains `m0_status=not_direct` because the pipeline identifies objects internally and does not ship label masks.
 
+Inspect a CellProfiler pipeline for M0 readiness:
+
+```bash
+python3 benchmark/inspect_cellprofiler_pipeline.py \
+  benchmark/data/cellprofiler/prepared/ExampleHuman/ExampleHuman.cppipe \
+  --md-out benchmark/results/cellprofiler/example-human-inspection.md \
+  --json-out benchmark/results/cellprofiler/example-human-inspection.json
+```
+
+For `ExampleHuman`, the inspector finds measured objects `Nuclei`, `PH3`, `Cells`, and `Cytoplasm`; all currently need label-image export before MorphoJet can run a fair M0 oracle comparison.
+
 ## L2 Package: Correctness
 
 Required files:
