@@ -15,6 +15,23 @@ The tracked candidate catalog is `benchmark/cellprofiler/candidates.json`.
 
 Current finding: official CellProfiler examples provide public images and measurement pipelines, but the inspected candidates segment objects inside CellProfiler and do not provide pre-existing label masks. They are useful public oracle candidates only after a mask-export bridge is added, or after a separate public label-mask dataset is selected.
 
+Scan the local pinned examples checkout for measured objects, image counts, and missing label exports:
+
+```bash
+python3 benchmark/scan_cellprofiler_examples.py \
+  --repo-dir benchmark/data/cellprofiler/examples-repo \
+  --md-out benchmark/results/cellprofiler/examples-scan.md \
+  --json-out benchmark/results/cellprofiler/examples-scan.json
+```
+
+Latest local scan summary:
+
+- 21 pipelines scanned.
+- 408 total raw image files across the official examples checkout.
+- Best rough image-row upper bound: 90 rows (`ExampleImagingFlowCytometryObjectsInGrid`).
+- Largest measured-object candidate by raw images: `ExampleTrackObjects`, 63 raw images and 1 measured object set.
+- Conclusion: the official examples are enough for L2 correctness smoke/parity work, but not enough to prove L3 >=1,000 image-row performance/RSS. L3 needs a larger public corpus such as Cell Painting/JUMP or a separately licensed mask dataset.
+
 Fetch a pinned candidate for inspection:
 
 ```bash
@@ -63,16 +80,16 @@ After label masks are exported, build a MorphoJet image table with paired image/
 ```bash
 python3 benchmark/convert_npy_masks_to_tiff.py \
   --base-dir benchmark/results/cellprofiler-run-426-npy \
-  --out-dir benchmark/results/cellprofiler-run-426-labels
+  --out-dir benchmark/results/cellprofiler-run-426-labels-tiff
 
 python3 benchmark/build_oracle_image_table.py \
   --base-dir . \
   --bridge-json benchmark/results/cellprofiler/example-human-masks.json \
-  --channel DNA 'benchmark/data/cellprofiler/prepared/ExampleHuman/images/*d0.tif' '(.+)_d0\\.tif$' \
-  --channel PH3 'benchmark/data/cellprofiler/prepared/ExampleHuman/images/*d1.tif' '(.+)_d1\\.tif$' \
-  --mask-glob-template 'benchmark/results/cellprofiler/morphojet_masks/{safe_name}/*_MorphoJetMask_{safe_name}.tif' \
-  --mask-key-regex-template '(.+)_d0_MorphoJetMask_{safe_name}\\.tif$' \
-  --out benchmark/cellprofiler/images.csv
+  --channel DNA 'benchmark/data/cellprofiler/prepared/ExampleHuman/images/*d0.tif' '(.+)d0\\.tif$' \
+  --channel PH3 'benchmark/data/cellprofiler/prepared/ExampleHuman/images/*d1.tif' '(.+)d1\\.tif$' \
+  --mask-glob-template 'benchmark/results/cellprofiler-run-426-labels-tiff/morphojet_masks/{safe_name}/*_MorphoJetMask_{safe_name}.tif' \
+  --mask-key-regex-template '(.+)d0_MorphoJetMask_{safe_name}\\.tif$' \
+  --out benchmark/results/cellprofiler-run-426-labels-tiff/morphojet-images.csv
 ```
 
 Use `benchmark/build_image_table.py` only for single-object, single-channel ad hoc fixtures.

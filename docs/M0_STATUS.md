@@ -79,6 +79,7 @@ Latest M0 oracle gate verification:
 - ExampleHuman parity now passes: 1734 expected rows, 1734 actual rows, 0 row/schema gaps, 0 numeric failures.
 - ExampleHuman oracle smoke runner captures CellProfiler Docker metrics and MorphoJet release metrics end-to-end.
 - ExampleHuman L3 smoke report: scale FAIL at 6 image rows, object parity PASS at 100%, numeric parity PASS at 100%, speedup PASS at 196.74x, RSS ratio PASS at 6.89%.
+- Local CellProfiler examples scan is tool-backed: 21 pipelines, 408 raw image files total, best rough image-row upper bound 90, so official examples alone cannot prove L3 scale.
 
 ## Not Yet Achieved
 
