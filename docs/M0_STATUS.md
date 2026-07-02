@@ -90,7 +90,7 @@ Latest M0 oracle gate verification:
 
 - Manifest-driven bridge-aware pinned CellProfiler oracle parity run.
 - Public tutorial or Cell Painting corpus.
-- Nightly or release validation job for the 1k real/public CellProfiler benchmark.
+- Scheduled/nightly validation job for the 1k real/public CellProfiler benchmark.
 - Broader CellProfiler coordinate and shape formula parity beyond ExampleHuman.
 - L4 external lab workflow replacement evidence.
 - Production release validation using the L3 benchmark artifacts.
@@ -99,6 +99,7 @@ Latest M0 oracle gate verification:
 
 The next gate toward production readiness is no longer L3 evidence; it is repeatability and L4 workflow fit:
 
-- Promote the CellBinDB full benchmark into release/nightly validation.
+- Run `python3 benchmark/run_cellbindb_oracle.py --threads 8` before release candidates.
+- Promote the CellBinDB full benchmark into scheduled/nightly validation.
 - Run an external lab workflow trial with real handoff files.
 - Broaden compatibility beyond the current measurement subset.

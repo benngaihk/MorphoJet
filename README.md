@@ -89,4 +89,4 @@ Current validation results are summarized in [docs/VALIDATION_RESULTS.md](docs/V
 
 The CellProfiler oracle validation checklist is in [docs/ORACLE_VALIDATION.md](docs/ORACLE_VALIDATION.md).
 
-Production-readiness gates are tracked in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). MorphoJet should be treated as an M0 candidate until those gates pass.
+Production-readiness gates are tracked in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). MorphoJet has a passing L3 public direct-mask benchmark, but should not be described as production-ready until release validation and external workflow-fit gates pass.

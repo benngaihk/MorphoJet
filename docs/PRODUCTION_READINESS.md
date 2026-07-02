@@ -24,13 +24,13 @@ Production-grade means:
 | Performance | Synthetic regression benchmark plus real CellProfiler benchmark | L3 CellBinDB benchmark PASS: 673.38x speedup, 14.92% RSS ratio |
 | Observability | Clear stderr summary, actionable error context, and runtime diagnostics | Runtime `doctor` implemented; richer structured logs pending |
 | Release | GitHub release workflow and checksums | Implemented for tagged macOS/Linux builds |
-| Documentation | Supported inputs, unsupported scope, parity gaps, and production caveats documented | In progress |
+| Documentation | Supported inputs, unsupported scope, parity gaps, and production caveats documented | L3 evidence documented; L4 workflow caveats remain |
 
 ## Production Hardening Backlog
 
 Priority order:
 
-1. Promote the CellBinDB L3 command into repeatable release or nightly validation.
+1. Run `python3 benchmark/run_cellbindb_oracle.py --threads 8` before release candidates.
 2. Run an external lab workflow trial against real batch handoff files.
 3. Broaden the supported measurement subset beyond the current intensity and size/shape columns.
 

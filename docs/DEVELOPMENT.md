@@ -61,6 +61,8 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
+Before cutting a release candidate, run `python3 benchmark/run_cellbindb_oracle.py --threads 8`. It uses the pinned CellBinDB archive, runs the full CellProfiler oracle benchmark, and writes parity, impact, and metrics artifacts.
+
 ## Parity Report Smoke
 
 ```bash
