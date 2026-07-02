@@ -4,7 +4,7 @@ Updated: 2026-07-02
 
 ## L2 ExampleHuman Oracle Snapshot
 
-This is the first real CellProfiler oracle run. It proves row/schema alignment on a pinned public example, but it does not yet pass the L2 correctness gate.
+This is the first real CellProfiler oracle run. It passes the L2 correctness gate for the current measurement subset on a pinned public example.
 
 Environment:
 
@@ -13,7 +13,7 @@ Environment:
 - Dataset: `ExampleHuman`, 1 image set, CC-0 per upstream README
 - Objects: `Cells`, `Cytoplasm`, `Nuclei`
 - Channels compared: `DNA`, `PH3`
-- MorphoJet commit under test: local run after `fa37e71`
+- MorphoJet commit under test: local run after `4c8313a` plus local parity fixes
 
 Artifacts:
 
@@ -33,8 +33,8 @@ Result:
 | Missing columns | 0 |
 | Extra columns | 0 |
 | Numeric compared | 29478 |
-| Numeric failures | 3653 |
-| Status | FAIL |
+| Numeric failures | 0 |
+| Status | PASS |
 
 Passing columns:
 
@@ -48,20 +48,23 @@ Passing columns:
 - `Intensity_MinIntensity`
 - `Intensity_MaxIntensity`
 - `Intensity_MeanIntensity`
+- `Intensity_MedianIntensity`
 - `Intensity_IntegratedIntensity`
+- `AreaShape_Perimeter`
 - `AreaShape_Eccentricity`
 - `AreaShape_MajorAxisLength`
 - `AreaShape_MinorAxisLength`
+- `AreaShape_Solidity`
 
-Remaining mismatches:
+Max residual numeric differences are floating-point noise only:
 
-| Column | Failures | Max Abs | Max Rel |
-|---|---:|---:|---:|
-| `Intensity_MedianIntensity` | 185 | 0.013725500786318956 | 0.013725500786318956 |
-| `AreaShape_Perimeter` | 1734 | 134.04058453981608 | 0.5 |
-| `AreaShape_Solidity` | 1734 | 0.08254269446774187 | 0.08254269446774187 |
+| Column | Max Abs | Max Rel |
+|---|---:|---:|
+| `Intensity_IntegratedIntensity` | 0.000003457300295 | 0.00000004176837204 |
+| `AreaShape_MajorAxisLength` | 0.00000000006598988023 | 0.000000000006470431086 |
+| `AreaShape_Solidity` | 0.00000000004982936286 | 0.00000000004982936286 |
 
-Conclusion: L2 is not passed yet. The next compatibility work is exact CellProfiler median, perimeter, and solidity behavior.
+Conclusion: L2 passes for ExampleHuman and the current measurement subset. Production-grade status remains unproven until L3 performance/RSS and a larger public corpus pass.
 
 ## L1 Synthetic Scale Benchmark
 

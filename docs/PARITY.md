@@ -11,13 +11,12 @@ This file is the public compatibility ledger. Do not claim full parity from benc
 | Area | FIX | Counts pixels per label. |
 | Centroid | FIX | ExampleHuman oracle matches CellProfiler within tolerance. |
 | Bounding box | FIX | Writes CellProfiler-style exclusive maximum X/Y bounds. |
-| Intensity min/max/mean/integrated | FIX | Normalizes grayscale 8-bit and 16-bit image intensities to CellProfiler's 0-1 measurement scale. |
-| Intensity median | GAP | ExampleHuman has 185 median mismatches; CellProfiler median handling needs exact replication. |
+| Intensity min/max/mean/median/integrated | FIX | Normalizes grayscale 8-bit and 16-bit image intensities to CellProfiler's 0-1 measurement scale and uses CellProfiler's quantile interpolation for median. |
 | 32-bit float label masks | GAP | Not supported yet; M0 starter expects 8-bit or 16-bit label masks. |
 | Normalized CSV comparison | FIX | `tests/parity/normalize_measurements.py` and `tests/parity/compare_measurements.py` provide deterministic parity reports. |
-| Perimeter | GAP | Current value is a 4-neighbor boundary-edge approximation. |
+| Perimeter | FIX | Matches scikit-image 0.18.3 / CellProfiler 4.2.6 4-neighborhood perimeter lookup weights. |
 | Eccentricity and axis lengths | FIX | ExampleHuman oracle matches CellProfiler within tolerance. |
-| Solidity | GAP | Implemented as area divided by convex hull area over pixel square corners; CellProfiler formula and tolerance need oracle comparison. |
+| Solidity | FIX | Matches scikit-image 0.18.3 convex-hull-image pixel count behavior on ExampleHuman. |
 
 ## Default Numeric Tolerance
 

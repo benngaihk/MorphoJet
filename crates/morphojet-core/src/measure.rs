@@ -41,7 +41,7 @@ pub struct ObjectMeasurement {
     pub intensity_mean: f64,
     pub intensity_median: f64,
     pub intensity_integrated: f64,
-    pub perimeter: u64,
+    pub perimeter: f64,
     pub eccentricity: f64,
     pub major_axis_length: f64,
     pub minor_axis_length: f64,
@@ -65,8 +65,7 @@ struct ObjectAccumulator {
     intensity_max: f64,
     intensity_sum: f64,
     intensity_values: Vec<f64>,
-    perimeter: u64,
-    points: Vec<Point>,
+    pixels: Vec<(u32, u32)>,
 }
 
 impl ObjectAccumulator {
@@ -87,12 +86,11 @@ impl ObjectAccumulator {
             intensity_max: intensity,
             intensity_sum: 0.0,
             intensity_values: Vec::new(),
-            perimeter: 0,
-            points: Vec::new(),
+            pixels: Vec::new(),
         }
     }
 
-    fn add_pixel(&mut self, x: u32, y: u32, intensity: f64, boundary_edges: u64) {
+    fn add_pixel(&mut self, x: u32, y: u32, intensity: f64) {
         let xf = x as f64;
         let yf = y as f64;
         self.area += 1;
@@ -109,8 +107,7 @@ impl ObjectAccumulator {
         self.intensity_max = self.intensity_max.max(intensity);
         self.intensity_sum += intensity;
         self.intensity_values.push(intensity);
-        self.perimeter += boundary_edges;
-        self.points.extend(pixel_corners(xf, yf));
+        self.pixels.push((x, y));
     }
 
     fn finish(
@@ -131,7 +128,21 @@ impl ObjectAccumulator {
             self.sum_y2 / area - centroid_y * centroid_y,
             self.sum_xy / area - centroid_x * centroid_y,
         );
-        let solidity = solidity(area, &self.points);
+        let solidity = skimage_solidity(
+            area,
+            &self.pixels,
+            self.bbox_min_x,
+            self.bbox_min_y,
+            self.bbox_max_x,
+            self.bbox_max_y,
+        );
+        let perimeter = skimage_perimeter_4(
+            &self.pixels,
+            self.bbox_min_x,
+            self.bbox_min_y,
+            self.bbox_max_x,
+            self.bbox_max_y,
+        );
 
         ObjectMeasurement {
             image_number,
@@ -150,7 +161,7 @@ impl ObjectAccumulator {
             intensity_mean: mean,
             intensity_median: median,
             intensity_integrated: self.intensity_sum,
-            perimeter: self.perimeter,
+            perimeter,
             eccentricity,
             major_axis_length,
             minor_axis_length,
@@ -192,11 +203,10 @@ pub fn measure_row(row: &ImageTableRow) -> Result<MeasureResult> {
                 continue;
             }
             let value = intensity[idx];
-            let boundary_edges = boundary_edges(&labels, width, height, x, y, label);
             objects
                 .entry(label)
                 .or_insert_with(|| ObjectAccumulator::new(label, x, y, value))
-                .add_pixel(x, y, value, boundary_edges);
+                .add_pixel(x, y, value);
         }
     }
 
@@ -269,34 +279,89 @@ fn load_labels(row: &ImageTableRow) -> Result<(Vec<u32>, u32, u32)> {
     Ok((labels, width, height))
 }
 
-fn boundary_edges(labels: &[u32], width: u32, height: u32, x: u32, y: u32, label: u32) -> u64 {
-    let mut edges = 0;
-    let neighbors = [
-        (x.checked_sub(1), Some(y)),
-        (x.checked_add(1).filter(|nx| *nx < width), Some(y)),
-        (Some(x), y.checked_sub(1)),
-        (Some(x), y.checked_add(1).filter(|ny| *ny < height)),
-    ];
-    for (nx, ny) in neighbors {
-        match (nx, ny) {
-            (Some(nx), Some(ny)) => {
-                let neighbor_idx = (ny * width + nx) as usize;
-                if labels[neighbor_idx] != label {
-                    edges += 1;
-                }
-            }
-            _ => edges += 1,
-        }
+fn median(values: &[f64]) -> f64 {
+    let len = values.len();
+    if len == 0 {
+        return f64::NAN;
     }
-    edges
+    let qindex = len as f64 * 0.5;
+    let lower = qindex.floor() as usize;
+    let fraction = qindex - lower as f64;
+    if lower < len - 1 {
+        values[lower] * (1.0 - fraction) + values[lower + 1] * fraction
+    } else {
+        values[lower]
+    }
 }
 
-fn median(values: &[f64]) -> f64 {
-    match values.len() {
-        0 => f64::NAN,
-        len if len % 2 == 1 => values[len / 2],
-        len => (values[len / 2 - 1] + values[len / 2]) / 2.0,
+fn skimage_perimeter_4(
+    pixels: &[(u32, u32)],
+    bbox_min_x: u32,
+    bbox_min_y: u32,
+    bbox_max_x: u32,
+    bbox_max_y: u32,
+) -> f64 {
+    let width = (bbox_max_x - bbox_min_x + 1) as usize;
+    let height = (bbox_max_y - bbox_min_y + 1) as usize;
+    let mut image = vec![false; width * height];
+    for &(x, y) in pixels {
+        let local_x = (x - bbox_min_x) as usize;
+        let local_y = (y - bbox_min_y) as usize;
+        image[local_y * width + local_x] = true;
     }
+
+    let mut border = vec![false; width * height];
+    for y in 0..height {
+        for x in 0..width {
+            let idx = y * width + x;
+            if !image[idx] {
+                continue;
+            }
+            let eroded = x > 0
+                && x + 1 < width
+                && y > 0
+                && y + 1 < height
+                && image[idx - 1]
+                && image[idx + 1]
+                && image[idx - width]
+                && image[idx + width];
+            border[idx] = !eroded;
+        }
+    }
+
+    let sqrt_2 = std::f64::consts::SQRT_2;
+    let mut total = 0.0;
+    for y in 0..height {
+        for x in 0..width {
+            let mut code = 0usize;
+            for (dx, dy, weight) in [
+                (-1isize, -1isize, 10usize),
+                (0, -1, 2),
+                (1, -1, 10),
+                (-1, 0, 2),
+                (0, 0, 1),
+                (1, 0, 2),
+                (-1, 1, 10),
+                (0, 1, 2),
+                (1, 1, 10),
+            ] {
+                let nx = x.checked_add_signed(dx);
+                let ny = y.checked_add_signed(dy);
+                if let (Some(nx), Some(ny)) = (nx, ny) {
+                    if nx < width && ny < height && border[ny * width + nx] {
+                        code += weight;
+                    }
+                }
+            }
+            total += match code {
+                5 | 7 | 15 | 17 | 25 | 27 => 1.0,
+                21 | 33 => sqrt_2,
+                13 | 23 => (1.0 + sqrt_2) / 2.0,
+                _ => 0.0,
+            };
+        }
+    }
+    total
 }
 
 fn axis_features(var_x: f64, var_y: f64, cov_xy: f64) -> (f64, f64, f64) {
@@ -314,39 +379,34 @@ fn axis_features(var_x: f64, var_y: f64, cov_xy: f64) -> (f64, f64, f64) {
     (major_axis_length, minor_axis_length, eccentricity)
 }
 
-fn solidity(area: f64, points: &[Point]) -> f64 {
-    let hull_area = convex_hull_area(points);
-    if hull_area <= f64::EPSILON {
+fn skimage_solidity(
+    area: f64,
+    pixels: &[(u32, u32)],
+    bbox_min_x: u32,
+    bbox_min_y: u32,
+    bbox_max_x: u32,
+    bbox_max_y: u32,
+) -> f64 {
+    let hull_area = convex_hull_pixel_count(pixels, bbox_min_x, bbox_min_y, bbox_max_x, bbox_max_y);
+    if hull_area == 0 {
         1.0
     } else {
-        (area / hull_area).clamp(0.0, 1.0)
+        (area / hull_area as f64).clamp(0.0, 1.0)
     }
 }
 
-fn pixel_corners(x: f64, y: f64) -> [Point; 4] {
+fn pixel_diamond_points(x: f64, y: f64) -> [Point; 4] {
     [
-        Point {
-            x: x - 0.5,
-            y: y - 0.5,
-        },
-        Point {
-            x: x + 0.5,
-            y: y - 0.5,
-        },
-        Point {
-            x: x + 0.5,
-            y: y + 0.5,
-        },
-        Point {
-            x: x - 0.5,
-            y: y + 0.5,
-        },
+        Point { x, y: y - 0.5 },
+        Point { x: x - 0.5, y },
+        Point { x: x + 0.5, y },
+        Point { x, y: y + 0.5 },
     ]
 }
 
-fn convex_hull_area(points: &[Point]) -> f64 {
+fn convex_hull(points: &[Point]) -> Vec<Point> {
     if points.len() < 3 {
-        return 0.0;
+        return points.to_vec();
     }
 
     let mut points = points.to_vec();
@@ -358,7 +418,7 @@ fn convex_hull_area(points: &[Point]) -> f64 {
     points.dedup_by(|left, right| left.x == right.x && left.y == right.y);
 
     if points.len() < 3 {
-        return 0.0;
+        return points;
     }
 
     let mut lower = Vec::new();
@@ -383,22 +443,121 @@ fn convex_hull_area(points: &[Point]) -> f64 {
 
     lower.pop();
     upper.pop();
-    let hull = lower.into_iter().chain(upper).collect::<Vec<_>>();
-    polygon_area(&hull)
+    lower.into_iter().chain(upper).collect::<Vec<_>>()
+}
+
+fn convex_hull_pixel_count(
+    pixels: &[(u32, u32)],
+    bbox_min_x: u32,
+    bbox_min_y: u32,
+    bbox_max_x: u32,
+    bbox_max_y: u32,
+) -> u64 {
+    if pixels.is_empty() {
+        return 0;
+    }
+    let mut points = Vec::with_capacity(pixels.len() * 4);
+    for &(x, y) in pixels {
+        let local_x = (x - bbox_min_x) as f64;
+        let local_y = (y - bbox_min_y) as f64;
+        points.extend(pixel_diamond_points(local_x, local_y));
+    }
+    let hull = convex_hull(&points);
+    if hull.len() < 3 {
+        return pixels.len() as u64;
+    }
+
+    let width = bbox_max_x - bbox_min_x + 1;
+    let height = bbox_max_y - bbox_min_y + 1;
+    let mut count = 0;
+    for y in 0..height {
+        for x in 0..width {
+            if point_in_convex_polygon(
+                Point {
+                    x: x as f64,
+                    y: y as f64,
+                },
+                &hull,
+            ) {
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
+fn point_in_convex_polygon(point: Point, polygon: &[Point]) -> bool {
+    let mut has_positive = false;
+    let mut has_negative = false;
+    const TOLERANCE: f64 = 1e-10;
+    for idx in 0..polygon.len() {
+        let left = polygon[idx];
+        let right = polygon[(idx + 1) % polygon.len()];
+        let value = cross(left, right, point);
+        if value > TOLERANCE {
+            has_positive = true;
+        } else if value < -TOLERANCE {
+            has_negative = true;
+        }
+        if has_positive && has_negative {
+            return false;
+        }
+    }
+    true
 }
 
 fn cross(origin: Point, a: Point, b: Point) -> f64 {
     (a.x - origin.x) * (b.y - origin.y) - (a.y - origin.y) * (b.x - origin.x)
 }
 
-fn polygon_area(points: &[Point]) -> f64 {
-    if points.len() < 3 {
-        return 0.0;
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn close(left: f64, right: f64) {
+        assert!((left - right).abs() < 1e-12, "left={left} right={right}");
     }
-    let mut area = 0.0;
-    for idx in 0..points.len() {
-        let next = (idx + 1) % points.len();
-        area += points[idx].x * points[next].y - points[next].x * points[idx].y;
+
+    #[test]
+    fn median_matches_cellprofiler_quantile_interpolation() {
+        close(median(&[1.0]), 1.0);
+        close(median(&[1.0, 3.0]), 3.0);
+        close(median(&[1.0, 3.0, 5.0]), 4.0);
+        close(median(&[1.0, 3.0, 5.0, 7.0]), 5.0);
     }
-    area.abs() / 2.0
+
+    #[test]
+    fn perimeter_matches_skimage_0183_small_shapes() {
+        close(skimage_perimeter_4(&[(0, 0)], 0, 0, 0, 0), 0.0);
+        close(
+            skimage_perimeter_4(&[(0, 0), (1, 0), (0, 1), (1, 1)], 0, 0, 1, 1),
+            4.0,
+        );
+        close(
+            skimage_perimeter_4(&[(0, 0), (1, 0), (2, 0)], 0, 0, 2, 0),
+            1.0,
+        );
+        close(
+            skimage_perimeter_4(&[(0, 0), (0, 1), (1, 1)], 0, 0, 1, 1),
+            2.0 + std::f64::consts::SQRT_2,
+        );
+    }
+
+    #[test]
+    fn solidity_matches_skimage_0183_convex_hull_image_count() {
+        let u_shape = [(0, 0), (2, 0), (0, 1), (1, 1), (2, 1)];
+        close(skimage_solidity(5.0, &u_shape, 0, 0, 2, 1), 5.0 / 6.0);
+
+        let concave = [
+            (0, 0),
+            (1, 0),
+            (2, 0),
+            (0, 1),
+            (2, 1),
+            (0, 2),
+            (1, 2),
+            (2, 2),
+        ];
+        close(skimage_solidity(8.0, &concave, 0, 0, 2, 2), 8.0 / 9.0);
+    }
 }

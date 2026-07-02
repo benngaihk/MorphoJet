@@ -76,17 +76,16 @@ Latest M0 oracle gate verification:
 - Docker `cellprofiler/cellprofiler:4.2.6` ran patched ExampleHuman headlessly and exported non-zero NPY label matrices for Cells, Cytoplasm, and Nuclei.
 - Converted ExampleHuman NPY labels to uint16 TIFF; MorphoJet measured 6 image rows and 1734 object rows from those masks.
 - Materialized CellProfiler object CSVs into a long oracle CSV with 1734 rows.
-- ExampleHuman parity now has zero row/schema gaps; remaining numeric failures are median intensity, perimeter, and solidity.
+- ExampleHuman parity now passes: 1734 expected rows, 1734 actual rows, 0 row/schema gaps, 0 numeric failures.
 
 ## Not Yet Achieved
 
 - Manifest-driven pinned CellProfiler oracle parity run.
 - Public tutorial or Cell Painting corpus.
-- Passing CellProfiler CSV parity report.
 - 1k real/public CellProfiler benchmark.
 - 10x speedup claim.
 - Peak RSS comparison.
-- Full CellProfiler coordinate and shape formula parity.
+- Broader CellProfiler coordinate and shape formula parity beyond ExampleHuman.
 - L2-L4 industry-impact evidence.
 - Production release workflow and output-safety hardening.
 

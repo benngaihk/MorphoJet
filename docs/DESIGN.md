@@ -18,10 +18,10 @@ CellProfiler is the oracle. MorphoJet is a measurement-only execution engine for
 - Area.
 - Geometric centroid.
 - Bounding box.
-- Min, max, mean, median, and integrated intensity.
-- 4-neighbor boundary perimeter approximation.
+- Min, max, mean, median, and integrated intensity using CellProfiler-compatible scaling and quantile interpolation.
+- scikit-image / CellProfiler-compatible 4-neighborhood perimeter.
 - Major axis, minor axis, and eccentricity from second central moments.
-- Solidity from object area divided by convex hull area over pixel square corners.
+- Solidity from CellProfiler-compatible convex-hull-image pixel count.
 
 ## Compatibility Notes
 

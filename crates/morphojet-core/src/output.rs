@@ -175,7 +175,7 @@ fn write_object_record(
         format_float(object.intensity_mean),
         format_float(object.intensity_median),
         format_float(object.intensity_integrated),
-        object.perimeter.to_string(),
+        format_float(object.perimeter),
         format_float(object.eccentricity),
         format_float(object.major_axis_length),
         format_float(object.minor_axis_length),
