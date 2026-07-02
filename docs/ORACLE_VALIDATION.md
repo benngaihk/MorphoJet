@@ -174,8 +174,8 @@ Current full L3 result:
 - Object rows: 107,936.
 - Object count parity: 100%.
 - Core numeric parity: 100%.
-- Wall-clock speedup: 673.38x.
-- Peak RSS ratio: 14.92%.
+- Wall-clock speedup: 696.80x.
+- Peak RSS ratio: 11.72%.
 - Artifact: `benchmark/results/cellbindb/oracle-full/impact.md`.
 
 ## L4 Package: Workflow Fit

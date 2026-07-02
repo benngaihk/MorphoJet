@@ -86,7 +86,7 @@ Latest M0 oracle gate verification:
 - CellBinDB preparation script can pair `*-img.tif` with `*-instancemask.tif`, extract selected rows, and write a MorphoJet image table.
 - CellBinDB archive was downloaded locally and MD5 verified; MorphoJet processed the full 1,044-row direct-mask table into 107,936 object rows in 0.879788 seconds with 89.875 MB peak RSS.
 - CellBinDB 8-row CellProfiler oracle smoke passes: 590 expected rows, 590 actual rows, 0 row gaps, 0 numeric failures.
-- CellBinDB full L3 benchmark passes: 1,044 image rows, 107,936 expected rows, 107,936 actual rows, 0 row gaps, 0 numeric failures, 673.38x speedup, 14.92% RSS ratio.
+- CellBinDB full L3 benchmark passes: 1,044 image rows, 107,936 expected rows, 107,936 actual rows, 0 row gaps, 0 numeric failures, 696.80x speedup, 11.72% RSS ratio.
 - CellBinDB workflow bridge passes: 107,936 CellProfiler rows, 107,936 MorphoJet wide rows, 21 compared columns, 2,266,656 numeric comparisons, 0 numeric failures. The comparator records 29 unsupported CellProfiler columns as ignored, not claimed.
 - Release gate script can run code gates and validate or rerun the CellBinDB L3 benchmark plus the workflow bridge artifacts, writing JSON and Markdown reports.
 
