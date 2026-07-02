@@ -42,7 +42,8 @@ Updated: 2026-07-02
 - CellProfiler pipeline inspector for identifying measured objects and missing label exports.
 - Image table materializer for pairing exported label masks with intensity images.
 - Oracle runner now refuses benchmark manifests unless `dataset.m0_status` is explicitly `direct`.
-- CellProfiler mask-export bridge can generate a patched pipeline copy that saves missing measured objects as TIFF labels.
+- CellProfiler mask-export bridge can generate a patched pipeline copy that converts missing measured objects to label matrices and saves `.npy` labels.
+- NPY-to-TIFF converter can turn exported label matrices into MorphoJet-readable uint16 masks.
 - `ObjectSet` is now a first-class image-table, output, and parity key for multi-object pipelines.
 - Multi-channel oracle image-table materializer can combine bridge objects, intensity channels, and emitted masks into one MorphoJet table.
 
@@ -72,10 +73,12 @@ Latest M0 oracle gate verification:
 - `export_cellprofiler_masks.py` patched fixture and ExampleHuman pipelines; inspector accepted both patched copies as M0-ready.
 - Multi-object-set smoke keeps 16 image rows and 64 object rows, with parity keys `ImageNumber,ObjectSet,ObjectNumber,Channel`: PASS.
 - `build_oracle_image_table.py` fixture wrote 8 rows for 2 samples x 2 object sets x 2 channels.
+- Docker `cellprofiler/cellprofiler:4.2.6` ran patched ExampleHuman headlessly and exported non-zero NPY label matrices for Cells, Cytoplasm, and Nuclei.
+- Converted ExampleHuman NPY labels to uint16 TIFF; MorphoJet measured 6 image rows and 1734 object rows from those masks.
 
 ## Not Yet Achieved
 
-- Pinned CellProfiler headless oracle run.
+- Manifest-driven pinned CellProfiler oracle parity run.
 - Public tutorial or Cell Painting corpus.
 - Real CellProfiler CSV parity report.
 - 1k real/public CellProfiler benchmark.

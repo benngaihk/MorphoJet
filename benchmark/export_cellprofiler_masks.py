@@ -15,40 +15,52 @@ def sanitize(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("_") or "Objects"
 
 
-def save_objects_module(module_num: int, object_name: str, base_image: str, mask_subdir: str) -> str:
+def label_export_modules(module_num: int, object_name: str, base_image: str, mask_subdir: str) -> list[str]:
     safe_name = sanitize(object_name)
-    return "\n".join(
+    output_image = f"MorphoJetMask_{safe_name}"
+    convert_module = "\n".join(
+        [
+            (
+                "ConvertObjectsToImage:"
+                f"[module_num:{module_num}|svn_version:'Unknown'|variable_revision_number:1|"
+                "show_window:False|notes:['MorphoJet bridge: convert object labels to uint16 image.']|"
+                "batch_state:array([], dtype=uint8)|enabled:True|wants_pause:False]"
+            ),
+            f"    Select the input objects:{object_name}",
+            f"    Name the output image:{output_image}",
+            "    Select the color format:uint16",
+            "    Select the colormap:Default",
+        ]
+    )
+    save_module = "\n".join(
         [
             (
                 "SaveImages:"
-                f"[module_num:{module_num}|svn_version:'Unknown'|variable_revision_number:15|"
-                "show_window:False|notes:['MorphoJet bridge: save object labels.']|"
+                f"[module_num:{module_num + 1}|svn_version:'Unknown'|variable_revision_number:15|"
+                "show_window:False|notes:['MorphoJet bridge: save object label matrix as npy.']|"
                 "batch_state:array([], dtype=uint8)|enabled:True|wants_pause:False]"
             ),
-            "    Select the type of image to save:Objects",
-            "    Select the image to save:None",
-            f"    Select the objects to save:{object_name}",
-            "    Select the module display window to save:Do not use",
+            "    Select the type of image to save:Image",
+            f"    Select the image to save:{output_image}",
             "    Select method for constructing file names:From image filename",
             f"    Select image name for file prefix:{base_image}",
             f"    Enter single file name:{safe_name}_MorphoJetMask",
             "    Number of digits:4",
             "    Append a suffix to the image file name?:Yes",
             f"    Text to append to the image name:_MorphoJetMask_{safe_name}",
-            "    Saved file format:tif",
+            "    Saved file format:npy",
             f"    Output file location:Default Output Folder sub-folder|{mask_subdir}/{safe_name}",
             "    Image bit depth:16-bit integer",
+            "    Save with lossless compression?:No",
+            "    How to save the series:T (Time)",
             "    Overwrite existing files without warning?:Yes",
             "    When to save:Every cycle",
-            "    Rescale the images?:No",
-            "    Save as grayscale or color image?:Grayscale",
-            "    Select colormap:gray",
             "    Record the file and path information to the saved image?:Yes",
             "    Create subfolders in the output folder?:No",
             "    Base image folder:Default Input Folder|",
-            "    How to save the series:T (Time)",
         ]
     )
+    return [convert_module, save_module]
 
 
 def write_bridge_manifest(
@@ -69,14 +81,21 @@ def write_bridge_manifest(
                 "name": object_name,
                 "safe_name": sanitize(object_name),
                 "suffix": f"_MorphoJetMask_{sanitize(object_name)}",
-                "expected_mask_glob": f"{mask_subdir}/{sanitize(object_name)}/*_MorphoJetMask_{sanitize(object_name)}.tif",
+                "expected_mask_glob": f"{mask_subdir}/{sanitize(object_name)}/*_MorphoJetMask_{sanitize(object_name)}.npy",
             }
             for object_name in objects
         ],
-        "next_step": "Run CellProfiler with patched_pipeline, then build MorphoJet image tables from the emitted TIFF label masks.",
+        "next_step": "Run CellProfiler with patched_pipeline, convert emitted NPY label matrices to uint16 TIFF masks, then build MorphoJet image tables.",
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n")
+
+
+def update_module_count(source_text: str, module_count: int) -> str:
+    updated, replacements = re.subn(r"^ModuleCount:\d+$", f"ModuleCount:{module_count}", source_text, count=1, flags=re.MULTILINE)
+    if replacements != 1:
+        raise SystemExit("pipeline header is missing ModuleCount")
+    return updated
 
 
 def main() -> int:
@@ -103,12 +122,15 @@ def main() -> int:
         base_image = measured_images[0]
 
     max_module_num = max((module.module_num for module in modules), default=0)
-    additions = [
-        save_objects_module(max_module_num + index, object_name, base_image, args.mask_subdir)
-        for index, object_name in enumerate(objects, start=1)
-    ]
+    additions = []
+    next_module_num = max_module_num + 1
+    for object_name in objects:
+        modules_to_add = label_export_modules(next_module_num, object_name, base_image, args.mask_subdir)
+        additions.extend(modules_to_add)
+        next_module_num += len(modules_to_add)
 
     source_text = args.pipeline.read_text(errors="replace").rstrip()
+    source_text = update_module_count(source_text, max_module_num + len(additions))
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(source_text + "\n\n" + "\n\n".join(additions) + "\n")
 

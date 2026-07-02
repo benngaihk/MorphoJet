@@ -10,8 +10,8 @@
     "m0_gap": ""
   },
   "cellprofiler": {
-    "version": "pin exact version here",
-    "docker_image": "cellprofiler/cellprofiler:latest",
+    "version": "4.2.6",
+    "docker_image": "cellprofiler/cellprofiler:4.2.6",
     "pipeline_path": "benchmark/cellprofiler/pipeline.cppipe",
     "output_dir": "benchmark/results/cellprofiler",
     "objects_csv": "benchmark/results/cellprofiler/Objects.csv"

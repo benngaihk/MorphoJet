@@ -39,9 +39,13 @@ python3 benchmark/export_cellprofiler_masks.py \
   --bridge-json benchmark/results/cellprofiler/example-human-masks.json
 ```
 
-After CellProfiler writes the masks, materialize the multi-channel, multi-object-set MorphoJet image table:
+After CellProfiler writes the `.npy` masks, convert them to uint16 TIFF and materialize the multi-channel, multi-object-set MorphoJet image table:
 
 ```bash
+python3 benchmark/convert_npy_masks_to_tiff.py \
+  --base-dir benchmark/results/cellprofiler-run-426-npy \
+  --out-dir benchmark/results/cellprofiler-run-426-labels
+
 python3 benchmark/build_oracle_image_table.py \
   --base-dir . \
   --bridge-json benchmark/results/cellprofiler/example-human-masks.json \

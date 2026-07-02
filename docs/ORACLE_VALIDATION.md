@@ -50,7 +50,7 @@ python3 benchmark/export_cellprofiler_masks.py \
   --bridge-json benchmark/results/cellprofiler/example-human-masks.json
 ```
 
-The bridge does not mutate the public pipeline. It appends `SaveImages` modules for missing measured objects and writes a JSON manifest describing expected mask suffixes. Re-run the inspector against the patched copy:
+The bridge does not mutate the public pipeline. It appends `ConvertObjectsToImage` modules with label-matrix output plus `SaveImages` modules that write `.npy` masks for missing measured objects, then writes a JSON manifest describing expected mask suffixes. Re-run the inspector against the patched copy:
 
 ```bash
 python3 benchmark/inspect_cellprofiler_pipeline.py \
@@ -61,6 +61,10 @@ python3 benchmark/inspect_cellprofiler_pipeline.py \
 After label masks are exported, build a MorphoJet image table with paired image/mask keys:
 
 ```bash
+python3 benchmark/convert_npy_masks_to_tiff.py \
+  --base-dir benchmark/results/cellprofiler-run-426-npy \
+  --out-dir benchmark/results/cellprofiler-run-426-labels
+
 python3 benchmark/build_oracle_image_table.py \
   --base-dir . \
   --bridge-json benchmark/results/cellprofiler/example-human-masks.json \
@@ -88,7 +92,7 @@ Required files:
 Checklist:
 
 1. Copy `benchmark/cellprofiler/manifest.example.json` to a real manifest.
-2. Pin CellProfiler version or Docker image.
+2. Use pinned Docker image `cellprofiler/cellprofiler:4.2.6` unless intentionally updating the oracle baseline.
 3. Select a public image/mask corpus with clear license and download URL.
 4. Run the manifest-driven oracle benchmark:
 

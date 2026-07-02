@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import re
 from pathlib import Path
 
@@ -45,10 +46,7 @@ def parse_metadata(values: list[str]) -> dict[str, str]:
 
 
 def relative(path: Path, base_dir: Path) -> str:
-    try:
-        return str(path.relative_to(base_dir))
-    except ValueError:
-        return str(path)
+    return os.path.relpath(path.resolve(), base_dir.resolve())
 
 
 def main() -> int:

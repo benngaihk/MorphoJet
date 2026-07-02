@@ -68,8 +68,8 @@ def write_manifest_stub(catalog: dict, candidate: dict, out_dir: Path, manifest_
             "m0_gap": candidate["m0_gap"],
         },
         "cellprofiler": {
-            "version": "pin exact CellProfiler version before running",
-            "docker_image": "cellprofiler/cellprofiler:latest",
+            "version": "4.2.6",
+            "docker_image": "cellprofiler/cellprofiler:4.2.6",
             "pipeline_path": str(out_dir / candidate["pipeline"]),
             "output_dir": "benchmark/results/cellprofiler",
             "objects_csv": "benchmark/results/cellprofiler/Objects.csv",
