@@ -183,6 +183,11 @@ Current full L3 result:
 The first workflow-fit preflight is a manifest-driven handoff trial for MorphoJet output:
 
 ```bash
+python3 benchmark/validate_handoff_manifest.py benchmark/handoff/cellbindb_supported_columns.json \
+  --var base_dir=benchmark/results/cellbindb/oracle-full \
+  --require-downstream-check \
+  --check-files
+
 python3 benchmark/run_handoff_trial.py benchmark/handoff/cellbindb_supported_columns.json \
   --var base_dir=benchmark/results/cellbindb/oracle-full \
   --out-json benchmark/results/cellbindb/oracle-full/handoff_trial.json \
@@ -194,6 +199,8 @@ The CellBinDB preflight manifest runs three no-manual-edit steps:
 1. Materialize MorphoJet `Objects.csv` into `Cells.wide.csv`.
 2. Compare supported wide columns against CellProfiler `Cells.csv`.
 3. Validate the downstream CSV contract with `benchmark/check_cellprofiler_wide_contract.py`.
+
+The repository also includes `benchmark/handoff/external_lab_template.json` as the starting manifest for real lab handoff files. It is schema-validated by the release gate, but it is not L4 evidence until it is copied, filled with real paths/checks, and executed on an external lab workflow.
 
 Current handoff preflight result:
 

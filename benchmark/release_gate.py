@@ -241,6 +241,28 @@ def main() -> int:
         run_command("Rust tests", [cargo, "test"]),
         run_command("Rust clippy", [cargo, "clippy", "--all-targets", "--", "-D", "warnings"]),
         run_command("Python helper compilation", ["python3", "-m", "py_compile", *python_files]),
+        run_command(
+            "Validate handoff manifests",
+            [
+                "python3",
+                "benchmark/validate_handoff_manifest.py",
+                "benchmark/handoff/cellbindb_supported_columns.json",
+                "--var",
+                "base_dir=benchmark/results/cellbindb/oracle-full",
+                "--require-downstream-check",
+            ],
+        ),
+        run_command(
+            "Validate external lab handoff template",
+            [
+                "python3",
+                "benchmark/validate_handoff_manifest.py",
+                "benchmark/handoff/external_lab_template.json",
+                "--var",
+                "base_dir=benchmark/results/external-lab-template",
+                "--require-downstream-check",
+            ],
+        ),
     ]
     if args.build_release_artifact:
         gates.append(

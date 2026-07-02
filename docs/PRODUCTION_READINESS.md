@@ -22,7 +22,7 @@ Production-grade means:
 | Correctness | CellProfiler oracle parity report for public data | L2 ExampleHuman PASS and L3 CellBinDB direct-mask PASS for the current measurement subset |
 | Testing | Unit, integration, CLI failure-mode, Clippy, and benchmark smoke tests in CI | Implemented for current CLI |
 | Performance | Synthetic regression benchmark plus real CellProfiler benchmark | L3 CellBinDB benchmark PASS: 707.94x speedup, 11.65% RSS ratio |
-| Workflow fit | CellProfiler-style object CSV handoff can run without manual CSV editing | CellBinDB L4-preflight handoff PASS: 3 steps, 107,936 rows, 23 contract columns |
+| Workflow fit | CellProfiler-style object CSV handoff can run without manual CSV editing | CellBinDB L4-preflight handoff PASS; manifest schema gate and external lab template implemented |
 | Observability | Clear stderr summary, actionable error context, and runtime diagnostics | Runtime `doctor` implemented; richer structured logs pending |
 | Release | GitHub release workflow and checksums | Workflow implemented; local macOS arm64 archive, checksum, doctor, and commit verification PASS; tagged GitHub release artifact validation pending |
 | Documentation | Supported inputs, unsupported scope, parity gaps, and production caveats documented | L3 evidence and release gate documented; L4 workflow caveats remain |
@@ -32,7 +32,7 @@ Production-grade means:
 Priority order:
 
 1. Run `python3 benchmark/release_gate.py --run-l3 --build-release-artifact --release-version rc-preflight` before release candidates.
-2. Run an external lab workflow trial against real batch handoff files.
+2. Copy `benchmark/handoff/external_lab_template.json` and run an external lab workflow trial against real batch handoff files.
 3. Broaden the supported measurement subset beyond the current intensity and size/shape columns.
 
 ## Claim Policy

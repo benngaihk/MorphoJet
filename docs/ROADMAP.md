@@ -35,6 +35,7 @@
   - [x] Manual release gate command for code checks plus CellBinDB L3.
   - [x] Supported-column CellProfiler-style wide CSV bridge.
   - [x] Manifest-driven handoff trial preflight.
+  - [x] Handoff manifest validator and external lab template.
   - [ ] Scheduled/nightly validation for CellBinDB L3.
   - [ ] External workflow trial.
 

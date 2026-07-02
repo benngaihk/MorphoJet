@@ -82,6 +82,19 @@ This runs the standard code gates, downloads/uses the pinned CellBinDB archive, 
 python3 benchmark/release_gate.py
 ```
 
+The release gate also validates handoff manifests:
+
+```bash
+python3 benchmark/validate_handoff_manifest.py benchmark/handoff/cellbindb_supported_columns.json \
+  --var base_dir=benchmark/results/cellbindb/oracle-full \
+  --require-downstream-check \
+  --check-files
+
+python3 benchmark/validate_handoff_manifest.py benchmark/handoff/external_lab_template.json \
+  --var base_dir=benchmark/results/external-lab-template \
+  --require-downstream-check
+```
+
 ## Parity Report Smoke
 
 ```bash

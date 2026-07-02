@@ -89,6 +89,11 @@ This bridge compares only columns MorphoJet currently emits or can derive withou
 For a no-manual-CSV-edit handoff preflight, use a manifest so the same structure can be rerun on real lab handoff files:
 
 ```bash
+python3 benchmark/validate_handoff_manifest.py benchmark/handoff/cellbindb_supported_columns.json \
+  --var base_dir=benchmark/results/cellbindb/oracle-full \
+  --require-downstream-check \
+  --check-files
+
 python3 benchmark/run_handoff_trial.py benchmark/handoff/cellbindb_supported_columns.json \
   --var base_dir=benchmark/results/cellbindb/oracle-full \
   --out-json benchmark/results/cellbindb/oracle-full/handoff_trial.json \
@@ -96,6 +101,8 @@ python3 benchmark/run_handoff_trial.py benchmark/handoff/cellbindb_supported_col
 ```
 
 The CellBinDB handoff manifest materializes `Cells.wide.csv`, compares the supported columns to CellProfiler, then runs `benchmark/check_cellprofiler_wide_contract.py` as a downstream contract check.
+
+For an external lab trial, copy `benchmark/handoff/external_lab_template.json`, point `base_dir` at the lab handoff directory, update `object_set`, `channels`, and downstream checks, then run the same validator and trial runner. Full L4 is not complete until that external manifest runs without manual CSV editing.
 
 Example:
 
@@ -112,7 +119,7 @@ The runner will:
 3. Run MorphoJet on the manifest image table.
 4. Capture elapsed time and peak RSS for both tools.
 5. Normalize both object CSV files.
-6. Run the manifest-driven handoff trial for the supported CellProfiler-style wide object CSV subset.
+6. Validate the handoff manifest and run the manifest-driven handoff trial for the supported CellProfiler-style wide object CSV subset.
 7. Write Markdown and JSON parity, workflow-bridge, handoff-trial, and impact reports.
 
 `benchmark/run.sh` still supports ad hoc runs through `CELLPROFILER_CMD`, but the manifest path is the production validation path.

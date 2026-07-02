@@ -75,6 +75,14 @@ def require(data: dict[str, Any], key: str) -> Any:
     return data[key]
 
 
+def validate_manifest(manifest: dict[str, Any]) -> None:
+    import validate_handoff_manifest
+
+    issues = validate_handoff_manifest.validate_schema(manifest, require_downstream_check=True)
+    if issues:
+        raise SystemExit("\n".join(f"ERROR: {issue}" for issue in issues))
+
+
 def render_markdown(payload: dict[str, Any], out_json: Path) -> str:
     lines = [
         "# Handoff Trial Report",
@@ -172,6 +180,9 @@ def main() -> int:
     variables = parse_vars(args.var)
     raw_manifest = json.loads(args.manifest.read_text())
     manifest = render(raw_manifest, variables)
+    if not isinstance(manifest, dict):
+        raise SystemExit("manifest root must be an object")
+    validate_manifest(manifest)
     steps, artifacts = run_trial(manifest)
     payload = {
         "trial_id": require(manifest, "trial_id"),

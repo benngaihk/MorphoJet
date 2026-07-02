@@ -231,6 +231,7 @@ This snapshot validates MorphoJet's supported measurement subset in a CellProfil
 Artifacts:
 
 - Handoff manifest: `benchmark/handoff/cellbindb_supported_columns.json`
+- External lab template: `benchmark/handoff/external_lab_template.json`
 - Handoff report: `benchmark/results/cellbindb/oracle-full/handoff_trial.md`
 - Handoff JSON: `benchmark/results/cellbindb/oracle-full/handoff_trial.json`
 - Contract JSON: `benchmark/results/cellbindb/oracle-full/handoff_contract.json`
@@ -240,6 +241,7 @@ Artifacts:
 - Bridge report: `benchmark/results/cellbindb/oracle-full/workflow_bridge.md`
 - Bridge JSON: `benchmark/results/cellbindb/oracle-full/workflow_bridge.json`
 - Handoff runner: `benchmark/run_handoff_trial.py`
+- Handoff manifest validator: `benchmark/validate_handoff_manifest.py`
 - Materializer: `benchmark/materialize_morphojet_cellprofiler_wide.py`
 - Comparator: `benchmark/compare_cellprofiler_wide_subset.py`
 - Contract checker: `benchmark/check_cellprofiler_wide_contract.py`
@@ -249,6 +251,8 @@ Result:
 | Gate | Result |
 |---|---:|
 | Handoff trial steps | 3 |
+| CellBinDB manifest schema | PASS |
+| External lab template schema | PASS |
 | CellProfiler rows | 107,936 |
 | MorphoJet wide rows | 107,936 |
 | Missing rows | 0 |

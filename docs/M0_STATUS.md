@@ -50,6 +50,7 @@ Updated: 2026-07-02
 - MorphoJet long `Objects.csv` can be materialized into a CellProfiler-style per-object wide CSV for the supported measurement subset.
 - Wide CSV bridge comparator validates supported columns against full CellProfiler object CSVs while reporting unsupported CellProfiler columns as out of scope.
 - Manifest-driven handoff trial runner can materialize wide CSVs, compare supported columns, and run downstream contract checks without manual CSV editing.
+- Handoff manifest validator and external lab template define the acceptance package for real workflow trials.
 
 ## Verified Locally
 
@@ -91,6 +92,7 @@ Latest M0 oracle gate verification:
 - CellBinDB full L3 benchmark passes: 1,044 image rows, 107,936 expected rows, 107,936 actual rows, 0 row gaps, 0 numeric failures, 707.94x speedup, 11.65% RSS ratio.
 - CellBinDB workflow bridge passes: 107,936 CellProfiler rows, 107,936 MorphoJet wide rows, 21 compared columns, 2,266,656 numeric comparisons, 0 numeric failures. The comparator records 29 unsupported CellProfiler columns as ignored, not claimed.
 - CellBinDB handoff preflight passes: 3 manifest steps, 107,936 wide rows, 23 required contract columns, 0 missing columns, 0 duplicate keys, 0 empty keys.
+- Handoff manifest gates pass for the CellBinDB preflight manifest and the external lab template.
 - Release gate script can run code gates and validate or rerun the CellBinDB L3 benchmark plus the workflow bridge and handoff trial artifacts, writing JSON and Markdown reports.
 - Local release artifact preflight passes on macOS arm64: archive checksum verified and packaged `morphojet doctor` reports version, current commit, OS, and architecture.
 
@@ -110,5 +112,5 @@ The next gate toward production readiness is no longer L3 evidence; it is repeat
 - Run `python3 benchmark/release_gate.py --run-l3 --build-release-artifact --release-version rc-preflight` before release candidates.
 - Promote the CellBinDB full benchmark into scheduled/nightly validation.
 - Run an external lab workflow trial with real handoff files.
-- Exercise the manifest-driven handoff trial in that external workflow without manual CSV editing.
+- Copy `benchmark/handoff/external_lab_template.json` and exercise the manifest-driven handoff trial in that external workflow without manual CSV editing.
 - Broaden compatibility beyond the current measurement subset.

@@ -97,11 +97,18 @@ python3 benchmark/compare_cellprofiler_wide_subset.py CellProfiler/Cells.csv mea
 For a no-manual-CSV-edit handoff preflight, run a manifest-driven trial:
 
 ```bash
+python3 benchmark/validate_handoff_manifest.py benchmark/handoff/cellbindb_supported_columns.json \
+  --var base_dir=benchmark/results/cellbindb/oracle-full \
+  --require-downstream-check \
+  --check-files
+
 python3 benchmark/run_handoff_trial.py benchmark/handoff/cellbindb_supported_columns.json \
   --var base_dir=benchmark/results/cellbindb/oracle-full \
   --out-json benchmark/results/cellbindb/oracle-full/handoff_trial.json \
   --out-md benchmark/results/cellbindb/oracle-full/handoff_trial.md
 ```
+
+Use `benchmark/handoff/external_lab_template.json` as the starting point for real lab handoff files.
 
 ## Parity Report
 
