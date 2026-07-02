@@ -205,11 +205,11 @@ The repository also includes `benchmark/handoff/external_lab_template.json` as t
 Current handoff preflight result:
 
 - Rows: 107,936 CellProfiler rows and 107,936 MorphoJet wide rows.
-- Compared columns: 21.
-- Numeric comparisons: 2,266,656.
+- Compared columns: 24.
+- Numeric comparisons: 2,590,464.
 - Numeric failures: 0.
-- Ignored CellProfiler columns: 29 unsupported columns are reported as out of scope.
-- Contract columns: 23 required columns.
+- Ignored CellProfiler columns: 26 unsupported columns are reported as out of scope.
+- Contract columns: 26 required columns.
 - Duplicate keys: 0.
 - Empty keys: 0.
 

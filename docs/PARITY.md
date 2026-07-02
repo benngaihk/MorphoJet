@@ -17,7 +17,8 @@ This file is the public compatibility ledger. Do not claim full parity from benc
 | Perimeter | FIX | Matches scikit-image 0.18.3 / CellProfiler 4.2.6 4-neighborhood perimeter lookup weights. |
 | Eccentricity and axis lengths | FIX | ExampleHuman oracle matches CellProfiler within tolerance. |
 | Solidity | FIX | Matches scikit-image 0.18.3 convex-hull-image pixel count behavior on ExampleHuman. |
-| CellProfiler-style wide object CSV | PARTIAL | `benchmark/materialize_morphojet_cellprofiler_wide.py` emits supported columns in a per-object wide shape; unsupported CellProfiler columns remain explicit gaps. |
+| Derived CellProfiler shape columns | FIX | Wide export derives `AreaShape_ConvexArea`, `AreaShape_EquivalentDiameter`, and `AreaShape_Extent`; CellBinDB full bridge matches CellProfiler within tolerance. |
+| CellProfiler-style wide object CSV | PARTIAL | `benchmark/materialize_morphojet_cellprofiler_wide.py` emits 26 supported columns in a per-object wide shape; unsupported CellProfiler columns remain explicit gaps. |
 
 ## Default Numeric Tolerance
 

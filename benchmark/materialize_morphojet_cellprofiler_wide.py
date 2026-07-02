@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import math
 from collections import OrderedDict
 from pathlib import Path
 
@@ -22,7 +23,10 @@ BASE_COLUMNS = [
     "AreaShape_BoundingBoxMinimum_Y",
     "AreaShape_Center_X",
     "AreaShape_Center_Y",
+    "AreaShape_ConvexArea",
     "AreaShape_Eccentricity",
+    "AreaShape_EquivalentDiameter",
+    "AreaShape_Extent",
     "AreaShape_MajorAxisLength",
     "AreaShape_MinorAxisLength",
     "AreaShape_Perimeter",
@@ -88,7 +92,18 @@ def format_int(value: int) -> str:
     return str(value)
 
 
-def bounding_box_area(row: dict[str, str], source: Path) -> str:
+def format_float(value: float) -> str:
+    return f"{value:.10}"
+
+
+def parse_float(row: dict[str, str], column: str, source: Path) -> float:
+    try:
+        return float(require(row, column, source))
+    except ValueError as exc:
+        raise SystemExit(f"invalid numeric value for {column} in {source}: {exc}") from exc
+
+
+def bounding_box_dimensions(row: dict[str, str], source: Path) -> tuple[int, int]:
     try:
         min_x = int(float(require(row, "AreaShape_BoundingBoxMinimum_X", source)))
         min_y = int(float(require(row, "AreaShape_BoundingBoxMinimum_Y", source)))
@@ -96,7 +111,29 @@ def bounding_box_area(row: dict[str, str], source: Path) -> str:
         max_y = int(float(require(row, "AreaShape_BoundingBoxMaximum_Y", source)))
     except ValueError as exc:
         raise SystemExit(f"invalid bounding box value in {source}: {exc}") from exc
-    return format_int((max_x - min_x) * (max_y - min_y))
+    return max_x - min_x, max_y - min_y
+
+
+def bounding_box_area(row: dict[str, str], source: Path) -> str:
+    width, height = bounding_box_dimensions(row, source)
+    return format_int(width * height)
+
+
+def equivalent_diameter(row: dict[str, str], source: Path) -> str:
+    area = parse_float(row, "AreaShape_Area", source)
+    return format_float(math.sqrt(4.0 * area / math.pi))
+
+
+def extent(row: dict[str, str], source: Path) -> str:
+    area = parse_float(row, "AreaShape_Area", source)
+    bbox_area = float(bounding_box_area(row, source))
+    return format_float(area / bbox_area if bbox_area else 0.0)
+
+
+def convex_area(row: dict[str, str], source: Path) -> str:
+    area = parse_float(row, "AreaShape_Area", source)
+    solidity = parse_float(row, "AreaShape_Solidity", source)
+    return format_float(area / solidity if solidity else 0.0)
 
 
 def materialize(objects_csv: Path, object_set: str, channels: list[str], out: Path) -> int:
@@ -119,6 +156,9 @@ def materialize(objects_csv: Path, object_set: str, channels: list[str], out: Pa
                 "ImageNumber": key[0],
                 "ObjectNumber": key[1],
                 "AreaShape_BoundingBoxArea": bounding_box_area(row, objects_csv),
+                "AreaShape_ConvexArea": convex_area(row, objects_csv),
+                "AreaShape_EquivalentDiameter": equivalent_diameter(row, objects_csv),
+                "AreaShape_Extent": extent(row, objects_csv),
                 "Location_Center_X": require(row, "AreaShape_Center_X", objects_csv),
                 "Location_Center_Y": require(row, "AreaShape_Center_Y", objects_csv),
                 "Number_Object_Number": key[1],

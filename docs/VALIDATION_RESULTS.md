@@ -257,17 +257,17 @@ Result:
 | MorphoJet wide rows | 107,936 |
 | Missing rows | 0 |
 | Extra rows | 0 |
-| Compared columns | 21 |
-| Ignored CellProfiler columns | 29 |
+| Compared columns | 24 |
+| Ignored CellProfiler columns | 26 |
 | Unsupported MorphoJet columns | 0 |
-| Numeric compared | 2,266,656 |
+| Numeric compared | 2,590,464 |
 | Numeric failures | 0 |
-| Required contract columns | 23 |
+| Required contract columns | 26 |
 | Duplicate keys | 0 |
 | Empty keys | 0 |
 | Status | PASS |
 
-Compared columns include supported area/center/bounding-box/perimeter/eccentricity/axis/solidity fields, `Location_Center_X/Y`, `Number_Object_Number`, and the channel-suffixed intensity fields. Ignored CellProfiler columns include feature families MorphoJet does not yet emit, such as edge intensity, quartiles, standard deviation, Feret diameter, compactness, orientation, and center-of-mass intensity locations.
+Compared columns include supported area/center/bounding-box/perimeter/eccentricity/axis/solidity fields, derived `ConvexArea`, `EquivalentDiameter`, and `Extent`, `Location_Center_X/Y`, `Number_Object_Number`, and the channel-suffixed intensity fields. Ignored CellProfiler columns include feature families MorphoJet does not yet emit, such as edge intensity, quartiles, standard deviation, Feret diameter, compactness, orientation, and center-of-mass intensity locations.
 
 Conclusion: this removes one CSV-shape and handoff-automation blocker for workflow trials on the supported subset. L4 remains incomplete until an external lab workflow consumes these files without manual CSV editing.
 
