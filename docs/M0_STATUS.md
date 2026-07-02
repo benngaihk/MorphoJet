@@ -80,11 +80,13 @@ Latest M0 oracle gate verification:
 - ExampleHuman oracle smoke runner captures CellProfiler Docker metrics and MorphoJet release metrics end-to-end.
 - ExampleHuman L3 smoke report: scale FAIL at 6 image rows, object parity PASS at 100%, numeric parity PASS at 100%, speedup PASS at 196.74x, RSS ratio PASS at 6.89%.
 - Local CellProfiler examples scan is tool-backed: 21 pipelines, 408 raw image files total, best rough image-row upper bound 90, so official examples alone cannot prove L3 scale.
+- CellBinDB is registered as the next L3 direct-mask candidate: 1,044 annotated microscope images, semantic and instance masks, CC0 Zenodo record, 286 MB primary archive with MD5 verification metadata.
 
 ## Not Yet Achieved
 
 - Manifest-driven bridge-aware pinned CellProfiler oracle parity run.
 - Public tutorial or Cell Painting corpus.
+- Downloaded and inspected >=1k real/public direct-mask corpus.
 - 1k real/public CellProfiler benchmark.
 - 10x speedup claim on >=1k real/public image rows.
 - Peak RSS comparison on >=1k real/public image rows.

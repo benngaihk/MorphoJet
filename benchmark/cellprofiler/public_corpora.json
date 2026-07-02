@@ -1,0 +1,31 @@
+{
+  "source_reviewed_at": "2026-07-02",
+  "candidates": [
+    {
+      "id": "cellbindb",
+      "name": "CellBinDB",
+      "source_url": "https://zenodo.org/records/15370205",
+      "zenodo_record": "15370205",
+      "primary_file": "CellBinDB.zip",
+      "primary_file_size_bytes": 285956212,
+      "primary_file_md5": "e770f1287619eb45e74d131430e20fe5",
+      "license": "CC0 for the Zenodo record; mixed_licenses.txt covers bundled public datasets",
+      "why": "1,044 annotated microscope images with semantic and instance masks; strong candidate for the first >=1k public direct-mask benchmark.",
+      "m0_status": "candidate_direct_masks",
+      "next_step": "Download CellBinDB.zip, inspect image/mask layout, then generate a MorphoJet image table and a CellProfiler measurement-only oracle pipeline."
+    },
+    {
+      "id": "bbbc039-via-cellbindb",
+      "name": "BBBC039 packaged in CellBinDB record",
+      "source_url": "https://zenodo.org/records/15370205",
+      "zenodo_record": "15370205",
+      "primary_file": "bbbc039.zip",
+      "primary_file_size_bytes": 80604445,
+      "primary_file_md5": "5af00c79c54b7ece852f030e26bed536",
+      "license": "Check mixed_licenses.txt and original BBBC terms before public claims",
+      "why": "Small direct-mask public corpus useful as a faster layout/prototype target before the full CellBinDB L3 run.",
+      "m0_status": "candidate_direct_masks",
+      "next_step": "Use for loader development only; it is below the >=1k L3 scale gate."
+    }
+  ]
+}

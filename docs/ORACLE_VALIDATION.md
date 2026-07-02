@@ -9,6 +9,7 @@ Use public sources first so every result can be reproduced:
 - CellProfiler examples and tutorials: https://cellprofiler.org/examples
 - CellProfiler documentation: https://cellprofiler-manual.s3.amazonaws.com/
 - Cell Painting / JUMP public data for larger follow-up benchmarks: https://jump-cellpainting.broadinstitute.org/
+- CellBinDB direct-mask candidate for the first >=1k benchmark: https://zenodo.org/records/15370205
 - Nyxus as a high-performance feature extraction reference: https://nyxus.readthedocs.io/
 
 The tracked candidate catalog is `benchmark/cellprofiler/candidates.json`.
@@ -31,6 +32,8 @@ Latest local scan summary:
 - Best rough image-row upper bound: 90 rows (`ExampleImagingFlowCytometryObjectsInGrid`).
 - Largest measured-object candidate by raw images: `ExampleTrackObjects`, 63 raw images and 1 measured object set.
 - Conclusion: the official examples are enough for L2 correctness smoke/parity work, but not enough to prove L3 >=1,000 image-row performance/RSS. L3 needs a larger public corpus such as Cell Painting/JUMP or a separately licensed mask dataset.
+
+The current L3 direct-mask target is tracked in `benchmark/cellprofiler/public_corpora.json` and `docs/L3_CORPUS_PLAN.md`.
 
 Fetch a pinned candidate for inspection:
 
