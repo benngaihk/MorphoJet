@@ -72,6 +72,7 @@ def collect_summary(modules: list[Module]) -> dict:
                     "module_num": str(module.module_num),
                     "type": first(settings, "Select the type of image to save"),
                     "image": first(settings, "Select the image to save"),
+                    "objects": first(settings, "Select the objects to save"),
                     "format": first(settings, "Saved file format"),
                 }
             )
@@ -91,6 +92,7 @@ def collect_summary(modules: list[Module]) -> dict:
         name
         for name in measured_object_list
         if not any(item.get("input_objects") == name for item in convert_modules)
+        and not any(item.get("type") == "Objects" and item.get("objects") == name for item in saved_images)
     ]
 
     return {
@@ -143,7 +145,8 @@ def render_markdown(path: Path, summary: dict) -> str:
         ]
     )
     for item in summary["saved_images"]:
-        lines.append(f"| {item['module_num']} | {item['type']} | {item['image']} | {item['format']} |")
+        saved = item["objects"] if item["type"] == "Objects" else item["image"]
+        lines.append(f"| {item['module_num']} | {item['type']} | {saved} | {item['format']} |")
     lines.extend(
         [
             "",

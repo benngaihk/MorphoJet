@@ -42,6 +42,7 @@ Updated: 2026-07-02
 - CellProfiler pipeline inspector for identifying measured objects and missing label exports.
 - Image table materializer for pairing exported label masks with intensity images.
 - Oracle runner now refuses benchmark manifests unless `dataset.m0_status` is explicitly `direct`.
+- CellProfiler mask-export bridge can generate a patched pipeline copy that saves missing measured objects as TIFF labels.
 
 ## Verified Locally
 
@@ -66,6 +67,7 @@ Latest M0 oracle gate verification:
 
 - `benchmark/cellprofiler/manifest.example.json --require-m0-ready`: PASS.
 - `example-human` generated candidate manifest with `m0_status=not_direct`: correctly rejected by `--require-m0-ready`.
+- `export_cellprofiler_masks.py` patched fixture and ExampleHuman pipelines; inspector accepted both patched copies as M0-ready.
 
 ## Not Yet Achieved
 

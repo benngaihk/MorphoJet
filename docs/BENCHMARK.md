@@ -30,6 +30,14 @@ Committed validation summaries are tracked in `docs/VALIDATION_RESULTS.md`.
 ## CellProfiler Oracle
 
 When a pinned `.cppipe` and oracle corpus are available, prefer the manifest-driven oracle runner.
+If the public pipeline segments objects internally, first generate a patched copy that exports label masks:
+
+```bash
+python3 benchmark/export_cellprofiler_masks.py \
+  benchmark/data/cellprofiler/prepared/ExampleHuman/ExampleHuman.cppipe \
+  --out benchmark/results/cellprofiler/example-human-masks.cppipe \
+  --bridge-json benchmark/results/cellprofiler/example-human-masks.json
+```
 
 Example:
 

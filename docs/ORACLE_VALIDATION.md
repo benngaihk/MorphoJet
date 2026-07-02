@@ -37,9 +37,26 @@ python3 benchmark/inspect_cellprofiler_pipeline.py \
   --json-out benchmark/results/cellprofiler/example-human-inspection.json
 ```
 
-For `ExampleHuman`, the inspector finds measured objects `Nuclei`, `PH3`, `Cells`, and `Cytoplasm`; all currently need label-image export before MorphoJet can run a fair M0 oracle comparison.
+For `ExampleHuman`, the inspector finds measured objects `Nuclei`, `Cells`, and `Cytoplasm`; all currently need label-image export before MorphoJet can run a fair M0 oracle comparison. `PH3` is an image channel measured across those objects.
 
 CI covers the inspector with `benchmark/cellprofiler/fixtures/example_human_minimal.cppipe`.
+
+Generate a patched copy of a CellProfiler pipeline that saves measured objects as TIFF label masks:
+
+```bash
+python3 benchmark/export_cellprofiler_masks.py \
+  benchmark/data/cellprofiler/prepared/ExampleHuman/ExampleHuman.cppipe \
+  --out benchmark/results/cellprofiler/example-human-masks.cppipe \
+  --bridge-json benchmark/results/cellprofiler/example-human-masks.json
+```
+
+The bridge does not mutate the public pipeline. It appends `SaveImages` modules for missing measured objects and writes a JSON manifest describing expected mask suffixes. Re-run the inspector against the patched copy:
+
+```bash
+python3 benchmark/inspect_cellprofiler_pipeline.py \
+  benchmark/results/cellprofiler/example-human-masks.cppipe \
+  --fail-if-not-m0-ready
+```
 
 After label masks are exported, build a MorphoJet image table with paired image/mask keys:
 
