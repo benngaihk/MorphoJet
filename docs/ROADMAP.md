@@ -37,7 +37,8 @@
   - [x] Supported-column CellProfiler-style wide CSV bridge.
   - [x] Manifest-driven handoff trial preflight.
   - [x] Handoff manifest validator and external lab template.
-  - [ ] Scheduled/nightly validation for CellBinDB L3.
+  - [x] Scheduler-ready CellBinDB L3 validation script.
+  - [ ] GitHub scheduled CellBinDB L3 workflow.
   - [ ] External workflow trial.
 
 - Multi-channel and plate/well/site metadata polish.

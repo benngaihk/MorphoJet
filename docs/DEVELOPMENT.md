@@ -76,10 +76,27 @@ Before cutting a release candidate, run:
 python3 benchmark/release_gate.py --run-l3 --build-release-artifact --release-version rc-preflight
 ```
 
-This runs the standard code gates, downloads/uses the pinned CellBinDB archive, runs the full CellProfiler oracle benchmark, runs the supported CellProfiler-style handoff trial, and writes parity, workflow-bridge, handoff-trial, impact, metrics, and release-gate reports. For a fast local audit of already-generated L3 artifacts, run:
+This runs the standard code gates, uses the pinned local CellBinDB archive, runs the full CellProfiler oracle benchmark, runs the supported CellProfiler-style handoff trial, and writes parity, workflow-bridge, handoff-trial, impact, metrics, and release-gate reports. Fetch and verify the archive first when it is not already present:
+
+```bash
+python3 benchmark/fetch_zenodo_file.py \
+  --record 15370205 \
+  --file CellBinDB.zip \
+  --out-dir benchmark/data/cellbindb \
+  --metadata-out benchmark/data/cellbindb/zenodo_metadata.json \
+  --skip-existing
+```
+
+For a fast local audit of already-generated L3 artifacts, run:
 
 ```bash
 python3 benchmark/release_gate.py
+```
+
+For a scheduler-ready entrypoint that performs the fetch/verify step, pulls the pinned CellProfiler Docker image, and runs `python3 benchmark/release_gate.py --run-l3`, use:
+
+```bash
+benchmark/run_cellbindb_l3_validation.sh
 ```
 
 The release gate also validates handoff manifests:
