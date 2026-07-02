@@ -60,9 +60,12 @@ def main() -> int:
     metrics_dir = base_dir / "metrics"
     parity_md = base_dir / "parity.md"
     parity_json = base_dir / "parity.json"
+    workflow_bridge_md = base_dir / "workflow_bridge.md"
+    workflow_bridge_json = base_dir / "workflow_bridge.json"
     impact_md = base_dir / "impact.md"
     impact_json = base_dir / "impact.json"
     cp_long = cp_dir / "Objects.long.csv"
+    mj_wide = mj_dir / "Cells.wide.csv"
 
     prepare_command = [
         "python3",
@@ -172,6 +175,33 @@ def main() -> int:
             "--fail-on-gap",
         ]
     )
+    run(
+        [
+            "python3",
+            "benchmark/materialize_morphojet_cellprofiler_wide.py",
+            "--objects",
+            str(mj_dir / "Objects.csv"),
+            "--object-set",
+            "Cells",
+            "--channels",
+            "Intensity",
+            "--out",
+            str(mj_wide),
+        ]
+    )
+    run(
+        [
+            "python3",
+            "benchmark/compare_cellprofiler_wide_subset.py",
+            str(cp_dir / "Cells.csv"),
+            str(mj_wide),
+            "--out",
+            str(workflow_bridge_md),
+            "--json-out",
+            str(workflow_bridge_json),
+            "--fail-on-gap",
+        ]
+    )
     rows = args.limit if args.limit is not None else 1044
     run(
         [
@@ -194,6 +224,7 @@ def main() -> int:
     print("CellBinDB oracle run complete")
     print(f"summary: {summary_json}")
     print(f"parity: {parity_md}")
+    print(f"workflow_bridge: {workflow_bridge_md}")
     print(f"impact: {impact_md}")
     return 0
 

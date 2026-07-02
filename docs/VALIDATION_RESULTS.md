@@ -224,6 +224,39 @@ Parity:
 
 Conclusion: L3 passes for this CellBinDB direct-mask measurement benchmark. This does not prove full CellProfiler replacement, upstream segmentation replacement, or external lab workflow fit; those remain L4/production-readiness work.
 
+## CellBinDB Workflow Bridge Snapshot
+
+This snapshot validates MorphoJet's supported measurement subset in a CellProfiler-style per-object wide CSV shape. It is a workflow-fit bridge for downstream tools that expect files such as `Cells.csv`; it does not claim full CellProfiler object CSV feature coverage.
+
+Artifacts:
+
+- MorphoJet long input: `benchmark/results/cellbindb/oracle-full/morphojet/Objects.csv`
+- MorphoJet wide output: `benchmark/results/cellbindb/oracle-full/morphojet/Cells.wide.csv`
+- CellProfiler oracle CSV: `benchmark/results/cellbindb/oracle-full/cellprofiler/Cells.csv`
+- Bridge report: `benchmark/results/cellbindb/oracle-full/workflow_bridge.md`
+- Bridge JSON: `benchmark/results/cellbindb/oracle-full/workflow_bridge.json`
+- Materializer: `benchmark/materialize_morphojet_cellprofiler_wide.py`
+- Comparator: `benchmark/compare_cellprofiler_wide_subset.py`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| CellProfiler rows | 107,936 |
+| MorphoJet wide rows | 107,936 |
+| Missing rows | 0 |
+| Extra rows | 0 |
+| Compared columns | 21 |
+| Ignored CellProfiler columns | 29 |
+| Unsupported MorphoJet columns | 0 |
+| Numeric compared | 2,266,656 |
+| Numeric failures | 0 |
+| Status | PASS |
+
+Compared columns include supported area/center/bounding-box/perimeter/eccentricity/axis/solidity fields, `Location_Center_X/Y`, `Number_Object_Number`, and the channel-suffixed intensity fields. Ignored CellProfiler columns include feature families MorphoJet does not yet emit, such as edge intensity, quartiles, standard deviation, Feret diameter, compactness, orientation, and center-of-mass intensity locations.
+
+Conclusion: this removes one CSV-shape blocker for workflow trials on the supported subset. L4 remains incomplete until an external lab workflow consumes these files without manual CSV editing.
+
 ## L1 Synthetic Scale Benchmark
 
 These results validate MorphoJet's local release CLI path on deterministic synthetic data. They do not prove CellProfiler parity or industry impact by themselves.

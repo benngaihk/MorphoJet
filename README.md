@@ -70,6 +70,24 @@ python3 benchmark/release_gate.py --run-l3
 
 For a fast audit of already-generated L3 artifacts, run `python3 benchmark/release_gate.py`.
 
+## CellProfiler-Style Wide Export
+
+MorphoJet's native `Objects.csv` is a long table keyed by `ImageNumber`, `ObjectSet`, `ObjectNumber`, and `Channel`. For downstream tools that expect a CellProfiler object CSV such as `Cells.csv`, materialize the supported measurement subset into a wide table:
+
+```bash
+python3 benchmark/materialize_morphojet_cellprofiler_wide.py \
+  --objects measurements/Objects.csv \
+  --object-set Cells \
+  --channels DNA,PH3 \
+  --out measurements/Cells.wide.csv
+```
+
+Validate the supported wide columns against a CellProfiler object CSV with:
+
+```bash
+python3 benchmark/compare_cellprofiler_wide_subset.py CellProfiler/Cells.csv measurements/Cells.wide.csv --fail-on-gap
+```
+
 ## Parity Report
 
 ```bash

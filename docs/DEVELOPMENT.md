@@ -67,7 +67,7 @@ Before cutting a release candidate, run:
 python3 benchmark/release_gate.py --run-l3
 ```
 
-This runs the standard code gates, downloads/uses the pinned CellBinDB archive, runs the full CellProfiler oracle benchmark, and writes parity, impact, metrics, and release-gate reports. For a fast local audit of already-generated L3 artifacts, run:
+This runs the standard code gates, downloads/uses the pinned CellBinDB archive, runs the full CellProfiler oracle benchmark, materializes the supported CellProfiler-style wide CSV bridge, and writes parity, workflow-bridge, impact, metrics, and release-gate reports. For a fast local audit of already-generated L3 artifacts, run:
 
 ```bash
 python3 benchmark/release_gate.py

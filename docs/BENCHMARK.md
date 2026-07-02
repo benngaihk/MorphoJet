@@ -67,6 +67,25 @@ python3 benchmark/materialize_cellprofiler_oracle.py \
   --out benchmark/results/cellprofiler-run-426-npy/Objects.long.csv
 ```
 
+Materialize MorphoJet's long output back into a CellProfiler-style per-object wide CSV when validating downstream workflow fit for the supported subset:
+
+```bash
+python3 benchmark/materialize_morphojet_cellprofiler_wide.py \
+  --objects benchmark/results/cellbindb/oracle-full/morphojet/Objects.csv \
+  --object-set Cells \
+  --channels Intensity \
+  --out benchmark/results/cellbindb/oracle-full/morphojet/Cells.wide.csv
+
+python3 benchmark/compare_cellprofiler_wide_subset.py \
+  benchmark/results/cellbindb/oracle-full/cellprofiler/Cells.csv \
+  benchmark/results/cellbindb/oracle-full/morphojet/Cells.wide.csv \
+  --out benchmark/results/cellbindb/oracle-full/workflow_bridge.md \
+  --json-out benchmark/results/cellbindb/oracle-full/workflow_bridge.json \
+  --fail-on-gap
+```
+
+This bridge compares only columns MorphoJet currently emits or can derive without adding new feature semantics. Unsupported CellProfiler columns are reported as ignored, not silently claimed.
+
 Example:
 
 ```bash
@@ -82,7 +101,8 @@ The runner will:
 3. Run MorphoJet on the manifest image table.
 4. Capture elapsed time and peak RSS for both tools.
 5. Normalize both object CSV files.
-6. Write Markdown and JSON parity reports.
+6. Materialize and validate a CellProfiler-style wide object CSV for the supported subset.
+7. Write Markdown and JSON parity, workflow-bridge, and impact reports.
 
 `benchmark/run.sh` still supports ad hoc runs through `CELLPROFILER_CMD`, but the manifest path is the production validation path.
 

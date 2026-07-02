@@ -22,6 +22,7 @@ Production-grade means:
 | Correctness | CellProfiler oracle parity report for public data | L2 ExampleHuman PASS and L3 CellBinDB direct-mask PASS for the current measurement subset |
 | Testing | Unit, integration, CLI failure-mode, Clippy, and benchmark smoke tests in CI | Implemented for current CLI |
 | Performance | Synthetic regression benchmark plus real CellProfiler benchmark | L3 CellBinDB benchmark PASS: 673.38x speedup, 14.92% RSS ratio |
+| Workflow fit | CellProfiler-style object CSV bridge can be validated against an oracle export | CellBinDB supported-column bridge PASS: 107,936 rows, 21 compared columns, 0 numeric failures |
 | Observability | Clear stderr summary, actionable error context, and runtime diagnostics | Runtime `doctor` implemented; richer structured logs pending |
 | Release | GitHub release workflow and checksums | Implemented for tagged macOS/Linux builds |
 | Documentation | Supported inputs, unsupported scope, parity gaps, and production caveats documented | L3 evidence and release gate documented; L4 workflow caveats remain |
@@ -36,4 +37,4 @@ Priority order:
 
 ## Claim Policy
 
-Until every required gate is complete, documentation may claim the narrow L3 benchmark result, but must not say "production-ready" or "replaces CellProfiler workflows" without an external workflow trial.
+Until every required gate is complete, documentation may claim the narrow L3 benchmark result and the supported-column wide CSV bridge, but must not say "production-ready" or "replaces CellProfiler workflows" without an external workflow trial.

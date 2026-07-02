@@ -97,6 +97,44 @@ def validate_l3_artifacts() -> Gate:
     )
 
 
+def validate_workflow_bridge_artifacts() -> Gate:
+    started = time.perf_counter()
+    try:
+        bridge = load_json(ROOT / "benchmark/results/cellbindb/oracle-full/workflow_bridge.json")
+        failures = []
+        if bridge.get("status") != "PASS":
+            failures.append(f"bridge status is {bridge.get('status')}")
+        if bridge.get("cellprofiler_rows") != 107936 or bridge.get("morphojet_rows") != 107936:
+            failures.append(
+                "unexpected row counts "
+                f"cellprofiler={bridge.get('cellprofiler_rows')} morphojet={bridge.get('morphojet_rows')}"
+            )
+        if bridge.get("missing_rows") != 0 or bridge.get("extra_rows") != 0:
+            failures.append(f"row gaps missing={bridge.get('missing_rows')} extra={bridge.get('extra_rows')}")
+        if bridge.get("numeric_failures") != 0:
+            failures.append(f"numeric_failures={bridge.get('numeric_failures')}")
+        compared_columns = bridge.get("compared_columns") or []
+        if len(compared_columns) < 21:
+            failures.append(f"compared_columns={len(compared_columns)}")
+        status = "FAIL" if failures else "PASS"
+        detail = "; ".join(failures) if failures else (
+            "CellBinDB workflow bridge artifacts PASS: "
+            f"rows={bridge.get('morphojet_rows')}, "
+            f"compared_columns={len(compared_columns)}, "
+            f"numeric_compared={bridge.get('numeric_compared')}"
+        )
+    except Exception as exc:  # noqa: BLE001 - report exact release gate failure.
+        status = "FAIL"
+        detail = f"{type(exc).__name__}: {exc}"
+    return Gate(
+        name="Validate CellBinDB workflow bridge artifacts",
+        command=None,
+        status=status,
+        elapsed_seconds=time.perf_counter() - started,
+        detail=detail,
+    )
+
+
 def render_markdown(gates: list[Gate], out_json: Path) -> str:
     status = "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL"
     lines = [
@@ -148,6 +186,7 @@ def main() -> int:
     if args.run_l3:
         gates.append(run_command("Run CellBinDB L3 benchmark", ["python3", "benchmark/run_cellbindb_oracle.py", "--threads", "8"]))
     gates.append(validate_l3_artifacts())
+    gates.append(validate_workflow_bridge_artifacts())
 
     payload = {
         "status": "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL",

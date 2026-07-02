@@ -178,6 +178,35 @@ Current full L3 result:
 - Peak RSS ratio: 14.92%.
 - Artifact: `benchmark/results/cellbindb/oracle-full/impact.md`.
 
+## L4 Package: Workflow Fit
+
+The first workflow-fit bridge is a CellProfiler-style object CSV materializer for MorphoJet output:
+
+```bash
+python3 benchmark/materialize_morphojet_cellprofiler_wide.py \
+  --objects benchmark/results/cellbindb/oracle-full/morphojet/Objects.csv \
+  --object-set Cells \
+  --channels Intensity \
+  --out benchmark/results/cellbindb/oracle-full/morphojet/Cells.wide.csv
+
+python3 benchmark/compare_cellprofiler_wide_subset.py \
+  benchmark/results/cellbindb/oracle-full/cellprofiler/Cells.csv \
+  benchmark/results/cellbindb/oracle-full/morphojet/Cells.wide.csv \
+  --out benchmark/results/cellbindb/oracle-full/workflow_bridge.md \
+  --json-out benchmark/results/cellbindb/oracle-full/workflow_bridge.json \
+  --fail-on-gap
+```
+
+Current bridge result:
+
+- Rows: 107,936 CellProfiler rows and 107,936 MorphoJet wide rows.
+- Compared columns: 21.
+- Numeric comparisons: 2,266,656.
+- Numeric failures: 0.
+- Ignored CellProfiler columns: 29 unsupported columns are reported as out of scope.
+
+Pass condition for full L4 remains stricter: an external lab batch workflow must consume MorphoJet's input table and CellProfiler-style CSV outputs without manual CSV editing.
+
 ## Claim Language
 
 Allowed for the CellBinDB direct-mask benchmark after L2 and L3 pass:

@@ -17,6 +17,7 @@ This file is the public compatibility ledger. Do not claim full parity from benc
 | Perimeter | FIX | Matches scikit-image 0.18.3 / CellProfiler 4.2.6 4-neighborhood perimeter lookup weights. |
 | Eccentricity and axis lengths | FIX | ExampleHuman oracle matches CellProfiler within tolerance. |
 | Solidity | FIX | Matches scikit-image 0.18.3 convex-hull-image pixel count behavior on ExampleHuman. |
+| CellProfiler-style wide object CSV | PARTIAL | `benchmark/materialize_morphojet_cellprofiler_wide.py` emits supported columns in a per-object wide shape; unsupported CellProfiler columns remain explicit gaps. |
 
 ## Default Numeric Tolerance
 
@@ -41,5 +42,14 @@ python3 tests/parity/compare_measurements.py \
   normalized/morphojet_objects.csv \
   --keys ImageNumber,ObjectSet,ObjectNumber,Channel \
   --out reports/objects_parity.md \
+  --fail-on-gap
+python3 benchmark/materialize_morphojet_cellprofiler_wide.py \
+  --objects measurements/Objects.csv \
+  --object-set Cells \
+  --channels DNA,PH3 \
+  --out measurements/Cells.wide.csv
+python3 benchmark/compare_cellprofiler_wide_subset.py \
+  CellProfiler/Cells.csv \
+  measurements/Cells.wide.csv \
   --fail-on-gap
 ```
