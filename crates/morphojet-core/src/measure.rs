@@ -50,6 +50,9 @@ pub struct ObjectMeasurement {
     pub intensity_upper_quartile: f64,
     pub intensity_std: f64,
     pub intensity_mad: f64,
+    pub center_mass_intensity_x: f64,
+    pub center_mass_intensity_y: f64,
+    pub center_mass_intensity_z: f64,
     pub perimeter: f64,
     pub eccentricity: f64,
     pub major_axis_length: f64,
@@ -73,6 +76,8 @@ struct ObjectAccumulator {
     intensity_min: f64,
     intensity_max: f64,
     intensity_sum: f64,
+    intensity_weighted_sum_x: f64,
+    intensity_weighted_sum_y: f64,
     intensity_values: Vec<f64>,
     pixels: Vec<(u32, u32)>,
 }
@@ -94,6 +99,8 @@ impl ObjectAccumulator {
             intensity_min: intensity,
             intensity_max: intensity,
             intensity_sum: 0.0,
+            intensity_weighted_sum_x: 0.0,
+            intensity_weighted_sum_y: 0.0,
             intensity_values: Vec::new(),
             pixels: Vec::new(),
         }
@@ -115,6 +122,8 @@ impl ObjectAccumulator {
         self.intensity_min = self.intensity_min.min(intensity);
         self.intensity_max = self.intensity_max.max(intensity);
         self.intensity_sum += intensity;
+        self.intensity_weighted_sum_x += xf * intensity;
+        self.intensity_weighted_sum_y += yf * intensity;
         self.intensity_values.push(intensity);
         self.pixels.push((x, y));
     }
@@ -137,6 +146,15 @@ impl ObjectAccumulator {
         let mean = self.intensity_sum / area;
         let intensity_std = population_std(&self.intensity_values, mean);
         let intensity_mad = median_absolute_deviation(&self.intensity_values, median);
+        let (center_mass_intensity_x, center_mass_intensity_y) =
+            if self.intensity_sum > f64::EPSILON {
+                (
+                    self.intensity_weighted_sum_x / self.intensity_sum,
+                    self.intensity_weighted_sum_y / self.intensity_sum,
+                )
+            } else {
+                (centroid_x, centroid_y)
+            };
         let (major_axis_length, minor_axis_length, eccentricity) = axis_features(
             self.sum_x2 / area - centroid_x * centroid_x,
             self.sum_y2 / area - centroid_y * centroid_y,
@@ -179,6 +197,9 @@ impl ObjectAccumulator {
             intensity_upper_quartile: upper_quartile,
             intensity_std,
             intensity_mad,
+            center_mass_intensity_x,
+            center_mass_intensity_y,
+            center_mass_intensity_z: 0.0,
             perimeter,
             eccentricity,
             major_axis_length,

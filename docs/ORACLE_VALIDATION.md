@@ -174,8 +174,8 @@ Current full L3 result:
 - Object rows: 107,936.
 - Object count parity: 100%.
 - Core numeric parity: 100%.
-- Wall-clock speedup: 701.66x.
-- Peak RSS ratio: 11.72%.
+- Wall-clock speedup: 629.54x.
+- Peak RSS ratio: 11.84%.
 - Artifact: `benchmark/results/cellbindb/oracle-full/impact.md`.
 
 ## L4 Package: Workflow Fit
@@ -206,10 +206,10 @@ Current handoff preflight result:
 
 - Rows: 107,936 CellProfiler rows and 107,936 MorphoJet wide rows.
 - Compared columns: 28.
-- Numeric comparisons: 3,022,208.
+- Numeric comparisons: 3,346,016.
 - Numeric failures: 0.
-- Ignored CellProfiler columns: 22 unsupported columns are reported as out of scope.
-- Contract columns: 30 required columns.
+- Ignored CellProfiler columns: 19 unsupported columns are reported as out of scope.
+- Contract columns: 33 required columns.
 - Duplicate keys: 0.
 - Empty keys: 0.
 

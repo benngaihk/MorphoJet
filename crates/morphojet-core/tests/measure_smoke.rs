@@ -35,6 +35,8 @@ fn measures_two_labeled_objects() {
     assert_eq!(results[0].objects[0].object_number, 1);
     assert_eq!(results[0].objects[0].area, 2);
     assert_eq!(results[0].objects[0].intensity_integrated, 3.0 / 255.0);
+    assert!((results[0].objects[0].center_mass_intensity_x - (2.0 / 3.0)).abs() < 1e-12);
+    assert!((results[0].objects[0].center_mass_intensity_y - 0.0).abs() < 1e-12);
     assert_eq!(results[0].objects[1].object_number, 2);
     assert_eq!(results[0].objects[1].area, 3);
     assert_eq!(results[0].objects[1].intensity_integrated, 15.0 / 255.0);

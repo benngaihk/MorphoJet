@@ -201,15 +201,15 @@ Result:
 | Scale | >=1000 image rows | 1044 | PASS |
 | Object count parity | 100% | 100.0000% | PASS |
 | Core numeric parity | >=99% | 100.0000% | PASS |
-| Wall-clock speedup | >=10x | 701.66x | PASS |
-| Peak RSS ratio | <=50% | 11.72% | PASS |
+| Wall-clock speedup | >=10x | 629.54x | PASS |
+| Peak RSS ratio | <=50% | 11.84% | PASS |
 
 Raw metrics:
 
 | Tool | Seconds | Peak RSS MB |
 |---|---:|---:|
 | CellProfiler | 618.794942 | 724.700 |
-| MorphoJet | 0.881905 | 84.922 |
+| MorphoJet | 0.982925 | 85.828 |
 
 Parity:
 
@@ -219,7 +219,7 @@ Parity:
 | Actual rows | 107,936 |
 | Missing rows | 0 |
 | Extra rows | 0 |
-| Numeric compared | 2,266,656 |
+| Numeric compared | 2,590,464 |
 | Numeric failures | 0 |
 
 Conclusion: L3 passes for this CellBinDB direct-mask measurement benchmark. This does not prove full CellProfiler replacement, upstream segmentation replacement, or external lab workflow fit; those remain L4/production-readiness work.
@@ -257,17 +257,17 @@ Result:
 | MorphoJet wide rows | 107,936 |
 | Missing rows | 0 |
 | Extra rows | 0 |
-| Compared columns | 28 |
-| Ignored CellProfiler columns | 22 |
+| Compared columns | 31 |
+| Ignored CellProfiler columns | 19 |
 | Unsupported MorphoJet columns | 0 |
-| Numeric compared | 3,022,208 |
+| Numeric compared | 3,346,016 |
 | Numeric failures | 0 |
-| Required contract columns | 30 |
+| Required contract columns | 33 |
 | Duplicate keys | 0 |
 | Empty keys | 0 |
 | Status | PASS |
 
-Compared columns include supported area/center/bounding-box/perimeter/eccentricity/axis/solidity fields, derived `ConvexArea`, `EquivalentDiameter`, and `Extent`, `Location_Center_X/Y`, `Number_Object_Number`, and channel-suffixed intensity fields including quartiles, population standard deviation, and median absolute deviation. Ignored CellProfiler columns include feature families MorphoJet does not yet emit, such as edge intensity, Feret diameter, compactness, orientation, and center-of-mass intensity locations.
+Compared columns include supported area/center/bounding-box/perimeter/eccentricity/axis/solidity fields, derived `ConvexArea`, `EquivalentDiameter`, and `Extent`, `Location_Center_X/Y`, `Number_Object_Number`, channel-suffixed intensity fields including quartiles, population standard deviation, and median absolute deviation, plus channel-suffixed center-of-mass intensity locations. Ignored CellProfiler columns include feature families MorphoJet does not yet emit, such as edge intensity, Feret diameter, compactness, orientation, and max-intensity locations.
 
 Conclusion: this removes one CSV-shape and handoff-automation blocker for workflow trials on the supported subset. L4 remains incomplete until an external lab workflow consumes these files without manual CSV editing.
 

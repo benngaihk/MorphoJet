@@ -114,7 +114,7 @@ def validate_workflow_bridge_artifacts() -> Gate:
         if bridge.get("numeric_failures") != 0:
             failures.append(f"numeric_failures={bridge.get('numeric_failures')}")
         compared_columns = bridge.get("compared_columns") or []
-        if len(compared_columns) < 28:
+        if len(compared_columns) < 31:
             failures.append(f"compared_columns={len(compared_columns)}")
         status = "FAIL" if failures else "PASS"
         detail = "; ".join(failures) if failures else (

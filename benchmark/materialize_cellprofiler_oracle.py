@@ -33,6 +33,9 @@ INTENSITY_COLUMNS = [
     "Intensity_UpperQuartileIntensity",
     "Intensity_StdIntensity",
     "Intensity_MADIntensity",
+    "Location_CenterMassIntensity_X",
+    "Location_CenterMassIntensity_Y",
+    "Location_CenterMassIntensity_Z",
 ]
 
 OUTPUT_COLUMNS = [
@@ -56,6 +59,9 @@ OUTPUT_COLUMNS = [
     "Intensity_UpperQuartileIntensity",
     "Intensity_StdIntensity",
     "Intensity_MADIntensity",
+    "Location_CenterMassIntensity_X",
+    "Location_CenterMassIntensity_Y",
+    "Location_CenterMassIntensity_Z",
     "AreaShape_Perimeter",
     "AreaShape_Eccentricity",
     "AreaShape_MajorAxisLength",
