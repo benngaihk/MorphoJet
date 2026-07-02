@@ -29,6 +29,10 @@ INTENSITY_COLUMNS = [
     "Intensity_MeanIntensity",
     "Intensity_MedianIntensity",
     "Intensity_IntegratedIntensity",
+    "Intensity_LowerQuartileIntensity",
+    "Intensity_UpperQuartileIntensity",
+    "Intensity_StdIntensity",
+    "Intensity_MADIntensity",
 ]
 
 OUTPUT_COLUMNS = [
@@ -48,6 +52,10 @@ OUTPUT_COLUMNS = [
     "Intensity_MeanIntensity",
     "Intensity_MedianIntensity",
     "Intensity_IntegratedIntensity",
+    "Intensity_LowerQuartileIntensity",
+    "Intensity_UpperQuartileIntensity",
+    "Intensity_StdIntensity",
+    "Intensity_MADIntensity",
     "AreaShape_Perimeter",
     "AreaShape_Eccentricity",
     "AreaShape_MajorAxisLength",

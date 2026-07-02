@@ -39,6 +39,10 @@ INTENSITY_COLUMNS = [
     "Intensity_MeanIntensity",
     "Intensity_MedianIntensity",
     "Intensity_IntegratedIntensity",
+    "Intensity_LowerQuartileIntensity",
+    "Intensity_UpperQuartileIntensity",
+    "Intensity_StdIntensity",
+    "Intensity_MADIntensity",
 ]
 
 

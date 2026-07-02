@@ -12,13 +12,14 @@ This file is the public compatibility ledger. Do not claim full parity from benc
 | Centroid | FIX | ExampleHuman oracle matches CellProfiler within tolerance. |
 | Bounding box | FIX | Writes CellProfiler-style exclusive maximum X/Y bounds. |
 | Intensity min/max/mean/median/integrated | FIX | Normalizes grayscale 8-bit and 16-bit image intensities to CellProfiler's 0-1 measurement scale and uses CellProfiler's quantile interpolation for median. |
+| Intensity quartiles, std, and MAD | FIX | `LowerQuartileIntensity`, `UpperQuartileIntensity`, population `StdIntensity`, and `MADIntensity` match CellProfiler on the CellBinDB full oracle benchmark. |
 | 32-bit float label masks | GAP | Not supported yet; M0 starter expects 8-bit or 16-bit label masks. |
 | Normalized CSV comparison | FIX | `tests/parity/normalize_measurements.py` and `tests/parity/compare_measurements.py` provide deterministic parity reports. |
 | Perimeter | FIX | Matches scikit-image 0.18.3 / CellProfiler 4.2.6 4-neighborhood perimeter lookup weights. |
 | Eccentricity and axis lengths | FIX | ExampleHuman oracle matches CellProfiler within tolerance. |
 | Solidity | FIX | Matches scikit-image 0.18.3 convex-hull-image pixel count behavior on ExampleHuman. |
 | Derived CellProfiler shape columns | FIX | Wide export derives `AreaShape_ConvexArea`, `AreaShape_EquivalentDiameter`, and `AreaShape_Extent`; CellBinDB full bridge matches CellProfiler within tolerance. |
-| CellProfiler-style wide object CSV | PARTIAL | `benchmark/materialize_morphojet_cellprofiler_wide.py` emits 26 supported columns in a per-object wide shape; unsupported CellProfiler columns remain explicit gaps. |
+| CellProfiler-style wide object CSV | PARTIAL | `benchmark/materialize_morphojet_cellprofiler_wide.py` emits 30 supported columns in a per-object wide shape; unsupported CellProfiler columns remain explicit gaps. |
 
 ## Default Numeric Tolerance
 

@@ -219,7 +219,7 @@ Parity:
 | Actual rows | 107,936 |
 | Missing rows | 0 |
 | Extra rows | 0 |
-| Numeric compared | 1,834,912 |
+| Numeric compared | 2,266,656 |
 | Numeric failures | 0 |
 
 Conclusion: L3 passes for this CellBinDB direct-mask measurement benchmark. This does not prove full CellProfiler replacement, upstream segmentation replacement, or external lab workflow fit; those remain L4/production-readiness work.
@@ -257,17 +257,17 @@ Result:
 | MorphoJet wide rows | 107,936 |
 | Missing rows | 0 |
 | Extra rows | 0 |
-| Compared columns | 24 |
-| Ignored CellProfiler columns | 26 |
+| Compared columns | 28 |
+| Ignored CellProfiler columns | 22 |
 | Unsupported MorphoJet columns | 0 |
-| Numeric compared | 2,590,464 |
+| Numeric compared | 3,022,208 |
 | Numeric failures | 0 |
-| Required contract columns | 26 |
+| Required contract columns | 30 |
 | Duplicate keys | 0 |
 | Empty keys | 0 |
 | Status | PASS |
 
-Compared columns include supported area/center/bounding-box/perimeter/eccentricity/axis/solidity fields, derived `ConvexArea`, `EquivalentDiameter`, and `Extent`, `Location_Center_X/Y`, `Number_Object_Number`, and the channel-suffixed intensity fields. Ignored CellProfiler columns include feature families MorphoJet does not yet emit, such as edge intensity, quartiles, standard deviation, Feret diameter, compactness, orientation, and center-of-mass intensity locations.
+Compared columns include supported area/center/bounding-box/perimeter/eccentricity/axis/solidity fields, derived `ConvexArea`, `EquivalentDiameter`, and `Extent`, `Location_Center_X/Y`, `Number_Object_Number`, and channel-suffixed intensity fields including quartiles, population standard deviation, and median absolute deviation. Ignored CellProfiler columns include feature families MorphoJet does not yet emit, such as edge intensity, Feret diameter, compactness, orientation, and center-of-mass intensity locations.
 
 Conclusion: this removes one CSV-shape and handoff-automation blocker for workflow trials on the supported subset. L4 remains incomplete until an external lab workflow consumes these files without manual CSV editing.
 

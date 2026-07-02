@@ -46,6 +46,10 @@ pub struct ObjectMeasurement {
     pub intensity_mean: f64,
     pub intensity_median: f64,
     pub intensity_integrated: f64,
+    pub intensity_lower_quartile: f64,
+    pub intensity_upper_quartile: f64,
+    pub intensity_std: f64,
+    pub intensity_mad: f64,
     pub perimeter: f64,
     pub eccentricity: f64,
     pub major_axis_length: f64,
@@ -124,11 +128,15 @@ impl ObjectAccumulator {
     ) -> ObjectMeasurement {
         self.intensity_values
             .sort_by(|left, right| left.total_cmp(right));
-        let median = median(&self.intensity_values);
+        let lower_quartile = quantile(&self.intensity_values, 0.25);
+        let median = quantile(&self.intensity_values, 0.5);
+        let upper_quartile = quantile(&self.intensity_values, 0.75);
         let area = self.area as f64;
         let centroid_x = self.sum_x / area;
         let centroid_y = self.sum_y / area;
         let mean = self.intensity_sum / area;
+        let intensity_std = population_std(&self.intensity_values, mean);
+        let intensity_mad = median_absolute_deviation(&self.intensity_values, median);
         let (major_axis_length, minor_axis_length, eccentricity) = axis_features(
             self.sum_x2 / area - centroid_x * centroid_x,
             self.sum_y2 / area - centroid_y * centroid_y,
@@ -167,6 +175,10 @@ impl ObjectAccumulator {
             intensity_mean: mean,
             intensity_median: median,
             intensity_integrated: self.intensity_sum,
+            intensity_lower_quartile: lower_quartile,
+            intensity_upper_quartile: upper_quartile,
+            intensity_std,
+            intensity_mad,
             perimeter,
             eccentricity,
             major_axis_length,
@@ -332,12 +344,12 @@ fn load_labels(row: &ImageTableRow) -> Result<(Vec<u32>, u32, u32)> {
     Ok((labels, width, height))
 }
 
-fn median(values: &[f64]) -> f64 {
+fn quantile(values: &[f64], q: f64) -> f64 {
     let len = values.len();
     if len == 0 {
         return f64::NAN;
     }
-    let qindex = len as f64 * 0.5;
+    let qindex = len as f64 * q;
     let lower = qindex.floor() as usize;
     let fraction = qindex - lower as f64;
     if lower < len - 1 {
@@ -345,6 +357,33 @@ fn median(values: &[f64]) -> f64 {
     } else {
         values[lower]
     }
+}
+
+fn population_std(values: &[f64], mean: f64) -> f64 {
+    if values.is_empty() {
+        return f64::NAN;
+    }
+    let variance = values
+        .iter()
+        .map(|value| {
+            let diff = value - mean;
+            diff * diff
+        })
+        .sum::<f64>()
+        / values.len() as f64;
+    variance.sqrt()
+}
+
+fn median_absolute_deviation(values: &[f64], median: f64) -> f64 {
+    if values.is_empty() {
+        return f64::NAN;
+    }
+    let mut deviations = values
+        .iter()
+        .map(|value| (value - median).abs())
+        .collect::<Vec<_>>();
+    deviations.sort_by(|left, right| left.total_cmp(right));
+    quantile(&deviations, 0.5)
 }
 
 fn skimage_perimeter_4(
@@ -573,10 +612,19 @@ mod tests {
 
     #[test]
     fn median_matches_cellprofiler_quantile_interpolation() {
-        close(median(&[1.0]), 1.0);
-        close(median(&[1.0, 3.0]), 3.0);
-        close(median(&[1.0, 3.0, 5.0]), 4.0);
-        close(median(&[1.0, 3.0, 5.0, 7.0]), 5.0);
+        close(quantile(&[1.0], 0.5), 1.0);
+        close(quantile(&[1.0, 3.0], 0.5), 3.0);
+        close(quantile(&[1.0, 3.0, 5.0], 0.5), 4.0);
+        close(quantile(&[1.0, 3.0, 5.0, 7.0], 0.5), 5.0);
+    }
+
+    #[test]
+    fn intensity_distribution_features_match_cellprofiler_conventions() {
+        let values = [1.0, 3.0, 5.0, 7.0];
+        close(quantile(&values, 0.25), 3.0);
+        close(quantile(&values, 0.75), 7.0);
+        close(population_std(&values, 4.0), 5.0_f64.sqrt());
+        close(median_absolute_deviation(&values, 5.0), 2.0);
     }
 
     #[test]
