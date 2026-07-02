@@ -228,6 +228,7 @@ def main() -> int:
     parser.add_argument("--run-l3", action="store_true", help="Rerun the full CellBinDB L3 benchmark")
     parser.add_argument("--build-release-artifact", action="store_true", help="Build and verify a local release archive")
     parser.add_argument("--release-version", default="local", help="Version label for --build-release-artifact")
+    parser.add_argument("--verify-github-release", help="Download and verify an existing GitHub release tag")
     args = parser.parse_args()
 
     cargo = cargo_bin()
@@ -296,6 +297,20 @@ def main() -> int:
         )
     if args.run_l3:
         gates.append(run_command("Run CellBinDB L3 benchmark", ["python3", "benchmark/run_cellbindb_oracle.py", "--threads", "8"]))
+    if args.verify_github_release:
+        gates.append(
+            run_command(
+                "Verify GitHub release assets",
+                [
+                    "python3",
+                    "benchmark/verify_github_release.py",
+                    args.verify_github_release,
+                    "--expect-prerelease",
+                    "--json-out",
+                    f"benchmark/results/github-release/{args.verify_github_release}/verification.json",
+                ],
+            )
+        )
     gates.append(validate_l3_artifacts())
     gates.append(validate_workflow_bridge_artifacts())
     gates.append(validate_handoff_trial_artifacts())

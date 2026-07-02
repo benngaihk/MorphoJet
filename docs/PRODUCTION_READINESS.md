@@ -24,14 +24,14 @@ Production-grade means:
 | Performance | Synthetic regression benchmark plus real CellProfiler benchmark | L3 CellBinDB benchmark PASS: 701.66x speedup, 11.72% RSS ratio |
 | Workflow fit | CellProfiler-style object CSV handoff can run without manual CSV editing | CellBinDB L4-preflight handoff PASS; manifest schema gate and external lab template implemented |
 | Observability | Clear stderr summary, actionable error context, and runtime diagnostics | Runtime `doctor` implemented; richer structured logs pending |
-| Release | GitHub release workflow and checksums | Workflow implemented; local macOS arm64 archive, checksum, doctor, and commit verification PASS; tagged GitHub release artifact validation pending |
+| Release | GitHub release workflow and checksums | `v0.1.0-rc.1` prerelease PASS: GitHub Actions built Linux/macOS archives, checksums verified, macOS packaged `doctor` commit verified |
 | Documentation | Supported inputs, unsupported scope, parity gaps, and production caveats documented | L3 evidence and release gate documented; L4 workflow caveats remain |
 
 ## Production Hardening Backlog
 
 Priority order:
 
-1. Run `python3 benchmark/release_gate.py --run-l3 --build-release-artifact --release-version rc-preflight` before release candidates.
+1. Promote the release-candidate validation path from `v0.1.0-rc.1` to a stable `v0.1.0` tag after external workflow evidence.
 2. Copy `benchmark/handoff/external_lab_template.json` and run an external lab workflow trial against real batch handoff files.
 3. Broaden the supported measurement subset beyond the current intensity and size/shape columns.
 

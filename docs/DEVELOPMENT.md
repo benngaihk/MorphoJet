@@ -95,6 +95,12 @@ python3 benchmark/validate_handoff_manifest.py benchmark/handoff/external_lab_te
   --require-downstream-check
 ```
 
+After a `v*` tag is published, verify the GitHub release assets:
+
+```bash
+python3 benchmark/release_gate.py --verify-github-release v0.1.0-rc.1
+```
+
 ## Parity Report Smoke
 
 ```bash

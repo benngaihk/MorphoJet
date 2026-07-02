@@ -42,6 +42,12 @@ To validate the local release archive shape before tagging:
 python3 benchmark/release_gate.py --build-release-artifact --release-version local
 ```
 
+To verify a published GitHub release candidate:
+
+```bash
+python3 benchmark/release_gate.py --verify-github-release v0.1.0-rc.1
+```
+
 ## Diagnostics
 
 ```bash
@@ -137,4 +143,4 @@ Current validation results are summarized in [docs/VALIDATION_RESULTS.md](docs/V
 
 The CellProfiler oracle validation checklist is in [docs/ORACLE_VALIDATION.md](docs/ORACLE_VALIDATION.md).
 
-Production-readiness gates are tracked in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). MorphoJet has a passing L3 public direct-mask benchmark and an L4-preflight handoff harness, but should not be described as production-ready until release validation and an external workflow-fit trial pass.
+Production-readiness gates are tracked in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). MorphoJet has a passing L3 public direct-mask benchmark, a verified `v0.1.0-rc.1` prerelease, and an L4-preflight handoff harness, but should not be described as production-ready until an external workflow-fit trial passes.

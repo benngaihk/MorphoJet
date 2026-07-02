@@ -299,6 +299,34 @@ Result:
 
 Conclusion: local release artifact shape is validated. Production release evidence still requires a tagged GitHub release with published macOS and Linux archives and checksums.
 
+## GitHub Release Candidate Snapshot
+
+This snapshot validates the first tagged GitHub prerelease artifact set.
+
+Artifacts:
+
+- Tag: `v0.1.0-rc.1`
+- Release URL: `https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0-rc.1`
+- GitHub Actions run: `28576021744`
+- Verifier: `benchmark/verify_github_release.py`
+- Release gate command: `python3 benchmark/release_gate.py --verify-github-release v0.1.0-rc.1`
+- Verification JSON: `benchmark/results/github-release/v0.1.0-rc.1/verification.json`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Release is marked prerelease | PASS |
+| Asset count | 4 |
+| Linux archive checksum | PASS |
+| macOS archive checksum | PASS |
+| Linux archive contains `morphojet`, `README.md`, `LICENSE` | PASS |
+| macOS archive contains `morphojet`, `README.md`, `LICENSE` | PASS |
+| macOS packaged `morphojet doctor` smoke | PASS |
+| Packaged commit matches tag commit `e7d0b6a5b44b` | PASS |
+
+Conclusion: the release workflow can publish verifiable Linux and macOS archives for a tagged release candidate. This satisfies the RC artifact gate; stable release still waits on external workflow-fit evidence.
+
 ## L1 Synthetic Scale Benchmark
 
 These results validate MorphoJet's local release CLI path on deterministic synthetic data. They do not prove CellProfiler parity or industry impact by themselves.

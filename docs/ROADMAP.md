@@ -31,6 +31,7 @@
   - [x] CLI integration failure-mode tests.
   - [x] Release packaging and checksums.
   - [x] Local release archive verifier.
+  - [x] Verified `v0.1.0-rc.1` GitHub prerelease assets.
   - [x] Public CellProfiler oracle benchmark.
   - [x] Manual release gate command for code checks plus CellBinDB L3.
   - [x] Supported-column CellProfiler-style wide CSV bridge.

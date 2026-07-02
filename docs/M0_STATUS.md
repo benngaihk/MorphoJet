@@ -95,6 +95,7 @@ Latest M0 oracle gate verification:
 - Handoff manifest gates pass for the CellBinDB preflight manifest and the external lab template.
 - Release gate script can run code gates and validate or rerun the CellBinDB L3 benchmark plus the workflow bridge and handoff trial artifacts, writing JSON and Markdown reports.
 - Local release artifact preflight passes on macOS arm64: archive checksum verified and packaged `morphojet doctor` reports version, current commit, OS, and architecture.
+- GitHub release candidate `v0.1.0-rc.1` passes: release workflow built Linux/macOS archives, all published checksums match, release is marked prerelease, and the macOS packaged binary reports the tag commit.
 
 ## Not Yet Achieved
 
@@ -103,13 +104,13 @@ Latest M0 oracle gate verification:
 - Scheduled/nightly validation job for the 1k real/public CellProfiler benchmark.
 - Broader CellProfiler coordinate and shape formula parity beyond ExampleHuman.
 - L4 external lab workflow replacement evidence beyond the supported-column handoff preflight.
-- A tagged GitHub release candidate validated after `python3 benchmark/release_gate.py --run-l3 --build-release-artifact --release-version rc-preflight`.
+- A stable non-RC GitHub release validated after external workflow evidence.
 
 ## Next Gate
 
 The next gate toward production readiness is no longer L3 evidence; it is repeatability and L4 workflow fit:
 
-- Run `python3 benchmark/release_gate.py --run-l3 --build-release-artifact --release-version rc-preflight` before release candidates.
+- Re-run `python3 benchmark/release_gate.py --run-l3 --build-release-artifact --release-version rc-preflight` before promoting from RC to stable release.
 - Promote the CellBinDB full benchmark into scheduled/nightly validation.
 - Run an external lab workflow trial with real handoff files.
 - Copy `benchmark/handoff/external_lab_template.json` and exercise the manifest-driven handoff trial in that external workflow without manual CSV editing.
