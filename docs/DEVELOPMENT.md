@@ -29,7 +29,9 @@ CI runs the same core path on GitHub Actions: Rust formatting, Rust tests, Clipp
 - `(ImageNumber, Channel, ObjectSet)` identities must be unique.
 - Image and mask paths must resolve to readable files before measurement starts.
 - `Image.csv` and `Objects.csv` are not overwritten unless `--overwrite` is passed.
+- Final `Image.csv` / `Objects.csv` targets must be files when they already exist; directories or other non-file targets are rejected before publish.
 - `--summary-json` writes only after successful measurement, must not collide with `Image.csv` or `Objects.csv`, and follows the same `--overwrite` protection.
+- `--summary-json` and `--error-json` targets must be files when they already exist; directories or other non-file targets are rejected before measurement.
 - `--error-json` writes only on measure failure after argument parsing, must not collide with measurement CSVs or `--summary-json`, follows the same `--overwrite` protection, and preserves the non-zero exit plus human-readable stderr.
 
 ## Diagnostics

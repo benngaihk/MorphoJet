@@ -29,7 +29,7 @@ Updated: 2026-07-02
 - Production readiness checklist in `docs/PRODUCTION_READINESS.md`.
 - CLI safety hardening: thread validation, non-empty input table, duplicate header rejection, reserved output-column metadata rejection, duplicate row identity detection, readable path preflight, overwrite protection.
 - CLI integration tests for success and major failure modes.
-- Output staging writes: final `Image.csv` and `Objects.csv` are published only after both staging files are written.
+- Output staging writes: final `Image.csv` and `Objects.csv` are published only after both staging files are written; non-file final/report targets are rejected before publish.
 - Clippy quality gate in CI.
 - Tagged release workflow for macOS/Linux binary archives and SHA-256 checksums.
 - Local release archive builder and verifier for pre-tag package validation.

@@ -75,6 +75,11 @@ pub fn write_measurement_csvs_atomic(
     let out_dir = out_dir.as_ref();
     std::fs::create_dir_all(out_dir)
         .with_context(|| format!("failed to create output directory {}", out_dir.display()))?;
+    let final_image = out_dir.join("Image.csv");
+    let final_objects = out_dir.join("Objects.csv");
+    ensure_publish_target(&final_image)?;
+    ensure_publish_target(&final_objects)?;
+
     let staging_dir = out_dir.join(staging_dir_name());
     std::fs::create_dir(&staging_dir).with_context(|| {
         format!(
@@ -88,9 +93,9 @@ pub fn write_measurement_csvs_atomic(
         let staging_objects = staging_dir.join("Objects.csv");
         write_image_csv(&staging_image, results)?;
         write_object_csv(&staging_objects, results)?;
-        std::fs::rename(&staging_image, out_dir.join("Image.csv"))
+        std::fs::rename(&staging_image, &final_image)
             .with_context(|| "failed to publish Image.csv")?;
-        std::fs::rename(&staging_objects, out_dir.join("Objects.csv"))
+        std::fs::rename(&staging_objects, &final_objects)
             .with_context(|| "failed to publish Objects.csv")?;
         Ok(())
     })();
@@ -108,6 +113,18 @@ pub fn write_measurement_csvs_atomic(
     }
 
     result
+}
+
+fn ensure_publish_target(path: &Path) -> Result<()> {
+    if !path.exists() {
+        return Ok(());
+    }
+    let metadata = std::fs::metadata(path)
+        .with_context(|| format!("failed to inspect output target {}", path.display()))?;
+    if !metadata.is_file() {
+        anyhow::bail!("output target exists but is not a file: {}", path.display());
+    }
+    Ok(())
 }
 
 pub fn write_object_csv(path: impl AsRef<Path>, results: &[MeasureResult]) -> Result<()> {

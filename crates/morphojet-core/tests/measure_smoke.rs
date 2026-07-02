@@ -1,7 +1,7 @@
 use image::{GrayImage, ImageBuffer, Luma, RgbImage};
 use morphojet_core::{
-    measure_rows, measure_rows_with_options, read_image_table, write_image_csv, write_object_csv,
-    MeasureOptions,
+    measure_rows, measure_rows_with_options, read_image_table, write_image_csv,
+    write_measurement_csvs_atomic, write_object_csv, MeasureOptions,
 };
 use std::fs;
 
@@ -85,6 +85,37 @@ fn rejects_metadata_headers_that_collide_with_image_output_columns() {
     assert!(error
         .to_string()
         .contains("metadata column uses reserved output name"));
+}
+
+#[test]
+fn atomic_writer_rejects_non_file_final_targets_before_publish() {
+    let dir = tempfile::tempdir().unwrap();
+    let image_path = dir.path().join("image.tif");
+    let mask_path = dir.path().join("mask.tif");
+    let table_path = dir.path().join("images.csv");
+
+    let image = GrayImage::from_vec(3, 2, vec![1, 2, 3, 4, 5, 6]).unwrap();
+    image.save(&image_path).unwrap();
+    let mask: ImageBuffer<Luma<u16>, Vec<u16>> =
+        ImageBuffer::from_vec(3, 2, vec![1, 1, 0, 2, 2, 2]).unwrap();
+    mask.save(&mask_path).unwrap();
+    fs::write(
+        &table_path,
+        "ImageNumber,ImagePath,MaskPath,Channel\n1,image.tif,mask.tif,DAPI\n",
+    )
+    .unwrap();
+    let rows = read_image_table(&table_path).unwrap();
+    let results = measure_rows(&rows).unwrap();
+    let out = dir.path().join("out");
+    fs::create_dir(&out).unwrap();
+    fs::create_dir(out.join("Objects.csv")).unwrap();
+
+    let error = write_measurement_csvs_atomic(&out, &results).unwrap_err();
+
+    assert!(error
+        .to_string()
+        .contains("output target exists but is not a file"));
+    assert!(!out.join("Image.csv").exists());
 }
 
 #[test]

@@ -225,6 +225,43 @@ fn rejects_error_json_that_collides_with_measurement_csvs() {
 }
 
 #[test]
+fn rejects_non_file_measurement_targets_before_publish() {
+    let dir = tempfile::tempdir().unwrap();
+    write_images(dir.path(), (3, 2), (3, 2));
+    let table = write_table(dir.path(), "1,image.tif,mask.tif,DAPI\n");
+    let out = dir.path().join("out");
+    fs::create_dir(&out).unwrap();
+    fs::create_dir(out.join("Objects.csv")).unwrap();
+
+    let output = run_measure(&table, &out, &["--overwrite"]);
+
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("output target exists but is not a file"));
+    assert!(!out.join("Image.csv").exists());
+}
+
+#[test]
+fn rejects_non_file_summary_target_before_measurement() {
+    let dir = tempfile::tempdir().unwrap();
+    write_images(dir.path(), (3, 2), (3, 2));
+    let table = write_table(dir.path(), "1,image.tif,mask.tif,DAPI\n");
+    let out = dir.path().join("out");
+    let summary = dir.path().join("summary.json");
+    fs::create_dir(&summary).unwrap();
+
+    let output = run_measure(
+        &table,
+        &out,
+        &["--overwrite", "--summary-json", summary.to_str().unwrap()],
+    );
+
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("report target exists but is not a file"));
+    assert!(!out.join("Image.csv").exists());
+    assert!(!out.join("Objects.csv").exists());
+}
+
+#[test]
 fn refuses_to_overwrite_existing_error_json_without_flag() {
     let dir = tempfile::tempdir().unwrap();
     write_images(dir.path(), (3, 2), (3, 2));

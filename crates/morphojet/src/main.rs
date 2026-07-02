@@ -286,6 +286,8 @@ fn ensure_output_targets(args: &MeasureArgs) -> Result<()> {
     }
 
     let (image_csv, objects_csv) = measurement_csv_paths(args);
+    ensure_file_output_target(&image_csv)?;
+    ensure_file_output_target(&objects_csv)?;
     if let Some(summary_json) = &args.summary_json {
         if summary_json == &image_csv || summary_json == &objects_csv {
             bail!(
@@ -293,6 +295,7 @@ fn ensure_output_targets(args: &MeasureArgs) -> Result<()> {
                 summary_json.display()
             );
         }
+        ensure_report_target(summary_json)?;
     }
     if let Some(error_json) = &args.error_json {
         if error_json == &image_csv || error_json == &objects_csv {
@@ -301,6 +304,7 @@ fn ensure_output_targets(args: &MeasureArgs) -> Result<()> {
                 error_json.display()
             );
         }
+        ensure_report_target(error_json)?;
     }
     if let (Some(summary_json), Some(error_json)) = (&args.summary_json, &args.error_json) {
         if summary_json == error_json {
@@ -335,6 +339,31 @@ fn ensure_output_targets(args: &MeasureArgs) -> Result<()> {
 
 fn measurement_csv_paths(args: &MeasureArgs) -> (PathBuf, PathBuf) {
     (args.out.join("Image.csv"), args.out.join("Objects.csv"))
+}
+
+fn ensure_file_output_target(path: &Path) -> Result<()> {
+    if path.exists() && !path.is_file() {
+        bail!("output target exists but is not a file: {}", path.display());
+    }
+    Ok(())
+}
+
+fn ensure_report_target(path: &Path) -> Result<()> {
+    if let Some(parent) = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        if parent.exists() && !parent.is_dir() {
+            bail!(
+                "report parent exists but is not a directory: {}",
+                parent.display()
+            );
+        }
+    }
+    if path.exists() && !path.is_file() {
+        bail!("report target exists but is not a file: {}", path.display());
+    }
+    Ok(())
 }
 
 fn can_write_error_report(args: &MeasureArgs) -> bool {
