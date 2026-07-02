@@ -31,7 +31,7 @@
   - [x] CLI integration failure-mode tests.
   - [x] Release packaging and checksums.
   - [x] Public CellProfiler oracle benchmark.
-  - [x] Manual release validation command for CellBinDB L3.
+  - [x] Manual release gate command for code checks plus CellBinDB L3.
   - [ ] Scheduled/nightly validation for CellBinDB L3.
   - [ ] External workflow trial.
 

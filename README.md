@@ -62,6 +62,14 @@ python3 benchmark/summarize.py benchmark/results/smoke
 
 Real CellProfiler oracle benchmark setup is documented in [docs/BENCHMARK.md](docs/BENCHMARK.md).
 
+Before a release candidate, run:
+
+```bash
+python3 benchmark/release_gate.py --run-l3
+```
+
+For a fast audit of already-generated L3 artifacts, run `python3 benchmark/release_gate.py`.
+
 ## Parity Report
 
 ```bash

@@ -85,6 +85,7 @@ Latest M0 oracle gate verification:
 - CellBinDB archive was downloaded locally and MD5 verified; MorphoJet processed the full 1,044-row direct-mask table into 107,936 object rows in 0.879788 seconds with 89.875 MB peak RSS.
 - CellBinDB 8-row CellProfiler oracle smoke passes: 590 expected rows, 590 actual rows, 0 row gaps, 0 numeric failures.
 - CellBinDB full L3 benchmark passes: 1,044 image rows, 107,936 expected rows, 107,936 actual rows, 0 row gaps, 0 numeric failures, 673.38x speedup, 14.92% RSS ratio.
+- Release gate script can run code gates and validate or rerun the CellBinDB L3 benchmark, writing JSON and Markdown reports.
 
 ## Not Yet Achieved
 
@@ -93,13 +94,13 @@ Latest M0 oracle gate verification:
 - Scheduled/nightly validation job for the 1k real/public CellProfiler benchmark.
 - Broader CellProfiler coordinate and shape formula parity beyond ExampleHuman.
 - L4 external lab workflow replacement evidence.
-- Production release validation using the L3 benchmark artifacts.
+- A tagged release candidate validated with `python3 benchmark/release_gate.py --run-l3`.
 
 ## Next Gate
 
 The next gate toward production readiness is no longer L3 evidence; it is repeatability and L4 workflow fit:
 
-- Run `python3 benchmark/run_cellbindb_oracle.py --threads 8` before release candidates.
+- Run `python3 benchmark/release_gate.py --run-l3` before release candidates.
 - Promote the CellBinDB full benchmark into scheduled/nightly validation.
 - Run an external lab workflow trial with real handoff files.
 - Broaden compatibility beyond the current measurement subset.

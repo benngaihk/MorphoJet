@@ -257,9 +257,8 @@ Environment:
 
 L1 is now complete: the release binary can process deterministic synthetic batches at high throughput and produce stable CSV outputs. This is an engineering viability signal.
 
-The industry-impact claim remains unproven until the remaining L3-L4 gates pass:
+The broad industry-impact claim remains unproven until the remaining L4 gate passes:
 
-- L3: >=10x speedup and <=50% RSS vs CellProfiler headless on >=1k real/public image rows.
 - L4: external lab workflow replacement.
 
 ## Reproduction
