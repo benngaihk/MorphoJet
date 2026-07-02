@@ -41,6 +41,20 @@ For `ExampleHuman`, the inspector finds measured objects `Nuclei`, `PH3`, `Cells
 
 CI covers the inspector with `benchmark/cellprofiler/fixtures/example_human_minimal.cppipe`.
 
+After label masks are exported, build a MorphoJet image table with paired image/mask keys:
+
+```bash
+python3 benchmark/build_image_table.py \
+  --base-dir benchmark/data/cellprofiler/prepared \
+  --images-glob 'ExampleHuman/images/*d0.tif' \
+  --masks-glob 'masks/*Nuclei*.tif' \
+  --image-key-regex '(.+)_d0\\.tif$' \
+  --mask-key-regex '(.+)_Nuclei\\.tif$' \
+  --channel DNA \
+  --metadata ObjectSet=Nuclei \
+  --out benchmark/cellprofiler/images.csv
+```
+
 ## L2 Package: Correctness
 
 Required files:
