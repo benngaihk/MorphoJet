@@ -1,7 +1,8 @@
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use morphojet_core::{
-    measure_rows, read_image_table, validate_image_table, write_measurement_csvs_atomic,
+    measure_rows_with_options, read_image_table, validate_image_table,
+    write_measurement_csvs_atomic, MeasureOptions,
 };
 use std::path::PathBuf;
 
@@ -70,7 +71,12 @@ fn run_measure(args: MeasureArgs) -> Result<()> {
     std::fs::create_dir_all(&args.out)?;
     let rows = read_image_table(&args.images)?;
     validate_image_table(&rows)?;
-    let results = measure_rows(&rows)?;
+    let results = measure_rows_with_options(
+        &rows,
+        MeasureOptions {
+            compact_object_numbers: args.cellprofiler_compatible,
+        },
+    )?;
     write_measurement_csvs_atomic(&args.out, &results)?;
 
     let object_count: usize = results.iter().map(|result| result.objects.len()).sum();

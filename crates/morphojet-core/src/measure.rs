@@ -10,6 +10,11 @@ pub struct MeasureResult {
     pub objects: Vec<ObjectMeasurement>,
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct MeasureOptions {
+    pub compact_object_numbers: bool,
+}
+
 #[derive(Debug, Clone)]
 pub struct ImageMeasurement {
     pub image_number: u32,
@@ -113,6 +118,7 @@ impl ObjectAccumulator {
     fn finish(
         mut self,
         image_number: u32,
+        object_number: u32,
         channel: Option<String>,
         object_set: Option<String>,
     ) -> ObjectMeasurement {
@@ -146,7 +152,7 @@ impl ObjectAccumulator {
 
         ObjectMeasurement {
             image_number,
-            object_number: self.label,
+            object_number,
             channel,
             object_set,
             area: self.area,
@@ -177,10 +183,26 @@ struct Point {
 }
 
 pub fn measure_rows(rows: &[ImageTableRow]) -> Result<Vec<MeasureResult>> {
-    rows.par_iter().map(measure_row).collect()
+    measure_rows_with_options(rows, MeasureOptions::default())
+}
+
+pub fn measure_rows_with_options(
+    rows: &[ImageTableRow],
+    options: MeasureOptions,
+) -> Result<Vec<MeasureResult>> {
+    rows.par_iter()
+        .map(|row| measure_row_with_options(row, options))
+        .collect()
 }
 
 pub fn measure_row(row: &ImageTableRow) -> Result<MeasureResult> {
+    measure_row_with_options(row, MeasureOptions::default())
+}
+
+pub fn measure_row_with_options(
+    row: &ImageTableRow,
+    options: MeasureOptions,
+) -> Result<MeasureResult> {
     let (intensity, width, height) = load_intensity(row)?;
     let (labels, mask_width, mask_height) = load_labels(row)?;
     if width != mask_width || height != mask_height {
@@ -210,17 +232,25 @@ pub fn measure_row(row: &ImageTableRow) -> Result<MeasureResult> {
         }
     }
 
-    let mut objects = objects
-        .into_values()
-        .map(|object| {
+    let mut accumulators = objects.into_values().collect::<Vec<_>>();
+    accumulators.sort_by_key(|object| object.label);
+    let objects = accumulators
+        .into_iter()
+        .enumerate()
+        .map(|(index, object)| {
+            let object_number = if options.compact_object_numbers {
+                (index + 1) as u32
+            } else {
+                object.label
+            };
             object.finish(
                 row.image_number,
+                object_number,
                 row.channel.clone(),
                 row.object_set.clone(),
             )
         })
         .collect::<Vec<_>>();
-    objects.sort_by_key(|object| object.object_number);
 
     let image = ImageMeasurement {
         image_number: row.image_number,

@@ -83,12 +83,12 @@ Latest M0 oracle gate verification:
 - CellBinDB is registered as the next L3 direct-mask candidate: 1,044 annotated microscope images, semantic and instance masks, CC0 Zenodo record, 286 MB primary archive with MD5 verification metadata.
 - CellBinDB preparation script can pair `*-img.tif` with `*-instancemask.tif`, extract selected rows, and write a MorphoJet image table.
 - CellBinDB archive was downloaded locally and MD5 verified; MorphoJet processed the full 1,044-row direct-mask table into 107,936 object rows in 0.879788 seconds with 89.875 MB peak RSS.
+- CellBinDB 8-row CellProfiler oracle smoke passes: 590 expected rows, 590 actual rows, 0 row gaps, 0 numeric failures.
 
 ## Not Yet Achieved
 
 - Manifest-driven bridge-aware pinned CellProfiler oracle parity run.
 - Public tutorial or Cell Painting corpus.
-- CellProfiler measurement-only oracle pipeline for the >=1k direct-mask corpus.
 - 1k real/public CellProfiler benchmark.
 - 10x speedup claim on >=1k real/public image rows.
 - Peak RSS comparison on >=1k real/public image rows.

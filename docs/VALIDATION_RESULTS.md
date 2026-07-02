@@ -134,6 +134,41 @@ Result:
 
 Conclusion: CellBinDB is a viable L3 corpus candidate for the MorphoJet side. The remaining blocking item is a CellProfiler measurement-only oracle pipeline for the same `*-instancemask.tif` labels.
 
+## CellBinDB Oracle Smoke
+
+This is an 8-row CellProfiler oracle smoke for the CellBinDB direct-mask path. It proves the measurement-only CellProfiler pipeline can read `*-instancemask.tif` labels as objects, and that MorphoJet's CellProfiler-compatible compact object numbering matches the oracle on the tested subset.
+
+Artifacts:
+
+- Pipeline generator: `benchmark/build_cellbindb_cellprofiler_pipeline.py`
+- Turnkey runner: `benchmark/run_cellbindb_oracle.py`
+- Pipeline artifact: `benchmark/results/cellbindb/cellbindb-direct-mask.cppipe`
+- CellProfiler output: `benchmark/results/cellbindb/cellprofiler-smoke/Cells.csv`
+- MorphoJet output: `benchmark/results/cellbindb/morphojet-smoke/Objects.csv`
+- Parity report: `benchmark/results/cellbindb/parity-smoke.md`
+- Parity JSON: `benchmark/results/cellbindb/parity-smoke.json`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Image rows | 8 |
+| Expected object rows | 590 |
+| Actual object rows | 590 |
+| Missing rows | 0 |
+| Extra rows | 0 |
+| Numeric compared | 10,030 |
+| Numeric failures | 0 |
+| CellProfiler seconds | 7.168250 |
+| MorphoJet seconds | 0.016173 |
+| Speedup | 443.22x |
+| CellProfiler peak RSS MB | 359.600 |
+| MorphoJet peak RSS MB | 18.062 |
+| RSS ratio | 5.02% |
+| Status | PASS |
+
+Conclusion: the L3 candidate now has a proven small CellProfiler oracle path. Production L3 remains unproven until the same runner passes on all 1,044 rows with CellProfiler/MorphoJet elapsed time and RSS metrics.
+
 ## L1 Synthetic Scale Benchmark
 
 These results validate MorphoJet's local release CLI path on deterministic synthetic data. They do not prove CellProfiler parity or industry impact by themselves.

@@ -1,5 +1,8 @@
 use image::{GrayImage, ImageBuffer, Luma};
-use morphojet_core::{measure_rows, read_image_table, write_image_csv, write_object_csv};
+use morphojet_core::{
+    measure_rows, measure_rows_with_options, read_image_table, write_image_csv, write_object_csv,
+    MeasureOptions,
+};
 use std::fs;
 
 #[test]
@@ -48,4 +51,42 @@ fn measures_two_labeled_objects() {
     assert!(object_csv.contains("AreaShape_Area"));
     assert!(object_csv.contains("Intensity_IntegratedIntensity"));
     assert!(object_csv.contains("AreaShape_Solidity"));
+}
+
+#[test]
+fn compact_object_numbers_match_cellprofiler_conversion() {
+    let dir = tempfile::tempdir().unwrap();
+    let image_path = dir.path().join("image.tif");
+    let mask_path = dir.path().join("mask.tif");
+    let table_path = dir.path().join("images.csv");
+
+    let image = GrayImage::from_vec(3, 2, vec![1, 2, 3, 4, 5, 6]).unwrap();
+    image.save(&image_path).unwrap();
+
+    let mask: ImageBuffer<Luma<u16>, Vec<u16>> =
+        ImageBuffer::from_vec(3, 2, vec![0, 2, 2, 0, 5, 5]).unwrap();
+    mask.save(&mask_path).unwrap();
+
+    fs::write(
+        &table_path,
+        "ImageNumber,ImagePath,MaskPath,Channel\n1,image.tif,mask.tif,DAPI\n",
+    )
+    .unwrap();
+
+    let rows = read_image_table(&table_path).unwrap();
+    let raw_results = measure_rows(&rows).unwrap();
+    let compact_results = measure_rows_with_options(
+        &rows,
+        MeasureOptions {
+            compact_object_numbers: true,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(raw_results[0].objects[0].object_number, 2);
+    assert_eq!(raw_results[0].objects[1].object_number, 5);
+    assert_eq!(compact_results[0].objects[0].object_number, 1);
+    assert_eq!(compact_results[0].objects[1].object_number, 2);
+    assert_eq!(compact_results[0].objects[0].area, 2);
+    assert_eq!(compact_results[0].objects[1].area, 2);
 }
