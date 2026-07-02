@@ -101,6 +101,7 @@ def validate_workflow_bridge_artifacts() -> Gate:
     started = time.perf_counter()
     try:
         bridge = load_json(ROOT / "benchmark/results/cellbindb/oracle-full/workflow_bridge.json")
+        contract = load_json(ROOT / "benchmark/results/cellbindb/oracle-full/handoff_contract.json")
         failures = []
         if bridge.get("status") != "PASS":
             failures.append(f"bridge status is {bridge.get('status')}")
@@ -114,8 +115,15 @@ def validate_workflow_bridge_artifacts() -> Gate:
         if bridge.get("numeric_failures") != 0:
             failures.append(f"numeric_failures={bridge.get('numeric_failures')}")
         compared_columns = bridge.get("compared_columns") or []
-        if len(compared_columns) < 31:
-            failures.append(f"compared_columns={len(compared_columns)}")
+        expected_value_columns = [
+            column
+            for column in contract.get("required_columns", [])
+            if column not in {"ImageNumber", "ObjectNumber"}
+        ]
+        if len(compared_columns) < len(expected_value_columns):
+            failures.append(
+                f"compared_columns={len(compared_columns)} expected={len(expected_value_columns)}"
+            )
         status = "FAIL" if failures else "PASS"
         detail = "; ".join(failures) if failures else (
             "CellBinDB workflow bridge artifacts PASS: "

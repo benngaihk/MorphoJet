@@ -89,9 +89,9 @@ Latest M0 oracle gate verification:
 - CellBinDB preparation script can pair `*-img.tif` with `*-instancemask.tif`, extract selected rows, and write a MorphoJet image table.
 - CellBinDB archive was downloaded locally and MD5 verified; MorphoJet processed the full 1,044-row direct-mask table into 107,936 object rows in 0.879788 seconds with 89.875 MB peak RSS.
 - CellBinDB 8-row CellProfiler oracle smoke passes: 590 expected rows, 590 actual rows, 0 row gaps, 0 numeric failures.
-- CellBinDB full L3 benchmark passes: 1,044 image rows, 107,936 expected rows, 107,936 actual rows, 0 row gaps, 0 numeric failures, 629.54x speedup, 11.84% RSS ratio.
-- CellBinDB workflow bridge passes: 107,936 CellProfiler rows, 107,936 MorphoJet wide rows, 31 compared columns, 3,346,016 numeric comparisons, 0 numeric failures. The comparator records 19 unsupported CellProfiler columns as ignored, not claimed.
-- CellBinDB handoff preflight passes: 3 manifest steps, 107,936 wide rows, 33 required contract columns, 0 missing columns, 0 duplicate keys, 0 empty keys.
+- CellBinDB full L3 benchmark passes: 1,044 image rows, 107,936 expected rows, 107,936 actual rows, 0 row gaps, 0 numeric failures, 597.54x speedup, 12.15% RSS ratio.
+- CellBinDB workflow bridge passes: 107,936 CellProfiler rows, 107,936 MorphoJet wide rows, 33 compared value columns, 3,561,888 numeric comparisons, 0 numeric failures. The comparator records 17 unsupported CellProfiler columns as ignored, not claimed.
+- CellBinDB handoff preflight passes: 3 manifest steps, 107,936 wide rows, 35 required contract columns, 0 missing columns, 0 duplicate keys, 0 empty keys.
 - Handoff manifest gates pass for the CellBinDB preflight manifest and the external lab template.
 - Release gate script can run code gates and validate or rerun the CellBinDB L3 benchmark plus the workflow bridge and handoff trial artifacts, writing JSON and Markdown reports.
 - Local release artifact preflight passes on macOS arm64: archive checksum verified and packaged `morphojet doctor` reports version, current commit, OS, and architecture.

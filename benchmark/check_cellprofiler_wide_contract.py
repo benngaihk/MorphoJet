@@ -30,6 +30,7 @@ BASE_COLUMNS = [
     "AreaShape_Solidity",
     "Location_Center_X",
     "Location_Center_Y",
+    "Location_Center_Z",
     "Number_Object_Number",
 ]
 
@@ -46,6 +47,7 @@ INTENSITY_COLUMNS = [
     "Location_CenterMassIntensity_X",
     "Location_CenterMassIntensity_Y",
     "Location_CenterMassIntensity_Z",
+    "Location_MaxIntensity_Z",
 ]
 
 

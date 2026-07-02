@@ -21,6 +21,7 @@ SHAPE_COLUMNS = [
     "AreaShape_MajorAxisLength",
     "AreaShape_MinorAxisLength",
     "AreaShape_Solidity",
+    "Location_Center_Z",
 ]
 
 INTENSITY_COLUMNS = [
@@ -36,6 +37,7 @@ INTENSITY_COLUMNS = [
     "Location_CenterMassIntensity_X",
     "Location_CenterMassIntensity_Y",
     "Location_CenterMassIntensity_Z",
+    "Location_MaxIntensity_Z",
 ]
 
 OUTPUT_COLUMNS = [
@@ -62,6 +64,8 @@ OUTPUT_COLUMNS = [
     "Location_CenterMassIntensity_X",
     "Location_CenterMassIntensity_Y",
     "Location_CenterMassIntensity_Z",
+    "Location_Center_Z",
+    "Location_MaxIntensity_Z",
     "AreaShape_Perimeter",
     "AreaShape_Eccentricity",
     "AreaShape_MajorAxisLength",

@@ -33,6 +33,7 @@ BASE_COLUMNS = [
     "AreaShape_Solidity",
     "Location_Center_X",
     "Location_Center_Y",
+    "Location_Center_Z",
     "Number_Object_Number",
 ]
 
@@ -64,6 +65,7 @@ INTENSITY_COLUMNS = [
     "Location_CenterMassIntensity_X",
     "Location_CenterMassIntensity_Y",
     "Location_CenterMassIntensity_Z",
+    "Location_MaxIntensity_Z",
 ]
 
 
@@ -168,6 +170,7 @@ def materialize(objects_csv: Path, object_set: str, channels: list[str], out: Pa
                 "AreaShape_Extent": extent(row, objects_csv),
                 "Location_Center_X": require(row, "AreaShape_Center_X", objects_csv),
                 "Location_Center_Y": require(row, "AreaShape_Center_Y", objects_csv),
+                "Location_Center_Z": require(row, "Location_Center_Z", objects_csv),
                 "Number_Object_Number": key[1],
             },
         )
