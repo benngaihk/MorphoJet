@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Error, Result};
 use clap::{Parser, Subcommand};
 use morphojet_core::{
     measure_rows_with_options, read_image_table, validate_image_table,
@@ -7,6 +7,7 @@ use morphojet_core::{
 use serde::Serialize;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
+use std::process::ExitCode;
 use std::time::Instant;
 
 #[derive(Debug, Parser)]
@@ -37,6 +38,8 @@ struct MeasureArgs {
     overwrite: bool,
     #[arg(long)]
     summary_json: Option<PathBuf>,
+    #[arg(long)]
+    error_json: Option<PathBuf>,
 }
 
 #[derive(Debug, Serialize)]
@@ -58,11 +61,43 @@ struct MeasureSummary {
     threads: usize,
 }
 
-fn main() -> Result<()> {
+#[derive(Debug, Serialize)]
+struct ErrorReport {
+    status: &'static str,
+    version: &'static str,
+    commit: &'static str,
+    command: &'static str,
+    error_code: String,
+    message: String,
+    causes: Vec<String>,
+}
+
+fn main() -> ExitCode {
     let cli = Cli::parse();
     match cli.command {
-        Command::Measure(args) => run_measure(args),
-        Command::Doctor => run_doctor(),
+        Command::Measure(args) => match run_measure(&args) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                if let Some(path) = &args.error_json {
+                    let report = ErrorReport::from_error("measure", &error);
+                    if let Err(report_error) = write_json_atomic(path, &report) {
+                        eprintln!(
+                            "MorphoJet: failed to write error JSON {}: {report_error:#}",
+                            path.display()
+                        );
+                    }
+                }
+                eprintln!("Error: {error:#}");
+                ExitCode::FAILURE
+            }
+        },
+        Command::Doctor => match run_doctor() {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("Error: {error:#}");
+                ExitCode::FAILURE
+            }
+        },
     }
 }
 
@@ -77,7 +112,7 @@ fn run_doctor() -> Result<()> {
     Ok(())
 }
 
-fn run_measure(args: MeasureArgs) -> Result<()> {
+fn run_measure(args: &MeasureArgs) -> Result<()> {
     let started = Instant::now();
     if let Some(threads) = args.threads {
         if threads == 0 {
@@ -92,7 +127,7 @@ fn run_measure(args: MeasureArgs) -> Result<()> {
         eprintln!("MorphoJet: writing CellProfiler-style measurement CSV names");
     }
 
-    ensure_output_targets(&args)?;
+    ensure_output_targets(args)?;
     std::fs::create_dir_all(&args.out)?;
     let rows = read_image_table(&args.images)?;
     validate_image_table(&rows)?;
@@ -109,7 +144,7 @@ fn run_measure(args: MeasureArgs) -> Result<()> {
         write_summary_json(
             summary_path,
             &MeasureSummary::from_results(
-                &args,
+                args,
                 &results,
                 object_count,
                 started.elapsed().as_secs_f64(),
@@ -163,7 +198,54 @@ impl MeasureSummary {
     }
 }
 
+impl ErrorReport {
+    fn from_error(command: &'static str, error: &Error) -> Self {
+        let causes = error
+            .chain()
+            .skip(1)
+            .map(ToString::to_string)
+            .collect::<Vec<_>>();
+        Self {
+            status: "FAIL",
+            version: env!("CARGO_PKG_VERSION"),
+            commit: env!("MORPHOJET_BUILD_COMMIT"),
+            command,
+            error_code: classify_error(error).to_string(),
+            message: error.to_string(),
+            causes,
+        }
+    }
+}
+
+fn classify_error(error: &Error) -> &'static str {
+    let text = error
+        .chain()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join("\n")
+        .to_lowercase();
+    if text.contains("--threads must be greater than 0") {
+        "invalid_threads"
+    } else if text.contains("refusing to overwrite") {
+        "output_exists"
+    } else if text.contains("image table contains no rows") {
+        "empty_image_table"
+    } else if text.contains("duplicate image row identity") {
+        "duplicate_image_identity"
+    } else if text.contains("not readable") || text.contains("failed to open image table") {
+        "input_not_readable"
+    } else if text.contains("image and mask dimensions differ") {
+        "dimension_mismatch"
+    } else {
+        "measure_failed"
+    }
+}
+
 fn write_summary_json(path: &Path, summary: &MeasureSummary) -> Result<()> {
+    write_json_atomic(path, summary)
+}
+
+fn write_json_atomic<T: Serialize>(path: &Path, payload: &T) -> Result<()> {
     if let Some(parent) = path
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
@@ -177,9 +259,9 @@ fn write_summary_json(path: &Path, summary: &MeasureSummary) -> Result<()> {
             .map(|value| format!("{value}."))
             .unwrap_or_default()
     ));
-    let mut payload = serde_json::to_vec_pretty(summary)?;
-    payload.push(b'\n');
-    std::fs::write(&tmp, payload)?;
+    let mut bytes = serde_json::to_vec_pretty(payload)?;
+    bytes.push(b'\n');
+    std::fs::write(&tmp, bytes)?;
     std::fs::rename(&tmp, path)?;
     Ok(())
 }

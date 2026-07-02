@@ -121,6 +121,66 @@ fn measure_success_writes_summary_json() {
 }
 
 #[test]
+fn measure_failure_writes_error_json_without_summary() {
+    let dir = tempfile::tempdir().unwrap();
+    write_images(dir.path(), (3, 2), (3, 2));
+    let table = write_table(dir.path(), "1,missing.tif,mask.tif,DAPI\n");
+    let out = dir.path().join("out");
+    let summary = dir.path().join("summary.json");
+    let error_json = dir.path().join("error.json");
+
+    let output = run_measure(
+        &table,
+        &out,
+        &[
+            "--overwrite",
+            "--summary-json",
+            summary.to_str().unwrap(),
+            "--error-json",
+            error_json.to_str().unwrap(),
+        ],
+    );
+
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("image path for ImageNumber 1 is not readable"));
+    assert!(!summary.exists());
+    let payload: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(error_json).unwrap()).unwrap();
+    assert_eq!(payload["status"], "FAIL");
+    assert_eq!(payload["command"], "measure");
+    assert_eq!(payload["error_code"], "input_not_readable");
+    assert!(payload["message"]
+        .as_str()
+        .unwrap()
+        .contains("image path for ImageNumber 1 is not readable"));
+    assert!(payload["version"].as_str().is_some());
+    assert!(payload["commit"].as_str().is_some());
+}
+
+#[test]
+fn overwrite_refusal_writes_error_code() {
+    let dir = tempfile::tempdir().unwrap();
+    write_images(dir.path(), (3, 2), (3, 2));
+    let table = write_table(dir.path(), "1,image.tif,mask.tif,DAPI\n");
+    let out = dir.path().join("out");
+    let error_json = dir.path().join("error.json");
+
+    let first = run_measure(&table, &out, &["--overwrite"]);
+    assert!(first.status.success(), "{}", stderr(&first));
+
+    let second = run_measure(
+        &table,
+        &out,
+        &["--error-json", error_json.to_str().unwrap()],
+    );
+
+    assert!(!second.status.success());
+    let payload: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(error_json).unwrap()).unwrap();
+    assert_eq!(payload["error_code"], "output_exists");
+}
+
+#[test]
 fn refuses_to_overwrite_existing_summary_without_flag() {
     let dir = tempfile::tempdir().unwrap();
     write_images(dir.path(), (3, 2), (3, 2));

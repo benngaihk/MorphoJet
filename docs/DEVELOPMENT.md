@@ -28,6 +28,7 @@ CI runs the same core path on GitHub Actions: Rust formatting, Rust tests, Clipp
 - Image and mask paths must resolve to readable files before measurement starts.
 - `Image.csv` and `Objects.csv` are not overwritten unless `--overwrite` is passed.
 - `--summary-json` writes only after successful measurement, must not collide with `Image.csv` or `Objects.csv`, and follows the same `--overwrite` protection.
+- `--error-json` writes only on measure failure after argument parsing and preserves the non-zero exit plus human-readable stderr.
 
 ## Diagnostics
 
@@ -38,6 +39,8 @@ cargo run -p morphojet -- doctor
 The output includes the package version, git commit, OS, CPU architecture, Rayon default thread count, and current executable path.
 
 For machine-readable batch observability, pass `--summary-json path/to/run-summary.json` to `measure`. The JSON summary records version, commit, platform, elapsed seconds, image rows, object rows, channels, object sets, output paths, compatibility mode, and effective thread count.
+
+For machine-readable failure monitoring, pass `--error-json path/to/error.json` to `measure`. The error JSON records version, commit, command, a stable error code such as `input_not_readable` or `output_exists`, the top-level message, and the cause chain.
 
 ## Smoke Benchmark
 
