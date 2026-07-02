@@ -6,7 +6,7 @@ use morphojet_core::{
 };
 use serde::Serialize;
 use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Instant;
 
@@ -286,28 +286,40 @@ fn ensure_output_targets(args: &MeasureArgs) -> Result<()> {
     }
 
     let (image_csv, objects_csv) = measurement_csv_paths(args);
+    let image_csv_key = normalized_path(&image_csv)?;
+    let objects_csv_key = normalized_path(&objects_csv)?;
     ensure_file_output_target(&image_csv)?;
     ensure_file_output_target(&objects_csv)?;
+    let mut summary_json_key = None;
+    let mut error_json_key = None;
     if let Some(summary_json) = &args.summary_json {
-        if summary_json == &image_csv || summary_json == &objects_csv {
+        let summary_key = normalized_path(summary_json)?;
+        if summary_key == image_csv_key || summary_key == objects_csv_key {
             bail!(
                 "--summary-json must not point at Image.csv or Objects.csv: {}",
                 summary_json.display()
             );
         }
         ensure_report_target(summary_json)?;
+        summary_json_key = Some(summary_key);
     }
     if let Some(error_json) = &args.error_json {
-        if error_json == &image_csv || error_json == &objects_csv {
+        let error_key = normalized_path(error_json)?;
+        if error_key == image_csv_key || error_key == objects_csv_key {
             bail!(
                 "--error-json must not point at Image.csv or Objects.csv: {}",
                 error_json.display()
             );
         }
         ensure_report_target(error_json)?;
+        error_json_key = Some(error_key);
     }
-    if let (Some(summary_json), Some(error_json)) = (&args.summary_json, &args.error_json) {
-        if summary_json == error_json {
+    if let (Some(summary_json), Some(summary_key), Some(error_key)) = (
+        args.summary_json.as_ref(),
+        summary_json_key.as_ref(),
+        error_json_key.as_ref(),
+    ) {
+        if summary_key == error_key {
             bail!(
                 "--summary-json and --error-json must use different paths: {}",
                 summary_json.display()
@@ -366,15 +378,45 @@ fn ensure_report_target(path: &Path) -> Result<()> {
     Ok(())
 }
 
+fn normalized_path(path: &Path) -> Result<PathBuf> {
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(path)
+    };
+    let mut normalized = PathBuf::new();
+    for component in absolute.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                normalized.pop();
+            }
+            other => normalized.push(other.as_os_str()),
+        }
+    }
+    Ok(normalized)
+}
+
 fn can_write_error_report(args: &MeasureArgs) -> bool {
     let Some(error_json) = &args.error_json else {
         return false;
     };
     let (image_csv, objects_csv) = measurement_csv_paths(args);
-    if error_json == &image_csv || error_json == &objects_csv {
+    let Ok(error_key) = normalized_path(error_json) else {
+        return false;
+    };
+    if normalized_path(&image_csv).ok().as_ref() == Some(&error_key)
+        || normalized_path(&objects_csv).ok().as_ref() == Some(&error_key)
+    {
         return false;
     }
-    if args.summary_json.as_ref() == Some(error_json) {
+    if args
+        .summary_json
+        .as_ref()
+        .and_then(|summary_json| normalized_path(summary_json).ok())
+        .as_ref()
+        == Some(&error_key)
+    {
         return false;
     }
     args.overwrite || !error_json.exists()

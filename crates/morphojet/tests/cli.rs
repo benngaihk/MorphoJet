@@ -225,6 +225,26 @@ fn rejects_error_json_that_collides_with_measurement_csvs() {
 }
 
 #[test]
+fn rejects_error_json_that_resolves_to_measurement_csv() {
+    let dir = tempfile::tempdir().unwrap();
+    write_images(dir.path(), (3, 2), (3, 2));
+    let table = write_table(dir.path(), "1,missing.tif,mask.tif,DAPI\n");
+    let out = dir.path().join("out");
+    let error_json = out.join("..").join("out").join("Objects.csv");
+
+    let output = run_measure(
+        &table,
+        &out,
+        &["--overwrite", "--error-json", error_json.to_str().unwrap()],
+    );
+
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("--error-json must not point at"));
+    assert!(!out.join("Image.csv").exists());
+    assert!(!out.join("Objects.csv").exists());
+}
+
+#[test]
 fn rejects_non_file_measurement_targets_before_publish() {
     let dir = tempfile::tempdir().unwrap();
     write_images(dir.path(), (3, 2), (3, 2));
@@ -307,6 +327,37 @@ fn rejects_matching_summary_and_error_json_paths() {
 }
 
 #[test]
+fn rejects_matching_summary_and_error_json_resolved_paths() {
+    let dir = tempfile::tempdir().unwrap();
+    write_images(dir.path(), (3, 2), (3, 2));
+    let table = write_table(dir.path(), "1,image.tif,mask.tif,DAPI\n");
+    let out = dir.path().join("out");
+    let summary = dir.path().join("reports").join("summary.json");
+    let error_json = dir
+        .path()
+        .join("reports")
+        .join("..")
+        .join("reports")
+        .join("summary.json");
+
+    let output = run_measure(
+        &table,
+        &out,
+        &[
+            "--overwrite",
+            "--summary-json",
+            summary.to_str().unwrap(),
+            "--error-json",
+            error_json.to_str().unwrap(),
+        ],
+    );
+
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("--summary-json and --error-json"));
+    assert!(!summary.exists());
+}
+
+#[test]
 fn refuses_to_overwrite_existing_summary_without_flag() {
     let dir = tempfile::tempdir().unwrap();
     write_images(dir.path(), (3, 2), (3, 2));
@@ -337,6 +388,26 @@ fn rejects_summary_json_that_collides_with_measurement_csvs() {
 
     assert!(!output.status.success());
     assert!(stderr(&output).contains("--summary-json must not point at"));
+}
+
+#[test]
+fn rejects_summary_json_that_resolves_to_measurement_csv() {
+    let dir = tempfile::tempdir().unwrap();
+    write_images(dir.path(), (3, 2), (3, 2));
+    let table = write_table(dir.path(), "1,image.tif,mask.tif,DAPI\n");
+    let out = dir.path().join("out");
+    let summary = out.join("..").join("out").join("Image.csv");
+
+    let output = run_measure(
+        &table,
+        &out,
+        &["--overwrite", "--summary-json", summary.to_str().unwrap()],
+    );
+
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("--summary-json must not point at"));
+    assert!(!out.join("Image.csv").exists());
+    assert!(!out.join("Objects.csv").exists());
 }
 
 #[test]
