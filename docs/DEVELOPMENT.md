@@ -72,4 +72,4 @@ python3 tests/parity/compare_measurements.py \
 
 ## Measurement Convention
 
-For grayscale 8-bit and 16-bit images, MorphoJet preserves raw pixel values during intensity accumulation. Non-grayscale inputs are converted to grayscale as a starter behavior and must be checked against CellProfiler oracle outputs before being marked parity-safe.
+For grayscale 8-bit and 16-bit images, MorphoJet normalizes intensities to CellProfiler's 0-1 measurement scale during intensity accumulation. Non-grayscale inputs are converted to grayscale as a starter behavior and must be checked against CellProfiler oracle outputs before being marked parity-safe.

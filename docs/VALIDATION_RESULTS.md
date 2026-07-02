@@ -1,6 +1,67 @@
 # Validation Results
 
-Updated: 2026-07-01
+Updated: 2026-07-02
+
+## L2 ExampleHuman Oracle Snapshot
+
+This is the first real CellProfiler oracle run. It proves row/schema alignment on a pinned public example, but it does not yet pass the L2 correctness gate.
+
+Environment:
+
+- CellProfiler Docker image: `cellprofiler/cellprofiler:4.2.6`
+- CellProfiler examples commit: `4972b59e670a4ae96c3d453803c92eeff378d054`
+- Dataset: `ExampleHuman`, 1 image set, CC-0 per upstream README
+- Objects: `Cells`, `Cytoplasm`, `Nuclei`
+- Channels compared: `DNA`, `PH3`
+- MorphoJet commit under test: local run after `fa37e71`
+
+Artifacts:
+
+- CellProfiler long oracle CSV: `benchmark/results/cellprofiler-run-426-npy/Objects.long.csv`
+- MorphoJet CSV: `benchmark/results/morphojet-run-426-labels-tiff/Objects.csv`
+- Parity report: `benchmark/results/parity/example-human-objects-parity.md`
+- Parity JSON: `benchmark/results/parity/example-human-objects-parity.json`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Expected rows | 1734 |
+| Actual rows | 1734 |
+| Missing rows | 0 |
+| Extra rows | 0 |
+| Missing columns | 0 |
+| Extra columns | 0 |
+| Numeric compared | 29478 |
+| Numeric failures | 3653 |
+| Status | FAIL |
+
+Passing columns:
+
+- `AreaShape_Area`
+- `AreaShape_Center_X`
+- `AreaShape_Center_Y`
+- `AreaShape_BoundingBoxMinimum_X`
+- `AreaShape_BoundingBoxMinimum_Y`
+- `AreaShape_BoundingBoxMaximum_X`
+- `AreaShape_BoundingBoxMaximum_Y`
+- `Intensity_MinIntensity`
+- `Intensity_MaxIntensity`
+- `Intensity_MeanIntensity`
+- `Intensity_IntegratedIntensity`
+- `AreaShape_Eccentricity`
+- `AreaShape_MajorAxisLength`
+- `AreaShape_MinorAxisLength`
+
+Remaining mismatches:
+
+| Column | Failures | Max Abs | Max Rel |
+|---|---:|---:|---:|
+| `Intensity_MedianIntensity` | 185 | 0.013725500786318956 | 0.013725500786318956 |
+| `AreaShape_Perimeter` | 1734 | 134.04058453981608 | 0.5 |
+| `AreaShape_Solidity` | 1734 | 0.08254269446774187 | 0.08254269446774187 |
+
+Conclusion: L2 is not passed yet. The next compatibility work is exact CellProfiler median, perimeter, and solidity behavior.
 
 ## L1 Synthetic Scale Benchmark
 

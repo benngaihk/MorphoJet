@@ -232,12 +232,14 @@ fn load_intensity(row: &ImageTableRow) -> Result<(Vec<f64>, u32, u32)> {
         .with_context(|| format!("failed to open image {}", row.image_path.display()))?;
     let (width, height) = image.dimensions();
     let pixels = match image {
-        DynamicImage::ImageLuma8(buffer) => {
-            buffer.pixels().map(|pixel| pixel.0[0] as f64).collect()
-        }
-        DynamicImage::ImageLuma16(buffer) => {
-            buffer.pixels().map(|pixel| pixel.0[0] as f64).collect()
-        }
+        DynamicImage::ImageLuma8(buffer) => buffer
+            .pixels()
+            .map(|pixel| pixel.0[0] as f64 / u8::MAX as f64)
+            .collect(),
+        DynamicImage::ImageLuma16(buffer) => buffer
+            .pixels()
+            .map(|pixel| pixel.0[0] as f64 / u16::MAX as f64)
+            .collect(),
         other => other
             .to_luma32f()
             .pixels()

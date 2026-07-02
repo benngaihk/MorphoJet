@@ -56,6 +56,17 @@ python3 benchmark/build_oracle_image_table.py \
   --out benchmark/cellprofiler/images.csv
 ```
 
+Materialize CellProfiler's per-object CSVs into MorphoJet's long object format before parity comparison:
+
+```bash
+python3 benchmark/materialize_cellprofiler_oracle.py \
+  --object Cells=benchmark/results/cellprofiler-run-426-npy/Cells.csv \
+  --object Cytoplasm=benchmark/results/cellprofiler-run-426-npy/Cytoplasm.csv \
+  --object Nuclei=benchmark/results/cellprofiler-run-426-npy/Nuclei.csv \
+  --channels DNA,PH3 \
+  --out benchmark/results/cellprofiler-run-426-npy/Objects.long.csv
+```
+
 Example:
 
 ```bash
