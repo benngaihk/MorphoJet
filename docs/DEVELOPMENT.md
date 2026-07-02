@@ -28,7 +28,7 @@ CI runs the same core path on GitHub Actions: Rust formatting, Rust tests, Clipp
 - Image and mask paths must resolve to readable files before measurement starts.
 - `Image.csv` and `Objects.csv` are not overwritten unless `--overwrite` is passed.
 - `--summary-json` writes only after successful measurement, must not collide with `Image.csv` or `Objects.csv`, and follows the same `--overwrite` protection.
-- `--error-json` writes only on measure failure after argument parsing and preserves the non-zero exit plus human-readable stderr.
+- `--error-json` writes only on measure failure after argument parsing, must not collide with measurement CSVs or `--summary-json`, follows the same `--overwrite` protection, and preserves the non-zero exit plus human-readable stderr.
 
 ## Diagnostics
 

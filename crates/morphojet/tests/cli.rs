@@ -181,6 +181,71 @@ fn overwrite_refusal_writes_error_code() {
 }
 
 #[test]
+fn rejects_error_json_that_collides_with_measurement_csvs() {
+    let dir = tempfile::tempdir().unwrap();
+    write_images(dir.path(), (3, 2), (3, 2));
+    let table = write_table(dir.path(), "1,missing.tif,mask.tif,DAPI\n");
+    let out = dir.path().join("out");
+    let error_json = out.join("Image.csv");
+
+    let output = run_measure(
+        &table,
+        &out,
+        &["--overwrite", "--error-json", error_json.to_str().unwrap()],
+    );
+
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("--error-json must not point at"));
+    assert!(!error_json.exists());
+    assert!(!out.join("Objects.csv").exists());
+}
+
+#[test]
+fn refuses_to_overwrite_existing_error_json_without_flag() {
+    let dir = tempfile::tempdir().unwrap();
+    write_images(dir.path(), (3, 2), (3, 2));
+    let table = write_table(dir.path(), "1,missing.tif,mask.tif,DAPI\n");
+    let out = dir.path().join("out");
+    let error_json = dir.path().join("error.json");
+    fs::write(&error_json, "{\"old\":true}\n").unwrap();
+
+    let output = run_measure(
+        &table,
+        &out,
+        &["--error-json", error_json.to_str().unwrap()],
+    );
+
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("refusing to overwrite"));
+    assert_eq!(fs::read_to_string(error_json).unwrap(), "{\"old\":true}\n");
+}
+
+#[test]
+fn rejects_matching_summary_and_error_json_paths() {
+    let dir = tempfile::tempdir().unwrap();
+    write_images(dir.path(), (3, 2), (3, 2));
+    let table = write_table(dir.path(), "1,image.tif,mask.tif,DAPI\n");
+    let out = dir.path().join("out");
+    let report = dir.path().join("report.json");
+
+    let output = run_measure(
+        &table,
+        &out,
+        &[
+            "--overwrite",
+            "--summary-json",
+            report.to_str().unwrap(),
+            "--error-json",
+            report.to_str().unwrap(),
+        ],
+    );
+
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("--summary-json and --error-json"));
+    assert!(!report.exists());
+}
+
+#[test]
 fn refuses_to_overwrite_existing_summary_without_flag() {
     let dir = tempfile::tempdir().unwrap();
     write_images(dir.path(), (3, 2), (3, 2));

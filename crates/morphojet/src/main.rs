@@ -78,7 +78,11 @@ fn main() -> ExitCode {
         Command::Measure(args) => match run_measure(&args) {
             Ok(()) => ExitCode::SUCCESS,
             Err(error) => {
-                if let Some(path) = &args.error_json {
+                if let Some(path) = args
+                    .error_json
+                    .as_ref()
+                    .filter(|_| can_write_error_report(&args))
+                {
                     let report = ErrorReport::from_error("measure", &error);
                     if let Err(report_error) = write_json_atomic(path, &report) {
                         eprintln!(
@@ -274,8 +278,7 @@ fn ensure_output_targets(args: &MeasureArgs) -> Result<()> {
         );
     }
 
-    let image_csv = args.out.join("Image.csv");
-    let objects_csv = args.out.join("Objects.csv");
+    let (image_csv, objects_csv) = measurement_csv_paths(args);
     if let Some(summary_json) = &args.summary_json {
         if summary_json == &image_csv || summary_json == &objects_csv {
             bail!(
@@ -284,10 +287,29 @@ fn ensure_output_targets(args: &MeasureArgs) -> Result<()> {
             );
         }
     }
+    if let Some(error_json) = &args.error_json {
+        if error_json == &image_csv || error_json == &objects_csv {
+            bail!(
+                "--error-json must not point at Image.csv or Objects.csv: {}",
+                error_json.display()
+            );
+        }
+    }
+    if let (Some(summary_json), Some(error_json)) = (&args.summary_json, &args.error_json) {
+        if summary_json == error_json {
+            bail!(
+                "--summary-json and --error-json must use different paths: {}",
+                summary_json.display()
+            );
+        }
+    }
     if !args.overwrite {
         let mut protected = vec![image_csv, objects_csv];
         if let Some(summary_json) = &args.summary_json {
             protected.push(summary_json.clone());
+        }
+        if let Some(error_json) = &args.error_json {
+            protected.push(error_json.clone());
         }
         let existing = protected
             .into_iter()
@@ -302,4 +324,22 @@ fn ensure_output_targets(args: &MeasureArgs) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn measurement_csv_paths(args: &MeasureArgs) -> (PathBuf, PathBuf) {
+    (args.out.join("Image.csv"), args.out.join("Objects.csv"))
+}
+
+fn can_write_error_report(args: &MeasureArgs) -> bool {
+    let Some(error_json) = &args.error_json else {
+        return false;
+    };
+    let (image_csv, objects_csv) = measurement_csv_paths(args);
+    if error_json == &image_csv || error_json == &objects_csv {
+        return false;
+    }
+    if args.summary_json.as_ref() == Some(error_json) {
+        return false;
+    }
+    args.overwrite || !error_json.exists()
 }
