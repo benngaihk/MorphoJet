@@ -13,6 +13,7 @@ M0 supports an intentionally small path:
 - Image table CSV with `ImageNumber`, `ImagePath`, `MaskPath`, and optional `Channel` plus metadata columns.
 - `Image.csv` and `Objects.csv` outputs.
 - Existing outputs are protected unless `--overwrite` is passed.
+- Duplicate image table headers and metadata columns that collide with MorphoJet output columns such as `Count_Objects`, `Width`, or `Height` are rejected.
 
 Not supported yet:
 

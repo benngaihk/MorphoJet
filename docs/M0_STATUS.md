@@ -27,7 +27,7 @@ Updated: 2026-07-02
 - L1 synthetic scale benchmark results in `docs/VALIDATION_RESULTS.md`.
 - L2/L3 oracle validation checklist in `docs/ORACLE_VALIDATION.md`.
 - Production readiness checklist in `docs/PRODUCTION_READINESS.md`.
-- CLI safety hardening: thread validation, non-empty input table, duplicate row identity detection, readable path preflight, overwrite protection.
+- CLI safety hardening: thread validation, non-empty input table, duplicate header rejection, reserved output-column metadata rejection, duplicate row identity detection, readable path preflight, overwrite protection.
 - CLI integration tests for success and major failure modes.
 - Output staging writes: final `Image.csv` and `Objects.csv` are published only after both staging files are written.
 - Clippy quality gate in CI.

@@ -24,6 +24,8 @@ CI runs the same core path on GitHub Actions: Rust formatting, Rust tests, Clipp
 
 - `--threads` must be greater than 0.
 - Image tables must contain at least one row.
+- Image table headers must be unique.
+- Metadata passthrough columns must not use MorphoJet output-reserved names such as `Count_Objects`, `Width`, or `Height`.
 - `(ImageNumber, Channel, ObjectSet)` identities must be unique.
 - Image and mask paths must resolve to readable files before measurement starts.
 - `Image.csv` and `Objects.csv` are not overwritten unless `--overwrite` is passed.

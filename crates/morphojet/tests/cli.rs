@@ -181,6 +181,30 @@ fn overwrite_refusal_writes_error_code() {
 }
 
 #[test]
+fn image_table_schema_error_writes_error_code() {
+    let dir = tempfile::tempdir().unwrap();
+    let table = dir.path().join("images.csv");
+    fs::write(
+        &table,
+        "ImageNumber,ImagePath,MaskPath,Width\n1,image.tif,mask.tif,1024\n",
+    )
+    .unwrap();
+    let out = dir.path().join("out");
+    let error_json = dir.path().join("error.json");
+
+    let output = run_measure(
+        &table,
+        &out,
+        &["--error-json", error_json.to_str().unwrap()],
+    );
+
+    assert!(!output.status.success());
+    let payload: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(error_json).unwrap()).unwrap();
+    assert_eq!(payload["error_code"], "invalid_image_table");
+}
+
+#[test]
 fn rejects_error_json_that_collides_with_measurement_csvs() {
     let dir = tempfile::tempdir().unwrap();
     write_images(dir.path(), (3, 2), (3, 2));

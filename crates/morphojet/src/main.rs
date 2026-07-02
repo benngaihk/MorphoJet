@@ -232,6 +232,13 @@ fn classify_error(error: &Error) -> &'static str {
         "invalid_threads"
     } else if text.contains("refusing to overwrite") {
         "output_exists"
+    } else if text.contains("duplicate image table column")
+        || text.contains("reserved output name")
+        || text.contains("missing required column")
+        || text.contains("invalid imagenumber")
+        || text.contains("empty value for column")
+    {
+        "invalid_image_table"
     } else if text.contains("image table contains no rows") {
         "empty_image_table"
     } else if text.contains("duplicate image row identity") {

@@ -56,6 +56,38 @@ fn measures_two_labeled_objects() {
 }
 
 #[test]
+fn rejects_duplicate_image_table_headers() {
+    let dir = tempfile::tempdir().unwrap();
+    let table_path = dir.path().join("images.csv");
+    fs::write(
+        &table_path,
+        "ImageNumber,ImagePath,MaskPath,Plate,Plate\n1,image.tif,mask.tif,P001,P002\n",
+    )
+    .unwrap();
+
+    let error = read_image_table(&table_path).unwrap_err();
+
+    assert!(error.to_string().contains("duplicate image table column"));
+}
+
+#[test]
+fn rejects_metadata_headers_that_collide_with_image_output_columns() {
+    let dir = tempfile::tempdir().unwrap();
+    let table_path = dir.path().join("images.csv");
+    fs::write(
+        &table_path,
+        "ImageNumber,ImagePath,MaskPath,Width\n1,image.tif,mask.tif,1024\n",
+    )
+    .unwrap();
+
+    let error = read_image_table(&table_path).unwrap_err();
+
+    assert!(error
+        .to_string()
+        .contains("metadata column uses reserved output name"));
+}
+
+#[test]
 fn compact_object_numbers_match_cellprofiler_conversion() {
     let dir = tempfile::tempdir().unwrap();
     let image_path = dir.path().join("image.tif");

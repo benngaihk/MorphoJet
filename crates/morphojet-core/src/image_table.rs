@@ -22,6 +22,7 @@ pub fn read_image_table(path: impl AsRef<Path>) -> Result<Vec<ImageTableRow>> {
         .headers()
         .context("failed to read image table headers")?
         .clone();
+    validate_headers(&headers)?;
 
     let image_number_idx = required_header(&headers, &["ImageNumber"])?;
     let image_path_idx = required_header(&headers, &["ImagePath", "PathName_Image"])?;
@@ -135,6 +136,19 @@ fn required_header(headers: &StringRecord, names: &[&str]) -> Result<usize> {
     })
 }
 
+fn validate_headers(headers: &StringRecord) -> Result<()> {
+    let mut seen = HashSet::new();
+    for header in headers {
+        if !seen.insert(header) {
+            bail!("duplicate image table column: {header}");
+        }
+        if RESERVED_METADATA_COLUMNS.contains(&header) {
+            bail!("image table metadata column uses reserved output name: {header}");
+        }
+    }
+    Ok(())
+}
+
 fn optional_header(headers: &StringRecord, names: &[&str]) -> Option<usize> {
     headers.iter().position(|header| names.contains(&header))
 }
@@ -149,6 +163,8 @@ fn get<'a>(record: &'a StringRecord, idx: usize, name: &str) -> Result<&'a str> 
     }
     Ok(value)
 }
+
+const RESERVED_METADATA_COLUMNS: &[&str] = &["Count_Objects", "Width", "Height"];
 
 fn resolve_path(base_dir: &Path, value: &str) -> PathBuf {
     let path = PathBuf::from(value);
