@@ -8,6 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 const IMAGE_COLUMNS: &[&str] = &[
     "ImageNumber",
     "Channel",
+    "ObjectSet",
     "Count_Objects",
     "Width",
     "Height",
@@ -19,6 +20,7 @@ const OBJECT_COLUMNS: &[&str] = &[
     "ImageNumber",
     "ObjectNumber",
     "Channel",
+    "ObjectSet",
     "AreaShape_Area",
     "AreaShape_Center_X",
     "AreaShape_Center_Y",
@@ -138,6 +140,7 @@ fn write_image_record(
     let mut record = vec![
         image.image_number.to_string(),
         image.channel.clone().unwrap_or_default(),
+        image.object_set.clone().unwrap_or_default(),
         image.object_count.to_string(),
         image.width.to_string(),
         image.height.to_string(),
@@ -159,6 +162,7 @@ fn write_object_record(
         object.image_number.to_string(),
         object.object_number.to_string(),
         object.channel.clone().unwrap_or_default(),
+        object.object_set.clone().unwrap_or_default(),
         object.area.to_string(),
         format_float(object.centroid_x),
         format_float(object.centroid_y),

@@ -102,6 +102,7 @@ Pass condition:
 
 - 100% object count parity.
 - >=99% core numeric parity within documented tolerance.
+- Parity keys include `ImageNumber,ObjectSet,ObjectNumber,Channel` for multi-object pipelines.
 
 ## L3 Package: Performance and Memory
 

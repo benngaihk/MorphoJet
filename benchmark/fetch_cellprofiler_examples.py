@@ -81,7 +81,7 @@ def write_manifest_stub(catalog: dict, candidate: dict, out_dir: Path, manifest_
             "threads": 8,
         },
         "parity": {
-            "keys": "ImageNumber,ObjectNumber,Channel",
+            "keys": "ImageNumber,ObjectSet,ObjectNumber,Channel",
             "abs_tol": 1e-6,
             "rel_tol": 1e-5,
             "output_dir": "benchmark/results/parity",

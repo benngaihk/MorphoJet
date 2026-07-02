@@ -14,6 +14,7 @@ pub struct MeasureResult {
 pub struct ImageMeasurement {
     pub image_number: u32,
     pub channel: Option<String>,
+    pub object_set: Option<String>,
     pub image_path: String,
     pub mask_path: String,
     pub width: u32,
@@ -27,6 +28,7 @@ pub struct ObjectMeasurement {
     pub image_number: u32,
     pub object_number: u32,
     pub channel: Option<String>,
+    pub object_set: Option<String>,
     pub area: u64,
     pub centroid_x: f64,
     pub centroid_y: f64,
@@ -111,7 +113,12 @@ impl ObjectAccumulator {
         self.points.extend(pixel_corners(xf, yf));
     }
 
-    fn finish(mut self, image_number: u32, channel: Option<String>) -> ObjectMeasurement {
+    fn finish(
+        mut self,
+        image_number: u32,
+        channel: Option<String>,
+        object_set: Option<String>,
+    ) -> ObjectMeasurement {
         self.intensity_values
             .sort_by(|left, right| left.total_cmp(right));
         let median = median(&self.intensity_values);
@@ -130,6 +137,7 @@ impl ObjectAccumulator {
             image_number,
             object_number: self.label,
             channel,
+            object_set,
             area: self.area,
             centroid_x,
             centroid_y,
@@ -194,13 +202,20 @@ pub fn measure_row(row: &ImageTableRow) -> Result<MeasureResult> {
 
     let mut objects = objects
         .into_values()
-        .map(|object| object.finish(row.image_number, row.channel.clone()))
+        .map(|object| {
+            object.finish(
+                row.image_number,
+                row.channel.clone(),
+                row.object_set.clone(),
+            )
+        })
         .collect::<Vec<_>>();
     objects.sort_by_key(|object| object.object_number);
 
     let image = ImageMeasurement {
         image_number: row.image_number,
         channel: row.channel.clone(),
+        object_set: row.object_set.clone(),
         image_path: row.image_path.display().to_string(),
         mask_path: row.mask_path.display().to_string(),
         width,

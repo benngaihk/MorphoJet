@@ -164,7 +164,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("expected", type=Path)
     parser.add_argument("actual", type=Path)
-    parser.add_argument("--keys", default="ImageNumber,ObjectNumber,Channel")
+    parser.add_argument("--keys", default="ImageNumber,ObjectSet,ObjectNumber,Channel")
     parser.add_argument("--abs-tol", type=float, default=1e-6)
     parser.add_argument("--rel-tol", type=float, default=1e-5)
     parser.add_argument("--out", type=Path)

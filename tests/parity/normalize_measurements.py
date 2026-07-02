@@ -29,7 +29,9 @@ def normalize_csv(input_path: Path, output_path: Path, digits: int) -> None:
             for row in reader
         ]
 
-    sort_keys = [key for key in ("ImageNumber", "ObjectNumber", "Channel") if key in fieldnames]
+    sort_keys = [
+        key for key in ("ImageNumber", "ObjectSet", "ObjectNumber", "Channel") if key in fieldnames
+    ]
     if sort_keys:
         rows.sort(key=lambda row: tuple(row.get(key, "") for key in sort_keys))
 

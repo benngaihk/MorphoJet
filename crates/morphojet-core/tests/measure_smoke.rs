@@ -18,7 +18,7 @@ fn measures_two_labeled_objects() {
 
     fs::write(
         &table_path,
-        "ImageNumber,ImagePath,MaskPath,Channel,Plate\n1,image.tif,mask.tif,DAPI,P001\n",
+        "ImageNumber,ImagePath,MaskPath,Channel,ObjectSet,Plate\n1,image.tif,mask.tif,DAPI,Nuclei,P001\n",
     )
     .unwrap();
 
@@ -26,7 +26,9 @@ fn measures_two_labeled_objects() {
     let results = measure_rows(&rows).unwrap();
 
     assert_eq!(results.len(), 1);
+    assert_eq!(results[0].image.object_set.as_deref(), Some("Nuclei"));
     assert_eq!(results[0].image.object_count, 2);
+    assert_eq!(results[0].objects[0].object_set.as_deref(), Some("Nuclei"));
     assert_eq!(results[0].objects[0].object_number, 1);
     assert_eq!(results[0].objects[0].area, 2);
     assert_eq!(results[0].objects[0].intensity_integrated, 3.0);

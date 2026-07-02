@@ -6,7 +6,7 @@ This file is the public compatibility ledger. Do not claim full parity from benc
 
 | Feature | Status | Notes |
 |---|---|---|
-| Image table ingestion | FIX | Supports `ImageNumber`, `ImagePath`, `MaskPath`, optional `Channel`, and metadata passthrough. |
+| Image table ingestion | FIX | Supports `ImageNumber`, `ImagePath`, `MaskPath`, optional `Channel`, optional `ObjectSet`, and metadata passthrough. |
 | Object count | FIX | Counts positive labels in an existing mask. |
 | Area | FIX | Counts pixels per label. |
 | Centroid | GAP | Uses zero-based geometric centroid; CellProfiler coordinate convention still needs oracle comparison. |
@@ -33,6 +33,7 @@ python3 tests/parity/normalize_measurements.py measurements/Objects.csv normaliz
 python3 tests/parity/compare_measurements.py \
   normalized/cp_objects.csv \
   normalized/morphojet_objects.csv \
+  --keys ImageNumber,ObjectSet,ObjectNumber,Channel \
   --out reports/objects_parity.md \
   --fail-on-gap
 ```

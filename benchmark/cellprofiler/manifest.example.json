@@ -23,7 +23,7 @@
     "threads": 8
   },
   "parity": {
-    "keys": "ImageNumber,ObjectNumber,Channel",
+    "keys": "ImageNumber,ObjectSet,ObjectNumber,Channel",
     "abs_tol": 1e-6,
     "rel_tol": 1e-5,
     "output_dir": "benchmark/results/parity"

@@ -24,7 +24,7 @@ CI runs the same core path on GitHub Actions: Rust formatting, Rust tests, Clipp
 
 - `--threads` must be greater than 0.
 - Image tables must contain at least one row.
-- `(ImageNumber, Channel)` identities must be unique.
+- `(ImageNumber, Channel, ObjectSet)` identities must be unique.
 - Image and mask paths must resolve to readable files before measurement starts.
 - `Image.csv` and `Objects.csv` are not overwritten unless `--overwrite` is passed.
 

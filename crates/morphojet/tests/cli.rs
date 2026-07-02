@@ -25,6 +25,16 @@ fn write_table(dir: &Path, body: &str) -> std::path::PathBuf {
     table
 }
 
+fn write_object_set_table(dir: &Path, body: &str) -> std::path::PathBuf {
+    let table = dir.join("images.csv");
+    fs::write(
+        &table,
+        format!("ImageNumber,ImagePath,MaskPath,Channel,ObjectSet\n{body}"),
+    )
+    .unwrap();
+    table
+}
+
 fn run_measure(table: &Path, out: &Path, extra_args: &[&str]) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_morphojet"));
     command
@@ -132,6 +142,25 @@ fn rejects_duplicate_image_identity() {
 
     assert!(!output.status.success());
     assert!(stderr(&output).contains("duplicate image row identity"));
+}
+
+#[test]
+fn allows_same_channel_for_distinct_object_sets() {
+    let dir = tempfile::tempdir().unwrap();
+    write_images(dir.path(), (3, 2), (3, 2));
+    let table = write_object_set_table(
+        dir.path(),
+        "1,image.tif,mask.tif,DAPI,Nuclei\n1,image.tif,mask.tif,DAPI,Cells\n",
+    );
+    let out = dir.path().join("out");
+
+    let output = run_measure(&table, &out, &["--overwrite"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    let objects = fs::read_to_string(out.join("Objects.csv")).unwrap();
+    assert!(objects.contains("ObjectSet"));
+    assert!(objects.contains("Nuclei"));
+    assert!(objects.contains("Cells"));
 }
 
 #[test]

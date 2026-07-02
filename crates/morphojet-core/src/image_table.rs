@@ -9,6 +9,7 @@ pub struct ImageTableRow {
     pub image_path: PathBuf,
     pub mask_path: PathBuf,
     pub channel: Option<String>,
+    pub object_set: Option<String>,
     pub metadata: BTreeMap<String, String>,
 }
 
@@ -26,6 +27,7 @@ pub fn read_image_table(path: impl AsRef<Path>) -> Result<Vec<ImageTableRow>> {
     let image_path_idx = required_header(&headers, &["ImagePath", "PathName_Image"])?;
     let mask_path_idx = required_header(&headers, &["MaskPath", "PathName_Mask"])?;
     let channel_idx = optional_header(&headers, &["Channel", "ChannelName"]);
+    let object_set_idx = optional_header(&headers, &["ObjectSet", "ObjectsName", "ObjectName"]);
 
     let mut rows = Vec::new();
     for (row_index, record) in reader.records().enumerate() {
@@ -40,6 +42,11 @@ pub fn read_image_table(path: impl AsRef<Path>) -> Result<Vec<ImageTableRow>> {
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(ToOwned::to_owned);
+        let object_set = object_set_idx
+            .and_then(|idx| record.get(idx))
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned);
 
         let mut metadata = BTreeMap::new();
         for (idx, header) in headers.iter().enumerate() {
@@ -47,6 +54,9 @@ pub fn read_image_table(path: impl AsRef<Path>) -> Result<Vec<ImageTableRow>> {
                 continue;
             }
             if Some(idx) == channel_idx {
+                continue;
+            }
+            if Some(idx) == object_set_idx {
                 continue;
             }
             let value = record.get(idx).unwrap_or("").trim();
@@ -60,6 +70,7 @@ pub fn read_image_table(path: impl AsRef<Path>) -> Result<Vec<ImageTableRow>> {
             image_path,
             mask_path,
             channel,
+            object_set,
             metadata,
         });
     }
@@ -74,12 +85,17 @@ pub fn validate_image_table(rows: &[ImageTableRow]) -> Result<()> {
 
     let mut identities = HashSet::new();
     for row in rows {
-        let identity = (row.image_number, row.channel.clone().unwrap_or_default());
+        let identity = (
+            row.image_number,
+            row.channel.clone().unwrap_or_default(),
+            row.object_set.clone().unwrap_or_default(),
+        );
         if !identities.insert(identity) {
             bail!(
-                "duplicate image row identity: ImageNumber={} Channel={}",
+                "duplicate image row identity: ImageNumber={} Channel={} ObjectSet={}",
                 row.image_number,
-                row.channel.as_deref().unwrap_or("")
+                row.channel.as_deref().unwrap_or(""),
+                row.object_set.as_deref().unwrap_or("")
             );
         }
 
