@@ -10,8 +10,10 @@ import platform
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 from pathlib import Path
+from typing import Any
 
 from verify_release_archive import verify
 
@@ -166,16 +168,179 @@ def doctor_run_issues(archive_summaries: list[dict]) -> list[str]:
     return ["no compatible release archive was doctor-verified on this machine"]
 
 
+def validate_verification_report_payload(
+    payload: Any,
+    require_report_pass: bool = False,
+    require_stable_report: bool = False,
+) -> list[str]:
+    failures: list[str] = []
+    if not isinstance(payload, dict):
+        return ["github release verification report must be a JSON object"]
+    status = payload.get("status")
+    if status not in {"PASS", "FAIL"}:
+        failures.append(f"status={status}")
+    if require_report_pass and status != "PASS":
+        failures.append(f"github release verification report status is not PASS: {status}")
+    tag = payload.get("tag")
+    if not isinstance(tag, str) or not tag.strip():
+        failures.append("tag must be a non-empty string")
+    repo = payload.get("repo")
+    if not isinstance(repo, str) or not repo.strip():
+        failures.append("repo must be a non-empty string")
+    url = payload.get("url")
+    if not isinstance(url, str) or not url.strip():
+        failures.append("url must be a non-empty string")
+    if not isinstance(payload.get("is_prerelease"), bool):
+        failures.append("is_prerelease must be a boolean")
+    expected_kind = payload.get("expected_release_kind")
+    if expected_kind not in {"stable", "prerelease", None}:
+        failures.append(f"expected_release_kind={expected_kind}")
+    if require_stable_report:
+        if expected_kind != "stable":
+            failures.append(f"expected_release_kind is not stable: {expected_kind}")
+        if payload.get("is_prerelease") is not False:
+            failures.append("stable report must have is_prerelease=false")
+        if isinstance(tag, str) and not STABLE_TAG_PATTERN.fullmatch(tag):
+            failures.append("stable report tag must be a non-prerelease semver tag like v0.1.0")
+    expected_commit = payload.get("expected_commit")
+    if not isinstance(expected_commit, str) or not expected_commit.strip():
+        failures.append("expected_commit must be a non-empty string")
+    out_dir = payload.get("out_dir")
+    if out_dir is not None and (not isinstance(out_dir, str) or not out_dir.strip()):
+        failures.append("out_dir must be null or a non-empty string")
+    asset_count = payload.get("asset_count")
+    if not isinstance(asset_count, int) or asset_count < 0:
+        failures.append(f"asset_count={asset_count}")
+
+    assets = payload.get("assets")
+    if not isinstance(assets, dict):
+        failures.append("assets must be an object")
+    else:
+        for key in ["expected", "release_metadata", "downloaded"]:
+            value = assets.get(key)
+            if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+                failures.append(f"assets.{key} must be a string list")
+            elif value != sorted(value):
+                failures.append(f"assets.{key} must be sorted")
+        for key, list_key in [
+            ("expected_count", "expected"),
+            ("release_metadata_count", "release_metadata"),
+            ("downloaded_count", "downloaded"),
+        ]:
+            count = assets.get(key)
+            values = assets.get(list_key)
+            if not isinstance(count, int) or count < 0:
+                failures.append(f"assets.{key}={count}")
+            elif isinstance(values, list) and count != len(values):
+                failures.append(f"assets.{key} does not match assets.{list_key}")
+        downloaded = assets.get("downloaded")
+        if isinstance(asset_count, int) and isinstance(downloaded, list) and asset_count != len(downloaded):
+            failures.append("asset_count does not match assets.downloaded")
+
+    archives = payload.get("archives")
+    if not isinstance(archives, list):
+        failures.append("archives must be a list")
+    else:
+        for archive in archives:
+            if not isinstance(archive, dict):
+                failures.append("archive entries must be objects")
+                continue
+            if not isinstance(archive.get("archive"), str) or not archive["archive"].endswith(".tar.gz"):
+                failures.append(f"archive name invalid: {archive.get('archive')}")
+            digest = archive.get("sha256")
+            if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                failures.append(f"archive sha256 invalid: {archive.get('archive')}")
+            if not isinstance(archive.get("checksum_match"), bool):
+                failures.append(f"archive checksum_match must be boolean: {archive.get('archive')}")
+    issues = payload.get("issues")
+    if not isinstance(issues, list) or not all(isinstance(issue, str) for issue in issues):
+        failures.append("issues must be a string list")
+    elif status == "PASS" and issues:
+        failures.append("passing github release verification report must have no issues")
+    if status == "PASS" and isinstance(archives, list):
+        failures.extend(doctor_run_issues([archive for archive in archives if isinstance(archive, dict)]))
+    return failures
+
+
+def verify_saved_github_release_report(
+    report: Path,
+    require_report_pass: bool = False,
+    require_stable_report: bool = False,
+    verify_files: bool = False,
+) -> int:
+    try:
+        payload = json.loads(report.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001 - exact report verification failure.
+        print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
+    failures = validate_verification_report_payload(
+        payload,
+        require_report_pass=require_report_pass,
+        require_stable_report=require_stable_report,
+    )
+    if not failures and verify_files:
+        out_dir_value = payload.get("out_dir")
+        if not isinstance(out_dir_value, str) or not out_dir_value.strip():
+            failures.append("out_dir is required for --verify-report-files")
+        else:
+            out_dir = Path(out_dir_value)
+            if not out_dir.is_dir():
+                failures.append(f"out_dir is not a directory: {out_dir}")
+            else:
+                downloaded = sorted(path.name for path in out_dir.iterdir() if path.is_file())
+                recorded_downloaded = payload["assets"]["downloaded"]
+                if downloaded != recorded_downloaded:
+                    failures.append("downloaded asset list changed after report was written")
+                for archive_summary in payload["archives"]:
+                    archive = out_dir / archive_summary["archive"]
+                    if not archive.is_file():
+                        failures.append(f"archive file missing: {archive.name}")
+                        continue
+                    if sha256(archive) != archive_summary["sha256"]:
+                        failures.append(f"archive sha256 changed: {archive.name}")
+                    checksum = archive.with_name(archive.name + ".sha256")
+                    if not checksum.is_file():
+                        failures.append(f"checksum file missing: {checksum.name}")
+                    else:
+                        failures.extend(checksum_issues(checksum, archive.name))
+                        try:
+                            if checksum_value(checksum) != sha256(archive):
+                                failures.append(f"checksum mismatch for {archive.name}")
+                        except ValueError as exc:
+                            failures.append(str(exc))
+    if failures:
+        for failure in failures:
+            print(f"FAIL: {failure}", file=sys.stderr)
+        return 1
+    print(f"github release verification report ok: {report}")
+    print(f"status={payload['status']}")
+    print(f"tag={payload['tag']}")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("tag")
+    parser.add_argument("tag", nargs="?")
     parser.add_argument("--repo", default="benngaihk/MorphoJet")
     parser.add_argument("--out-dir", type=Path)
     parser.add_argument("--expect-commit")
     parser.add_argument("--expect-prerelease", action="store_true")
     parser.add_argument("--expect-stable", action="store_true")
     parser.add_argument("--json-out", type=Path)
+    parser.add_argument("--verify-report", type=Path, help="Validate a saved GitHub release verification JSON report")
+    parser.add_argument("--verify-report-files", action="store_true", help="Recompute downloaded asset file checks")
+    parser.add_argument("--require-report-pass", action="store_true", help="Reject saved verifier reports that are not PASS")
+    parser.add_argument("--require-stable-report", action="store_true", help="Reject saved verifier reports that are not stable-release reports")
     args = parser.parse_args()
+    if args.verify_report:
+        return verify_saved_github_release_report(
+            args.verify_report,
+            require_report_pass=args.require_report_pass,
+            require_stable_report=args.require_stable_report,
+            verify_files=args.verify_report_files,
+        )
+    if args.tag is None:
+        parser.error("tag is required unless --verify-report is used")
 
     out_dir = args.out_dir or Path("benchmark/results/github-release") / args.tag
     expected_commit = args.expect_commit or git_tag_commit(args.tag)
@@ -227,6 +392,7 @@ def main() -> int:
         "tag": args.tag,
         "repo": args.repo,
         "url": release.get("url"),
+        "out_dir": str(out_dir),
         "is_prerelease": release.get("isPrerelease"),
         "expected_release_kind": "stable" if args.expect_stable else "prerelease" if args.expect_prerelease else None,
         "expected_commit": expected_commit,

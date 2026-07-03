@@ -257,6 +257,18 @@ python3 benchmark/release_gate.py --verify-github-release v0.1.0 --github-releas
 
 The GitHub release verifier downloads the release assets, checks release tag identity and URL, rejects prerelease or non-semver tags for stable gates, requires the release metadata and downloaded files to contain exactly the expected Linux and macOS archives plus `.sha256` files, records the expected/release/downloaded asset lists in JSON, checks each checksum digest and checksum target filename, validates archive package contents with traversal-safe extraction that rejects links and special files, and requires at least one archive compatible with the current machine to pass `morphojet doctor`.
 
+Saved GitHub release verification JSON reports can be re-checked during review:
+
+```bash
+python3 benchmark/verify_github_release.py \
+  --verify-report benchmark/results/github-release/v0.1.0/verification.json \
+  --verify-report-files \
+  --require-report-pass \
+  --require-stable-report
+```
+
+`--verify-report-files` recomputes downloaded asset names, archive SHA-256 values, and checksum file contents from the report's `out_dir`. Use `--require-stable-report` for production signoff so a prerelease verification JSON cannot satisfy the stable-release evidence slot.
+
 ## Parity Report Smoke
 
 ```bash

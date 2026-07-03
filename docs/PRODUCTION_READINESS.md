@@ -53,6 +53,8 @@ If the external L4 evidence is ready before the stable release, run the same wra
 
 Use `benchmark/run_production_gate.py --verify-local-evidence-preflight-report path/to/local-evidence-preflight.json` to re-check the saved local evidence-preflight report's schema, reachable git commit, claim-scope labels, and final-evidence rejection flag during review. Add `--verify-local-evidence-preflight-files` when the referenced evidence files are available so the recorded input file sizes and SHA-256 hashes are recomputed. Add `--require-local-evidence-preflight-pass` for review/signoff.
 
+Use `benchmark/verify_github_release.py --verify-report path/to/github-release/verification.json --verify-report-files --require-report-pass --require-stable-report` to re-check a saved stable-release verification report during signoff. This recomputes downloaded asset names, archive SHA-256 values, and checksum file contents from the recorded release output directory.
+
 ## Claim Policy
 
 Until every required gate is complete, documentation may claim the narrow L3 benchmark result and the supported-column handoff preflight, but must not say "production-ready" or "replaces CellProfiler workflows" without an external workflow trial report and evidence package accepted by release gate.

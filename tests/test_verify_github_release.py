@@ -3,9 +3,12 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from pathlib import Path
 
 
@@ -144,6 +147,116 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             ["no compatible release archive was doctor-verified on this machine"],
             verify_github_release.doctor_run_issues([{"doctor": None}]),
         )
+
+    def valid_report(self, root: Path) -> Path:
+        out_dir = root / "release"
+        out_dir.mkdir()
+        archive = out_dir / "morphojet-v0.1.0-linux-x86_64.tar.gz"
+        archive.write_bytes(b"archive\n")
+        digest = verify_github_release.sha256(archive)
+        (out_dir / (archive.name + ".sha256")).write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
+        expected_assets = sorted(verify_github_release.expected_asset_names("v0.1.0"))
+        downloaded = sorted([archive.name, archive.name + ".sha256"])
+        report = {
+            "status": "PASS",
+            "tag": "v0.1.0",
+            "repo": "benngaihk/MorphoJet",
+            "url": "https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0",
+            "out_dir": str(out_dir),
+            "is_prerelease": False,
+            "expected_release_kind": "stable",
+            "expected_commit": "abc123",
+            "asset_count": len(downloaded),
+            "assets": {
+                "expected": expected_assets,
+                "release_metadata": expected_assets,
+                "downloaded": downloaded,
+                "expected_count": len(expected_assets),
+                "release_metadata_count": len(expected_assets),
+                "downloaded_count": len(downloaded),
+            },
+            "archives": [
+                {
+                    "archive": archive.name,
+                    "sha256": digest,
+                    "checksum_match": True,
+                    "doctor": {"issues": []},
+                }
+            ],
+            "issues": [],
+        }
+        path = root / "github-release-verification.json"
+        path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        return path
+
+    def test_saved_release_report_passes_with_file_recheck(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                status = verify_github_release.verify_saved_github_release_report(
+                    report,
+                    require_report_pass=True,
+                    require_stable_report=True,
+                    verify_files=True,
+                )
+
+        self.assertEqual(0, status)
+
+    def test_saved_release_report_rejects_non_stable_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["expected_release_kind"] = "prerelease"
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                status = verify_github_release.verify_saved_github_release_report(
+                    report,
+                    require_stable_report=True,
+                )
+
+        self.assertEqual(1, status)
+
+    def test_saved_release_report_can_require_pass(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["status"] = "FAIL"
+            payload["issues"] = ["release is draft"]
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                status = verify_github_release.verify_saved_github_release_report(
+                    report,
+                    require_report_pass=True,
+                )
+
+        self.assertEqual(1, status)
+
+    def test_saved_release_report_recomputes_asset_list(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = self.valid_report(root)
+            (root / "release" / "extra.txt").write_text("extra\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                status = verify_github_release.verify_saved_github_release_report(report, verify_files=True)
+
+        self.assertEqual(1, status)
+
+    def test_saved_release_report_recomputes_archive_hash(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = self.valid_report(root)
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            archive = root / "release" / payload["archives"][0]["archive"]
+            archive.write_bytes(b"tampered\n")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                status = verify_github_release.verify_saved_github_release_report(report, verify_files=True)
+
+        self.assertEqual(1, status)
 
 
 if __name__ == "__main__":
