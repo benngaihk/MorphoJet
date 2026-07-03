@@ -35,8 +35,12 @@ def safe_extract(archive: Path, destination: Path) -> None:
     with tarfile.open(archive, "r:gz") as handle:
         root = destination.resolve()
         for member in handle.getmembers():
+            if member.issym() or member.islnk():
+                raise SystemExit(f"unsafe archive link: {member.name}")
             target = (destination / member.name).resolve()
-            if not str(target).startswith(str(root)):
+            try:
+                target.relative_to(root)
+            except ValueError:
                 raise SystemExit(f"unsafe archive path: {member.name}")
         handle.extractall(destination)
 

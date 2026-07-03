@@ -828,6 +828,7 @@ def is_l3_provenance_compatible_path(path: str) -> bool:
         or path == "benchmark/release_gate.py"
         or path == "benchmark/package_external_trial.py"
         or path == "benchmark/verify_github_release.py"
+        or path == "benchmark/verify_release_archive.py"
     )
 
 
@@ -838,6 +839,7 @@ def is_external_trial_compatible_path(path: str) -> bool:
         or path == "benchmark/release_gate.py"
         or path == "benchmark/package_external_trial.py"
         or path == "benchmark/verify_github_release.py"
+        or path == "benchmark/verify_release_archive.py"
     )
 
 
