@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import copy
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -55,7 +56,30 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertFalse(release_gate.is_l3_provenance_compatible_path("crates/morphojet/src/main.rs"))
 
     def test_external_trial_report_passes(self) -> None:
-        self.assertEqual([], release_gate.external_trial_failures(valid_external_trial()))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / "external" / "handoff_contract.json"
+            artifact.parent.mkdir()
+            artifact.write_text("{}\n")
+
+            self.assertEqual([], release_gate.external_trial_failures(valid_external_trial(), root))
+
+    def test_external_trial_requires_artifacts_to_exist(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            failures = release_gate.external_trial_failures(valid_external_trial(), Path(tmp))
+
+        self.assertIn("trial artifact does not exist: external/handoff_contract.json", failures)
+
+    def test_external_trial_rejects_empty_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / "external" / "handoff_contract.json"
+            artifact.parent.mkdir()
+            artifact.write_text("")
+
+            failures = release_gate.external_trial_failures(valid_external_trial(), root)
+
+        self.assertIn("trial artifact is empty: external/handoff_contract.json", failures)
 
     def test_external_trial_requires_evidence(self) -> None:
         trial = valid_external_trial()

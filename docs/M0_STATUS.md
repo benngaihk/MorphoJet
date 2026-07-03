@@ -117,5 +117,5 @@ The next gate toward production readiness is no longer L3 evidence; it is repeat
 - Re-run `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --run-l3 --build-release-artifact --release-version rc-preflight` before promoting from RC to stable release.
 - Promote the CellBinDB full benchmark into scheduled/nightly validation.
 - Run an external lab workflow trial with real handoff files.
-- Copy `benchmark/handoff/external_lab_template.json`, fill the external evidence block, exercise the manifest-driven handoff trial in that external workflow without manual CSV editing, and validate the resulting report with `python3 benchmark/release_gate.py --external-trial-json path/to/handoff_trial.json`.
+- Copy `benchmark/handoff/external_lab_template.json`, fill the external evidence block, exercise the manifest-driven handoff trial in that external workflow without manual CSV editing, and validate the resulting report with `python3 benchmark/release_gate.py --external-trial-json path/to/handoff_trial.json --external-trial-root path/to/external`.
 - Broaden compatibility beyond the current measurement subset.

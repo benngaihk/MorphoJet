@@ -277,7 +277,14 @@ def has_placeholder(value: str) -> bool:
     return value.startswith("REPLACE_WITH")
 
 
-def external_trial_failures(trial: dict) -> list[str]:
+def resolve_artifact_path(artifact: str, artifact_root: Path) -> Path:
+    path = Path(artifact)
+    if path.is_absolute():
+        return path
+    return artifact_root / path
+
+
+def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> list[str]:
     failures = []
     if trial.get("status") != "PASS":
         failures.append(f"trial status is {trial.get('status')}")
@@ -291,6 +298,17 @@ def external_trial_failures(trial: dict) -> list[str]:
     artifacts = trial.get("artifacts")
     if not isinstance(artifacts, list) or not artifacts:
         failures.append("trial artifacts must be a non-empty list")
+    else:
+        root = artifact_root or ROOT
+        for artifact in artifacts:
+            if not isinstance(artifact, str) or not artifact.strip():
+                failures.append("trial artifacts must be non-empty strings")
+                continue
+            artifact_path = resolve_artifact_path(artifact, root)
+            if not artifact_path.is_file():
+                failures.append(f"trial artifact does not exist: {artifact}")
+            elif artifact_path.stat().st_size == 0:
+                failures.append(f"trial artifact is empty: {artifact}")
     evidence = trial.get("external_evidence")
     if not isinstance(evidence, dict):
         failures.append("external_evidence must be present")
@@ -319,11 +337,11 @@ def external_trial_failures(trial: dict) -> list[str]:
     return failures
 
 
-def validate_external_trial_report(path: Path) -> Gate:
+def validate_external_trial_report(path: Path, artifact_root: Path | None) -> Gate:
     started = time.perf_counter()
     try:
         trial = load_json(path)
-        failures = external_trial_failures(trial)
+        failures = external_trial_failures(trial, artifact_root)
         status = "FAIL" if failures else "PASS"
         evidence = trial.get("external_evidence") if isinstance(trial.get("external_evidence"), dict) else {}
         detail = "; ".join(failures) if failures else (
@@ -458,6 +476,7 @@ def build_metadata(args: argparse.Namespace, git_status_lines: list[str]) -> dic
         "require_clean_git": args.require_clean_git,
         "require_l3_provenance": args.require_l3_provenance,
         "external_trial_json": str(args.external_trial_json) if args.external_trial_json else None,
+        "external_trial_root": str(args.external_trial_root) if args.external_trial_root else None,
     }
 
 
@@ -492,6 +511,11 @@ def main() -> int:
         "--external-trial-json",
         type=Path,
         help="Validate a real external L4 handoff trial report JSON",
+    )
+    parser.add_argument(
+        "--external-trial-root",
+        type=Path,
+        help="Root directory for resolving relative external trial artifact paths",
     )
     args = parser.parse_args()
 
@@ -600,7 +624,7 @@ def main() -> int:
     gates.append(validate_workflow_bridge_artifacts())
     gates.append(validate_handoff_trial_artifacts())
     if args.external_trial_json:
-        gates.append(validate_external_trial_report(args.external_trial_json))
+        gates.append(validate_external_trial_report(args.external_trial_json, args.external_trial_root))
 
     payload = write_report(args, gates, metadata)
     print(f"wrote {args.out_json}")
