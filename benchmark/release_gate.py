@@ -119,11 +119,17 @@ def validate_l3_provenance_artifact() -> Gate:
         if provenance.get("generator") != "benchmark/run_cellbindb_oracle.py":
             failures.append(f"generator={provenance.get('generator')}")
         current_commit = git_commit()
-        if provenance.get("git_commit") != current_commit:
-            failures.append(
-                "git_commit mismatch "
-                f"provenance={provenance.get('git_commit')} current={current_commit}"
-            )
+        provenance_commit = provenance.get("git_commit")
+        docs_only_delta = False
+        if provenance_commit != current_commit:
+            changed_paths = git_changed_paths(str(provenance_commit), current_commit)
+            docs_only_delta = bool(changed_paths) and all(is_doc_path(path) for path in changed_paths)
+            if not docs_only_delta:
+                failures.append(
+                    "git_commit mismatch "
+                    f"provenance={provenance_commit} current={current_commit} "
+                    f"changed_paths={','.join(changed_paths[:20])}"
+                )
         if provenance.get("run_name") != "full":
             failures.append(f"run_name={provenance.get('run_name')}")
         if provenance.get("skip_cellprofiler") is not False:
@@ -165,7 +171,9 @@ def validate_l3_provenance_artifact() -> Gate:
         status = "FAIL" if failures else "PASS"
         detail = "; ".join(failures) if failures else (
             "CellBinDB provenance PASS: "
-            f"commit={provenance.get('git_commit')[:12]}, artifacts={checked}"
+            f"commit={provenance.get('git_commit')[:12]}, "
+            f"current={current_commit[:12]}, docs_only_delta={docs_only_delta}, "
+            f"artifacts={checked}"
         )
     except Exception as exc:  # noqa: BLE001 - report exact release gate failure.
         status = "FAIL"
@@ -291,6 +299,21 @@ def git_status_porcelain() -> list[str]:
         check=True,
     )
     return [line for line in completed.stdout.splitlines() if line]
+
+
+def git_changed_paths(old_commit: str, new_commit: str) -> list[str]:
+    completed = subprocess.run(
+        ["git", "diff", "--name-only", f"{old_commit}..{new_commit}"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return [line for line in completed.stdout.splitlines() if line]
+
+
+def is_doc_path(path: str) -> bool:
+    return path == "README.md" or path.startswith("docs/")
 
 
 def validate_clean_git_worktree(status_lines: list[str]) -> Gate:

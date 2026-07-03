@@ -156,28 +156,30 @@ Verified full L3 candidate:
 | Scale | >=1000 image rows | 1044 | PASS |
 | Object count parity | 100% | 100.0000% | PASS |
 | Core numeric parity | >=99% | 100.0000% | PASS |
-| Wall-clock speedup | >=10x | 597.54x | PASS |
-| Peak RSS ratio | <=50% | 12.15% | PASS |
+| Wall-clock speedup | >=10x | 575.77x | PASS |
+| Peak RSS ratio | <=50% | 12.54% | PASS |
 
 Raw full-run metrics:
 
 | Tool | Seconds | Peak RSS MB |
 |---|---:|---:|
-| CellProfiler | 618.794942 | 724.700 |
-| MorphoJet | 1.035570 | 88.047 |
+| CellProfiler | 557.835237 | 681.900 |
+| MorphoJet | 0.968850 | 85.516 |
 
 ## Next Implementation Gates
 
-1. Inspect the archive layout without committing data files.
-2. Build a CellBinDB image/mask table generator.
-3. Promote the full L3 command into a CI/nightly or release validation job.
-4. Prepare an external lab workflow trial for L4.
+1. Keep the scheduler-ready CellBinDB L3 command green, including provenance/hash validation.
+2. Prepare and run an external lab workflow trial for L4.
+3. Promote from release candidate to a stable non-RC release only after external workflow evidence.
+4. Broaden the supported measurement subset beyond the current intensity and size/shape columns.
 
 ## Claim Boundary
 
-Do not claim production-grade or broad industry improvement until CellBinDB or an equivalent >=1,000 public direct-mask corpus passes:
+CellBinDB now satisfies the L3 public direct-mask corpus gate:
 
 - 100% object count parity.
 - >=99% core numeric parity.
 - >=10x wall-clock speedup.
 - Peak RSS <=50% of CellProfiler on the same machine.
+
+Do not claim production-grade or broad CellProfiler replacement until an external L4 workflow consumes the supported handoff files without manual CSV editing and a stable non-RC release is validated.

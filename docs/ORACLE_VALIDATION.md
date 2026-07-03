@@ -174,8 +174,8 @@ Current full L3 result:
 - Object rows: 107,936.
 - Object count parity: 100%.
 - Core numeric parity: 100%.
-- Wall-clock speedup: 597.54x.
-- Peak RSS ratio: 12.15%.
+- Wall-clock speedup: 575.77x.
+- Peak RSS ratio: 12.54%.
 - Artifact: `benchmark/results/cellbindb/oracle-full/impact.md`.
 - Provenance artifact for full reruns: `benchmark/results/cellbindb/oracle-full/provenance.json`.
 - Scheduler-ready validation: `benchmark/run_cellbindb_l3_validation.sh` runs the full CellBinDB CellProfiler oracle gate after fetching/verifying the archive (or verifying the existing local archive with pinned MD5/size when metadata fetch is unavailable) and pulling the pinned CellProfiler Docker image.

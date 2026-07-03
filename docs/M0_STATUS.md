@@ -1,6 +1,6 @@
 # M0 Status
 
-Updated: 2026-07-02
+Updated: 2026-07-03
 
 ## Achieved
 
@@ -90,10 +90,10 @@ Latest M0 oracle gate verification:
 - CellBinDB preparation script can pair `*-img.tif` with `*-instancemask.tif`, extract selected rows, and write a MorphoJet image table.
 - CellBinDB archive was downloaded locally and MD5 verified; MorphoJet processed the full 1,044-row direct-mask table into 107,936 object rows in 0.879788 seconds with 89.875 MB peak RSS.
 - CellBinDB 8-row CellProfiler oracle smoke passes: 590 expected rows, 590 actual rows, 0 row gaps, 0 numeric failures.
-- CellBinDB full L3 benchmark passes: 1,044 image rows, 107,936 expected rows, 107,936 actual rows, 0 row gaps, 0 numeric failures, 597.54x speedup, 12.15% RSS ratio.
+- CellBinDB full L3 benchmark passes: 1,044 image rows, 107,936 expected rows, 107,936 actual rows, 0 row gaps, 0 numeric failures, 575.77x speedup, 12.54% RSS ratio.
 - CellBinDB workflow bridge passes: 107,936 CellProfiler rows, 107,936 MorphoJet wide rows, 33 compared value columns, 3,561,888 numeric comparisons, 0 numeric failures. The comparator records 17 unsupported CellProfiler columns as ignored, not claimed.
 - CellBinDB handoff preflight passes: 3 manifest steps, 107,936 wide rows, 35 required contract columns, 0 missing columns, 0 duplicate keys, 0 empty keys.
-- CellBinDB oracle runner writes `provenance.json` after full runs, capturing git commit, dirty status, command arguments, tool context, and SHA-256 hashes for the L3 parity, impact, workflow-bridge, handoff, CellProfiler, and MorphoJet artifacts.
+- CellBinDB oracle runner writes `provenance.json` after full runs, capturing git commit, dirty status, command arguments, tool context, and SHA-256 hashes for the L3 parity, impact, workflow-bridge, handoff, CellProfiler, and MorphoJet artifacts. The latest scheduler-ready L3 run passed the provenance gate for commit `4eba44624f6d` with 14 hashed artifacts and `skip_cellprofiler=false`.
 - Handoff manifest gates pass for the CellBinDB preflight manifest and the external lab template; the external template is validated with required lab/workflow owner, dataset source, downstream workflow, execution environment, acceptance criteria, and `manual_csv_editing=false` evidence fields.
 - Release gate script can run code gates and validate or rerun the CellBinDB L3 benchmark plus the workflow bridge and handoff trial artifacts, writing JSON and Markdown reports with run timestamp, git commit, dirty-worktree status, invoked arguments, and optional L3 provenance/hash validation.
 - Scheduler-ready CellBinDB L3 validation script is implemented with Zenodo archive verification, pinned MD5/size fallback for existing local archives, pinned CellProfiler Docker image pull, and full oracle execution.
