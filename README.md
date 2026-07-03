@@ -121,7 +121,7 @@ python3 benchmark/run_production_gate.py \
   --local-evidence-preflight-only
 ```
 
-This preflight writes `benchmark/results/release-gate/local-evidence-preflight.json` and `.md` by default, and does not make a production claim; it only checks the external L4 trial report and evidence package before the final stable-release gate is available.
+This preflight writes `benchmark/results/release-gate/local-evidence-preflight.json` and `.md` by default, records `claim_status=NOT_PRODUCTION_CLAIM`, and lists the final production checks it intentionally skips. It only checks the external L4 trial report and evidence package before the final stable-release gate is available.
 
 ## CellProfiler-Style Wide Export
 

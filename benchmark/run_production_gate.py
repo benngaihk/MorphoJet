@@ -20,6 +20,17 @@ DEFAULT_OUT_JSON = Path("benchmark/results/release-gate/production-claim.json")
 DEFAULT_OUT_MD = Path("benchmark/results/release-gate/production-claim.md")
 DEFAULT_LOCAL_PREFLIGHT_JSON = Path("benchmark/results/release-gate/local-evidence-preflight.json")
 DEFAULT_LOCAL_PREFLIGHT_MD = Path("benchmark/results/release-gate/local-evidence-preflight.md")
+LOCAL_PREFLIGHT_VALIDATED_CHECKS = [
+    "external_l4_workflow_trial",
+    "external_l4_evidence_package",
+]
+LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS = [
+    "clean_git_worktree",
+    "standard_code_and_artifact_gates",
+    "l3_provenance_hashes",
+    "stable_github_release",
+    "production_claim_enforcement",
+]
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 
 
@@ -84,7 +95,11 @@ def build_release_gate_command(args: argparse.Namespace) -> list[str]:
 def build_local_evidence_preflight_payload(args: argparse.Namespace, gates: list[release_gate.Gate]) -> dict:
     git_status_lines = release_gate.git_status_porcelain()
     return {
+        "schema_version": 1,
         "status": "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL",
+        "claim_status": "NOT_PRODUCTION_CLAIM",
+        "validated_checks": LOCAL_PREFLIGHT_VALIDATED_CHECKS,
+        "skipped_final_checks": LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS,
         "metadata": {
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
             "git_commit": release_gate.git_commit(),
@@ -107,6 +122,7 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
         "# Local External L4 Evidence Preflight",
         "",
         f"- status: `{payload['status']}`",
+        f"- claim_status: `{payload['claim_status']}`",
         f"- json: `{out_json}`",
         f"- generated_at_utc: `{metadata['generated_at_utc']}`",
         f"- git_commit: `{metadata['git_commit']}`",
@@ -115,6 +131,8 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
         f"- external_trial_root: `{metadata['external_trial_root']}`",
         f"- external_evidence_package_dir: `{metadata['external_evidence_package_dir']}`",
         f"- github_release_tag: `{metadata['github_release_tag']}`",
+        f"- validated_checks: `{', '.join(payload['validated_checks'])}`",
+        f"- skipped_final_checks: `{', '.join(payload['skipped_final_checks'])}`",
         "",
         "| Gate | Status | Detail |",
         "|---|---:|---|",

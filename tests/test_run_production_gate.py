@@ -237,9 +237,18 @@ class RunProductionGateTest(unittest.TestCase):
             markdown = out_md.read_text(encoding="utf-8")
 
         self.assertEqual(0, status)
+        self.assertEqual(1, payload["schema_version"])
         self.assertEqual("PASS", payload["status"])
+        self.assertEqual("NOT_PRODUCTION_CLAIM", payload["claim_status"])
+        self.assertEqual(
+            ["external_l4_workflow_trial", "external_l4_evidence_package"],
+            payload["validated_checks"],
+        )
+        self.assertIn("stable_github_release", payload["skipped_final_checks"])
+        self.assertIn("production_claim_enforcement", payload["skipped_final_checks"])
         self.assertEqual(2, len(payload["gates"]))
         self.assertIn("Local External L4 Evidence Preflight", markdown)
+        self.assertIn("claim_status: `NOT_PRODUCTION_CLAIM`", markdown)
         self.assertIn("Validate external L4 evidence package", markdown)
         self.assertIn("does not satisfy the stable GitHub release", markdown)
 
@@ -309,6 +318,7 @@ class RunProductionGateTest(unittest.TestCase):
 
         self.assertEqual(1, status)
         self.assertEqual("FAIL", payload["status"])
+        self.assertEqual("NOT_PRODUCTION_CLAIM", payload["claim_status"])
         self.assertIn("Validate external L4 workflow trial report: FAIL", stdout.getvalue())
         self.assertIn("Validate external L4 evidence package: FAIL", stdout.getvalue())
 
