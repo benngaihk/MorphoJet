@@ -42,6 +42,21 @@ def checksum_value(path: Path) -> str:
     return parts[0]
 
 
+def checksum_issues(path: Path, archive_name: str) -> list[str]:
+    parts = path.read_text().split()
+    if not parts:
+        return [f"empty checksum file: {path.name}"]
+    issues = []
+    digest = parts[0]
+    if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
+        issues.append(f"invalid checksum digest for {archive_name}")
+    if len(parts) < 2:
+        issues.append(f"checksum file missing archive name for {archive_name}")
+    elif Path(parts[1]).name != archive_name:
+        issues.append(f"checksum file target mismatch for {archive_name}: {parts[1]}")
+    return issues
+
+
 def archive_members(path: Path) -> set[str]:
     with tarfile.open(path, "r:gz") as handle:
         return {Path(name).name for name in handle.getnames()}
@@ -128,6 +143,7 @@ def main() -> int:
             continue
         actual = sha256(archive)
         expected = checksum_value(checksum)
+        issues.extend(checksum_issues(checksum, archive.name))
         if actual != expected:
             issues.append(f"checksum mismatch for {archive.name}")
         issues.extend(verify_archive_shape(archive))

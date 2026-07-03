@@ -99,7 +99,7 @@ Latest M0 oracle gate verification:
 - Scheduler-ready CellBinDB L3 validation script is implemented with Zenodo archive verification, pinned MD5/size fallback for existing local archives, pinned CellProfiler Docker image pull, and full oracle execution.
 - CLI observability includes `morphojet doctor`, optional `measure --summary-json` run metadata, and optional `measure --error-json` failure reports with basic stable error codes for machine-readable batch monitoring.
 - Local release artifact preflight passes on macOS arm64: archive checksum verified and packaged `morphojet doctor` reports version, current commit, OS, and architecture.
-- GitHub release candidate `v0.1.0-rc.1` passes: release workflow built Linux/macOS archives, all published checksums match, release is marked prerelease, and the macOS packaged binary reports the tag commit.
+- GitHub release candidate `v0.1.0-rc.1` passes: release workflow built Linux/macOS archives, all published checksum digests and target filenames match, release is marked prerelease, and the macOS packaged binary reports the tag commit.
 
 ## Not Yet Achieved
 

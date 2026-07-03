@@ -56,6 +56,8 @@ After external workflow evidence has passed, verify a stable non-RC release with
 python3 benchmark/release_gate.py --verify-github-release v0.1.0 --github-release-kind stable
 ```
 
+GitHub release verification checks the archive assets, `.sha256` digest values, checksum target filenames, package contents, and the compatible archive's `morphojet doctor` commit.
+
 ## Diagnostics
 
 ```bash
