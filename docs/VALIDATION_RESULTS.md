@@ -5,6 +5,7 @@ Updated: 2026-07-04
 ## Production Gate Wrapper Milestone
 
 This milestone adds `benchmark/run_production_gate.py` as the final production-claim entrypoint. It does not replace the release gate; it assembles the required final checks into one command and rejects release-candidate tags before invoking release verification.
+The wrapper is treated as a release-gate orchestration file for provenance compatibility, so changing it does not by itself require regenerating CellBinDB L3 artifacts; changes to measurement code or benchmark generators still do.
 
 Required final command shape:
 
