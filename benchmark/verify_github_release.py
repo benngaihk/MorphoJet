@@ -147,6 +147,12 @@ def asset_issues(expected_assets: set[str], release_assets: set[str], downloaded
     return issues
 
 
+def doctor_run_issues(archive_summaries: list[dict]) -> list[str]:
+    if any(summary.get("doctor") is not None for summary in archive_summaries):
+        return []
+    return ["no compatible release archive was doctor-verified on this machine"]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("tag")
@@ -201,6 +207,7 @@ def main() -> int:
                 "doctor": doctor_summary,
             }
         )
+    issues.extend(doctor_run_issues(archive_summaries))
 
     summary = {
         "status": "PASS" if not issues else "FAIL",

@@ -103,6 +103,15 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             ),
         )
 
+    def test_doctor_run_issues_accepts_verified_archive(self) -> None:
+        self.assertEqual([], verify_github_release.doctor_run_issues([{"doctor": {"issues": []}}]))
+
+    def test_doctor_run_issues_requires_verified_archive(self) -> None:
+        self.assertEqual(
+            ["no compatible release archive was doctor-verified on this machine"],
+            verify_github_release.doctor_run_issues([{"doctor": None}]),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
