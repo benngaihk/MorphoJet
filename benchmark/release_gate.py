@@ -823,6 +823,7 @@ def build_metadata(args: argparse.Namespace, git_status_lines: list[str]) -> dic
         "github_release_kind": args.github_release_kind,
         "require_clean_git": args.require_clean_git,
         "require_l3_provenance": args.require_l3_provenance,
+        "require_production_claim": args.require_production_claim,
         "external_trial_json": str(args.external_trial_json) if args.external_trial_json else None,
         "external_trial_root": str(args.external_trial_root) if args.external_trial_root else None,
     }
@@ -830,8 +831,10 @@ def build_metadata(args: argparse.Namespace, git_status_lines: list[str]) -> dic
 
 def write_report(args: argparse.Namespace, gates: list[Gate], metadata: dict) -> dict:
     audit = build_production_claim_audit(args, gates, metadata)
+    gates_pass = all(gate.status == "PASS" for gate in gates)
+    production_claim_pass = audit["status"] == "PASS"
     payload = {
-        "status": "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL",
+        "status": "PASS" if gates_pass and (production_claim_pass or not args.require_production_claim) else "FAIL",
         "production_claim_audit": audit,
         "metadata": metadata,
         "gates": [asdict(gate) for gate in gates],
@@ -862,6 +865,11 @@ def main() -> int:
         "--require-l3-provenance",
         action="store_true",
         help="Fail unless CellBinDB L3 provenance exists and hashes match current artifacts",
+    )
+    parser.add_argument(
+        "--require-production-claim",
+        action="store_true",
+        help="Fail unless the production-claim audit is complete and passing",
     )
     parser.add_argument(
         "--external-trial-json",

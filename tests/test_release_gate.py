@@ -109,14 +109,27 @@ class ReleaseGateTest(unittest.TestCase):
             "require_clean_git": False,
             "require_l3_provenance": False,
             "external_trial_json": None,
+            "external_trial_root": None,
             "verify_github_release": None,
             "github_release_kind": "prerelease",
+            "require_production_claim": False,
+            "out_json": Path("release-gate.json"),
+            "out_md": Path("release-gate.md"),
         }
         values.update(overrides)
         return Namespace(**values)
 
     def production_gates(self, names: list[str]) -> list[release_gate.Gate]:
         return [release_gate.Gate(name, None, "PASS", 0.0, "ok") for name in names]
+
+    def production_metadata(self) -> dict:
+        return {
+            "generated_at_utc": "2026-07-03T00:00:00+00:00",
+            "git_commit": "abc123",
+            "git_dirty": False,
+            "git_status": [],
+            "argv": ["benchmark/release_gate.py"],
+        }
 
     def test_production_claim_audit_defaults_to_incomplete_without_l4_or_stable_release(self) -> None:
         gates = self.production_gates(
@@ -191,6 +204,86 @@ class ReleaseGateTest(unittest.TestCase):
 
         self.assertEqual("PASS", audit["status"])
         self.assertEqual([], audit["missing_or_failed_checks"])
+
+    def test_require_production_claim_fails_incomplete_audit(self) -> None:
+        gates = self.production_gates(
+            [
+                "Rust formatting",
+                "Rust tests",
+                "Rust clippy",
+                "Python helper compilation",
+                "Python helper tests",
+                "Validate handoff manifests",
+                "Validate external lab handoff template",
+                "Validate existing CellBinDB L3 artifacts",
+                "Validate CellBinDB workflow bridge artifacts",
+                "Validate CellBinDB handoff trial artifacts",
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            payload = release_gate.write_report(
+                self.production_args(
+                    require_production_claim=True,
+                    out_json=root / "report.json",
+                    out_md=root / "report.md",
+                ),
+                gates,
+                self.production_metadata(),
+            )
+
+        self.assertEqual("FAIL", payload["status"])
+        self.assertEqual("INCOMPLETE", payload["production_claim_audit"]["status"])
+        self.assertEqual(
+            [
+                "clean_git_worktree",
+                "l3_provenance_hashes",
+                "external_l4_workflow_trial",
+                "stable_github_release",
+            ],
+            payload["production_claim_audit"]["missing_or_failed_checks"],
+        )
+
+    def test_require_production_claim_passes_complete_audit(self) -> None:
+        gates = self.production_gates(
+            [
+                "Require clean git worktree",
+                "Rust formatting",
+                "Rust tests",
+                "Rust clippy",
+                "Python helper compilation",
+                "Python helper tests",
+                "Validate handoff manifests",
+                "Validate external lab handoff template",
+                "Validate existing CellBinDB L3 artifacts",
+                "Validate CellBinDB L3 provenance",
+                "Validate CellBinDB workflow bridge artifacts",
+                "Validate CellBinDB handoff trial artifacts",
+                "Validate external L4 workflow trial report",
+                "Verify GitHub release assets",
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            payload = release_gate.write_report(
+                self.production_args(
+                    require_clean_git=True,
+                    require_l3_provenance=True,
+                    require_production_claim=True,
+                    external_trial_json=Path("handoff_trial.json"),
+                    verify_github_release="v0.1.0",
+                    github_release_kind="stable",
+                    out_json=root / "report.json",
+                    out_md=root / "report.md",
+                ),
+                gates,
+                self.production_metadata(),
+            )
+
+        self.assertEqual("PASS", payload["status"])
+        self.assertEqual("PASS", payload["production_claim_audit"]["status"])
 
     def test_doc_path_allowlist(self) -> None:
         self.assertTrue(release_gate.is_doc_path("README.md"))
