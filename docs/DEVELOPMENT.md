@@ -194,7 +194,7 @@ python3 benchmark/run_production_gate.py \
   --github-release-tag v0.1.0
 ```
 
-The wrapper rejects release-candidate tags such as `v0.1.0-rc.1`, checks that the external trial JSON, trial root, evidence package directory, and any supplied reviewer verification reports exist before an actual run, fail-closed re-checks supplied saved verifier reports with `--verify-report-files --require-report-pass`, and invokes `benchmark/release_gate.py` with `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, the external L4 trial and package paths, `--verify-github-release`, and `--github-release-kind stable`. Use `--dry-run` to print the assembled command without checking local evidence paths or performing network/release verification side effects.
+The wrapper rejects release-candidate tags such as `v0.1.0-rc.1`, checks that the external trial JSON, trial root, evidence package directory, and any supplied reviewer verification reports exist before an actual run, fail-closed re-checks supplied saved verifier reports with `--verify-report-files --require-report-pass`, and passes those reports into `benchmark/release_gate.py` so the final release-gate JSON/Markdown records reviewer-report gates along with `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, the external L4 trial and package paths, `--verify-github-release`, and `--github-release-kind stable`. Use `--dry-run` to print the assembled command without checking local evidence paths or performing network/release verification side effects.
 
 When the external L4 trial and evidence package are ready but the stable GitHub release is not yet cut, run a local evidence preflight:
 

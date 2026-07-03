@@ -1117,6 +1117,12 @@ def build_metadata(args: argparse.Namespace, git_status_lines: list[str]) -> dic
         "external_evidence_package_dir": str(args.external_evidence_package_dir)
         if args.external_evidence_package_dir
         else None,
+        "external_trial_verification_report": str(args.external_trial_verification_report)
+        if args.external_trial_verification_report
+        else None,
+        "external_evidence_package_verification_report": str(args.external_evidence_package_verification_report)
+        if args.external_evidence_package_verification_report
+        else None,
     }
 
 
@@ -1178,6 +1184,16 @@ def main() -> int:
         "--external-evidence-package-dir",
         type=Path,
         help="Validate an external L4 evidence package created by benchmark/package_external_trial.py",
+    )
+    parser.add_argument(
+        "--external-trial-verification-report",
+        type=Path,
+        help="Re-check a saved external trial verifier JSON report",
+    )
+    parser.add_argument(
+        "--external-evidence-package-verification-report",
+        type=Path,
+        help="Re-check a saved external evidence package verifier JSON report",
     )
     args = parser.parse_args()
 
@@ -1290,6 +1306,34 @@ def main() -> int:
         gates.append(validate_external_trial_report(args.external_trial_json, args.external_trial_root))
     if args.external_evidence_package_dir:
         gates.append(validate_external_evidence_package(args.external_evidence_package_dir, args.external_trial_json))
+    if args.external_trial_verification_report:
+        gates.append(
+            run_command(
+                "Verify saved external L4 trial report",
+                [
+                    "python3",
+                    "benchmark/verify_external_trial_report.py",
+                    "--verify-report",
+                    str(args.external_trial_verification_report),
+                    "--verify-report-files",
+                    "--require-report-pass",
+                ],
+            )
+        )
+    if args.external_evidence_package_verification_report:
+        gates.append(
+            run_command(
+                "Verify saved external L4 evidence package report",
+                [
+                    "python3",
+                    "benchmark/verify_external_evidence_package.py",
+                    "--verify-report",
+                    str(args.external_evidence_package_verification_report),
+                    "--verify-report-files",
+                    "--require-report-pass",
+                ],
+            )
+        )
 
     payload = write_report(args, gates, metadata)
     print(f"wrote {args.out_json}")

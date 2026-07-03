@@ -116,7 +116,7 @@ python3 benchmark/run_production_gate.py \
   --github-release-tag v0.1.0
 ```
 
-The wrapper requires a stable non-RC tag, fail-fast checks that the external trial JSON, trial root, evidence package directory, and any supplied reviewer verification reports exist for actual runs, fail-closed re-checks supplied saved verifier reports with `--verify-report-files --require-report-pass`, and runs `benchmark/release_gate.py` with clean-git, L3 provenance, external L4 trial, external L4 evidence package, stable GitHub release, and `--require-production-claim` checks in the same report. Use `--dry-run` to inspect the assembled command without requiring those external paths yet.
+The wrapper requires a stable non-RC tag, fail-fast checks that the external trial JSON, trial root, evidence package directory, and any supplied reviewer verification reports exist for actual runs, fail-closed re-checks supplied saved verifier reports with `--verify-report-files --require-report-pass`, and passes those reviewer reports through to `benchmark/release_gate.py` so the final JSON/Markdown includes the reviewer-report gates alongside clean-git, L3 provenance, external L4 trial, external L4 evidence package, stable GitHub release, and `--require-production-claim` checks. Use `--dry-run` to inspect the assembled command without requiring those external paths yet.
 
 Before the stable release exists, validate a completed external L4 trial and evidence package locally with the same release-gate validators:
 

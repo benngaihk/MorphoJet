@@ -47,7 +47,7 @@ python3 benchmark/run_production_gate.py \
   --github-release-tag v0.1.0
 ```
 
-This is the single command intended to produce the final production-claim report. It requires a stable non-RC tag, checks that the external evidence paths and supplied reviewer verification reports exist before an actual run, re-checks saved reviewer reports when supplied, and delegates to `benchmark/release_gate.py --require-production-claim`, so production remains incomplete until that command passes with real external evidence and a stable release.
+This is the single command intended to produce the final production-claim report. It requires a stable non-RC tag, checks that the external evidence paths and supplied reviewer verification reports exist before an actual run, re-checks saved reviewer reports when supplied, passes those reviewer-report checks into the final release-gate JSON/Markdown, and delegates to `benchmark/release_gate.py --require-production-claim`, so production remains incomplete until that command passes with real external evidence and a stable release.
 
 If the external L4 evidence is ready before the stable release, run the same wrapper with `--local-evidence-preflight-only` to validate only the external trial report, evidence package, and supplied saved reviewer verifier reports, then write a local evidence-preflight JSON/Markdown report. That report is machine-labeled `NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`, lists the skipped final checks, and binds the key evidence files by size and SHA-256. Passing that preflight reduces L4 packaging risk, but it does not satisfy the stable-release or final production-claim gates.
 

@@ -49,7 +49,14 @@ class RunProductionGateTest(unittest.TestCase):
         )
 
     def test_builds_complete_required_production_claim_command(self) -> None:
-        command = run_production_gate.build_release_gate_command(self.parse())
+        command = run_production_gate.build_release_gate_command(
+            self.parse(
+                "--external-trial-verification-report",
+                "external/trial-verification.json",
+                "--external-evidence-package-verification-report",
+                "evidence/package-verification.json",
+            )
+        )
 
         self.assertEqual(sys.executable, command[0])
         self.assertIn("--require-clean-git", command)
@@ -58,6 +65,16 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("--external-trial-json", command)
         self.assertIn("--external-trial-root", command)
         self.assertIn("--external-evidence-package-dir", command)
+        self.assertIn("--external-trial-verification-report", command)
+        self.assertEqual(
+            "external/trial-verification.json",
+            command[command.index("--external-trial-verification-report") + 1],
+        )
+        self.assertIn("--external-evidence-package-verification-report", command)
+        self.assertEqual(
+            "evidence/package-verification.json",
+            command[command.index("--external-evidence-package-verification-report") + 1],
+        )
         self.assertIn("--verify-github-release", command)
         self.assertIn("v0.1.0", command)
         self.assertIn("--github-release-kind", command)

@@ -129,6 +129,20 @@ def build_release_gate_command(args: argparse.Namespace) -> list[str]:
         "--out-md",
         str(args.out_md),
     ]
+    if args.external_trial_verification_report:
+        command.extend(
+            [
+                "--external-trial-verification-report",
+                str(args.external_trial_verification_report),
+            ]
+        )
+    if args.external_evidence_package_verification_report:
+        command.extend(
+            [
+                "--external-evidence-package-verification-report",
+                str(args.external_evidence_package_verification_report),
+            ]
+        )
     if args.run_l3:
         command.append("--run-l3")
     if args.build_release_artifact:
