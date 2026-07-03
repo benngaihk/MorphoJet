@@ -673,6 +673,11 @@ def external_package_readme_failures(readme: str, trial: dict, artifact_manifest
     for name, snippet in required_fields.items():
         if snippet not in readme:
             failures.append(f"package README missing signoff field: {name}")
+    criteria = evidence.get("acceptance_criteria")
+    if isinstance(criteria, list):
+        for index, criterion in enumerate(criteria):
+            if isinstance(criterion, str) and criterion.strip() and f"- {criterion}" not in readme:
+                failures.append(f"package README missing acceptance criterion: {index}")
     return failures
 
 
