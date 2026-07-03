@@ -104,9 +104,25 @@ class HandoffManifestValidationTest(unittest.TestCase):
             issues,
         )
 
+    def test_acceptance_criteria_placeholders_are_rejected_for_real_trials(self) -> None:
+        manifest = copy.deepcopy(valid_manifest())
+        manifest["external_evidence"]["acceptance_criteria"] = ["REPLACE_WITH_ACCEPTANCE_CRITERION"]
+
+        issues = validate_handoff_manifest.validate_schema(
+            manifest,
+            require_downstream_check=True,
+            require_external_evidence=True,
+        )
+
+        self.assertIn(
+            "external_evidence.acceptance_criteria[0] must replace template placeholder text",
+            issues,
+        )
+
     def test_external_evidence_placeholders_are_allowed_for_template_validation(self) -> None:
         manifest = copy.deepcopy(valid_manifest())
         manifest["external_evidence"]["dataset_source"] = "REPLACE_WITH_SOURCE"
+        manifest["external_evidence"]["acceptance_criteria"] = ["REPLACE_WITH_ACCEPTANCE_CRITERION"]
 
         issues = validate_handoff_manifest.validate_schema(
             manifest,

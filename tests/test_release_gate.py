@@ -316,6 +316,7 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/release_gate.py"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/package_external_trial.py"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/run_production_gate.py"))
+        self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/validate_handoff_manifest.py"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/verify_github_release.py"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/verify_release_archive.py"))
         self.assertFalse(release_gate.is_l3_provenance_compatible_path("benchmark/run_cellbindb_oracle.py"))
@@ -442,6 +443,7 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertTrue(release_gate.is_external_trial_compatible_path("benchmark/release_gate.py"))
         self.assertTrue(release_gate.is_external_trial_compatible_path("benchmark/package_external_trial.py"))
         self.assertTrue(release_gate.is_external_trial_compatible_path("benchmark/run_production_gate.py"))
+        self.assertTrue(release_gate.is_external_trial_compatible_path("benchmark/validate_handoff_manifest.py"))
         self.assertTrue(release_gate.is_external_trial_compatible_path("benchmark/verify_github_release.py"))
         self.assertTrue(release_gate.is_external_trial_compatible_path("benchmark/verify_release_archive.py"))
         self.assertFalse(release_gate.is_external_trial_compatible_path("benchmark/run_handoff_trial.py"))
@@ -686,6 +688,15 @@ class ReleaseGateTest(unittest.TestCase):
 
         self.assertIn(
             "external_evidence.dataset_source must replace template placeholder text",
+            release_gate.external_trial_failures(trial),
+        )
+
+    def test_external_trial_rejects_acceptance_criteria_placeholders(self) -> None:
+        trial = copy.deepcopy(valid_external_trial())
+        trial["external_evidence"]["acceptance_criteria"] = ["REPLACE_WITH_ACCEPTANCE_CRITERION"]
+
+        self.assertIn(
+            "external_evidence.acceptance_criteria[0] must replace template placeholder text",
             release_gate.external_trial_failures(trial),
         )
 

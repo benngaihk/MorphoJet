@@ -86,6 +86,10 @@ def validate_external_evidence(evidence: Any, issues: list[str], allow_placehold
         or not all(isinstance(item, str) and item.strip() for item in criteria)
     ):
         issues.append(f"{prefix}.acceptance_criteria must be a non-empty string list")
+    elif not allow_placeholders:
+        for index, criterion in enumerate(criteria):
+            if has_placeholder(criterion):
+                issues.append(f"{prefix}.acceptance_criteria[{index}] must replace template placeholder text")
     if evidence.get("manual_csv_editing") is not False:
         issues.append(f"{prefix}.manual_csv_editing must be false")
 

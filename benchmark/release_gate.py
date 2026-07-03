@@ -586,6 +586,12 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None, arti
         isinstance(item, str) and item.strip() for item in criteria
     ):
         failures.append("external_evidence.acceptance_criteria must be a non-empty string list")
+    else:
+        for index, criterion in enumerate(criteria):
+            if has_placeholder(criterion):
+                failures.append(
+                    f"external_evidence.acceptance_criteria[{index}] must replace template placeholder text"
+                )
     if evidence.get("manual_csv_editing") is not False:
         failures.append("external_evidence.manual_csv_editing must be false")
     return failures
@@ -828,6 +834,7 @@ def is_l3_provenance_compatible_path(path: str) -> bool:
         or path == "benchmark/release_gate.py"
         or path == "benchmark/package_external_trial.py"
         or path == "benchmark/run_production_gate.py"
+        or path == "benchmark/validate_handoff_manifest.py"
         or path == "benchmark/verify_github_release.py"
         or path == "benchmark/verify_release_archive.py"
     )
@@ -840,6 +847,7 @@ def is_external_trial_compatible_path(path: str) -> bool:
         or path == "benchmark/release_gate.py"
         or path == "benchmark/package_external_trial.py"
         or path == "benchmark/run_production_gate.py"
+        or path == "benchmark/validate_handoff_manifest.py"
         or path == "benchmark/verify_github_release.py"
         or path == "benchmark/verify_release_archive.py"
     )
