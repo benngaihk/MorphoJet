@@ -592,10 +592,13 @@ def validate_external_trial_report(path: Path, artifact_root: Path | None) -> Ga
         failures = external_trial_failures(trial, artifact_root)
         status = "FAIL" if failures else "PASS"
         evidence = trial.get("external_evidence") if isinstance(trial.get("external_evidence"), dict) else {}
+        metadata = trial.get("metadata") if isinstance(trial.get("metadata"), dict) else {}
         detail = "; ".join(failures) if failures else (
             "External workflow trial PASS: "
             f"trial_id={trial.get('trial_id')}, "
             f"lab_or_org={evidence.get('lab_or_org')}, "
+            f"trial_commit={metadata.get('git_commit', '')[:12]}, "
+            f"generated_at_utc={metadata.get('generated_at_utc')}, "
             f"steps={len(trial.get('steps') or [])}, "
             f"artifacts={len(trial.get('artifacts') or [])}"
         )
