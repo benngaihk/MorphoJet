@@ -121,7 +121,7 @@ python3 benchmark/run_production_gate.py \
   --local-evidence-preflight-only
 ```
 
-This preflight writes `benchmark/results/release-gate/local-evidence-preflight.json` and `.md` by default, records `claim_status=NOT_PRODUCTION_CLAIM`, lists the final production checks it intentionally skips, and records size/SHA-256 summaries for the trial JSON, packaged trial JSON, package zip, and zip checksum file. It only checks the external L4 trial report and evidence package before the final stable-release gate is available.
+This preflight writes `benchmark/results/release-gate/local-evidence-preflight.json` and `.md` by default, records `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`, lists the final production checks it intentionally skips, and records size/SHA-256 summaries for the trial JSON, packaged trial JSON, package zip, and zip checksum file. It only checks the external L4 trial report and evidence package before the final stable-release gate is available.
 
 Re-check a saved local evidence preflight report without the original evidence paths:
 

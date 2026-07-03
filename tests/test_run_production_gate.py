@@ -240,6 +240,8 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(1, payload["schema_version"])
         self.assertEqual("PASS", payload["status"])
         self.assertEqual("NOT_PRODUCTION_CLAIM", payload["claim_status"])
+        self.assertEqual("LOCAL_EXTERNAL_L4_PREFLIGHT", payload["evidence_scope"])
+        self.assertIs(False, payload["final_evidence_acceptable"])
         self.assertEqual(
             ["external_l4_workflow_trial", "external_l4_evidence_package"],
             payload["validated_checks"],
@@ -263,6 +265,8 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(2, len(payload["gates"]))
         self.assertIn("Local External L4 Evidence Preflight", markdown)
         self.assertIn("claim_status: `NOT_PRODUCTION_CLAIM`", markdown)
+        self.assertIn("evidence_scope: `LOCAL_EXTERNAL_L4_PREFLIGHT`", markdown)
+        self.assertIn("final_evidence_acceptable: `False`", markdown)
         self.assertIn("## Input Artifacts", markdown)
         self.assertIn("package_zip", markdown)
         self.assertIn("Validate external L4 evidence package", markdown)
@@ -395,6 +399,8 @@ class RunProductionGateTest(unittest.TestCase):
                         "schema_version": 1,
                         "status": "PASS",
                         "claim_status": "PASS",
+                        "evidence_scope": "LOCAL_EXTERNAL_L4_PREFLIGHT",
+                        "final_evidence_acceptable": False,
                         "validated_checks": run_production_gate.LOCAL_PREFLIGHT_VALIDATED_CHECKS,
                         "skipped_final_checks": run_production_gate.LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS,
                         "metadata": {},
@@ -416,6 +422,49 @@ class RunProductionGateTest(unittest.TestCase):
 
         self.assertEqual(1, status)
         self.assertIn("claim_status=PASS", stderr.getvalue())
+
+    def test_verify_local_evidence_preflight_report_rejects_final_evidence_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            out_json = root / "reports" / "preflight.json"
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(root / "reports" / "preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                run_production_gate.run_local_evidence_preflight(args)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            payload["evidence_scope"] = "FINAL_PRODUCTION_CLAIM"
+            payload["final_evidence_acceptable"] = True
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(1, status)
+        self.assertIn("evidence_scope=FINAL_PRODUCTION_CLAIM", stderr.getvalue())
+        self.assertIn("final_evidence_acceptable=True", stderr.getvalue())
 
     def test_verify_local_evidence_preflight_report_rejects_bad_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -20,6 +20,7 @@ DEFAULT_OUT_JSON = Path("benchmark/results/release-gate/production-claim.json")
 DEFAULT_OUT_MD = Path("benchmark/results/release-gate/production-claim.md")
 DEFAULT_LOCAL_PREFLIGHT_JSON = Path("benchmark/results/release-gate/local-evidence-preflight.json")
 DEFAULT_LOCAL_PREFLIGHT_MD = Path("benchmark/results/release-gate/local-evidence-preflight.md")
+LOCAL_PREFLIGHT_EVIDENCE_SCOPE = "LOCAL_EXTERNAL_L4_PREFLIGHT"
 LOCAL_PREFLIGHT_VALIDATED_CHECKS = [
     "external_l4_workflow_trial",
     "external_l4_evidence_package",
@@ -122,6 +123,8 @@ def build_local_evidence_preflight_payload(args: argparse.Namespace, gates: list
         "schema_version": 1,
         "status": "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL",
         "claim_status": "NOT_PRODUCTION_CLAIM",
+        "evidence_scope": LOCAL_PREFLIGHT_EVIDENCE_SCOPE,
+        "final_evidence_acceptable": False,
         "validated_checks": LOCAL_PREFLIGHT_VALIDATED_CHECKS,
         "skipped_final_checks": LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS,
         "input_artifacts": local_evidence_input_artifacts(args),
@@ -172,6 +175,8 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
         "",
         f"- status: `{payload['status']}`",
         f"- claim_status: `{payload['claim_status']}`",
+        f"- evidence_scope: `{payload['evidence_scope']}`",
+        f"- final_evidence_acceptable: `{payload['final_evidence_acceptable']}`",
         f"- json: `{out_json}`",
         f"- generated_at_utc: `{metadata['generated_at_utc']}`",
         f"- git_commit: `{metadata['git_commit']}`",
@@ -320,6 +325,10 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
         failures.append(f"status={payload.get('status')}")
     if payload.get("claim_status") != "NOT_PRODUCTION_CLAIM":
         failures.append(f"claim_status={payload.get('claim_status')}")
+    if payload.get("evidence_scope") != LOCAL_PREFLIGHT_EVIDENCE_SCOPE:
+        failures.append(f"evidence_scope={payload.get('evidence_scope')}")
+    if payload.get("final_evidence_acceptable") is not False:
+        failures.append(f"final_evidence_acceptable={payload.get('final_evidence_acceptable')}")
     if payload.get("validated_checks") != LOCAL_PREFLIGHT_VALIDATED_CHECKS:
         failures.append("validated_checks do not match local evidence preflight contract")
     if payload.get("skipped_final_checks") != LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS:
