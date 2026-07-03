@@ -9,6 +9,8 @@ import tempfile
 import unittest
 import warnings
 import zipfile
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from pathlib import Path
 
 
@@ -18,6 +20,7 @@ sys.path.insert(0, str(ROOT / "tests"))
 
 import package_external_trial  # noqa: E402
 import release_gate  # noqa: E402
+import verify_external_evidence_package  # noqa: E402
 from test_release_gate import add_artifact_provenance, valid_external_trial, write_trial_artifacts  # noqa: E402
 
 
@@ -76,6 +79,77 @@ class PackageExternalTrialTest(unittest.TestCase):
 
         self.assertEqual("PASS", gate.status)
         self.assertIn("External L4 evidence package PASS", gate.detail)
+
+    def test_standalone_verifier_accepts_valid_package_and_writes_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "review" / "external-package-verification.json"
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+
+        self.assertEqual(0, code)
+        self.assertEqual("PASS", payload["status"])
+        self.assertEqual("Validate external L4 evidence package", payload["gate"]["name"])
+        self.assertIn("External L4 evidence package PASS", payload["gate"]["detail"])
+
+    def test_standalone_verifier_rejects_invalid_package(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            Path(result["sha256"]).write_text("0" * 64 + "  external-l4-demo.zip\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                )
+
+        self.assertEqual(1, code)
+
+    def test_standalone_verifier_can_write_failed_diagnostic_report_without_failing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            Path(result["sha256"]).write_text("0" * 64 + "  external-l4-demo.zip\n", encoding="utf-8")
+            json_out = root / "failed-package-verification.json"
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                    require_pass=False,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+
+        self.assertEqual(0, code)
+        self.assertEqual("FAIL", payload["status"])
+        self.assertIn("package zip sha256 mismatch", payload["gate"]["detail"])
 
     def test_release_gate_rejects_package_for_different_trial_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
