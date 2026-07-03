@@ -268,6 +268,76 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("Validate external L4 evidence package", markdown)
         self.assertIn("does not satisfy the stable GitHub release", markdown)
 
+    def test_verify_local_evidence_preflight_report_passes_without_evidence_args(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            out_json = root / "reports" / "preflight.json"
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(root / "reports" / "preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                run_production_gate.run_local_evidence_preflight(args)
+
+            with contextlib.redirect_stdout(io.StringIO()) as stdout:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertIn("local evidence preflight report ok", stdout.getvalue())
+
+    def test_verify_local_evidence_preflight_report_rejects_claim_status_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = root / "preflight.json"
+            report.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "status": "PASS",
+                        "claim_status": "PASS",
+                        "validated_checks": run_production_gate.LOCAL_PREFLIGHT_VALIDATED_CHECKS,
+                        "skipped_final_checks": run_production_gate.LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS,
+                        "metadata": {},
+                        "input_artifacts": [],
+                        "gates": [],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(report),
+                    ]
+                )
+
+        self.assertEqual(1, status)
+        self.assertIn("claim_status=PASS", stderr.getvalue())
+
     def test_main_preflight_only_does_not_print_final_release_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

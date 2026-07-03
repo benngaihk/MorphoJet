@@ -156,6 +156,15 @@ python3 benchmark/run_production_gate.py \
 
 This mode reuses `release_gate.py`'s external trial and package validators, including artifact SHA-256 checks and package/trial matching, writes JSON and Markdown reports to `benchmark/results/release-gate/local-evidence-preflight.json` and `.md` by default, records `claim_status=NOT_PRODUCTION_CLAIM` plus the skipped final checks, and summarizes the key input file sizes/SHA-256 hashes for audit. It intentionally skips code gates and GitHub release verification. Override those paths with `--local-evidence-preflight-json` and `--local-evidence-preflight-md`. It is a staging preflight, not the final production claim.
 
+Saved local evidence preflight JSON reports can be schema-checked later without passing the original evidence paths:
+
+```bash
+python3 benchmark/run_production_gate.py \
+  --verify-local-evidence-preflight-report benchmark/results/release-gate/local-evidence-preflight.json
+```
+
+This verifier checks the local evidence report schema, `claim_status=NOT_PRODUCTION_CLAIM`, validated/skipped check lists, input artifact digest fields, and the expected external L4 gate entries.
+
 For a scheduler-ready entrypoint that performs the fetch/verify step, verifies an existing CellBinDB archive with pinned MD5/size when Zenodo metadata is temporarily unavailable, pulls the pinned CellProfiler Docker image, and runs `python3 benchmark/release_gate.py --require-l3-provenance --run-l3`, use:
 
 ```bash

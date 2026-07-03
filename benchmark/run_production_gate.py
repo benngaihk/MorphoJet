@@ -31,6 +31,16 @@ LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS = [
     "stable_github_release",
     "production_claim_enforcement",
 ]
+LOCAL_PREFLIGHT_INPUT_NAMES = {
+    "external_trial_json",
+    "package_handoff_trial_json",
+    "package_zip",
+    "package_zip_sha256",
+}
+LOCAL_PREFLIGHT_GATE_NAMES = {
+    "Validate external L4 workflow trial report",
+    "Validate external L4 evidence package",
+}
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 
 
@@ -43,6 +53,20 @@ def validate_stable_tag(tag: str) -> None:
         raise ProductionGateError(
             f"{tag!r} is not a stable release tag; expected a non-RC tag like v0.1.0"
         )
+
+
+def require_final_gate_args(args: argparse.Namespace) -> None:
+    missing = []
+    for name in [
+        "external_trial_json",
+        "external_trial_root",
+        "external_evidence_package_dir",
+        "github_release_tag",
+    ]:
+        if getattr(args, name) is None:
+            missing.append("--" + name.replace("_", "-"))
+    if missing:
+        raise ProductionGateError("missing required arguments: " + ", ".join(missing))
 
 
 def validate_existing_inputs(args: argparse.Namespace) -> None:
@@ -225,10 +249,10 @@ def run_local_evidence_preflight(args: argparse.Namespace) -> int:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--external-trial-json", type=Path, required=True)
-    parser.add_argument("--external-trial-root", type=Path, required=True)
-    parser.add_argument("--external-evidence-package-dir", type=Path, required=True)
-    parser.add_argument("--github-release-tag", required=True, help="Stable non-RC release tag, e.g. v0.1.0")
+    parser.add_argument("--external-trial-json", type=Path)
+    parser.add_argument("--external-trial-root", type=Path)
+    parser.add_argument("--external-evidence-package-dir", type=Path)
+    parser.add_argument("--github-release-tag", help="Stable non-RC release tag, e.g. v0.1.0")
     parser.add_argument("--out-json", type=Path, default=DEFAULT_OUT_JSON)
     parser.add_argument("--out-md", type=Path, default=DEFAULT_OUT_MD)
     parser.add_argument("--run-l3", action="store_true", help="Rerun the full CellBinDB L3 benchmark")
@@ -242,12 +266,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--local-evidence-preflight-json", type=Path, default=DEFAULT_LOCAL_PREFLIGHT_JSON)
     parser.add_argument("--local-evidence-preflight-md", type=Path, default=DEFAULT_LOCAL_PREFLIGHT_MD)
+    parser.add_argument(
+        "--verify-local-evidence-preflight-report",
+        type=Path,
+        help="Validate an existing local evidence preflight JSON report and exit",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     try:
         args = parse_args(argv)
+        if args.verify_local_evidence_preflight_report:
+            return verify_local_evidence_preflight_report(args.verify_local_evidence_preflight_report)
+        require_final_gate_args(args)
         command = build_release_gate_command(args)
         if not args.dry_run:
             validate_existing_inputs(args)
@@ -262,6 +294,104 @@ def main(argv: list[str] | None = None) -> int:
         return run_local_evidence_preflight(args)
     print(shlex.join(command))
     return subprocess.run(command).returncode
+
+
+def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
+    failures = []
+    if not isinstance(payload, dict):
+        return ["local evidence preflight report must be a JSON object"]
+    if payload.get("schema_version") != 1:
+        failures.append(f"schema_version={payload.get('schema_version')}")
+    if payload.get("status") not in {"PASS", "FAIL"}:
+        failures.append(f"status={payload.get('status')}")
+    if payload.get("claim_status") != "NOT_PRODUCTION_CLAIM":
+        failures.append(f"claim_status={payload.get('claim_status')}")
+    if payload.get("validated_checks") != LOCAL_PREFLIGHT_VALIDATED_CHECKS:
+        failures.append("validated_checks do not match local evidence preflight contract")
+    if payload.get("skipped_final_checks") != LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS:
+        failures.append("skipped_final_checks do not match local evidence preflight contract")
+
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, dict):
+        failures.append("metadata must be an object")
+    else:
+        for key in [
+            "generated_at_utc",
+            "git_commit",
+            "git_dirty",
+            "git_status",
+            "argv",
+            "external_trial_json",
+            "external_trial_root",
+            "external_evidence_package_dir",
+            "github_release_tag",
+            "local_evidence_preflight_only",
+        ]:
+            if key not in metadata:
+                failures.append(f"metadata missing {key}")
+
+    artifacts = payload.get("input_artifacts")
+    if not isinstance(artifacts, list):
+        failures.append("input_artifacts must be a list")
+    else:
+        names = {artifact.get("name") for artifact in artifacts if isinstance(artifact, dict)}
+        if names != LOCAL_PREFLIGHT_INPUT_NAMES:
+            failures.append(f"input_artifacts names={sorted(str(name) for name in names)}")
+        for artifact in artifacts:
+            if not isinstance(artifact, dict):
+                failures.append("input_artifacts entries must be objects")
+                continue
+            name = artifact.get("name")
+            if not isinstance(name, str) or not name:
+                failures.append("input artifact name must be a non-empty string")
+            if not isinstance(artifact.get("path"), str) or not artifact.get("path"):
+                failures.append(f"input artifact path must be a non-empty string: {name}")
+            exists = artifact.get("exists")
+            if not isinstance(exists, bool):
+                failures.append(f"input artifact exists must be boolean: {name}")
+                continue
+            if exists:
+                if not isinstance(artifact.get("size_bytes"), int) or artifact["size_bytes"] < 0:
+                    failures.append(f"input artifact size_bytes must be a non-negative integer: {name}")
+                sha256 = artifact.get("sha256")
+                if not isinstance(sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", sha256):
+                    failures.append(f"input artifact sha256 must be a lowercase SHA-256 digest: {name}")
+            elif artifact.get("size_bytes") is not None or artifact.get("sha256") is not None:
+                failures.append(f"missing input artifact must not carry size/hash: {name}")
+
+    gates = payload.get("gates")
+    if not isinstance(gates, list):
+        failures.append("gates must be a list")
+    else:
+        gate_names = {gate.get("name") for gate in gates if isinstance(gate, dict)}
+        if gate_names != LOCAL_PREFLIGHT_GATE_NAMES:
+            failures.append(f"gate names={sorted(str(name) for name in gate_names)}")
+        for gate in gates:
+            if not isinstance(gate, dict):
+                failures.append("gate entries must be objects")
+                continue
+            if gate.get("status") not in {"PASS", "FAIL"}:
+                failures.append(f"gate status invalid for {gate.get('name')}: {gate.get('status')}")
+            if not isinstance(gate.get("detail"), str):
+                failures.append(f"gate detail must be a string: {gate.get('name')}")
+    return failures
+
+
+def verify_local_evidence_preflight_report(path: Path) -> int:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001 - exact report verification failure.
+        print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
+    failures = validate_local_evidence_preflight_payload(payload)
+    if failures:
+        for failure in failures:
+            print(f"FAIL: {failure}", file=sys.stderr)
+        return 1
+    print(f"local evidence preflight report ok: {path}")
+    print(f"status={payload['status']}")
+    print(f"claim_status={payload['claim_status']}")
+    return 0
 
 
 if __name__ == "__main__":

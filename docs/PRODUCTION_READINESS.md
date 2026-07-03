@@ -49,6 +49,8 @@ This is the single command intended to produce the final production-claim report
 
 If the external L4 evidence is ready before the stable release, run the same wrapper with `--local-evidence-preflight-only` to validate only the external trial report and evidence package and write a local evidence-preflight JSON/Markdown report. That report is machine-labeled `NOT_PRODUCTION_CLAIM`, lists the skipped final checks, and binds the key evidence files by size and SHA-256. Passing that preflight reduces L4 packaging risk, but it does not satisfy the stable-release or final production-claim gates.
 
+Use `benchmark/run_production_gate.py --verify-local-evidence-preflight-report path/to/local-evidence-preflight.json` to re-check the saved local evidence-preflight report's schema and claim-scope labels during review.
+
 ## Claim Policy
 
 Until every required gate is complete, documentation may claim the narrow L3 benchmark result and the supported-column handoff preflight, but must not say "production-ready" or "replaces CellProfiler workflows" without an external workflow trial report and evidence package accepted by release gate.

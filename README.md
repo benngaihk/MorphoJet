@@ -123,6 +123,13 @@ python3 benchmark/run_production_gate.py \
 
 This preflight writes `benchmark/results/release-gate/local-evidence-preflight.json` and `.md` by default, records `claim_status=NOT_PRODUCTION_CLAIM`, lists the final production checks it intentionally skips, and records size/SHA-256 summaries for the trial JSON, packaged trial JSON, package zip, and zip checksum file. It only checks the external L4 trial report and evidence package before the final stable-release gate is available.
 
+Re-check a saved local evidence preflight report without the original evidence paths:
+
+```bash
+python3 benchmark/run_production_gate.py \
+  --verify-local-evidence-preflight-report benchmark/results/release-gate/local-evidence-preflight.json
+```
+
 ## CellProfiler-Style Wide Export
 
 MorphoJet's native `Objects.csv` is a long table keyed by `ImageNumber`, `ObjectSet`, `ObjectNumber`, and `Channel`. For downstream tools that expect a CellProfiler object CSV such as `Cells.csv`, materialize the supported measurement subset into a wide table:
