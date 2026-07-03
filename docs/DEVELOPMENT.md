@@ -136,7 +136,7 @@ python3 benchmark/package_external_trial.py \
   --out-dir path/to/evidence-packages
 ```
 
-The package step reuses the release-gate external L4 validator and refuses invalid reports. A valid package contains the trial report, rendered manifest snapshot, external evidence JSON, artifact manifest, copied artifacts, a README, a zip archive containing every required package file and declared artifact, and a zip SHA-256 file. Production-claim release gates should pass both `--external-trial-json` and `--external-evidence-package-dir` so the accepted L4 trial and review package are verified together.
+The package step reuses the release-gate external L4 validator and refuses invalid reports. A valid package contains the trial report, rendered manifest snapshot, external evidence JSON, artifact manifest, copied artifacts, a README, a zip archive containing exactly every required package file and declared artifact with no extra entries, and a zip SHA-256 file. Production-claim release gates should pass both `--external-trial-json` and `--external-evidence-package-dir` so the accepted L4 trial and review package are verified together.
 
 For final production/stable-release signoff, use the dedicated wrapper so every required production-claim input is bound into the same release-gate report:
 

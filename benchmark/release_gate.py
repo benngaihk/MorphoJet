@@ -746,19 +746,21 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
             try:
                 with zipfile.ZipFile(zip_path) as archive:
                     names = set(archive.namelist())
-                required_zip_entries = [
+                required_zip_entries = {
                     f"{package_dir.name}/README.md",
                     f"{package_dir.name}/handoff_trial.json",
                     f"{package_dir.name}/rendered_manifest.json",
                     f"{package_dir.name}/external_evidence.json",
                     f"{package_dir.name}/artifact_manifest.json",
-                ]
+                }
                 for entry in manifest_artifacts:
                     if isinstance(entry, dict) and package_path_is_safe(entry.get("package_path")):
-                        required_zip_entries.append(f"{package_dir.name}/{entry['package_path']}")
-                for required_name in required_zip_entries:
+                        required_zip_entries.add(f"{package_dir.name}/{entry['package_path']}")
+                for required_name in sorted(required_zip_entries):
                     if required_name not in names:
                         failures.append(f"package zip missing entry: {required_name}")
+                for unexpected_name in sorted(names - required_zip_entries):
+                    failures.append(f"package zip has unexpected entry: {unexpected_name}")
             except zipfile.BadZipFile:
                 failures.append(f"package zip is invalid: {zip_path.name}")
 
