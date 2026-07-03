@@ -178,7 +178,7 @@ Current full L3 result:
 - Peak RSS ratio: 12.15%.
 - Artifact: `benchmark/results/cellbindb/oracle-full/impact.md`.
 - Provenance artifact for full reruns: `benchmark/results/cellbindb/oracle-full/provenance.json`.
-- Scheduler-ready validation: `benchmark/run_cellbindb_l3_validation.sh` runs the full CellBinDB CellProfiler oracle gate after fetching/verifying the archive and pulling the pinned CellProfiler Docker image.
+- Scheduler-ready validation: `benchmark/run_cellbindb_l3_validation.sh` runs the full CellBinDB CellProfiler oracle gate after fetching/verifying the archive (or verifying the existing local archive with pinned MD5/size when metadata fetch is unavailable) and pulling the pinned CellProfiler Docker image.
 
 ## L4 Package: Workflow Fit
 

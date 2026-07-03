@@ -14,6 +14,8 @@ python3 benchmark/fetch_zenodo_file.py \
   --file CellBinDB.zip \
   --out-dir benchmark/data/cellbindb \
   --metadata-out benchmark/data/cellbindb/zenodo_metadata.json \
+  --pinned-checksum md5:e770f1287619eb45e74d131430e20fe5 \
+  --pinned-size 285956212 \
   --skip-existing
 
 docker pull --platform linux/amd64 cellprofiler/cellprofiler:4.2.6

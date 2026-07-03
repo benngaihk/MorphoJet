@@ -106,7 +106,7 @@ python3 benchmark/release_gate.py
 
 Use `--require-clean-git --require-l3-provenance` for any report intended to support a release or production-readiness claim.
 
-For a scheduler-ready entrypoint that performs the fetch/verify step, pulls the pinned CellProfiler Docker image, and runs `python3 benchmark/release_gate.py --require-l3-provenance --run-l3`, use:
+For a scheduler-ready entrypoint that performs the fetch/verify step, verifies an existing CellBinDB archive with pinned MD5/size when Zenodo metadata is temporarily unavailable, pulls the pinned CellProfiler Docker image, and runs `python3 benchmark/release_gate.py --require-l3-provenance --run-l3`, use:
 
 ```bash
 benchmark/run_cellbindb_l3_validation.sh
