@@ -132,6 +132,8 @@ python3 benchmark/run_production_gate.py \
   --require-local-evidence-preflight-pass
 ```
 
+The verifier also confirms that the report's `metadata.git_commit` is a reachable commit in the current checkout.
+
 ## CellProfiler-Style Wide Export
 
 MorphoJet's native `Objects.csv` is a long table keyed by `ImageNumber`, `ObjectSet`, `ObjectNumber`, and `Channel`. For downstream tools that expect a CellProfiler object CSV such as `Cells.csv`, materialize the supported measurement subset into a wide table:

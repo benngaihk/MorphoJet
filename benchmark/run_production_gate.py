@@ -168,6 +168,16 @@ def file_summary(name: str, path: Path) -> dict:
     return summary
 
 
+def git_commit_is_reachable(commit: str) -> bool:
+    completed = subprocess.run(
+        ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+        cwd=release_gate.ROOT,
+        text=True,
+        capture_output=True,
+    )
+    return completed.returncode == 0
+
+
 def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> str:
     metadata = payload["metadata"]
     lines = [
@@ -366,6 +376,8 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
         if isinstance(git_commit, str):
             if not re.fullmatch(r"[0-9a-f]{40}", git_commit):
                 failures.append(f"metadata.git_commit is not a 40-character SHA: {git_commit}")
+            elif not git_commit_is_reachable(git_commit):
+                failures.append(f"metadata.git_commit is not reachable: {git_commit}")
         elif "git_commit" in metadata:
             failures.append("metadata.git_commit must be a string")
         if "git_dirty" in metadata and not isinstance(metadata.get("git_dirty"), bool):

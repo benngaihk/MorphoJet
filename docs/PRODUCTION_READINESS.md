@@ -49,7 +49,7 @@ This is the single command intended to produce the final production-claim report
 
 If the external L4 evidence is ready before the stable release, run the same wrapper with `--local-evidence-preflight-only` to validate only the external trial report and evidence package and write a local evidence-preflight JSON/Markdown report. That report is machine-labeled `NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`, lists the skipped final checks, and binds the key evidence files by size and SHA-256. Passing that preflight reduces L4 packaging risk, but it does not satisfy the stable-release or final production-claim gates.
 
-Use `benchmark/run_production_gate.py --verify-local-evidence-preflight-report path/to/local-evidence-preflight.json` to re-check the saved local evidence-preflight report's schema, claim-scope labels, and final-evidence rejection flag during review. Add `--verify-local-evidence-preflight-files` when the referenced evidence files are available so the recorded input file sizes and SHA-256 hashes are recomputed. Add `--require-local-evidence-preflight-pass` for review/signoff.
+Use `benchmark/run_production_gate.py --verify-local-evidence-preflight-report path/to/local-evidence-preflight.json` to re-check the saved local evidence-preflight report's schema, reachable git commit, claim-scope labels, and final-evidence rejection flag during review. Add `--verify-local-evidence-preflight-files` when the referenced evidence files are available so the recorded input file sizes and SHA-256 hashes are recomputed. Add `--require-local-evidence-preflight-pass` for review/signoff.
 
 ## Claim Policy
 
