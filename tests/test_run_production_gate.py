@@ -246,9 +246,25 @@ class RunProductionGateTest(unittest.TestCase):
         )
         self.assertIn("stable_github_release", payload["skipped_final_checks"])
         self.assertIn("production_claim_enforcement", payload["skipped_final_checks"])
+        artifact_by_name = {artifact["name"]: artifact for artifact in payload["input_artifacts"]}
+        self.assertEqual(
+            {
+                "external_trial_json",
+                "package_handoff_trial_json",
+                "package_zip",
+                "package_zip_sha256",
+            },
+            set(artifact_by_name),
+        )
+        self.assertTrue(artifact_by_name["external_trial_json"]["exists"])
+        self.assertEqual(64, len(artifact_by_name["external_trial_json"]["sha256"]))
+        self.assertTrue(artifact_by_name["package_zip"]["exists"])
+        self.assertEqual(64, len(artifact_by_name["package_zip"]["sha256"]))
         self.assertEqual(2, len(payload["gates"]))
         self.assertIn("Local External L4 Evidence Preflight", markdown)
         self.assertIn("claim_status: `NOT_PRODUCTION_CLAIM`", markdown)
+        self.assertIn("## Input Artifacts", markdown)
+        self.assertIn("package_zip", markdown)
         self.assertIn("Validate external L4 evidence package", markdown)
         self.assertIn("does not satisfy the stable GitHub release", markdown)
 

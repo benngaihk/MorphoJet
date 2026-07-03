@@ -100,6 +100,7 @@ def build_local_evidence_preflight_payload(args: argparse.Namespace, gates: list
         "claim_status": "NOT_PRODUCTION_CLAIM",
         "validated_checks": LOCAL_PREFLIGHT_VALIDATED_CHECKS,
         "skipped_final_checks": LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS,
+        "input_artifacts": local_evidence_input_artifacts(args),
         "metadata": {
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
             "git_commit": release_gate.git_commit(),
@@ -114,6 +115,30 @@ def build_local_evidence_preflight_payload(args: argparse.Namespace, gates: list
         },
         "gates": [asdict(gate) for gate in gates],
     }
+
+
+def local_evidence_input_artifacts(args: argparse.Namespace) -> list[dict]:
+    package_dir = args.external_evidence_package_dir
+    return [
+        file_summary("external_trial_json", args.external_trial_json),
+        file_summary("package_handoff_trial_json", package_dir / "handoff_trial.json"),
+        file_summary("package_zip", package_dir.parent / f"{package_dir.name}.zip"),
+        file_summary("package_zip_sha256", package_dir.parent / f"{package_dir.name}.zip.sha256"),
+    ]
+
+
+def file_summary(name: str, path: Path) -> dict:
+    summary = {
+        "name": name,
+        "path": str(path),
+        "exists": path.is_file(),
+        "size_bytes": None,
+        "sha256": None,
+    }
+    if path.is_file():
+        summary["size_bytes"] = path.stat().st_size
+        summary["sha256"] = release_gate.sha256_file(path)
+    return summary
 
 
 def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> str:
@@ -139,6 +164,24 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
     ]
     for gate in payload["gates"]:
         lines.append(f"| {gate['name']} | {gate['status']} | {gate['detail']} |")
+    lines.extend(
+        [
+            "",
+            "## Input Artifacts",
+            "",
+            "| Name | Exists | Size Bytes | SHA-256 | Path |",
+            "|---|---:|---:|---|---|",
+        ]
+    )
+    for artifact in payload["input_artifacts"]:
+        lines.append(
+            "| "
+            f"{artifact['name']} | "
+            f"{artifact['exists']} | "
+            f"{artifact['size_bytes'] if artifact['size_bytes'] is not None else ''} | "
+            f"{artifact['sha256'] or ''} | "
+            f"{artifact['path']} |"
+        )
     lines.extend(
         [
             "",
