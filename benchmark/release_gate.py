@@ -469,12 +469,85 @@ def validate_clean_git_worktree(status_lines: list[str]) -> Gate:
     )
 
 
+def gate_status(gates: list[Gate], name: str) -> str | None:
+    for gate in gates:
+        if gate.name == name:
+            return gate.status
+    return None
+
+
+def production_audit_status(gates: list[Gate], name: str) -> str:
+    status = gate_status(gates, name)
+    if status is None:
+        return "MISSING"
+    return status
+
+
+def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], metadata: dict) -> dict:
+    standard_gate_names = [
+        "Rust formatting",
+        "Rust tests",
+        "Rust clippy",
+        "Python helper compilation",
+        "Python helper tests",
+        "Validate handoff manifests",
+        "Validate external lab handoff template",
+        "Validate existing CellBinDB L3 artifacts",
+        "Validate CellBinDB workflow bridge artifacts",
+        "Validate CellBinDB handoff trial artifacts",
+    ]
+    standard_statuses = [production_audit_status(gates, name) for name in standard_gate_names]
+    checks = [
+        {
+            "name": "clean_git_worktree",
+            "status": production_audit_status(gates, "Require clean git worktree")
+            if args.require_clean_git
+            else "MISSING",
+            "detail": "Release or production-readiness reports should run with --require-clean-git.",
+        },
+        {
+            "name": "standard_code_and_artifact_gates",
+            "status": "PASS" if all(status == "PASS" for status in standard_statuses) else "FAIL",
+            "detail": "Standard Rust, Python, manifest, L3 artifact, workflow bridge, and handoff gates.",
+        },
+        {
+            "name": "l3_provenance_hashes",
+            "status": production_audit_status(gates, "Validate CellBinDB L3 provenance")
+            if args.require_l3_provenance
+            else "MISSING",
+            "detail": "Production-readiness claims should run with --require-l3-provenance.",
+        },
+        {
+            "name": "external_l4_workflow_trial",
+            "status": production_audit_status(gates, "Validate external L4 workflow trial report")
+            if args.external_trial_json
+            else "MISSING",
+            "detail": "Requires --external-trial-json from a real no-manual-CSV-edit workflow trial.",
+        },
+        {
+            "name": "stable_github_release",
+            "status": production_audit_status(gates, "Verify GitHub release assets")
+            if args.verify_github_release and args.github_release_kind == "stable"
+            else "MISSING",
+            "detail": "Requires --verify-github-release with --github-release-kind stable.",
+        },
+    ]
+    status = "PASS" if all(check["status"] == "PASS" for check in checks) else "INCOMPLETE"
+    return {
+        "status": status,
+        "git_commit": metadata["git_commit"],
+        "checks": checks,
+    }
+
+
 def render_markdown(payload: dict, out_json: Path) -> str:
     metadata = payload["metadata"]
+    audit = payload["production_claim_audit"]
     lines = [
         "# Release Gate Report",
         "",
         f"- status: `{payload['status']}`",
+        f"- production_claim_status: `{audit['status']}`",
         f"- json: `{out_json}`",
         f"- generated_at_utc: `{metadata['generated_at_utc']}`",
         f"- git_commit: `{metadata['git_commit']}`",
@@ -486,6 +559,17 @@ def render_markdown(payload: dict, out_json: Path) -> str:
     ]
     for gate in payload["gates"]:
         lines.append(f"| {gate.name} | {gate.status} | {gate.elapsed_seconds:.3f} |")
+    lines.extend(
+        [
+            "",
+            "## Production Claim Audit",
+            "",
+            "| Check | Status | Detail |",
+            "|---|---:|---|",
+        ]
+    )
+    for check in audit["checks"]:
+        lines.append(f"| {check['name']} | {check['status']} | {check['detail']} |")
     lines.extend(["", "## Details", ""])
     for gate in payload["gates"]:
         lines.append(f"### {gate.name}")
@@ -522,8 +606,10 @@ def build_metadata(args: argparse.Namespace, git_status_lines: list[str]) -> dic
 
 
 def write_report(args: argparse.Namespace, gates: list[Gate], metadata: dict) -> dict:
+    audit = build_production_claim_audit(args, gates, metadata)
     payload = {
         "status": "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL",
+        "production_claim_audit": audit,
         "metadata": metadata,
         "gates": [asdict(gate) for gate in gates],
     }

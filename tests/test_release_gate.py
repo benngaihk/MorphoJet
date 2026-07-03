@@ -7,6 +7,7 @@ import copy
 import sys
 import tempfile
 import unittest
+from argparse import Namespace
 from pathlib import Path
 
 
@@ -52,6 +53,83 @@ def add_artifact_provenance(trial: dict, root: Path) -> None:
 
 
 class ReleaseGateTest(unittest.TestCase):
+    def production_args(self, **overrides: object) -> Namespace:
+        values = {
+            "require_clean_git": False,
+            "require_l3_provenance": False,
+            "external_trial_json": None,
+            "verify_github_release": None,
+            "github_release_kind": "prerelease",
+        }
+        values.update(overrides)
+        return Namespace(**values)
+
+    def production_gates(self, names: list[str]) -> list[release_gate.Gate]:
+        return [release_gate.Gate(name, None, "PASS", 0.0, "ok") for name in names]
+
+    def test_production_claim_audit_defaults_to_incomplete_without_l4_or_stable_release(self) -> None:
+        gates = self.production_gates(
+            [
+                "Rust formatting",
+                "Rust tests",
+                "Rust clippy",
+                "Python helper compilation",
+                "Python helper tests",
+                "Validate handoff manifests",
+                "Validate external lab handoff template",
+                "Validate existing CellBinDB L3 artifacts",
+                "Validate CellBinDB workflow bridge artifacts",
+                "Validate CellBinDB handoff trial artifacts",
+            ]
+        )
+
+        audit = release_gate.build_production_claim_audit(
+            self.production_args(),
+            gates,
+            {"git_commit": "abc123"},
+        )
+
+        self.assertEqual("INCOMPLETE", audit["status"])
+        statuses = {check["name"]: check["status"] for check in audit["checks"]}
+        self.assertEqual("MISSING", statuses["clean_git_worktree"])
+        self.assertEqual("PASS", statuses["standard_code_and_artifact_gates"])
+        self.assertEqual("MISSING", statuses["external_l4_workflow_trial"])
+        self.assertEqual("MISSING", statuses["stable_github_release"])
+
+    def test_production_claim_audit_passes_when_required_claim_gates_pass(self) -> None:
+        gates = self.production_gates(
+            [
+                "Require clean git worktree",
+                "Rust formatting",
+                "Rust tests",
+                "Rust clippy",
+                "Python helper compilation",
+                "Python helper tests",
+                "Validate handoff manifests",
+                "Validate external lab handoff template",
+                "Validate existing CellBinDB L3 artifacts",
+                "Validate CellBinDB L3 provenance",
+                "Validate CellBinDB workflow bridge artifacts",
+                "Validate CellBinDB handoff trial artifacts",
+                "Validate external L4 workflow trial report",
+                "Verify GitHub release assets",
+            ]
+        )
+
+        audit = release_gate.build_production_claim_audit(
+            self.production_args(
+                require_clean_git=True,
+                require_l3_provenance=True,
+                external_trial_json=Path("handoff_trial.json"),
+                verify_github_release="v0.1.0",
+                github_release_kind="stable",
+            ),
+            gates,
+            {"git_commit": "abc123"},
+        )
+
+        self.assertEqual("PASS", audit["status"])
+
     def test_doc_path_allowlist(self) -> None:
         self.assertTrue(release_gate.is_doc_path("README.md"))
         self.assertTrue(release_gate.is_doc_path("docs/PRODUCTION_READINESS.md"))

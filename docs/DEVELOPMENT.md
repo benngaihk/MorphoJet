@@ -87,7 +87,7 @@ Before cutting a release candidate, run:
 python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --run-l3 --build-release-artifact --release-version rc-preflight
 ```
 
-This runs the standard code gates, requires a clean git worktree, uses the pinned local CellBinDB archive, runs the full CellProfiler oracle benchmark, runs the supported CellProfiler-style handoff trial, and writes parity, workflow-bridge, handoff-trial, impact, metrics, provenance, and release-gate reports. Release-gate reports include run timestamp, git commit, dirty-worktree status, and invoked arguments. `--require-l3-provenance` checks that the CellBinDB provenance file was written by a full non-`--skip-cellprofiler` run for the current commit and that recorded artifact hashes still match. Fetch and verify the archive first when it is not already present:
+This runs the standard code gates, requires a clean git worktree, uses the pinned local CellBinDB archive, runs the full CellProfiler oracle benchmark, runs the supported CellProfiler-style handoff trial, and writes parity, workflow-bridge, handoff-trial, impact, metrics, provenance, and release-gate reports. Release-gate reports include run timestamp, git commit, dirty-worktree status, invoked arguments, and a production-claim audit that stays `INCOMPLETE` until the required clean-git, L3 provenance, external L4 workflow, and stable release checks are all present and passing. `--require-l3-provenance` checks that the CellBinDB provenance file was written by a full non-`--skip-cellprofiler` run for the current commit and that recorded artifact hashes still match. Fetch and verify the archive first when it is not already present:
 
 ```bash
 python3 benchmark/fetch_zenodo_file.py \
@@ -104,7 +104,7 @@ For a fast local audit of already-generated L3 artifacts, run:
 python3 benchmark/release_gate.py
 ```
 
-Use `--require-clean-git --require-l3-provenance` for any report intended to support a release or production-readiness claim.
+Use `--require-clean-git --require-l3-provenance` for any report intended to support a release or production-readiness claim. A normal release-gate `status=PASS` means the executed gates passed; the report's `production_claim_status` remains `INCOMPLETE` until external L4 and stable GitHub release validation are also included.
 
 After a real external workflow trial has been run with `benchmark/run_handoff_trial.py`, add its JSON report to the production-readiness release gate:
 
