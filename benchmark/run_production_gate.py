@@ -10,6 +10,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import release_gate
+
 
 DEFAULT_OUT_JSON = Path("benchmark/results/release-gate/production-claim.json")
 DEFAULT_OUT_MD = Path("benchmark/results/release-gate/production-claim.md")
@@ -74,6 +76,18 @@ def build_release_gate_command(args: argparse.Namespace) -> list[str]:
     return command
 
 
+def run_local_evidence_preflight(args: argparse.Namespace) -> int:
+    gates = [
+        release_gate.validate_external_trial_report(args.external_trial_json, args.external_trial_root),
+        release_gate.validate_external_evidence_package(args.external_evidence_package_dir, args.external_trial_json),
+    ]
+    for gate in gates:
+        print(f"{gate.name}: {gate.status}")
+        if gate.detail:
+            print(gate.detail)
+    return 0 if all(gate.status == "PASS" for gate in gates) else 1
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--external-trial-json", type=Path, required=True)
@@ -86,6 +100,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--build-release-artifact", action="store_true", help="Also build and verify a local archive")
     parser.add_argument("--release-version", default="production-preflight")
     parser.add_argument("--dry-run", action="store_true", help="Print the final release-gate command without running it")
+    parser.add_argument(
+        "--local-evidence-preflight-only",
+        action="store_true",
+        help="Validate only the external L4 trial and evidence package, without running full release gate",
+    )
     return parser.parse_args(argv)
 
 
@@ -99,9 +118,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
-    print(shlex.join(command))
     if args.dry_run:
+        print(shlex.join(command))
         return 0
+    if args.local_evidence_preflight_only:
+        return run_local_evidence_preflight(args)
+    print(shlex.join(command))
     return subprocess.run(command).returncode
 
 

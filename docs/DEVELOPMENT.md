@@ -143,6 +143,19 @@ python3 benchmark/run_production_gate.py \
 
 The wrapper rejects release-candidate tags such as `v0.1.0-rc.1`, checks that the external trial JSON, trial root, and evidence package directory exist before an actual run, and invokes `benchmark/release_gate.py` with `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, the external L4 trial and package paths, `--verify-github-release`, and `--github-release-kind stable`. Use `--dry-run` to print the assembled command without checking local evidence paths or performing network/release verification side effects.
 
+When the external L4 trial and evidence package are ready but the stable GitHub release is not yet cut, run a local evidence preflight:
+
+```bash
+python3 benchmark/run_production_gate.py \
+  --external-trial-json path/to/external/handoff_trial.json \
+  --external-trial-root path/to/external \
+  --external-evidence-package-dir path/to/evidence-packages/external-l4-trial \
+  --github-release-tag v0.1.0 \
+  --local-evidence-preflight-only
+```
+
+This mode reuses `release_gate.py`'s external trial and package validators, including artifact SHA-256 checks and package/trial matching, but intentionally skips code gates and GitHub release verification. It is a staging preflight, not the final production claim.
+
 For a scheduler-ready entrypoint that performs the fetch/verify step, verifies an existing CellBinDB archive with pinned MD5/size when Zenodo metadata is temporarily unavailable, pulls the pinned CellProfiler Docker image, and runs `python3 benchmark/release_gate.py --require-l3-provenance --run-l3`, use:
 
 ```bash

@@ -110,6 +110,19 @@ python3 benchmark/run_production_gate.py \
 
 The wrapper requires a stable non-RC tag, fail-fast checks that the external trial JSON, trial root, and evidence package directory exist for actual runs, and runs `benchmark/release_gate.py` with clean-git, L3 provenance, external L4 trial, external L4 evidence package, stable GitHub release, and `--require-production-claim` checks in the same report. Use `--dry-run` to inspect the assembled command without requiring those external paths yet.
 
+Before the stable release exists, validate a completed external L4 trial and evidence package locally with the same release-gate validators:
+
+```bash
+python3 benchmark/run_production_gate.py \
+  --external-trial-json path/to/external/handoff_trial.json \
+  --external-trial-root path/to/external \
+  --external-evidence-package-dir path/to/evidence-packages/external-l4-trial \
+  --github-release-tag v0.1.0 \
+  --local-evidence-preflight-only
+```
+
+This preflight does not make a production claim; it only checks the external L4 trial report and evidence package before the final stable-release gate is available.
+
 ## CellProfiler-Style Wide Export
 
 MorphoJet's native `Objects.csv` is a long table keyed by `ImageNumber`, `ObjectSet`, `ObjectNumber`, and `Channel`. For downstream tools that expect a CellProfiler object CSV such as `Cells.csv`, materialize the supported measurement subset into a wide table:

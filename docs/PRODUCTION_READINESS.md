@@ -47,6 +47,8 @@ python3 benchmark/run_production_gate.py \
 
 This is the single command intended to produce the final production-claim report. It requires a stable non-RC tag, checks that the external evidence paths exist before an actual run, and delegates to `benchmark/release_gate.py --require-production-claim`, so production remains incomplete until that command passes with real external evidence and a stable release.
 
+If the external L4 evidence is ready before the stable release, run the same wrapper with `--local-evidence-preflight-only` to validate only the external trial report and evidence package. Passing that preflight reduces L4 packaging risk, but it does not satisfy the stable-release or final production-claim gates.
+
 ## Claim Policy
 
 Until every required gate is complete, documentation may claim the narrow L3 benchmark result and the supported-column handoff preflight, but must not say "production-ready" or "replaces CellProfiler workflows" without an external workflow trial report and evidence package accepted by release gate.
