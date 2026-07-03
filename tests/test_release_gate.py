@@ -40,6 +40,17 @@ def valid_external_trial() -> dict:
     }
 
 
+def add_artifact_provenance(trial: dict, root: Path) -> None:
+    path = root / "external" / "handoff_contract.json"
+    trial["artifact_provenance"] = [
+        {
+            "path": "external/handoff_contract.json",
+            "size_bytes": path.stat().st_size,
+            "sha256": release_gate.sha256_file(path),
+        }
+    ]
+
+
 class ReleaseGateTest(unittest.TestCase):
     def test_doc_path_allowlist(self) -> None:
         self.assertTrue(release_gate.is_doc_path("README.md"))
@@ -61,8 +72,10 @@ class ReleaseGateTest(unittest.TestCase):
             artifact = root / "external" / "handoff_contract.json"
             artifact.parent.mkdir()
             artifact.write_text("{}\n")
+            trial = valid_external_trial()
+            add_artifact_provenance(trial, root)
 
-            self.assertEqual([], release_gate.external_trial_failures(valid_external_trial(), root))
+            self.assertEqual([], release_gate.external_trial_failures(trial, root))
 
     def test_external_trial_requires_artifacts_to_exist(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -76,10 +89,40 @@ class ReleaseGateTest(unittest.TestCase):
             artifact = root / "external" / "handoff_contract.json"
             artifact.parent.mkdir()
             artifact.write_text("")
+            trial = valid_external_trial()
+            trial["artifact_provenance"] = [
+                {"path": "external/handoff_contract.json", "size_bytes": 1, "sha256": "0" * 64}
+            ]
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("trial artifact is empty: external/handoff_contract.json", failures)
+
+    def test_external_trial_requires_artifact_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / "external" / "handoff_contract.json"
+            artifact.parent.mkdir()
+            artifact.write_text("{}\n")
 
             failures = release_gate.external_trial_failures(valid_external_trial(), root)
 
-        self.assertIn("trial artifact is empty: external/handoff_contract.json", failures)
+        self.assertIn("trial artifact_provenance must be a non-empty list", failures)
+        self.assertIn("trial artifact missing provenance: external/handoff_contract.json", failures)
+
+    def test_external_trial_rejects_artifact_hash_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / "external" / "handoff_contract.json"
+            artifact.parent.mkdir()
+            artifact.write_text("{}\n")
+            trial = valid_external_trial()
+            add_artifact_provenance(trial, root)
+            trial["artifact_provenance"][0]["sha256"] = "0" * 64
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("trial artifact sha256 mismatch: external/handoff_contract.json", failures)
 
     def test_external_trial_requires_evidence(self) -> None:
         trial = valid_external_trial()

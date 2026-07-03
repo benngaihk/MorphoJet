@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import time
@@ -73,6 +74,31 @@ def require(data: dict[str, Any], key: str) -> Any:
     if key not in data:
         raise SystemExit(f"missing required manifest field: {key}")
     return data[key]
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def artifact_provenance(artifacts: list[str]) -> list[dict[str, Any]]:
+    provenance = []
+    for artifact in artifacts:
+        path = Path(artifact)
+        if not path.is_absolute():
+            path = ROOT / path
+        if path.is_file():
+            provenance.append(
+                {
+                    "path": artifact,
+                    "size_bytes": path.stat().st_size,
+                    "sha256": sha256_file(path),
+                }
+            )
+    return provenance
 
 
 def validate_manifest(manifest: dict[str, Any]) -> None:
@@ -217,6 +243,7 @@ def main() -> int:
         "variables": variables,
         "external_evidence": manifest.get("external_evidence"),
         "artifacts": artifacts,
+        "artifact_provenance": artifact_provenance(artifacts),
         "steps": [asdict(step) for step in steps],
     }
     args.out_json.parent.mkdir(parents=True, exist_ok=True)

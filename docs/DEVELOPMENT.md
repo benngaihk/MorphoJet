@@ -114,7 +114,7 @@ python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance \
   --external-trial-root path/to/external
 ```
 
-The external trial gate requires `status=PASS`, all trial steps passing, a non-empty artifact list whose files exist and are non-empty under `--external-trial-root`, filled external evidence fields with no `REPLACE_WITH` placeholders, and `manual_csv_editing=false`.
+The external trial gate requires `status=PASS`, all trial steps passing, a non-empty artifact list whose files exist and are non-empty under `--external-trial-root`, matching `artifact_provenance` SHA-256/size entries, filled external evidence fields with no `REPLACE_WITH` placeholders, and `manual_csv_editing=false`.
 
 For a scheduler-ready entrypoint that performs the fetch/verify step, verifies an existing CellBinDB archive with pinned MD5/size when Zenodo metadata is temporarily unavailable, pulls the pinned CellProfiler Docker image, and runs `python3 benchmark/release_gate.py --require-l3-provenance --run-l3`, use:
 

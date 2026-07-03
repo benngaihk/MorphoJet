@@ -296,6 +296,26 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> l
         if failed_steps:
             failures.append(f"failed trial steps={','.join(failed_steps)}")
     artifacts = trial.get("artifacts")
+    provenance_by_path = {}
+    artifact_provenance = trial.get("artifact_provenance")
+    if not isinstance(artifact_provenance, list) or not artifact_provenance:
+        failures.append("trial artifact_provenance must be a non-empty list")
+    else:
+        for entry in artifact_provenance:
+            if not isinstance(entry, dict):
+                failures.append("trial artifact_provenance entries must be objects")
+                continue
+            path = entry.get("path")
+            sha256 = entry.get("sha256")
+            size_bytes = entry.get("size_bytes")
+            if not isinstance(path, str) or not path.strip():
+                failures.append("trial artifact_provenance.path must be a non-empty string")
+                continue
+            if not isinstance(sha256, str) or len(sha256) != 64:
+                failures.append(f"trial artifact_provenance sha256 is invalid: {path}")
+            if not isinstance(size_bytes, int) or size_bytes <= 0:
+                failures.append(f"trial artifact_provenance size_bytes is invalid: {path}")
+            provenance_by_path[path] = entry
     if not isinstance(artifacts, list) or not artifacts:
         failures.append("trial artifacts must be a non-empty list")
     else:
@@ -307,8 +327,18 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> l
             artifact_path = resolve_artifact_path(artifact, root)
             if not artifact_path.is_file():
                 failures.append(f"trial artifact does not exist: {artifact}")
-            elif artifact_path.stat().st_size == 0:
+                continue
+            actual_size = artifact_path.stat().st_size
+            if actual_size == 0:
                 failures.append(f"trial artifact is empty: {artifact}")
+            provenance = provenance_by_path.get(artifact)
+            if provenance is None:
+                failures.append(f"trial artifact missing provenance: {artifact}")
+                continue
+            if provenance.get("size_bytes") != actual_size:
+                failures.append(f"trial artifact size mismatch: {artifact}")
+            if provenance.get("sha256") != sha256_file(artifact_path):
+                failures.append(f"trial artifact sha256 mismatch: {artifact}")
     evidence = trial.get("external_evidence")
     if not isinstance(evidence, dict):
         failures.append("external_evidence must be present")
