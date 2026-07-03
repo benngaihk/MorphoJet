@@ -598,23 +598,27 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None, arti
     return failures
 
 
+def external_trial_pass_detail(trial: dict) -> str:
+    evidence = trial.get("external_evidence") if isinstance(trial.get("external_evidence"), dict) else {}
+    metadata = trial.get("metadata") if isinstance(trial.get("metadata"), dict) else {}
+    return (
+        "External workflow trial PASS: "
+        f"trial_id={trial.get('trial_id')}, "
+        f"lab_or_org={evidence.get('lab_or_org')}, "
+        f"trial_commit={metadata.get('git_commit', '')[:12]}, "
+        f"generated_at_utc={metadata.get('generated_at_utc')}, "
+        f"steps={len(trial.get('steps') or [])}, "
+        f"artifacts={len(trial.get('artifacts') or [])}"
+    )
+
+
 def validate_external_trial_report(path: Path, artifact_root: Path | None) -> Gate:
     started = time.perf_counter()
     try:
         trial = load_json(path)
         failures = external_trial_failures(trial, artifact_root)
         status = "FAIL" if failures else "PASS"
-        evidence = trial.get("external_evidence") if isinstance(trial.get("external_evidence"), dict) else {}
-        metadata = trial.get("metadata") if isinstance(trial.get("metadata"), dict) else {}
-        detail = "; ".join(failures) if failures else (
-            "External workflow trial PASS: "
-            f"trial_id={trial.get('trial_id')}, "
-            f"lab_or_org={evidence.get('lab_or_org')}, "
-            f"trial_commit={metadata.get('git_commit', '')[:12]}, "
-            f"generated_at_utc={metadata.get('generated_at_utc')}, "
-            f"steps={len(trial.get('steps') or [])}, "
-            f"artifacts={len(trial.get('artifacts') or [])}"
-        )
+        detail = "; ".join(failures) if failures else external_trial_pass_detail(trial)
     except Exception as exc:  # noqa: BLE001 - report exact release gate failure.
         status = "FAIL"
         detail = f"{type(exc).__name__}: {exc}"
@@ -720,6 +724,11 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
                 failures.append(f"package artifact_manifest.packaged_at_utc is invalid: {packaged_at}")
         if artifact_manifest.get("trial_id") != trial.get("trial_id"):
             failures.append("package artifact_manifest.trial_id must match trial_id")
+        validation_detail = artifact_manifest.get("validation_detail")
+        if not isinstance(validation_detail, str) or not validation_detail.strip():
+            failures.append("package artifact_manifest.validation_detail must be a non-empty string")
+        elif validation_detail != external_trial_pass_detail(trial):
+            failures.append("package artifact_manifest.validation_detail must match external trial PASS detail")
         manifest_trial_json = artifact_manifest.get("trial_json")
         if not isinstance(manifest_trial_json, str) or not Path(manifest_trial_json).is_absolute():
             failures.append("package artifact_manifest.trial_json must be an absolute path")

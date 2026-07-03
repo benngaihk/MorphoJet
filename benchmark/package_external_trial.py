@@ -167,12 +167,12 @@ def create_package(
         "trial_id": trial["trial_id"],
         "trial_json": str(trial_json),
         "trial_root": str(trial_root),
-        "validation_detail": gate.detail,
+        "validation_detail": release_gate.external_trial_pass_detail(trial),
         "artifacts": artifact_entries,
     }
     write_json(package_dir / "artifact_manifest.json", artifact_manifest)
     (package_dir / "README.md").write_text(
-        render_readme(trial, gate.detail, artifact_manifest),
+        render_readme(trial, artifact_manifest["validation_detail"], artifact_manifest),
         encoding="utf-8",
     )
     zip_directory(package_dir, zip_path)
@@ -182,7 +182,7 @@ def create_package(
         "zip": str(zip_path),
         "sha256": str(sha_path),
         "artifact_count": len(artifact_entries),
-        "validation_detail": gate.detail,
+        "validation_detail": artifact_manifest["validation_detail"],
     }
 
 
