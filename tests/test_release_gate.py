@@ -46,6 +46,14 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertFalse(release_gate.is_doc_path("benchmark/release_gate.py"))
         self.assertFalse(release_gate.is_doc_path("crates/morphojet/src/main.rs"))
 
+    def test_l3_provenance_compatible_path_allowlist(self) -> None:
+        self.assertTrue(release_gate.is_l3_provenance_compatible_path("README.md"))
+        self.assertTrue(release_gate.is_l3_provenance_compatible_path("docs/PRODUCTION_READINESS.md"))
+        self.assertTrue(release_gate.is_l3_provenance_compatible_path("tests/test_release_gate.py"))
+        self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/release_gate.py"))
+        self.assertFalse(release_gate.is_l3_provenance_compatible_path("benchmark/run_cellbindb_oracle.py"))
+        self.assertFalse(release_gate.is_l3_provenance_compatible_path("crates/morphojet/src/main.rs"))
+
     def test_external_trial_report_passes(self) -> None:
         self.assertEqual([], release_gate.external_trial_failures(valid_external_trial()))
 

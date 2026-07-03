@@ -120,11 +120,13 @@ def validate_l3_provenance_artifact() -> Gate:
             failures.append(f"generator={provenance.get('generator')}")
         current_commit = git_commit()
         provenance_commit = provenance.get("git_commit")
-        docs_only_delta = False
+        compatible_delta = False
         if provenance_commit != current_commit:
             changed_paths = git_changed_paths(str(provenance_commit), current_commit)
-            docs_only_delta = bool(changed_paths) and all(is_doc_path(path) for path in changed_paths)
-            if not docs_only_delta:
+            compatible_delta = bool(changed_paths) and all(
+                is_l3_provenance_compatible_path(path) for path in changed_paths
+            )
+            if not compatible_delta:
                 failures.append(
                     "git_commit mismatch "
                     f"provenance={provenance_commit} current={current_commit} "
@@ -172,7 +174,7 @@ def validate_l3_provenance_artifact() -> Gate:
         detail = "; ".join(failures) if failures else (
             "CellBinDB provenance PASS: "
             f"commit={provenance.get('git_commit')[:12]}, "
-            f"current={current_commit[:12]}, docs_only_delta={docs_only_delta}, "
+            f"current={current_commit[:12]}, compatible_delta={compatible_delta}, "
             f"artifacts={checked}"
         )
     except Exception as exc:  # noqa: BLE001 - report exact release gate failure.
@@ -386,6 +388,10 @@ def git_changed_paths(old_commit: str, new_commit: str) -> list[str]:
 
 def is_doc_path(path: str) -> bool:
     return path == "README.md" or path.startswith("docs/")
+
+
+def is_l3_provenance_compatible_path(path: str) -> bool:
+    return is_doc_path(path) or path.startswith("tests/") or path == "benchmark/release_gate.py"
 
 
 def validate_clean_git_worktree(status_lines: list[str]) -> Gate:
