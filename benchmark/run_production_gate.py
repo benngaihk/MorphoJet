@@ -276,6 +276,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="With --verify-local-evidence-preflight-report, recompute recorded input artifact sizes and SHA-256 hashes",
     )
+    parser.add_argument(
+        "--require-local-evidence-preflight-pass",
+        action="store_true",
+        help="With --verify-local-evidence-preflight-report, fail unless the saved report status is PASS",
+    )
     return parser.parse_args(argv)
 
 
@@ -286,6 +291,7 @@ def main(argv: list[str] | None = None) -> int:
             return verify_local_evidence_preflight_report(
                 args.verify_local_evidence_preflight_report,
                 verify_files=args.verify_local_evidence_preflight_files,
+                require_pass=args.require_local_evidence_preflight_pass,
             )
         require_final_gate_args(args)
         command = build_release_gate_command(args)
@@ -435,13 +441,19 @@ def validate_local_evidence_preflight_files(payload: dict) -> list[str]:
     return failures
 
 
-def verify_local_evidence_preflight_report(path: Path, verify_files: bool = False) -> int:
+def verify_local_evidence_preflight_report(
+    path: Path,
+    verify_files: bool = False,
+    require_pass: bool = False,
+) -> int:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:  # noqa: BLE001 - exact report verification failure.
         print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
     failures = validate_local_evidence_preflight_payload(payload)
+    if not failures and require_pass and payload.get("status") != "PASS":
+        failures.append(f"local evidence preflight status is not PASS: {payload.get('status')}")
     if not failures and verify_files:
         failures.extend(validate_local_evidence_preflight_files(payload))
     if failures:
@@ -452,6 +464,7 @@ def verify_local_evidence_preflight_report(path: Path, verify_files: bool = Fals
     print(f"status={payload['status']}")
     print(f"claim_status={payload['claim_status']}")
     print(f"verified_files={verify_files}")
+    print(f"required_pass={require_pass}")
     return 0
 
 
