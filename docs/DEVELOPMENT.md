@@ -111,7 +111,8 @@ After a real external workflow trial has been run with `benchmark/run_handoff_tr
 ```bash
 python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance \
   --external-trial-json path/to/external/handoff_trial.json \
-  --external-trial-root path/to/external
+  --external-trial-root path/to/external \
+  --external-evidence-package-dir path/to/evidence-packages/external-l4-trial
 ```
 
 The external trial gate requires `status=PASS`, generator metadata from `benchmark/run_handoff_trial.py` with a clean git worktree and a 40-character commit SHA that matches the current release gate commit or differs only by docs/tests/release-gate/evidence-packaging changes, all trial steps passing with non-negative runtime records and string execution details, a rendered manifest snapshot that still passes the external-evidence handoff schema, a step list and step commands that exactly match the manifest-declared actions, a non-empty artifact list that exactly matches the manifest-declared outputs, files that exist and are non-empty under `--external-trial-root`, exactly one matching `artifact_provenance` SHA-256/size entry for each listed artifact with no unlisted provenance paths, filled external evidence fields with no `REPLACE_WITH` placeholders, and `manual_csv_editing=false`. Changes to `benchmark/run_handoff_trial.py` or MorphoJet measurement code require rerunning the external trial.
@@ -126,7 +127,7 @@ python3 benchmark/package_external_trial.py \
   --out-dir path/to/evidence-packages
 ```
 
-The package step reuses the release-gate external L4 validator and refuses invalid reports. A valid package contains the trial report, rendered manifest snapshot, external evidence JSON, artifact manifest, copied artifacts, a README, a zip archive, and a zip SHA-256 file.
+The package step reuses the release-gate external L4 validator and refuses invalid reports. A valid package contains the trial report, rendered manifest snapshot, external evidence JSON, artifact manifest, copied artifacts, a README, a zip archive, and a zip SHA-256 file. Production-claim release gates should pass both `--external-trial-json` and `--external-evidence-package-dir` so the accepted L4 trial and review package are verified together.
 
 For a scheduler-ready entrypoint that performs the fetch/verify step, verifies an existing CellBinDB archive with pinned MD5/size when Zenodo metadata is temporarily unavailable, pulls the pinned CellProfiler Docker image, and runs `python3 benchmark/release_gate.py --require-l3-provenance --run-l3`, use:
 

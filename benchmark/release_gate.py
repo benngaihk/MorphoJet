@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import time
+import zipfile
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -428,7 +429,7 @@ def external_trial_metadata_failures(metadata: object) -> list[str]:
     return failures
 
 
-def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> list[str]:
+def external_trial_failures(trial: dict, artifact_root: Path | None = None, artifact_resolver=None) -> list[str]:
     failures = []
     if trial.get("status") != "PASS":
         failures.append(f"trial status is {trial.get('status')}")
@@ -538,7 +539,7 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> l
                 failures.append(f"trial artifact path is duplicated: {artifact}")
                 continue
             artifact_paths.add(artifact)
-            artifact_path = resolve_artifact_path(artifact, root)
+            artifact_path = artifact_resolver(artifact) if artifact_resolver else resolve_artifact_path(artifact, root)
             if not artifact_path.is_file():
                 failures.append(f"trial artifact does not exist: {artifact}")
                 continue
@@ -612,6 +613,156 @@ def validate_external_trial_report(path: Path, artifact_root: Path | None) -> Ga
         detail = f"{type(exc).__name__}: {exc}"
     return Gate(
         name="Validate external L4 workflow trial report",
+        command=None,
+        status=status,
+        elapsed_seconds=time.perf_counter() - started,
+        detail=detail,
+    )
+
+
+def package_path_is_safe(package_path: object) -> bool:
+    if not isinstance(package_path, str) or not package_path.strip():
+        return False
+    path = Path(package_path)
+    return not path.is_absolute() and ".." not in path.parts and "." not in path.parts
+
+
+def validate_external_evidence_package(package_dir: Path, trial_json: Path | None) -> Gate:
+    started = time.perf_counter()
+    try:
+        package_dir = package_dir.resolve()
+        failures = []
+        if not package_dir.is_dir():
+            failures.append(f"external evidence package dir does not exist: {package_dir}")
+            raise ValueError("; ".join(failures))
+        trial_path = package_dir / "handoff_trial.json"
+        rendered_manifest_path = package_dir / "rendered_manifest.json"
+        external_evidence_path = package_dir / "external_evidence.json"
+        artifact_manifest_path = package_dir / "artifact_manifest.json"
+        readme_path = package_dir / "README.md"
+        for required_path in [
+            trial_path,
+            rendered_manifest_path,
+            external_evidence_path,
+            artifact_manifest_path,
+            readme_path,
+        ]:
+            if not required_path.is_file():
+                failures.append(f"package missing file: {required_path.name}")
+        if failures:
+            raise ValueError("; ".join(failures))
+
+        trial = load_json(trial_path)
+        rendered_manifest = load_json(rendered_manifest_path)
+        external_evidence = load_json(external_evidence_path)
+        artifact_manifest = load_json(artifact_manifest_path)
+        if trial_json is not None and sha256_file(trial_path) != sha256_file(trial_json):
+            failures.append("package handoff_trial.json does not match --external-trial-json")
+        if artifact_manifest.get("schema_version") != 1:
+            failures.append(f"package artifact_manifest.schema_version={artifact_manifest.get('schema_version')}")
+        if artifact_manifest.get("generator") != "benchmark/package_external_trial.py":
+            failures.append(f"package artifact_manifest.generator={artifact_manifest.get('generator')}")
+        packaged_at = artifact_manifest.get("packaged_at_utc")
+        if not isinstance(packaged_at, str) or not packaged_at.strip():
+            failures.append("package artifact_manifest.packaged_at_utc must be a non-empty string")
+        else:
+            try:
+                parsed_packaged_at = datetime.fromisoformat(packaged_at)
+                if parsed_packaged_at.tzinfo is None:
+                    failures.append("package artifact_manifest.packaged_at_utc must include timezone")
+            except ValueError:
+                failures.append(f"package artifact_manifest.packaged_at_utc is invalid: {packaged_at}")
+        if artifact_manifest.get("trial_id") != trial.get("trial_id"):
+            failures.append("package artifact_manifest.trial_id must match trial_id")
+        if rendered_manifest != trial.get("rendered_manifest"):
+            failures.append("package rendered_manifest.json must match trial rendered_manifest")
+        if external_evidence != trial.get("external_evidence"):
+            failures.append("package external_evidence.json must match trial external_evidence")
+        manifest_artifacts = artifact_manifest.get("artifacts")
+        if not isinstance(manifest_artifacts, list) or not manifest_artifacts:
+            failures.append("package artifact_manifest.artifacts must be a non-empty list")
+            manifest_artifacts = []
+        entries_by_source = {}
+        for entry in manifest_artifacts:
+            if not isinstance(entry, dict):
+                failures.append("package artifact_manifest artifact entries must be objects")
+                continue
+            source_path = entry.get("source_path")
+            package_path = entry.get("package_path")
+            if not isinstance(source_path, str) or not source_path.strip():
+                failures.append("package artifact source_path must be a non-empty string")
+                continue
+            if source_path in entries_by_source:
+                failures.append(f"package artifact source_path is duplicated: {source_path}")
+            entries_by_source[source_path] = entry
+            if not package_path_is_safe(package_path):
+                failures.append(f"package artifact package_path is unsafe: {source_path}")
+                continue
+            packaged_file = (package_dir / package_path).resolve()
+            try:
+                packaged_file.relative_to(package_dir)
+            except ValueError:
+                failures.append(f"package artifact escapes package dir: {source_path}")
+                continue
+            if not packaged_file.is_file():
+                failures.append(f"package artifact file is missing: {source_path}")
+                continue
+            if packaged_file.stat().st_size == 0:
+                failures.append(f"package artifact file is empty: {source_path}")
+            if entry.get("size_bytes") != packaged_file.stat().st_size:
+                failures.append(f"package artifact size mismatch: {source_path}")
+            if entry.get("sha256") != sha256_file(packaged_file):
+                failures.append(f"package artifact sha256 mismatch: {source_path}")
+
+        def resolve_packaged_artifact(artifact: str) -> Path:
+            entry = entries_by_source.get(artifact)
+            if not isinstance(entry, dict) or not package_path_is_safe(entry.get("package_path")):
+                return package_dir / "__missing_artifact__"
+            return package_dir / entry["package_path"]
+
+        failures.extend(external_trial_failures(trial, artifact_resolver=resolve_packaged_artifact))
+        trial_artifacts = trial.get("artifacts") if isinstance(trial.get("artifacts"), list) else []
+        for missing_source in sorted(set(trial_artifacts) - set(entries_by_source)):
+            failures.append(f"package artifact_manifest missing trial artifact: {missing_source}")
+        for extra_source in sorted(set(entries_by_source) - set(trial_artifacts)):
+            failures.append(f"package artifact_manifest has unlisted trial artifact: {extra_source}")
+
+        zip_path = package_dir.parent / f"{package_dir.name}.zip"
+        sha_path = package_dir.parent / f"{package_dir.name}.zip.sha256"
+        if not zip_path.is_file():
+            failures.append(f"package zip is missing: {zip_path.name}")
+        if not sha_path.is_file():
+            failures.append(f"package zip sha256 file is missing: {sha_path.name}")
+        if zip_path.is_file() and sha_path.is_file():
+            expected_zip_hash = sha_path.read_text(encoding="utf-8").split()[0]
+            if expected_zip_hash != sha256_file(zip_path):
+                failures.append(f"package zip sha256 mismatch: {zip_path.name}")
+            try:
+                with zipfile.ZipFile(zip_path) as archive:
+                    names = set(archive.namelist())
+                for required_name in [
+                    f"{package_dir.name}/README.md",
+                    f"{package_dir.name}/handoff_trial.json",
+                    f"{package_dir.name}/artifact_manifest.json",
+                ]:
+                    if required_name not in names:
+                        failures.append(f"package zip missing entry: {required_name}")
+            except zipfile.BadZipFile:
+                failures.append(f"package zip is invalid: {zip_path.name}")
+
+        status = "FAIL" if failures else "PASS"
+        detail = "; ".join(failures) if failures else (
+            "External L4 evidence package PASS: "
+            f"trial_id={trial.get('trial_id')}, "
+            f"package={package_dir}, "
+            f"artifacts={len(manifest_artifacts)}, "
+            f"zip={zip_path.name}"
+        )
+    except Exception as exc:  # noqa: BLE001 - report exact release gate failure.
+        status = "FAIL"
+        detail = f"{type(exc).__name__}: {exc}"
+    return Gate(
+        name="Validate external L4 evidence package",
         command=None,
         status=status,
         elapsed_seconds=time.perf_counter() - started,
@@ -755,6 +906,13 @@ def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], me
             "detail": "Requires --external-trial-json from a real no-manual-CSV-edit workflow trial.",
         },
         {
+            "name": "external_l4_evidence_package",
+            "status": production_audit_status(gates, "Validate external L4 evidence package")
+            if args.external_evidence_package_dir
+            else "MISSING",
+            "detail": "Requires --external-evidence-package-dir from a validated external L4 trial package.",
+        },
+        {
             "name": "stable_github_release",
             "status": production_audit_status(gates, "Verify GitHub release assets")
             if args.verify_github_release and args.github_release_kind == "stable"
@@ -836,6 +994,9 @@ def build_metadata(args: argparse.Namespace, git_status_lines: list[str]) -> dic
         "require_production_claim": args.require_production_claim,
         "external_trial_json": str(args.external_trial_json) if args.external_trial_json else None,
         "external_trial_root": str(args.external_trial_root) if args.external_trial_root else None,
+        "external_evidence_package_dir": str(args.external_evidence_package_dir)
+        if args.external_evidence_package_dir
+        else None,
     }
 
 
@@ -890,6 +1051,11 @@ def main() -> int:
         "--external-trial-root",
         type=Path,
         help="Root directory for resolving relative external trial artifact paths",
+    )
+    parser.add_argument(
+        "--external-evidence-package-dir",
+        type=Path,
+        help="Validate an external L4 evidence package created by benchmark/package_external_trial.py",
     )
     args = parser.parse_args()
 
@@ -1000,6 +1166,8 @@ def main() -> int:
     gates.append(validate_handoff_trial_artifacts())
     if args.external_trial_json:
         gates.append(validate_external_trial_report(args.external_trial_json, args.external_trial_root))
+    if args.external_evidence_package_dir:
+        gates.append(validate_external_evidence_package(args.external_evidence_package_dir, args.external_trial_json))
 
     payload = write_report(args, gates, metadata)
     print(f"wrote {args.out_json}")

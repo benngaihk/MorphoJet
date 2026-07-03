@@ -60,6 +60,59 @@ class PackageExternalTrialTest(unittest.TestCase):
                 self.assertIn("external-l4-demo/README.md", archive.namelist())
                 self.assertIn("external-l4-demo/artifacts/external/handoff_contract.json", archive.namelist())
 
+    def test_release_gate_accepts_valid_package(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+
+            gate = release_gate.validate_external_evidence_package(Path(result["package_dir"]), trial_json)
+
+        self.assertEqual("PASS", gate.status)
+        self.assertIn("External L4 evidence package PASS", gate.detail)
+
+    def test_release_gate_rejects_package_for_different_trial_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            other_trial = json.loads(trial_json.read_text())
+            other_trial["external_evidence"]["dataset_name"] = "Different Batch"
+            other_trial_json = root / "other_trial.json"
+            other_trial_json.write_text(json.dumps(other_trial, indent=2) + "\n", encoding="utf-8")
+
+            gate = release_gate.validate_external_evidence_package(Path(result["package_dir"]), other_trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("does not match --external-trial-json", gate.detail)
+
+    def test_release_gate_rejects_package_zip_hash_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            Path(result["sha256"]).write_text("0" * 64 + "  external-l4-demo.zip\n", encoding="utf-8")
+
+            gate = release_gate.validate_external_evidence_package(Path(result["package_dir"]), trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("package zip sha256 mismatch", gate.detail)
+
     def test_package_rejects_invalid_external_trial(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

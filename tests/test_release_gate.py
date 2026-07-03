@@ -110,6 +110,7 @@ class ReleaseGateTest(unittest.TestCase):
             "require_l3_provenance": False,
             "external_trial_json": None,
             "external_trial_root": None,
+            "external_evidence_package_dir": None,
             "verify_github_release": None,
             "github_release_kind": "prerelease",
             "require_production_claim": False,
@@ -159,12 +160,14 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertEqual("PASS", statuses["standard_code_and_artifact_gates"])
         self.assertEqual("MISSING", statuses["l3_provenance_hashes"])
         self.assertEqual("MISSING", statuses["external_l4_workflow_trial"])
+        self.assertEqual("MISSING", statuses["external_l4_evidence_package"])
         self.assertEqual("MISSING", statuses["stable_github_release"])
         self.assertEqual(
             [
                 "clean_git_worktree",
                 "l3_provenance_hashes",
                 "external_l4_workflow_trial",
+                "external_l4_evidence_package",
                 "stable_github_release",
             ],
             audit["missing_or_failed_checks"],
@@ -186,6 +189,7 @@ class ReleaseGateTest(unittest.TestCase):
                 "Validate CellBinDB workflow bridge artifacts",
                 "Validate CellBinDB handoff trial artifacts",
                 "Validate external L4 workflow trial report",
+                "Validate external L4 evidence package",
                 "Verify GitHub release assets",
             ]
         )
@@ -195,6 +199,7 @@ class ReleaseGateTest(unittest.TestCase):
                 require_clean_git=True,
                 require_l3_provenance=True,
                 external_trial_json=Path("handoff_trial.json"),
+                external_evidence_package_dir=Path("external-l4-package"),
                 verify_github_release="v0.1.0",
                 github_release_kind="stable",
             ),
@@ -240,6 +245,7 @@ class ReleaseGateTest(unittest.TestCase):
                 "clean_git_worktree",
                 "l3_provenance_hashes",
                 "external_l4_workflow_trial",
+                "external_l4_evidence_package",
                 "stable_github_release",
             ],
             payload["production_claim_audit"]["missing_or_failed_checks"],
@@ -261,6 +267,7 @@ class ReleaseGateTest(unittest.TestCase):
                 "Validate CellBinDB workflow bridge artifacts",
                 "Validate CellBinDB handoff trial artifacts",
                 "Validate external L4 workflow trial report",
+                "Validate external L4 evidence package",
                 "Verify GitHub release assets",
             ]
         )
@@ -273,6 +280,7 @@ class ReleaseGateTest(unittest.TestCase):
                     require_l3_provenance=True,
                     require_production_claim=True,
                     external_trial_json=Path("handoff_trial.json"),
+                    external_evidence_package_dir=Path("external-l4-package"),
                     verify_github_release="v0.1.0",
                     github_release_kind="stable",
                     out_json=root / "report.json",
