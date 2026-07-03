@@ -127,6 +127,17 @@ python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance \
 The external trial gate requires `status=PASS`, generator metadata from `benchmark/run_handoff_trial.py` with a clean git worktree and a 40-character commit SHA that matches the current release gate commit or differs only by docs/tests/release-gate/evidence-packaging/release-verification changes, all trial steps passing with non-negative runtime records and string execution details, a rendered manifest snapshot that still passes the external-evidence handoff schema, a step list and step commands that exactly match the manifest-declared actions, a non-empty artifact list that exactly matches the manifest-declared outputs, files that exist and are non-empty under `--external-trial-root`, exactly one matching `artifact_provenance` SHA-256/size entry for each listed artifact with no unlisted provenance paths, filled external evidence fields and acceptance criteria with no `REPLACE_WITH` placeholders, and `manual_csv_editing=false`. Changes to `benchmark/run_handoff_trial.py` or MorphoJet measurement code require rerunning the external trial.
 The gate PASS detail includes the external trial commit and generation timestamp so release reports can be audited without opening the trial JSON first.
 
+Reviewers can check the external trial report directly before evidence packaging:
+
+```bash
+python3 benchmark/verify_external_trial_report.py \
+  path/to/external/handoff_trial.json \
+  --trial-root path/to/external \
+  --json-out path/to/external/handoff_trial-verification.json
+```
+
+The standalone verifier uses the same external trial validator as `benchmark/release_gate.py`; `--trial-root` must resolve every declared trial artifact, and `--json-out` writes a machine-readable PASS/FAIL report. Use `--allow-fail-report` only when collecting diagnostic evidence from a known-bad trial report, because normal review should fail closed.
+
 After the external trial gate passes, package the evidence for external review and release signoff:
 
 ```bash

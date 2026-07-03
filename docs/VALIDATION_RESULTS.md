@@ -15,6 +15,7 @@ External L4 validators now reject `REPLACE_WITH` placeholders in `external_evide
 GitHub stable-release verification now rejects prerelease or non-semver tags in the lower-level verifier as well as in the final production wrapper.
 The wrapper also provides `--local-evidence-preflight-only` so a completed external L4 trial and evidence package can be validated before the stable GitHub release exists, using the same release-gate validators that the final production claim uses, and writes local evidence-preflight JSON/Markdown reports labeled `NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false` with skipped final checks and key input file hashes.
 Saved local evidence preflight JSON reports can also be re-checked with `--verify-local-evidence-preflight-report`, which validates the report schema, metadata types/formats, reachable git commit, claim-scope labels, final-evidence rejection flag, skipped/validated check lists, input artifact digest fields, and expected external L4 gate entries. Add `--verify-local-evidence-preflight-files` to recompute recorded input artifact sizes and SHA-256 hashes, and `--require-local-evidence-preflight-pass` for review/signoff.
+External L4 trial reports can now be reviewed directly with `benchmark/verify_external_trial_report.py`. The standalone verifier reuses the release-gate external trial validator, requires an artifact root that resolves declared outputs, and can write a machine-readable PASS/FAIL JSON report before evidence packaging.
 External L4 evidence packages can now be reviewed directly with `benchmark/verify_external_evidence_package.py`. The standalone verifier reuses the release-gate package validator, optionally binds the package to the exact source `handoff_trial.json`, and can write a machine-readable PASS/FAIL JSON report for reviewer signoff.
 
 Required final command shape:
@@ -41,6 +42,7 @@ Local validation for the wrapper:
 | `python3 tests/test_run_production_gate.py` with local evidence preflight report coverage | PASS |
 | `python3 tests/test_run_production_gate.py` with saved report verifier coverage | PASS |
 | `python3 tests/test_package_external_trial.py` with standalone evidence package verifier coverage | PASS |
+| `python3 tests/test_verify_external_trial_report.py` with standalone external trial report verifier coverage | PASS |
 
 ## L2 ExampleHuman Oracle Snapshot
 
