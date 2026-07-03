@@ -7,6 +7,7 @@ import json
 import sys
 import tempfile
 import unittest
+import warnings
 import zipfile
 from pathlib import Path
 
@@ -200,6 +201,62 @@ class PackageExternalTrialTest(unittest.TestCase):
 
         self.assertEqual("FAIL", gate.status)
         self.assertIn("package zip has unexpected entry: external-l4-demo/extra-notes.txt", gate.detail)
+
+    def test_release_gate_rejects_package_zip_duplicate_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            zip_path = Path(result["zip"])
+            duplicated = "external-l4-demo/README.md"
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                with zipfile.ZipFile(zip_path, "a", compression=zipfile.ZIP_DEFLATED) as archive:
+                    archive.writestr(duplicated, "duplicate\n")
+            Path(result["sha256"]).write_text(
+                f"{release_gate.sha256_file(zip_path)}  external-l4-demo.zip\n",
+                encoding="utf-8",
+            )
+
+            gate = release_gate.validate_external_evidence_package(Path(result["package_dir"]), trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("package zip entry is duplicated: " + duplicated, gate.detail)
+
+    def test_release_gate_rejects_package_zip_entry_content_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            zip_path = Path(result["zip"])
+            changed = "external-l4-demo/README.md"
+            with tempfile.TemporaryDirectory() as rewrite_tmp:
+                rewritten = Path(rewrite_tmp) / "external-l4-demo.zip"
+                with zipfile.ZipFile(zip_path) as original, zipfile.ZipFile(
+                    rewritten, "w", compression=zipfile.ZIP_DEFLATED
+                ) as replacement:
+                    for name in original.namelist():
+                        replacement.writestr(name, "tampered\n" if name == changed else original.read(name))
+                rewritten.replace(zip_path)
+            Path(result["sha256"]).write_text(
+                f"{release_gate.sha256_file(zip_path)}  external-l4-demo.zip\n",
+                encoding="utf-8",
+            )
+
+            gate = release_gate.validate_external_evidence_package(Path(result["package_dir"]), trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("package zip entry content mismatch: " + changed, gate.detail)
 
     def test_release_gate_rejects_duplicate_artifact_package_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

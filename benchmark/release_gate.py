@@ -766,7 +766,8 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
                 failures.append(f"package zip sha256 mismatch: {zip_path.name}")
             try:
                 with zipfile.ZipFile(zip_path) as archive:
-                    names = set(archive.namelist())
+                    zip_names = archive.namelist()
+                    names = set(zip_names)
                 required_zip_entries = {
                     f"{package_dir.name}/README.md",
                     f"{package_dir.name}/handoff_trial.json",
@@ -777,9 +778,17 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
                 for entry in manifest_artifacts:
                     if isinstance(entry, dict) and package_path_is_safe(entry.get("package_path")):
                         required_zip_entries.add(f"{package_dir.name}/{entry['package_path']}")
+                duplicated_zip_entries = sorted(name for name in names if zip_names.count(name) > 1)
+                for duplicated_name in duplicated_zip_entries:
+                    failures.append(f"package zip entry is duplicated: {duplicated_name}")
                 for required_name in sorted(required_zip_entries):
                     if required_name not in names:
                         failures.append(f"package zip missing entry: {required_name}")
+                    else:
+                        package_file = package_dir.parent / required_name
+                        with zipfile.ZipFile(zip_path) as archive:
+                            if package_file.is_file() and archive.read(required_name) != package_file.read_bytes():
+                                failures.append(f"package zip entry content mismatch: {required_name}")
                 for unexpected_name in sorted(names - required_zip_entries):
                     failures.append(f"package zip has unexpected entry: {unexpected_name}")
             except zipfile.BadZipFile:
