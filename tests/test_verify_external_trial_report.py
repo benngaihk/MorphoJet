@@ -84,6 +84,94 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
         self.assertEqual("FAIL", payload["status"])
         self.assertIn("manual_csv_editing", payload["gate"]["detail"])
 
+    def test_saved_verification_report_passes_with_file_recheck(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = verify_external_trial_report.verify_saved_external_trial_report(
+                    json_out,
+                    require_report_pass=True,
+                    verify_files=True,
+                )
+
+        self.assertEqual(0, code)
+
+    def test_saved_verification_report_rejects_status_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["status"] = "FAIL"
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = verify_external_trial_report.verify_saved_external_trial_report(json_out)
+
+        self.assertEqual(1, code)
+
+    def test_saved_verification_report_recomputes_trial_validation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["gate"]["detail"] = "External workflow trial PASS: stale detail"
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = verify_external_trial_report.verify_saved_external_trial_report(
+                    json_out,
+                    verify_files=True,
+                )
+
+        self.assertEqual(1, code)
+
+    def test_saved_verification_report_can_require_pass(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            trial = json.loads(trial_json.read_text(encoding="utf-8"))
+            trial["external_evidence"]["manual_csv_editing"] = True
+            trial_json.write_text(json.dumps(trial, indent=2) + "\n", encoding="utf-8")
+            json_out = root / "failed-external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                    require_pass=False,
+                )
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = verify_external_trial_report.verify_saved_external_trial_report(
+                    json_out,
+                    require_report_pass=True,
+                )
+
+        self.assertEqual(1, code)
+
 
 if __name__ == "__main__":
     unittest.main()

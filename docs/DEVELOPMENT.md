@@ -138,6 +138,17 @@ python3 benchmark/verify_external_trial_report.py \
 
 The standalone verifier uses the same external trial validator as `benchmark/release_gate.py`; `--trial-root` must resolve every declared trial artifact, and `--json-out` writes a machine-readable PASS/FAIL report. Use `--allow-fail-report` only when collecting diagnostic evidence from a known-bad trial report, because normal review should fail closed.
 
+Saved external trial verifier reports can be re-checked during review:
+
+```bash
+python3 benchmark/verify_external_trial_report.py \
+  --verify-report path/to/external/handoff_trial-verification.json \
+  --verify-report-files \
+  --require-report-pass
+```
+
+`--verify-report-files` recomputes the external trial validation from the report's `trial_json` and `trial_root` paths, then checks the recorded gate status and detail against the fresh result.
+
 After the external trial gate passes, package the evidence for external review and release signoff:
 
 ```bash
