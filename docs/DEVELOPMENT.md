@@ -81,6 +81,8 @@ python3 benchmark/verify_release_archive.py \
   --json-out benchmark/results/release-artifacts/verification.json
 ```
 
+The local archive verifier checks the checksum digest, checksum target filename, traversal-safe extraction, package contents, and `morphojet doctor` output.
+
 Before cutting a release candidate, run:
 
 ```bash

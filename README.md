@@ -44,6 +44,8 @@ To validate the local release archive shape before tagging:
 python3 benchmark/release_gate.py --build-release-artifact --release-version local
 ```
 
+Local archive verification checks the archive checksum digest and checksum target filename before extracting the package.
+
 To verify a published GitHub release candidate:
 
 ```bash

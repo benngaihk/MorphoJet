@@ -31,6 +31,21 @@ def expected_sha(path: Path) -> str:
     return parts[0]
 
 
+def checksum_issues(path: Path, archive_name: str) -> list[str]:
+    parts = path.read_text().split()
+    if not parts:
+        return [f"empty checksum file: {path.name}"]
+    issues = []
+    digest = parts[0]
+    if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
+        issues.append(f"invalid checksum digest for {archive_name}")
+    if len(parts) < 2:
+        issues.append(f"checksum file missing archive name for {archive_name}")
+    elif Path(parts[1]).name != archive_name:
+        issues.append(f"checksum file target mismatch for {archive_name}: {parts[1]}")
+    return issues
+
+
 def safe_extract(archive: Path, destination: Path) -> None:
     with tarfile.open(archive, "r:gz") as handle:
         root = destination.resolve()
@@ -51,6 +66,7 @@ def verify(archive: Path, checksum: Path, expect_commit: str | None) -> dict[str
     actual = sha256(archive)
     expected = expected_sha(checksum)
     issues = []
+    issues.extend(checksum_issues(checksum, archive.name))
     if actual != expected:
         issues.append(f"sha256 mismatch expected={expected} actual={actual}")
 

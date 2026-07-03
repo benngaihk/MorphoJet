@@ -37,6 +37,23 @@ def write_tar(path: Path, members: list[tuple[str, bytes, str]]) -> None:
 
 
 class VerifyReleaseArchiveTest(unittest.TestCase):
+    def test_checksum_issues_accepts_matching_archive_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            checksum = Path(tmp) / "archive.tar.gz.sha256"
+            checksum.write_text("a" * 64 + "  archive.tar.gz\n")
+
+            self.assertEqual([], verify_release_archive.checksum_issues(checksum, "archive.tar.gz"))
+
+    def test_checksum_issues_rejects_invalid_digest_and_target(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            checksum = Path(tmp) / "archive.tar.gz.sha256"
+            checksum.write_text("not-a-sha  other.tar.gz\n")
+
+            issues = verify_release_archive.checksum_issues(checksum, "archive.tar.gz")
+
+        self.assertIn("invalid checksum digest for archive.tar.gz", issues)
+        self.assertIn("checksum file target mismatch for archive.tar.gz: other.tar.gz", issues)
+
     def test_safe_extract_accepts_normal_archive(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
