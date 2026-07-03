@@ -37,6 +37,8 @@ def safe_extract(archive: Path, destination: Path) -> None:
         for member in handle.getmembers():
             if member.issym() or member.islnk():
                 raise SystemExit(f"unsafe archive link: {member.name}")
+            if not (member.isdir() or member.isfile()):
+                raise SystemExit(f"unsafe archive member type: {member.name}")
             target = (destination / member.name).resolve()
             try:
                 target.relative_to(root)

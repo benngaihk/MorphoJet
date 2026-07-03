@@ -25,6 +25,12 @@ def write_tar(path: Path, members: list[tuple[str, bytes, str]]) -> None:
                 info.type = tarfile.SYMTYPE
                 info.linkname = "../outside"
                 archive.addfile(info)
+            elif kind == "dir":
+                info.type = tarfile.DIRTYPE
+                archive.addfile(info)
+            elif kind == "fifo":
+                info.type = tarfile.FIFOTYPE
+                archive.addfile(info)
             else:
                 info.size = len(content)
                 archive.addfile(info, io.BytesIO(content))
@@ -42,6 +48,18 @@ class VerifyReleaseArchiveTest(unittest.TestCase):
             verify_release_archive.safe_extract(archive, out)
 
             self.assertEqual("ok\n", (out / "package" / "README.md").read_text())
+
+    def test_safe_extract_accepts_directories(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "archive.tar.gz"
+            out = root / "out"
+            out.mkdir()
+            write_tar(archive, [("package", b"", "dir"), ("package/README.md", b"ok\n", "file")])
+
+            verify_release_archive.safe_extract(archive, out)
+
+            self.assertTrue((out / "package").is_dir())
 
     def test_safe_extract_rejects_parent_traversal(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -63,6 +81,17 @@ class VerifyReleaseArchiveTest(unittest.TestCase):
             write_tar(archive, [("package/link", b"", "symlink")])
 
             with self.assertRaisesRegex(SystemExit, "unsafe archive link"):
+                verify_release_archive.safe_extract(archive, out)
+
+    def test_safe_extract_rejects_special_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "archive.tar.gz"
+            out = root / "out"
+            out.mkdir()
+            write_tar(archive, [("package/fifo", b"", "fifo")])
+
+            with self.assertRaisesRegex(SystemExit, "unsafe archive member type"):
                 verify_release_archive.safe_extract(archive, out)
 
 
