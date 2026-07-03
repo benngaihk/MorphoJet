@@ -50,6 +50,12 @@ To verify a published GitHub release candidate:
 python3 benchmark/release_gate.py --verify-github-release v0.1.0-rc.1
 ```
 
+After external workflow evidence has passed, verify a stable non-RC release with:
+
+```bash
+python3 benchmark/release_gate.py --verify-github-release v0.1.0 --github-release-kind stable
+```
+
 ## Diagnostics
 
 ```bash

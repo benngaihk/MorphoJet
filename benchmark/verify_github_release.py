@@ -74,6 +74,18 @@ def compatible_archive(archive: Path) -> bool:
     return False
 
 
+def release_type_issues(tag: str, release: dict, expect_prerelease: bool, expect_stable: bool) -> list[str]:
+    issues = []
+    if expect_prerelease and not release.get("isPrerelease"):
+        issues.append("release is not marked prerelease")
+    if expect_stable:
+        if release.get("isPrerelease"):
+            issues.append("stable release is marked prerelease")
+        if "-rc" in tag:
+            issues.append("stable release tag must not contain -rc")
+    return issues
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("tag")
@@ -81,6 +93,7 @@ def main() -> int:
     parser.add_argument("--out-dir", type=Path)
     parser.add_argument("--expect-commit")
     parser.add_argument("--expect-prerelease", action="store_true")
+    parser.add_argument("--expect-stable", action="store_true")
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args()
 
@@ -92,8 +105,9 @@ def main() -> int:
     issues: list[str] = []
     if release.get("isDraft"):
         issues.append("release is draft")
-    if args.expect_prerelease and not release.get("isPrerelease"):
-        issues.append("release is not marked prerelease")
+    if args.expect_prerelease and args.expect_stable:
+        issues.append("--expect-prerelease and --expect-stable are mutually exclusive")
+    issues.extend(release_type_issues(args.tag, release, args.expect_prerelease, args.expect_stable))
 
     expected_assets = {
         f"morphojet-{args.tag}-linux-x86_64.tar.gz",
@@ -137,6 +151,7 @@ def main() -> int:
         "repo": args.repo,
         "url": release.get("url"),
         "is_prerelease": release.get("isPrerelease"),
+        "expected_release_kind": "stable" if args.expect_stable else "prerelease" if args.expect_prerelease else None,
         "expected_commit": expected_commit,
         "asset_count": len(actual_assets),
         "archives": archive_summaries,

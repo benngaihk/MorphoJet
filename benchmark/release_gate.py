@@ -503,6 +503,7 @@ def build_metadata(args: argparse.Namespace, git_status_lines: list[str]) -> dic
         "build_release_artifact": args.build_release_artifact,
         "release_version": args.release_version,
         "verify_github_release": args.verify_github_release,
+        "github_release_kind": args.github_release_kind,
         "require_clean_git": args.require_clean_git,
         "require_l3_provenance": args.require_l3_provenance,
         "external_trial_json": str(args.external_trial_json) if args.external_trial_json else None,
@@ -531,6 +532,12 @@ def main() -> int:
     parser.add_argument("--build-release-artifact", action="store_true", help="Build and verify a local release archive")
     parser.add_argument("--release-version", default="local", help="Version label for --build-release-artifact")
     parser.add_argument("--verify-github-release", help="Download and verify an existing GitHub release tag")
+    parser.add_argument(
+        "--github-release-kind",
+        choices=["prerelease", "stable"],
+        default="prerelease",
+        help="Expected GitHub release kind for --verify-github-release",
+    )
     parser.add_argument("--require-clean-git", action="store_true", help="Fail unless git status is clean")
     parser.add_argument(
         "--require-l3-provenance",
@@ -635,6 +642,7 @@ def main() -> int:
     if args.run_l3:
         gates.append(run_command("Run CellBinDB L3 benchmark", ["python3", "benchmark/run_cellbindb_oracle.py", "--threads", "8"]))
     if args.verify_github_release:
+        release_kind_flag = "--expect-stable" if args.github_release_kind == "stable" else "--expect-prerelease"
         gates.append(
             run_command(
                 "Verify GitHub release assets",
@@ -642,7 +650,7 @@ def main() -> int:
                     "python3",
                     "benchmark/verify_github_release.py",
                     args.verify_github_release,
-                    "--expect-prerelease",
+                    release_kind_flag,
                     "--json-out",
                     f"benchmark/results/github-release/{args.verify_github_release}/verification.json",
                 ],

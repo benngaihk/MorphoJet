@@ -115,6 +115,7 @@ Latest M0 oracle gate verification:
 The next gate toward production readiness is no longer L3 evidence; it is repeatability and L4 workflow fit:
 
 - Re-run `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --run-l3 --build-release-artifact --release-version rc-preflight` before promoting from RC to stable release.
+- After external workflow evidence passes, verify the stable release with `python3 benchmark/release_gate.py --verify-github-release v0.1.0 --github-release-kind stable`.
 - Promote the CellBinDB full benchmark into scheduled/nightly validation.
 - Run an external lab workflow trial with real handoff files.
 - Copy `benchmark/handoff/external_lab_template.json`, fill the external evidence block, exercise the manifest-driven handoff trial in that external workflow without manual CSV editing, and validate the resulting report plus artifact provenance hashes with `python3 benchmark/release_gate.py --external-trial-json path/to/handoff_trial.json --external-trial-root path/to/external`.

@@ -143,6 +143,12 @@ After a `v*` tag is published, verify the GitHub release assets:
 python3 benchmark/release_gate.py --verify-github-release v0.1.0-rc.1
 ```
 
+For a stable non-RC release after external workflow evidence has passed:
+
+```bash
+python3 benchmark/release_gate.py --verify-github-release v0.1.0 --github-release-kind stable
+```
+
 ## Parity Report Smoke
 
 ```bash
