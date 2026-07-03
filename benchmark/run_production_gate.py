@@ -27,6 +27,17 @@ def validate_stable_tag(tag: str) -> None:
         )
 
 
+def validate_existing_inputs(args: argparse.Namespace) -> None:
+    if not args.external_trial_json.is_file():
+        raise ProductionGateError(f"--external-trial-json is not a file: {args.external_trial_json}")
+    if not args.external_trial_root.is_dir():
+        raise ProductionGateError(f"--external-trial-root is not a directory: {args.external_trial_root}")
+    if not args.external_evidence_package_dir.is_dir():
+        raise ProductionGateError(
+            f"--external-evidence-package-dir is not a directory: {args.external_evidence_package_dir}"
+        )
+
+
 def build_release_gate_command(args: argparse.Namespace) -> list[str]:
     validate_stable_tag(args.github_release_tag)
     command = [
@@ -82,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         args = parse_args(argv)
         command = build_release_gate_command(args)
+        if not args.dry_run:
+            validate_existing_inputs(args)
     except ProductionGateError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

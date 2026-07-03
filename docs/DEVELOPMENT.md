@@ -141,7 +141,7 @@ python3 benchmark/run_production_gate.py \
   --github-release-tag v0.1.0
 ```
 
-The wrapper rejects release-candidate tags such as `v0.1.0-rc.1` and invokes `benchmark/release_gate.py` with `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, the external L4 trial and package paths, `--verify-github-release`, and `--github-release-kind stable`. Use `--dry-run` to print the assembled command without network or release verification side effects.
+The wrapper rejects release-candidate tags such as `v0.1.0-rc.1`, checks that the external trial JSON, trial root, and evidence package directory exist before an actual run, and invokes `benchmark/release_gate.py` with `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, the external L4 trial and package paths, `--verify-github-release`, and `--github-release-kind stable`. Use `--dry-run` to print the assembled command without checking local evidence paths or performing network/release verification side effects.
 
 For a scheduler-ready entrypoint that performs the fetch/verify step, verifies an existing CellBinDB archive with pinned MD5/size when Zenodo metadata is temporarily unavailable, pulls the pinned CellProfiler Docker image, and runs `python3 benchmark/release_gate.py --require-l3-provenance --run-l3`, use:
 

@@ -3,7 +3,10 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -61,6 +64,101 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("--run-l3", command)
         self.assertIn("--build-release-artifact", command)
         self.assertEqual("v0.1.0-preflight", command[command.index("--release-version") + 1])
+
+    def test_existing_input_validation_accepts_required_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_root = root / "external"
+            package_dir = root / "evidence" / "external-l4-trial"
+            trial_root.mkdir()
+            package_dir.mkdir(parents=True)
+            trial_json = trial_root / "handoff_trial.json"
+            trial_json.write_text("{}\n", encoding="utf-8")
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(trial_root),
+                "--external-evidence-package-dir",
+                str(package_dir),
+            )
+
+            run_production_gate.validate_existing_inputs(args)
+
+    def test_existing_input_validation_rejects_missing_trial_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_root = root / "external"
+            package_dir = root / "evidence" / "external-l4-trial"
+            trial_root.mkdir()
+            package_dir.mkdir(parents=True)
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_root / "missing.json"),
+                "--external-trial-root",
+                str(trial_root),
+                "--external-evidence-package-dir",
+                str(package_dir),
+            )
+
+            with self.assertRaisesRegex(run_production_gate.ProductionGateError, "--external-trial-json"):
+                run_production_gate.validate_existing_inputs(args)
+
+    def test_existing_input_validation_rejects_missing_trial_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            package_dir = root / "evidence" / "external-l4-trial"
+            package_dir.mkdir(parents=True)
+            trial_json = root / "handoff_trial.json"
+            trial_json.write_text("{}\n", encoding="utf-8")
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root / "missing-root"),
+                "--external-evidence-package-dir",
+                str(package_dir),
+            )
+
+            with self.assertRaisesRegex(run_production_gate.ProductionGateError, "--external-trial-root"):
+                run_production_gate.validate_existing_inputs(args)
+
+    def test_existing_input_validation_rejects_missing_package_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_root = root / "external"
+            trial_root.mkdir()
+            trial_json = trial_root / "handoff_trial.json"
+            trial_json.write_text("{}\n", encoding="utf-8")
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(trial_root),
+                "--external-evidence-package-dir",
+                str(root / "missing-package"),
+            )
+
+            with self.assertRaisesRegex(run_production_gate.ProductionGateError, "--external-evidence-package-dir"):
+                run_production_gate.validate_existing_inputs(args)
+
+    def test_dry_run_does_not_require_existing_paths(self) -> None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            status = run_production_gate.main(
+                [
+                    "--external-trial-json",
+                    "missing/handoff_trial.json",
+                    "--external-trial-root",
+                    "missing/root",
+                    "--external-evidence-package-dir",
+                    "missing/package",
+                    "--github-release-tag",
+                    "v0.1.0",
+                    "--dry-run",
+                ]
+            )
+
+        self.assertEqual(0, status)
 
 
 if __name__ == "__main__":

@@ -108,7 +108,7 @@ python3 benchmark/run_production_gate.py \
   --github-release-tag v0.1.0
 ```
 
-The wrapper requires a stable non-RC tag and runs `benchmark/release_gate.py` with clean-git, L3 provenance, external L4 trial, external L4 evidence package, stable GitHub release, and `--require-production-claim` checks in the same report.
+The wrapper requires a stable non-RC tag, fail-fast checks that the external trial JSON, trial root, and evidence package directory exist for actual runs, and runs `benchmark/release_gate.py` with clean-git, L3 provenance, external L4 trial, external L4 evidence package, stable GitHub release, and `--require-production-claim` checks in the same report. Use `--dry-run` to inspect the assembled command without requiring those external paths yet.
 
 ## CellProfiler-Style Wide Export
 

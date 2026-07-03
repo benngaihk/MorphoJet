@@ -6,6 +6,7 @@ Updated: 2026-07-04
 
 This milestone adds `benchmark/run_production_gate.py` as the final production-claim entrypoint. It does not replace the release gate; it assembles the required final checks into one command and rejects release-candidate tags before invoking release verification.
 The wrapper is treated as a release-gate orchestration file for provenance compatibility, so changing it does not by itself require regenerating CellBinDB L3 artifacts; changes to measurement code or benchmark generators still do.
+Actual wrapper runs now fail fast when the external trial JSON, trial root, or evidence package directory is missing; `--dry-run` remains available for command review before those external artifacts exist.
 
 Required final command shape:
 
@@ -27,6 +28,7 @@ Local validation for the wrapper:
 | `python3 tests/test_run_production_gate.py` | PASS |
 | `python3 -m unittest discover -s tests -p 'test_run_production_gate.py'` | PASS |
 | `python3 benchmark/run_production_gate.py --external-trial-json path/to/external/handoff_trial.json --external-trial-root path/to/external --external-evidence-package-dir path/to/evidence-packages/external-l4-trial --github-release-tag v0.1.0 --dry-run` | PASS |
+| `python3 benchmark/run_production_gate.py --external-trial-json missing/handoff_trial.json --external-trial-root missing/root --external-evidence-package-dir missing/package --github-release-tag v0.1.0` | FAIL as expected before release-gate execution |
 
 ## L2 ExampleHuman Oracle Snapshot
 

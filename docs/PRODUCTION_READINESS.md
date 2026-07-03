@@ -45,7 +45,7 @@ python3 benchmark/run_production_gate.py \
   --github-release-tag v0.1.0
 ```
 
-This is the single command intended to produce the final production-claim report. It requires a stable non-RC tag and delegates to `benchmark/release_gate.py --require-production-claim`, so production remains incomplete until that command passes with real external evidence and a stable release.
+This is the single command intended to produce the final production-claim report. It requires a stable non-RC tag, checks that the external evidence paths exist before an actual run, and delegates to `benchmark/release_gate.py --require-production-claim`, so production remains incomplete until that command passes with real external evidence and a stable release.
 
 ## Claim Policy
 
