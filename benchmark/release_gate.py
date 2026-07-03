@@ -395,8 +395,26 @@ def external_trial_metadata_failures(metadata: object) -> list[str]:
                 failures.append("metadata.generated_at_utc must include timezone")
         except ValueError:
             failures.append(f"metadata.generated_at_utc is invalid: {generated_at}")
-    if not is_git_commit(metadata.get("git_commit")):
-        failures.append(f"metadata.git_commit is invalid: {metadata.get('git_commit')}")
+    report_commit = metadata.get("git_commit")
+    if not is_git_commit(report_commit):
+        failures.append(f"metadata.git_commit is invalid: {report_commit}")
+    else:
+        current_commit = git_commit()
+        if report_commit != current_commit:
+            try:
+                changed_paths = git_changed_paths(report_commit, current_commit)
+            except subprocess.CalledProcessError:
+                failures.append(f"metadata.git_commit is not reachable: {report_commit}")
+            else:
+                compatible_delta = bool(changed_paths) and all(
+                    is_external_trial_compatible_path(path) for path in changed_paths
+                )
+                if not compatible_delta:
+                    failures.append(
+                        "metadata.git_commit mismatch "
+                        f"trial={report_commit} current={current_commit} "
+                        f"changed_paths={','.join(changed_paths[:20])}"
+                    )
     if metadata.get("git_dirty") is not False:
         failures.append("metadata.git_dirty must be false")
     git_status = metadata.get("git_status")
@@ -639,6 +657,10 @@ def is_doc_path(path: str) -> bool:
 
 
 def is_l3_provenance_compatible_path(path: str) -> bool:
+    return is_doc_path(path) or path.startswith("tests/") or path == "benchmark/release_gate.py"
+
+
+def is_external_trial_compatible_path(path: str) -> bool:
     return is_doc_path(path) or path.startswith("tests/") or path == "benchmark/release_gate.py"
 
 

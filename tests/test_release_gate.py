@@ -60,7 +60,7 @@ def valid_external_trial() -> dict:
             "schema_version": 1,
             "generator": "benchmark/run_handoff_trial.py",
             "generated_at_utc": "2026-07-03T00:00:00+00:00",
-            "git_commit": "a" * 40,
+            "git_commit": release_gate.git_commit(),
             "git_dirty": False,
             "git_status": [],
             "argv": ["benchmark/run_handoff_trial.py", "external_manifest.json"],
@@ -274,6 +274,26 @@ class ReleaseGateTest(unittest.TestCase):
             failures = release_gate.external_trial_failures(trial, root)
 
         self.assertIn("metadata.generator=manual_report.py", failures)
+
+    def test_external_trial_rejects_unreachable_metadata_commit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            trial["metadata"]["git_commit"] = "b" * 40
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("metadata.git_commit is not reachable: " + "b" * 40, failures)
+
+    def test_external_trial_path_allowlist(self) -> None:
+        self.assertTrue(release_gate.is_external_trial_compatible_path("README.md"))
+        self.assertTrue(release_gate.is_external_trial_compatible_path("docs/PRODUCTION_READINESS.md"))
+        self.assertTrue(release_gate.is_external_trial_compatible_path("tests/test_release_gate.py"))
+        self.assertTrue(release_gate.is_external_trial_compatible_path("benchmark/release_gate.py"))
+        self.assertFalse(release_gate.is_external_trial_compatible_path("benchmark/run_handoff_trial.py"))
+        self.assertFalse(release_gate.is_external_trial_compatible_path("crates/morphojet/src/main.rs"))
 
     def test_external_trial_rejects_rendered_manifest_evidence_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
