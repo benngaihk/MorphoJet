@@ -37,11 +37,30 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                 "v0.1.0", {"isPrerelease": False}, expect_prerelease=False, expect_stable=True
             ),
         )
+        self.assertEqual(
+            [],
+            verify_github_release.release_type_issues(
+                "v0.1.0+build.7", {"isPrerelease": False}, expect_prerelease=False, expect_stable=True
+            ),
+        )
         issues = verify_github_release.release_type_issues(
             "v0.1.0-rc.1", {"isPrerelease": True}, expect_prerelease=False, expect_stable=True
         )
         self.assertIn("stable release is marked prerelease", issues)
-        self.assertIn("stable release tag must not contain -rc", issues)
+        self.assertIn("stable release tag must be a non-prerelease semver tag like v0.1.0", issues)
+
+    def test_stable_expectation_rejects_non_rc_prerelease_tags(self) -> None:
+        for tag in ["v0.1.0-beta.1", "v0.1", "release-0.1.0"]:
+            with self.subTest(tag=tag):
+                self.assertIn(
+                    "stable release tag must be a non-prerelease semver tag like v0.1.0",
+                    verify_github_release.release_type_issues(
+                        tag,
+                        {"isPrerelease": False},
+                        expect_prerelease=False,
+                        expect_stable=True,
+                    ),
+                )
 
     def test_release_identity_accepts_matching_tag_and_url(self) -> None:
         self.assertEqual(

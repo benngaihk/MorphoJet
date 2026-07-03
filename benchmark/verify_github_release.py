@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import platform
+import re
 import shutil
 import subprocess
 import tarfile
@@ -16,6 +17,7 @@ from verify_release_archive import verify
 
 
 REQUIRED_PACKAGE_FILES = {"morphojet", "README.md", "LICENSE"}
+STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 
 
 def run(command: list[str]) -> str:
@@ -96,8 +98,8 @@ def release_type_issues(tag: str, release: dict, expect_prerelease: bool, expect
     if expect_stable:
         if release.get("isPrerelease"):
             issues.append("stable release is marked prerelease")
-        if "-rc" in tag:
-            issues.append("stable release tag must not contain -rc")
+        if not STABLE_TAG_PATTERN.fullmatch(tag):
+            issues.append("stable release tag must be a non-prerelease semver tag like v0.1.0")
     return issues
 
 
