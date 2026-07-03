@@ -4,10 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import shlex
 import subprocess
 import sys
+from dataclasses import asdict
+from datetime import datetime, timezone
 from pathlib import Path
 
 import release_gate
@@ -15,6 +18,8 @@ import release_gate
 
 DEFAULT_OUT_JSON = Path("benchmark/results/release-gate/production-claim.json")
 DEFAULT_OUT_MD = Path("benchmark/results/release-gate/production-claim.md")
+DEFAULT_LOCAL_PREFLIGHT_JSON = Path("benchmark/results/release-gate/local-evidence-preflight.json")
+DEFAULT_LOCAL_PREFLIGHT_MD = Path("benchmark/results/release-gate/local-evidence-preflight.md")
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 
 
@@ -76,16 +81,85 @@ def build_release_gate_command(args: argparse.Namespace) -> list[str]:
     return command
 
 
+def build_local_evidence_preflight_payload(args: argparse.Namespace, gates: list[release_gate.Gate]) -> dict:
+    git_status_lines = release_gate.git_status_porcelain()
+    return {
+        "status": "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL",
+        "metadata": {
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+            "git_commit": release_gate.git_commit(),
+            "git_dirty": bool(git_status_lines),
+            "git_status": git_status_lines,
+            "argv": ["benchmark/run_production_gate.py", *sys.argv[1:]],
+            "external_trial_json": str(args.external_trial_json),
+            "external_trial_root": str(args.external_trial_root),
+            "external_evidence_package_dir": str(args.external_evidence_package_dir),
+            "github_release_tag": args.github_release_tag,
+            "local_evidence_preflight_only": args.local_evidence_preflight_only,
+        },
+        "gates": [asdict(gate) for gate in gates],
+    }
+
+
+def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> str:
+    metadata = payload["metadata"]
+    lines = [
+        "# Local External L4 Evidence Preflight",
+        "",
+        f"- status: `{payload['status']}`",
+        f"- json: `{out_json}`",
+        f"- generated_at_utc: `{metadata['generated_at_utc']}`",
+        f"- git_commit: `{metadata['git_commit']}`",
+        f"- git_dirty: `{metadata['git_dirty']}`",
+        f"- external_trial_json: `{metadata['external_trial_json']}`",
+        f"- external_trial_root: `{metadata['external_trial_root']}`",
+        f"- external_evidence_package_dir: `{metadata['external_evidence_package_dir']}`",
+        f"- github_release_tag: `{metadata['github_release_tag']}`",
+        "",
+        "| Gate | Status | Detail |",
+        "|---|---:|---|",
+    ]
+    for gate in payload["gates"]:
+        lines.append(f"| {gate['name']} | {gate['status']} | {gate['detail']} |")
+    lines.extend(
+        [
+            "",
+            "This preflight validates only the external L4 trial report and evidence package. "
+            "It does not satisfy the stable GitHub release or final production-claim gates.",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def write_local_evidence_preflight_report(
+    args: argparse.Namespace,
+    gates: list[release_gate.Gate],
+) -> dict:
+    payload = build_local_evidence_preflight_payload(args, gates)
+    args.local_evidence_preflight_json.parent.mkdir(parents=True, exist_ok=True)
+    args.local_evidence_preflight_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    args.local_evidence_preflight_md.parent.mkdir(parents=True, exist_ok=True)
+    args.local_evidence_preflight_md.write_text(
+        render_local_evidence_preflight_markdown(payload, args.local_evidence_preflight_json) + "\n",
+        encoding="utf-8",
+    )
+    return payload
+
+
 def run_local_evidence_preflight(args: argparse.Namespace) -> int:
     gates = [
         release_gate.validate_external_trial_report(args.external_trial_json, args.external_trial_root),
         release_gate.validate_external_evidence_package(args.external_evidence_package_dir, args.external_trial_json),
     ]
+    payload = write_local_evidence_preflight_report(args, gates)
     for gate in gates:
         print(f"{gate.name}: {gate.status}")
         if gate.detail:
             print(gate.detail)
-    return 0 if all(gate.status == "PASS" for gate in gates) else 1
+    print(f"wrote {args.local_evidence_preflight_json}")
+    print(f"wrote {args.local_evidence_preflight_md}")
+    print(f"status={payload['status']}")
+    return 0 if payload["status"] == "PASS" else 1
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -105,6 +179,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Validate only the external L4 trial and evidence package, without running full release gate",
     )
+    parser.add_argument("--local-evidence-preflight-json", type=Path, default=DEFAULT_LOCAL_PREFLIGHT_JSON)
+    parser.add_argument("--local-evidence-preflight-md", type=Path, default=DEFAULT_LOCAL_PREFLIGHT_MD)
     return parser.parse_args(argv)
 
 

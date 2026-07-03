@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import json
 import sys
 import tempfile
 import unittest
@@ -22,8 +23,6 @@ from test_release_gate import add_artifact_provenance, valid_external_trial, wri
 
 class RunProductionGateTest(unittest.TestCase):
     def write_valid_trial(self, root: Path) -> Path:
-        import json
-
         trial = valid_external_trial()
         write_trial_artifacts(trial, root)
         add_artifact_provenance(trial, root)
@@ -192,6 +191,10 @@ class RunProductionGateTest(unittest.TestCase):
                 "--external-evidence-package-dir",
                 package["package_dir"],
                 "--local-evidence-preflight-only",
+                "--local-evidence-preflight-json",
+                str(root / "preflight.json"),
+                "--local-evidence-preflight-md",
+                str(root / "preflight.md"),
             )
 
             with contextlib.redirect_stdout(io.StringIO()) as stdout:
@@ -200,6 +203,45 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(0, status)
         self.assertIn("Validate external L4 workflow trial report: PASS", stdout.getvalue())
         self.assertIn("Validate external L4 evidence package: PASS", stdout.getvalue())
+
+    def test_local_evidence_preflight_writes_json_and_markdown_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            out_json = root / "reports" / "preflight.json"
+            out_md = root / "reports" / "preflight.md"
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(out_md),
+                "--local-evidence-preflight-only",
+            )
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                status = run_production_gate.run_local_evidence_preflight(args)
+
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            markdown = out_md.read_text(encoding="utf-8")
+
+        self.assertEqual(0, status)
+        self.assertEqual("PASS", payload["status"])
+        self.assertEqual(2, len(payload["gates"]))
+        self.assertIn("Local External L4 Evidence Preflight", markdown)
+        self.assertIn("Validate external L4 evidence package", markdown)
+        self.assertIn("does not satisfy the stable GitHub release", markdown)
 
     def test_main_preflight_only_does_not_print_final_release_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -223,6 +265,10 @@ class RunProductionGateTest(unittest.TestCase):
                         package["package_dir"],
                         "--github-release-tag",
                         "v0.1.0",
+                        "--local-evidence-preflight-json",
+                        str(root / "main-preflight.json"),
+                        "--local-evidence-preflight-md",
+                        str(root / "main-preflight.md"),
                         "--local-evidence-preflight-only",
                     ]
                 )
@@ -250,13 +296,19 @@ class RunProductionGateTest(unittest.TestCase):
                 str(root),
                 "--external-evidence-package-dir",
                 package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(root / "failed-preflight.json"),
+                "--local-evidence-preflight-md",
+                str(root / "failed-preflight.md"),
                 "--local-evidence-preflight-only",
             )
 
             with contextlib.redirect_stdout(io.StringIO()) as stdout:
                 status = run_production_gate.run_local_evidence_preflight(args)
+            payload = json.loads((root / "failed-preflight.json").read_text(encoding="utf-8"))
 
         self.assertEqual(1, status)
+        self.assertEqual("FAIL", payload["status"])
         self.assertIn("Validate external L4 workflow trial report: FAIL", stdout.getvalue())
         self.assertIn("Validate external L4 evidence package: FAIL", stdout.getvalue())
 
