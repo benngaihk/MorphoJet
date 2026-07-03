@@ -7,8 +7,10 @@ import argparse
 import hashlib
 import json
 import subprocess
+import sys
 import time
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -82,6 +84,41 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def git_commit() -> str:
+    completed = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return completed.stdout.strip()
+
+
+def git_status_porcelain() -> list[str]:
+    completed = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return [line for line in completed.stdout.splitlines() if line]
+
+
+def build_metadata() -> dict[str, Any]:
+    git_status = git_status_porcelain()
+    return {
+        "schema_version": 1,
+        "generator": "benchmark/run_handoff_trial.py",
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "git_commit": git_commit(),
+        "git_dirty": bool(git_status),
+        "git_status": git_status,
+        "argv": ["benchmark/run_handoff_trial.py", *sys.argv[1:]],
+    }
 
 
 def artifact_provenance(artifacts: list[str]) -> list[dict[str, Any]]:
@@ -239,6 +276,7 @@ def main() -> int:
         "trial_id": require(manifest, "trial_id"),
         "description": manifest.get("description", ""),
         "status": "PASS" if all(step.status == "PASS" for step in steps) else "FAIL",
+        "metadata": build_metadata(),
         "manifest": str(args.manifest),
         "rendered_manifest": manifest,
         "variables": variables,

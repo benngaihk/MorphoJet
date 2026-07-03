@@ -369,10 +369,52 @@ def rendered_manifest_step_commands(manifest: dict) -> list[tuple[str, list[str]
     return step_commands
 
 
+def is_git_commit(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 40
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def external_trial_metadata_failures(metadata: object) -> list[str]:
+    failures = []
+    if not isinstance(metadata, dict):
+        return ["metadata must be present for external workflow trial reports"]
+    if metadata.get("schema_version") != 1:
+        failures.append(f"metadata.schema_version={metadata.get('schema_version')}")
+    if metadata.get("generator") != "benchmark/run_handoff_trial.py":
+        failures.append(f"metadata.generator={metadata.get('generator')}")
+    generated_at = metadata.get("generated_at_utc")
+    if not isinstance(generated_at, str) or not generated_at.strip():
+        failures.append("metadata.generated_at_utc must be a non-empty string")
+    else:
+        try:
+            parsed_generated_at = datetime.fromisoformat(generated_at)
+            if parsed_generated_at.tzinfo is None:
+                failures.append("metadata.generated_at_utc must include timezone")
+        except ValueError:
+            failures.append(f"metadata.generated_at_utc is invalid: {generated_at}")
+    if not is_git_commit(metadata.get("git_commit")):
+        failures.append(f"metadata.git_commit is invalid: {metadata.get('git_commit')}")
+    if metadata.get("git_dirty") is not False:
+        failures.append("metadata.git_dirty must be false")
+    git_status = metadata.get("git_status")
+    if git_status != []:
+        failures.append("metadata.git_status must be empty for a clean external trial")
+    argv = metadata.get("argv")
+    if not isinstance(argv, list) or not argv or not all(isinstance(item, str) and item for item in argv):
+        failures.append("metadata.argv must be a non-empty string list")
+    elif argv[0] != "benchmark/run_handoff_trial.py":
+        failures.append(f"metadata.argv[0]={argv[0]}")
+    return failures
+
+
 def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> list[str]:
     failures = []
     if trial.get("status") != "PASS":
         failures.append(f"trial status is {trial.get('status')}")
+    failures.extend(external_trial_metadata_failures(trial.get("metadata")))
     rendered_manifest = trial.get("rendered_manifest")
     if not isinstance(rendered_manifest, dict):
         failures.append("rendered_manifest must be present for external workflow trial reports")

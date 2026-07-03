@@ -56,6 +56,15 @@ def valid_external_trial() -> dict:
     return {
         "trial_id": "external-lab-supported-columns-handoff",
         "status": "PASS",
+        "metadata": {
+            "schema_version": 1,
+            "generator": "benchmark/run_handoff_trial.py",
+            "generated_at_utc": "2026-07-03T00:00:00+00:00",
+            "git_commit": "a" * 40,
+            "git_dirty": False,
+            "git_status": [],
+            "argv": ["benchmark/run_handoff_trial.py", "external_manifest.json"],
+        },
         "rendered_manifest": manifest,
         "external_evidence": external_evidence,
         "artifacts": release_gate.rendered_manifest_artifacts(manifest),
@@ -227,6 +236,44 @@ class ReleaseGateTest(unittest.TestCase):
             failures = release_gate.external_trial_failures(trial, root)
 
         self.assertIn("rendered_manifest must be present for external workflow trial reports", failures)
+
+    def test_external_trial_requires_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            del trial["metadata"]
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("metadata must be present for external workflow trial reports", failures)
+
+    def test_external_trial_rejects_dirty_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            trial["metadata"]["git_dirty"] = True
+            trial["metadata"]["git_status"] = [" M benchmark/run_handoff_trial.py"]
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("metadata.git_dirty must be false", failures)
+        self.assertIn("metadata.git_status must be empty for a clean external trial", failures)
+
+    def test_external_trial_rejects_wrong_metadata_generator(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            trial["metadata"]["generator"] = "manual_report.py"
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("metadata.generator=manual_report.py", failures)
 
     def test_external_trial_rejects_rendered_manifest_evidence_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
