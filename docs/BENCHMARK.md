@@ -102,7 +102,7 @@ python3 benchmark/run_handoff_trial.py benchmark/handoff/cellbindb_supported_col
 
 The CellBinDB handoff manifest materializes `Cells.wide.csv`, compares the supported columns to CellProfiler, then runs `benchmark/check_cellprofiler_wide_contract.py` as a downstream contract check.
 
-For an external lab trial, copy `benchmark/handoff/external_lab_template.json`, point `base_dir` at the lab handoff directory, update `object_set`, `channels`, downstream checks, and the `external_evidence` block, then run the validator with `--require-external-evidence` before the same trial runner. Do not use `--allow-external-evidence-placeholders` for a real trial; it exists only so the repository template can be schema-checked before the placeholder values are replaced. Full L4 is not complete until that external manifest runs without manual CSV editing and the generated report records the external evidence fields.
+For an external lab trial, copy `benchmark/handoff/external_lab_template.json`, point `base_dir` at the lab handoff directory, update `object_set`, `channels`, downstream checks, and the `external_evidence` block, then run the validator with `--require-external-evidence` before the same trial runner. Do not use `--allow-external-evidence-placeholders` for a real trial; it exists only so the repository template can be schema-checked before the placeholder values are replaced. Full L4 is not complete until that external manifest runs without manual CSV editing, the generated report records the external evidence fields, and `python3 benchmark/release_gate.py --external-trial-json path/to/handoff_trial.json` passes.
 
 Example:
 

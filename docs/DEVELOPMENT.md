@@ -106,6 +106,15 @@ python3 benchmark/release_gate.py
 
 Use `--require-clean-git --require-l3-provenance` for any report intended to support a release or production-readiness claim.
 
+After a real external workflow trial has been run with `benchmark/run_handoff_trial.py`, add its JSON report to the production-readiness release gate:
+
+```bash
+python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance \
+  --external-trial-json path/to/external/handoff_trial.json
+```
+
+The external trial gate requires `status=PASS`, all trial steps passing, a non-empty artifact list, filled external evidence fields with no `REPLACE_WITH` placeholders, and `manual_csv_editing=false`.
+
 For a scheduler-ready entrypoint that performs the fetch/verify step, verifies an existing CellBinDB archive with pinned MD5/size when Zenodo metadata is temporarily unavailable, pulls the pinned CellProfiler Docker image, and runs `python3 benchmark/release_gate.py --require-l3-provenance --run-l3`, use:
 
 ```bash

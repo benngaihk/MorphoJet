@@ -271,6 +271,78 @@ def validate_handoff_trial_artifacts() -> Gate:
     )
 
 
+def has_placeholder(value: str) -> bool:
+    return value.startswith("REPLACE_WITH")
+
+
+def external_trial_failures(trial: dict) -> list[str]:
+    failures = []
+    if trial.get("status") != "PASS":
+        failures.append(f"trial status is {trial.get('status')}")
+    steps = trial.get("steps")
+    if not isinstance(steps, list) or not steps:
+        failures.append("trial has no steps")
+    else:
+        failed_steps = [step.get("name", "<unnamed>") for step in steps if step.get("status") != "PASS"]
+        if failed_steps:
+            failures.append(f"failed trial steps={','.join(failed_steps)}")
+    artifacts = trial.get("artifacts")
+    if not isinstance(artifacts, list) or not artifacts:
+        failures.append("trial artifacts must be a non-empty list")
+    evidence = trial.get("external_evidence")
+    if not isinstance(evidence, dict):
+        failures.append("external_evidence must be present")
+        return failures
+    required_strings = [
+        "lab_or_org",
+        "workflow_owner",
+        "dataset_name",
+        "dataset_source",
+        "downstream_workflow",
+        "execution_environment",
+    ]
+    for key in required_strings:
+        value = evidence.get(key)
+        if not isinstance(value, str) or not value.strip():
+            failures.append(f"external_evidence.{key} must be a non-empty string")
+        elif has_placeholder(value):
+            failures.append(f"external_evidence.{key} must replace template placeholder text")
+    criteria = evidence.get("acceptance_criteria")
+    if not isinstance(criteria, list) or not criteria or not all(
+        isinstance(item, str) and item.strip() for item in criteria
+    ):
+        failures.append("external_evidence.acceptance_criteria must be a non-empty string list")
+    if evidence.get("manual_csv_editing") is not False:
+        failures.append("external_evidence.manual_csv_editing must be false")
+    return failures
+
+
+def validate_external_trial_report(path: Path) -> Gate:
+    started = time.perf_counter()
+    try:
+        trial = load_json(path)
+        failures = external_trial_failures(trial)
+        status = "FAIL" if failures else "PASS"
+        evidence = trial.get("external_evidence") if isinstance(trial.get("external_evidence"), dict) else {}
+        detail = "; ".join(failures) if failures else (
+            "External workflow trial PASS: "
+            f"trial_id={trial.get('trial_id')}, "
+            f"lab_or_org={evidence.get('lab_or_org')}, "
+            f"steps={len(trial.get('steps') or [])}, "
+            f"artifacts={len(trial.get('artifacts') or [])}"
+        )
+    except Exception as exc:  # noqa: BLE001 - report exact release gate failure.
+        status = "FAIL"
+        detail = f"{type(exc).__name__}: {exc}"
+    return Gate(
+        name="Validate external L4 workflow trial report",
+        command=None,
+        status=status,
+        elapsed_seconds=time.perf_counter() - started,
+        detail=detail,
+    )
+
+
 def local_release_archive_name(version: str) -> str:
     import platform
 
@@ -379,6 +451,7 @@ def build_metadata(args: argparse.Namespace, git_status_lines: list[str]) -> dic
         "verify_github_release": args.verify_github_release,
         "require_clean_git": args.require_clean_git,
         "require_l3_provenance": args.require_l3_provenance,
+        "external_trial_json": str(args.external_trial_json) if args.external_trial_json else None,
     }
 
 
@@ -408,6 +481,11 @@ def main() -> int:
         "--require-l3-provenance",
         action="store_true",
         help="Fail unless CellBinDB L3 provenance exists and hashes match current artifacts",
+    )
+    parser.add_argument(
+        "--external-trial-json",
+        type=Path,
+        help="Validate a real external L4 handoff trial report JSON",
     )
     args = parser.parse_args()
 
@@ -515,6 +593,8 @@ def main() -> int:
         gates.append(validate_l3_provenance_artifact())
     gates.append(validate_workflow_bridge_artifacts())
     gates.append(validate_handoff_trial_artifacts())
+    if args.external_trial_json:
+        gates.append(validate_external_trial_report(args.external_trial_json))
 
     payload = write_report(args, gates, metadata)
     print(f"wrote {args.out_json}")

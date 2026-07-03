@@ -22,7 +22,7 @@ Production-grade means:
 | Correctness | CellProfiler oracle parity report for public data | L2 ExampleHuman PASS and L3 CellBinDB direct-mask PASS for the current measurement subset |
 | Testing | Unit, integration, CLI failure-mode, Clippy, Python helper tests, benchmark smoke tests, and scheduler-ready L3 validation | Implemented for current CLI; CellBinDB L3 validation script and L3 provenance/hash gate added |
 | Performance | Synthetic regression benchmark plus real CellProfiler benchmark | L3 CellBinDB benchmark PASS: 609.82x speedup, 13.98% RSS ratio |
-| Workflow fit | CellProfiler-style object CSV handoff can run without manual CSV editing | CellBinDB L4-preflight handoff PASS with 35 contract columns; external trial template now requires auditable L4 evidence fields |
+| Workflow fit | CellProfiler-style object CSV handoff can run without manual CSV editing | CellBinDB L4-preflight handoff PASS with 35 contract columns; external trial template and release-gate external trial report validation implemented |
 | Observability | Clear stderr summary, actionable error context, runtime diagnostics, and machine-readable success/failure metadata | Runtime `doctor`, optional `measure --summary-json`, and optional `measure --error-json` with basic error codes implemented |
 | Release | GitHub release workflow and checksums | `v0.1.0-rc.1` prerelease PASS: GitHub Actions built Linux/macOS archives, checksums verified, macOS packaged `doctor` commit verified; release gate reports now record git commit, dirty-worktree status, arguments, and optional L3 provenance/hash validation |
 | Documentation | Supported inputs, unsupported scope, parity gaps, and production caveats documented | L3 evidence and release gate documented; L4 workflow caveats remain |
@@ -31,10 +31,10 @@ Production-grade means:
 
 Priority order:
 
-1. Promote the release-candidate validation path from `v0.1.0-rc.1` to a stable `v0.1.0` tag after external workflow evidence.
-2. Copy `benchmark/handoff/external_lab_template.json`, fill the required external evidence block, and run an external lab workflow trial against real batch handoff files.
+1. Promote the release-candidate validation path from `v0.1.0-rc.1` to a stable `v0.1.0` tag after external workflow evidence is accepted by `benchmark/release_gate.py --external-trial-json`.
+2. Copy `benchmark/handoff/external_lab_template.json`, fill the required external evidence block, run an external lab workflow trial against real batch handoff files, and validate the resulting report with release gate.
 3. Broaden the supported measurement subset beyond the current intensity and size/shape columns.
 
 ## Claim Policy
 
-Until every required gate is complete, documentation may claim the narrow L3 benchmark result and the supported-column handoff preflight, but must not say "production-ready" or "replaces CellProfiler workflows" without an external workflow trial.
+Until every required gate is complete, documentation may claim the narrow L3 benchmark result and the supported-column handoff preflight, but must not say "production-ready" or "replaces CellProfiler workflows" without an external workflow trial report accepted by release gate.
