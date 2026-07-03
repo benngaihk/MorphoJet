@@ -101,6 +101,15 @@ def release_type_issues(tag: str, release: dict, expect_prerelease: bool, expect
     return issues
 
 
+def release_identity_issues(tag: str, release: dict) -> list[str]:
+    issues = []
+    if release.get("tagName") != tag:
+        issues.append(f"release tagName mismatch: {release.get('tagName')}")
+    if not isinstance(release.get("url"), str) or not release.get("url", "").strip():
+        issues.append("release url must be a non-empty string")
+    return issues
+
+
 def expected_asset_names(tag: str) -> set[str]:
     return {
         f"morphojet-{tag}-linux-x86_64.tar.gz",
@@ -159,6 +168,7 @@ def main() -> int:
         issues.append("release is draft")
     if args.expect_prerelease and args.expect_stable:
         issues.append("--expect-prerelease and --expect-stable are mutually exclusive")
+    issues.extend(release_identity_issues(args.tag, release))
     issues.extend(release_type_issues(args.tag, release, args.expect_prerelease, args.expect_stable))
 
     expected_assets = expected_asset_names(args.tag)

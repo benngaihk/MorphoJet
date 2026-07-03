@@ -43,6 +43,20 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn("stable release is marked prerelease", issues)
         self.assertIn("stable release tag must not contain -rc", issues)
 
+    def test_release_identity_accepts_matching_tag_and_url(self) -> None:
+        self.assertEqual(
+            [],
+            verify_github_release.release_identity_issues(
+                "v0.1.0", {"tagName": "v0.1.0", "url": "https://github.com/benngaihk/MorphoJet/releases/v0.1.0"}
+            ),
+        )
+
+    def test_release_identity_rejects_mismatched_tag_and_missing_url(self) -> None:
+        issues = verify_github_release.release_identity_issues("v0.1.0", {"tagName": "v0.1.1", "url": ""})
+
+        self.assertIn("release tagName mismatch: v0.1.1", issues)
+        self.assertIn("release url must be a non-empty string", issues)
+
     def test_checksum_issues_accepts_matching_archive_name(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             checksum = Path(tmp) / "archive.tar.gz.sha256"
