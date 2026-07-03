@@ -296,6 +296,7 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("docs/PRODUCTION_READINESS.md"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("tests/test_release_gate.py"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/release_gate.py"))
+        self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/package_external_trial.py"))
         self.assertFalse(release_gate.is_l3_provenance_compatible_path("benchmark/run_cellbindb_oracle.py"))
         self.assertFalse(release_gate.is_l3_provenance_compatible_path("crates/morphojet/src/main.rs"))
 
@@ -418,6 +419,7 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertTrue(release_gate.is_external_trial_compatible_path("docs/PRODUCTION_READINESS.md"))
         self.assertTrue(release_gate.is_external_trial_compatible_path("tests/test_release_gate.py"))
         self.assertTrue(release_gate.is_external_trial_compatible_path("benchmark/release_gate.py"))
+        self.assertTrue(release_gate.is_external_trial_compatible_path("benchmark/package_external_trial.py"))
         self.assertFalse(release_gate.is_external_trial_compatible_path("benchmark/run_handoff_trial.py"))
         self.assertFalse(release_gate.is_external_trial_compatible_path("crates/morphojet/src/main.rs"))
 

@@ -665,11 +665,21 @@ def is_doc_path(path: str) -> bool:
 
 
 def is_l3_provenance_compatible_path(path: str) -> bool:
-    return is_doc_path(path) or path.startswith("tests/") or path == "benchmark/release_gate.py"
+    return (
+        is_doc_path(path)
+        or path.startswith("tests/")
+        or path == "benchmark/release_gate.py"
+        or path == "benchmark/package_external_trial.py"
+    )
 
 
 def is_external_trial_compatible_path(path: str) -> bool:
-    return is_doc_path(path) or path.startswith("tests/") or path == "benchmark/release_gate.py"
+    return (
+        is_doc_path(path)
+        or path.startswith("tests/")
+        or path == "benchmark/release_gate.py"
+        or path == "benchmark/package_external_trial.py"
+    )
 
 
 def validate_clean_git_worktree(status_lines: list[str]) -> Gate:
