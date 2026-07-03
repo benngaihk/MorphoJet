@@ -31,8 +31,8 @@ Production-grade means:
 
 Priority order:
 
-1. Promote the release-candidate validation path from `v0.1.0-rc.1` to a stable `v0.1.0` tag after external workflow evidence is accepted by `benchmark/release_gate.py --external-trial-json`, then verify it with `benchmark/release_gate.py --verify-github-release v0.1.0 --github-release-kind stable`.
-2. Copy `benchmark/handoff/external_lab_template.json`, fill the required external evidence block, run an external lab workflow trial against real batch handoff files, and validate the resulting report with release gate.
+1. Copy `benchmark/handoff/external_lab_template.json`, fill the required external evidence block, run an external lab workflow trial against real batch handoff files, validate the resulting report with release gate, and package it with `benchmark/package_external_trial.py` for review/signoff.
+2. Promote the release-candidate validation path from `v0.1.0-rc.1` to a stable `v0.1.0` tag after external workflow evidence is accepted by `benchmark/release_gate.py --external-trial-json`, then verify it with `benchmark/release_gate.py --verify-github-release v0.1.0 --github-release-kind stable`.
 3. Broaden the supported measurement subset beyond the current intensity and size/shape columns.
 
 ## Claim Policy

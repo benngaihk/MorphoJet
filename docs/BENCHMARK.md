@@ -104,6 +104,17 @@ The CellBinDB handoff manifest materializes `Cells.wide.csv`, compares the suppo
 
 For an external lab trial, copy `benchmark/handoff/external_lab_template.json`, point `base_dir` at the lab handoff directory, update `object_set`, `channels`, downstream checks, and the `external_evidence` block, then run the validator with `--require-external-evidence` before the same trial runner. Do not use `--allow-external-evidence-placeholders` for a real trial; it exists only so the repository template can be schema-checked before the placeholder values are replaced. Full L4 is not complete until that external manifest runs without manual CSV editing, the generated report records clean-git generator metadata for the current commit or a docs/tests/release-gate-only compatible commit, the external evidence fields, rendered manifest snapshot, step commands/runtimes/details, and artifact provenance hashes, and `python3 benchmark/release_gate.py --external-trial-json path/to/handoff_trial.json --external-trial-root path/to/external` passes with the snapshot schema-valid, the step list and commands exactly matching the manifest-declared actions with runtime/detail records, and the artifact list exactly matching the manifest-declared outputs with every file present, non-empty, and hash-matched.
 
+After that gate passes, package the evidence for review:
+
+```bash
+python3 benchmark/package_external_trial.py \
+  --trial-json path/to/external/handoff_trial.json \
+  --trial-root path/to/external \
+  --out-dir path/to/evidence-packages
+```
+
+The package command refuses invalid trial reports and writes a directory, zip, SHA-256 file, rendered manifest snapshot, external evidence JSON, artifact manifest, and copied artifacts.
+
 Example:
 
 ```bash
