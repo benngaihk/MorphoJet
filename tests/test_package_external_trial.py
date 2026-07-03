@@ -151,6 +151,116 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual("FAIL", payload["status"])
         self.assertIn("package zip sha256 mismatch", payload["gate"]["detail"])
 
+    def test_saved_package_verification_report_passes_with_file_recheck(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(
+                    json_out,
+                    require_report_pass=True,
+                    verify_files=True,
+                )
+
+        self.assertEqual(0, code)
+
+    def test_saved_package_verification_report_rejects_status_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["status"] = "FAIL"
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(json_out)
+
+        self.assertEqual(1, code)
+
+    def test_saved_package_verification_report_recomputes_package_validation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["gate"]["detail"] = "External L4 evidence package PASS: stale detail"
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(
+                    json_out,
+                    verify_files=True,
+                )
+
+        self.assertEqual(1, code)
+
+    def test_saved_package_verification_report_can_require_pass(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            Path(result["sha256"]).write_text("0" * 64 + "  external-l4-demo.zip\n", encoding="utf-8")
+            json_out = root / "failed-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                    require_pass=False,
+                )
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(
+                    json_out,
+                    require_report_pass=True,
+                )
+
+        self.assertEqual(1, code)
+
     def test_release_gate_rejects_package_for_different_trial_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
