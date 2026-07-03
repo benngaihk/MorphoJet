@@ -147,6 +147,17 @@ def asset_issues(expected_assets: set[str], release_assets: set[str], downloaded
     return issues
 
 
+def asset_summary(expected_assets: set[str], release_assets: set[str], downloaded_assets: set[str]) -> dict:
+    return {
+        "expected": sorted(expected_assets),
+        "release_metadata": sorted(release_assets),
+        "downloaded": sorted(downloaded_assets),
+        "expected_count": len(expected_assets),
+        "release_metadata_count": len(release_assets),
+        "downloaded_count": len(downloaded_assets),
+    }
+
+
 def doctor_run_issues(archive_summaries: list[dict]) -> list[str]:
     if any(summary.get("doctor") is not None for summary in archive_summaries):
         return []
@@ -218,6 +229,7 @@ def main() -> int:
         "expected_release_kind": "stable" if args.expect_stable else "prerelease" if args.expect_prerelease else None,
         "expected_commit": expected_commit,
         "asset_count": len(actual_assets),
+        "assets": asset_summary(expected_assets, release_assets, actual_assets),
         "archives": archive_summaries,
         "issues": issues,
     }

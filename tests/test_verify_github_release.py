@@ -103,6 +103,20 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             ),
         )
 
+    def test_asset_summary_sorts_assets_and_counts_each_source(self) -> None:
+        summary = verify_github_release.asset_summary(
+            {"b.tar.gz", "a.tar.gz"},
+            {"b.tar.gz"},
+            {"a.tar.gz", "c.tar.gz"},
+        )
+
+        self.assertEqual(["a.tar.gz", "b.tar.gz"], summary["expected"])
+        self.assertEqual(["b.tar.gz"], summary["release_metadata"])
+        self.assertEqual(["a.tar.gz", "c.tar.gz"], summary["downloaded"])
+        self.assertEqual(2, summary["expected_count"])
+        self.assertEqual(1, summary["release_metadata_count"])
+        self.assertEqual(2, summary["downloaded_count"])
+
     def test_doctor_run_issues_accepts_verified_archive(self) -> None:
         self.assertEqual([], verify_github_release.doctor_run_issues([{"doctor": {"issues": []}}]))
 

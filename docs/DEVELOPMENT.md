@@ -162,7 +162,7 @@ For a stable non-RC release after external workflow evidence has passed:
 python3 benchmark/release_gate.py --verify-github-release v0.1.0 --github-release-kind stable
 ```
 
-The GitHub release verifier downloads the release assets, checks release tag identity and URL, requires the release metadata and downloaded files to contain exactly the expected Linux and macOS archives plus `.sha256` files, checks each checksum digest and checksum target filename, validates archive package contents, and requires at least one archive compatible with the current machine to pass `morphojet doctor`.
+The GitHub release verifier downloads the release assets, checks release tag identity and URL, requires the release metadata and downloaded files to contain exactly the expected Linux and macOS archives plus `.sha256` files, records the expected/release/downloaded asset lists in JSON, checks each checksum digest and checksum target filename, validates archive package contents, and requires at least one archive compatible with the current machine to pass `morphojet doctor`.
 
 ## Parity Report Smoke
 
