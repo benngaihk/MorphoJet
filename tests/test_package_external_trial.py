@@ -281,6 +281,32 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual("FAIL", gate.status)
         self.assertIn("package artifact package_path is duplicated", gate.detail)
 
+    def test_release_gate_rejects_package_readme_missing_signoff_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+            readme_path = package_dir / "README.md"
+            readme_path.write_text("# External L4 Trial Evidence Package\n\nplaceholder\n", encoding="utf-8")
+            zip_path = Path(result["zip"])
+            package_external_trial.zip_directory(package_dir, zip_path)
+            Path(result["sha256"]).write_text(
+                f"{release_gate.sha256_file(zip_path)}  external-l4-demo.zip\n",
+                encoding="utf-8",
+            )
+
+            gate = release_gate.validate_external_evidence_package(package_dir, trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("package README missing signoff field: trial_id", gate.detail)
+        self.assertIn("package README missing signoff field: validation_detail", gate.detail)
+
     def test_package_rejects_invalid_external_trial(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -649,6 +649,29 @@ def package_zip_sha256_issues(path: Path, zip_name: str) -> tuple[str | None, li
     return digest, issues
 
 
+def external_package_readme_failures(readme: str, trial: dict, artifact_manifest: dict) -> list[str]:
+    evidence = trial.get("external_evidence") if isinstance(trial.get("external_evidence"), dict) else {}
+    metadata = trial.get("metadata") if isinstance(trial.get("metadata"), dict) else {}
+    required_fields = {
+        "trial_id": f"- trial_id: `{trial.get('trial_id')}`",
+        "trial_status": f"- trial_status: `{trial.get('status')}`",
+        "lab_or_org": f"- lab_or_org: `{evidence.get('lab_or_org')}`",
+        "workflow_owner": f"- workflow_owner: `{evidence.get('workflow_owner')}`",
+        "dataset_name": f"- dataset_name: `{evidence.get('dataset_name')}`",
+        "downstream_workflow": f"- downstream_workflow: `{evidence.get('downstream_workflow')}`",
+        "manual_csv_editing": f"- manual_csv_editing: `{evidence.get('manual_csv_editing')}`",
+        "trial_git_commit": f"- trial_git_commit: `{metadata.get('git_commit')}`",
+        "packaged_at_utc": f"- packaged_at_utc: `{artifact_manifest.get('packaged_at_utc')}`",
+        "validation_detail": "This package was created only after the external trial report passed",
+        "revalidation_command": "python3 benchmark/release_gate.py --external-trial-json",
+    }
+    failures = []
+    for name, snippet in required_fields.items():
+        if snippet not in readme:
+            failures.append(f"package README missing signoff field: {name}")
+    return failures
+
+
 def validate_external_evidence_package(package_dir: Path, trial_json: Path | None) -> Gate:
     started = time.perf_counter()
     try:
@@ -678,6 +701,7 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
         rendered_manifest = load_json(rendered_manifest_path)
         external_evidence = load_json(external_evidence_path)
         artifact_manifest = load_json(artifact_manifest_path)
+        readme = readme_path.read_text(encoding="utf-8")
         if trial_json is not None and sha256_file(trial_path) != sha256_file(trial_json):
             failures.append("package handoff_trial.json does not match --external-trial-json")
         if artifact_manifest.get("schema_version") != 1:
@@ -700,6 +724,7 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
             failures.append("package rendered_manifest.json must match trial rendered_manifest")
         if external_evidence != trial.get("external_evidence"):
             failures.append("package external_evidence.json must match trial external_evidence")
+        failures.extend(external_package_readme_failures(readme, trial, artifact_manifest))
         manifest_artifacts = artifact_manifest.get("artifacts")
         if not isinstance(manifest_artifacts, list) or not manifest_artifacts:
             failures.append("package artifact_manifest.artifacts must be a non-empty list")
