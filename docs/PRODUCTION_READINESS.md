@@ -21,7 +21,7 @@ Production-grade means:
 | Output safety | Avoid partial final `Image.csv` / `Objects.csv` files on failure and prevent diagnostic reports from masquerading as measurement CSVs | Implemented through staging writes plus final-target and report-target preflight checks for current CLI |
 | Correctness | CellProfiler oracle parity report for public data | L2 ExampleHuman PASS and L3 CellBinDB direct-mask PASS for the current measurement subset |
 | Testing | Unit, integration, CLI failure-mode, Clippy, Python helper tests, benchmark smoke tests, and scheduler-ready L3 validation | Implemented for current CLI; CellBinDB L3 validation script and L3 provenance/hash gate added |
-| Performance | Synthetic regression benchmark plus real CellProfiler benchmark | L3 CellBinDB benchmark PASS: 575.77x speedup, 12.54% RSS ratio |
+| Performance | Synthetic regression benchmark plus real CellProfiler benchmark | L3 CellBinDB benchmark PASS: 609.82x speedup, 13.98% RSS ratio |
 | Workflow fit | CellProfiler-style object CSV handoff can run without manual CSV editing | CellBinDB L4-preflight handoff PASS with 35 contract columns; external trial template now requires auditable L4 evidence fields |
 | Observability | Clear stderr summary, actionable error context, runtime diagnostics, and machine-readable success/failure metadata | Runtime `doctor`, optional `measure --summary-json`, and optional `measure --error-json` with basic error codes implemented |
 | Release | GitHub release workflow and checksums | `v0.1.0-rc.1` prerelease PASS: GitHub Actions built Linux/macOS archives, checksums verified, macOS packaged `doctor` commit verified; release gate reports now record git commit, dirty-worktree status, arguments, and optional L3 provenance/hash validation |

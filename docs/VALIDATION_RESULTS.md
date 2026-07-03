@@ -203,15 +203,15 @@ Result:
 | Scale | >=1000 image rows | 1044 | PASS |
 | Object count parity | 100% | 100.0000% | PASS |
 | Core numeric parity | >=99% | 100.0000% | PASS |
-| Wall-clock speedup | >=10x | 575.77x | PASS |
-| Peak RSS ratio | <=50% | 12.54% | PASS |
+| Wall-clock speedup | >=10x | 609.82x | PASS |
+| Peak RSS ratio | <=50% | 13.98% | PASS |
 
 Raw metrics:
 
 | Tool | Seconds | Peak RSS MB |
 |---|---:|---:|
-| CellProfiler | 557.835237 | 681.900 |
-| MorphoJet | 0.968850 | 85.516 |
+| CellProfiler | 621.142680 | 667.100 |
+| MorphoJet | 1.018568 | 93.266 |
 
 Parity:
 
@@ -224,7 +224,7 @@ Parity:
 | Numeric compared | 2,806,336 |
 | Numeric failures | 0 |
 
-Provenance: the scheduler-ready L3 release gate passed for commit `4eba44624f6d` with a clean worktree, `skip_cellprofiler=false`, and 14 hashed artifacts.
+Provenance: the scheduler-ready L3 release gate passed for commit `abf6b31413f0` with a clean worktree, `skip_cellprofiler=false`, and 14 hashed artifacts.
 
 Conclusion: L3 passes for this CellBinDB direct-mask measurement benchmark with artifact provenance. This does not prove full CellProfiler replacement, upstream segmentation replacement, or external lab workflow fit; those remain L4/production-readiness work.
 
