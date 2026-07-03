@@ -476,6 +476,8 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> l
                 elapsed = step.get("elapsed_seconds")
                 if not isinstance(elapsed, (int, float)) or elapsed < 0:
                     failures.append(f"trial step elapsed_seconds is invalid: {step['name']}")
+                if not isinstance(step.get("detail"), str):
+                    failures.append(f"trial step detail must be a string: {step['name']}")
             else:
                 failures.append("trial step name must be a non-empty string")
         duplicated_steps = sorted(
