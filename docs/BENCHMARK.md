@@ -113,7 +113,7 @@ python3 benchmark/package_external_trial.py \
   --out-dir path/to/evidence-packages
 ```
 
-The package command refuses invalid trial reports and writes a directory, zip, SHA-256 file, rendered manifest snapshot, external evidence JSON, artifact manifest, README, and copied artifacts. Release gate checks that the README preserves the trial/signoff fields, that the artifact manifest uses unique source and package paths, that the zip contains exactly every required package file and declared artifact with no duplicate, missing, or extra entries, that zip entry bytes match the package directory, and that the checksum file contains a valid digest for the package zip filename.
+The package command refuses invalid trial reports and writes a directory, zip, SHA-256 file, rendered manifest snapshot, external evidence JSON, artifact manifest, README, and copied artifacts. Release gate checks that the README preserves the trial/signoff fields, that the artifact manifest preserves absolute trial JSON/root source metadata matching the release-gate inputs and uses unique source and package paths, that the zip contains exactly every required package file and declared artifact with no duplicate, missing, or extra entries, that zip entry bytes match the package directory, and that the checksum file contains a valid digest for the package zip filename.
 Final release gates should pass the accepted package directory with `--external-evidence-package-dir` alongside `--external-trial-json`, so the workflow trial and review package are checked together.
 
 Example:

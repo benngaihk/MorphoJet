@@ -720,6 +720,25 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
                 failures.append(f"package artifact_manifest.packaged_at_utc is invalid: {packaged_at}")
         if artifact_manifest.get("trial_id") != trial.get("trial_id"):
             failures.append("package artifact_manifest.trial_id must match trial_id")
+        manifest_trial_json = artifact_manifest.get("trial_json")
+        if not isinstance(manifest_trial_json, str) or not Path(manifest_trial_json).is_absolute():
+            failures.append("package artifact_manifest.trial_json must be an absolute path")
+        elif trial_json is not None and Path(manifest_trial_json) != trial_json.resolve():
+            failures.append("package artifact_manifest.trial_json must match --external-trial-json")
+        elif Path(manifest_trial_json).name != trial_path.name:
+            failures.append("package artifact_manifest.trial_json must match packaged handoff_trial.json")
+        manifest_trial_root = artifact_manifest.get("trial_root")
+        if not isinstance(manifest_trial_root, str) or not Path(manifest_trial_root).is_absolute():
+            failures.append("package artifact_manifest.trial_root must be an absolute path")
+        else:
+            manifest_trial_root_path = Path(manifest_trial_root)
+            trial_artifacts_for_root = trial.get("artifacts") if isinstance(trial.get("artifacts"), list) else []
+            if trial_artifacts_for_root and not all(
+                resolve_artifact_path(artifact, manifest_trial_root_path).is_file()
+                for artifact in trial_artifacts_for_root
+                if isinstance(artifact, str)
+            ):
+                failures.append("package artifact_manifest.trial_root does not resolve trial artifacts")
         if rendered_manifest != trial.get("rendered_manifest"):
             failures.append("package rendered_manifest.json must match trial rendered_manifest")
         if external_evidence != trial.get("external_evidence"):
