@@ -201,6 +201,29 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual("FAIL", gate.status)
         self.assertIn("package zip has unexpected entry: external-l4-demo/extra-notes.txt", gate.detail)
 
+    def test_release_gate_rejects_duplicate_artifact_package_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+            manifest_path = package_dir / "artifact_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["artifacts"][1]["package_path"] = manifest["artifacts"][0]["package_path"]
+            manifest["artifacts"][1]["size_bytes"] = manifest["artifacts"][0]["size_bytes"]
+            manifest["artifacts"][1]["sha256"] = manifest["artifacts"][0]["sha256"]
+            manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+            gate = release_gate.validate_external_evidence_package(package_dir, trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("package artifact package_path is duplicated", gate.detail)
+
     def test_package_rejects_invalid_external_trial(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

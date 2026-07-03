@@ -705,6 +705,7 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
             failures.append("package artifact_manifest.artifacts must be a non-empty list")
             manifest_artifacts = []
         entries_by_source = {}
+        entries_by_package_path = {}
         for entry in manifest_artifacts:
             if not isinstance(entry, dict):
                 failures.append("package artifact_manifest artifact entries must be objects")
@@ -720,6 +721,9 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
             if not package_path_is_safe(package_path):
                 failures.append(f"package artifact package_path is unsafe: {source_path}")
                 continue
+            if package_path in entries_by_package_path:
+                failures.append(f"package artifact package_path is duplicated: {package_path}")
+            entries_by_package_path[package_path] = entry
             packaged_file = (package_dir / package_path).resolve()
             try:
                 packaged_file.relative_to(package_dir)
