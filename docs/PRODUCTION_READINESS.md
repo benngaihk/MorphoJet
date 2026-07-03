@@ -39,4 +39,4 @@ Priority order:
 
 Until every required gate is complete, documentation may claim the narrow L3 benchmark result and the supported-column handoff preflight, but must not say "production-ready" or "replaces CellProfiler workflows" without an external workflow trial report accepted by release gate.
 
-The release-gate report's `production_claim_status` is the machine-readable summary for this policy. It is expected to remain `INCOMPLETE` until clean-git, L3 provenance, external L4 workflow, and stable GitHub release checks are all present and passing in the same report.
+The release-gate report's `production_claim_status` is the machine-readable summary for this policy. It is expected to remain `INCOMPLETE` until clean-git, L3 provenance, external L4 workflow, and stable GitHub release checks are all present and passing in the same report. Reports also include `missing_or_failed_checks`, which names the exact production-claim checks still blocking a production-ready or CellProfiler-replacement claim.

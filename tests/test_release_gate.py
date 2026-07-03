@@ -144,8 +144,18 @@ class ReleaseGateTest(unittest.TestCase):
         statuses = {check["name"]: check["status"] for check in audit["checks"]}
         self.assertEqual("MISSING", statuses["clean_git_worktree"])
         self.assertEqual("PASS", statuses["standard_code_and_artifact_gates"])
+        self.assertEqual("MISSING", statuses["l3_provenance_hashes"])
         self.assertEqual("MISSING", statuses["external_l4_workflow_trial"])
         self.assertEqual("MISSING", statuses["stable_github_release"])
+        self.assertEqual(
+            [
+                "clean_git_worktree",
+                "l3_provenance_hashes",
+                "external_l4_workflow_trial",
+                "stable_github_release",
+            ],
+            audit["missing_or_failed_checks"],
+        )
 
     def test_production_claim_audit_passes_when_required_claim_gates_pass(self) -> None:
         gates = self.production_gates(
@@ -180,6 +190,7 @@ class ReleaseGateTest(unittest.TestCase):
         )
 
         self.assertEqual("PASS", audit["status"])
+        self.assertEqual([], audit["missing_or_failed_checks"])
 
     def test_doc_path_allowlist(self) -> None:
         self.assertTrue(release_gate.is_doc_path("README.md"))

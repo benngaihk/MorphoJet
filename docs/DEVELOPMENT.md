@@ -104,7 +104,7 @@ For a fast local audit of already-generated L3 artifacts, run:
 python3 benchmark/release_gate.py
 ```
 
-Use `--require-clean-git --require-l3-provenance` for any report intended to support a release or production-readiness claim. A normal release-gate `status=PASS` means the executed gates passed; the report's `production_claim_status` remains `INCOMPLETE` until external L4 and stable GitHub release validation are also included.
+Use `--require-clean-git --require-l3-provenance` for any report intended to support a release or production-readiness claim. A normal release-gate `status=PASS` means the executed gates passed; the report's `production_claim_status` remains `INCOMPLETE` until external L4 and stable GitHub release validation are also included. The JSON and Markdown reports also list `missing_or_failed_checks` so the remaining production-claim blockers are visible without manually comparing the audit table.
 
 After a real external workflow trial has been run with `benchmark/run_handoff_trial.py`, add its JSON report to the production-readiness release gate:
 

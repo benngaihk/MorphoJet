@@ -753,9 +753,11 @@ def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], me
         },
     ]
     status = "PASS" if all(check["status"] == "PASS" for check in checks) else "INCOMPLETE"
+    missing_or_failed_checks = [check["name"] for check in checks if check["status"] != "PASS"]
     return {
         "status": status,
         "git_commit": metadata["git_commit"],
+        "missing_or_failed_checks": missing_or_failed_checks,
         "checks": checks,
     }
 
@@ -768,6 +770,7 @@ def render_markdown(payload: dict, out_json: Path) -> str:
         "",
         f"- status: `{payload['status']}`",
         f"- production_claim_status: `{audit['status']}`",
+        f"- missing_or_failed_checks: `{', '.join(audit['missing_or_failed_checks']) or 'none'}`",
         f"- json: `{out_json}`",
         f"- generated_at_utc: `{metadata['generated_at_utc']}`",
         f"- git_commit: `{metadata['git_commit']}`",
