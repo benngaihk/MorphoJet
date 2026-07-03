@@ -189,10 +189,12 @@ python3 benchmark/run_production_gate.py \
   --external-trial-json path/to/external/handoff_trial.json \
   --external-trial-root path/to/external \
   --external-evidence-package-dir path/to/evidence-packages/external-l4-trial \
+  --external-trial-verification-report path/to/external/handoff_trial-verification.json \
+  --external-evidence-package-verification-report path/to/evidence-packages/external-l4-trial-verification.json \
   --github-release-tag v0.1.0
 ```
 
-The wrapper rejects release-candidate tags such as `v0.1.0-rc.1`, checks that the external trial JSON, trial root, and evidence package directory exist before an actual run, and invokes `benchmark/release_gate.py` with `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, the external L4 trial and package paths, `--verify-github-release`, and `--github-release-kind stable`. Use `--dry-run` to print the assembled command without checking local evidence paths or performing network/release verification side effects.
+The wrapper rejects release-candidate tags such as `v0.1.0-rc.1`, checks that the external trial JSON, trial root, evidence package directory, and any supplied reviewer verification reports exist before an actual run, fail-closed re-checks supplied saved verifier reports with `--verify-report-files --require-report-pass`, and invokes `benchmark/release_gate.py` with `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, the external L4 trial and package paths, `--verify-github-release`, and `--github-release-kind stable`. Use `--dry-run` to print the assembled command without checking local evidence paths or performing network/release verification side effects.
 
 When the external L4 trial and evidence package are ready but the stable GitHub release is not yet cut, run a local evidence preflight:
 
@@ -201,11 +203,13 @@ python3 benchmark/run_production_gate.py \
   --external-trial-json path/to/external/handoff_trial.json \
   --external-trial-root path/to/external \
   --external-evidence-package-dir path/to/evidence-packages/external-l4-trial \
+  --external-trial-verification-report path/to/external/handoff_trial-verification.json \
+  --external-evidence-package-verification-report path/to/evidence-packages/external-l4-trial-verification.json \
   --github-release-tag v0.1.0 \
   --local-evidence-preflight-only
 ```
 
-This mode reuses `release_gate.py`'s external trial and package validators, including artifact SHA-256 checks and package/trial matching, writes JSON and Markdown reports to `benchmark/results/release-gate/local-evidence-preflight.json` and `.md` by default, records `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, `final_evidence_acceptable=false`, plus the skipped final checks, and summarizes the key input file sizes/SHA-256 hashes for audit. It intentionally skips code gates and GitHub release verification. Override those paths with `--local-evidence-preflight-json` and `--local-evidence-preflight-md`. It is a staging preflight, not the final production claim.
+This mode reuses `release_gate.py`'s external trial and package validators, including artifact SHA-256 checks and package/trial matching, re-checks any supplied saved reviewer verifier reports, writes JSON and Markdown reports to `benchmark/results/release-gate/local-evidence-preflight.json` and `.md` by default, records `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, `final_evidence_acceptable=false`, plus the skipped final checks, and summarizes the key input file sizes/SHA-256 hashes for audit. It intentionally skips code gates and GitHub release verification. Override those paths with `--local-evidence-preflight-json` and `--local-evidence-preflight-md`. It is a staging preflight, not the final production claim.
 
 Saved local evidence preflight JSON reports can be schema-checked later without passing the original evidence paths:
 

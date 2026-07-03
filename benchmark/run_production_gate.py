@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import re
 import shlex
@@ -14,6 +16,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import release_gate
+import verify_external_evidence_package
+import verify_external_trial_report
 
 
 DEFAULT_OUT_JSON = Path("benchmark/results/release-gate/production-claim.json")
@@ -38,9 +42,17 @@ LOCAL_PREFLIGHT_INPUT_NAMES = {
     "package_zip",
     "package_zip_sha256",
 }
+LOCAL_PREFLIGHT_OPTIONAL_INPUT_NAMES = {
+    "external_trial_verification_report",
+    "external_evidence_package_verification_report",
+}
 LOCAL_PREFLIGHT_GATE_NAMES = {
     "Validate external L4 workflow trial report",
     "Validate external L4 evidence package",
+}
+LOCAL_PREFLIGHT_OPTIONAL_GATE_NAMES = {
+    "Verify saved external L4 trial report",
+    "Verify saved external L4 evidence package report",
 }
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 
@@ -78,6 +90,19 @@ def validate_existing_inputs(args: argparse.Namespace) -> None:
     if not args.external_evidence_package_dir.is_dir():
         raise ProductionGateError(
             f"--external-evidence-package-dir is not a directory: {args.external_evidence_package_dir}"
+        )
+    if args.external_trial_verification_report and not args.external_trial_verification_report.is_file():
+        raise ProductionGateError(
+            "--external-trial-verification-report is not a file: "
+            f"{args.external_trial_verification_report}"
+        )
+    if (
+        args.external_evidence_package_verification_report
+        and not args.external_evidence_package_verification_report.is_file()
+    ):
+        raise ProductionGateError(
+            "--external-evidence-package-verification-report is not a file: "
+            f"{args.external_evidence_package_verification_report}"
         )
 
 
@@ -137,6 +162,12 @@ def build_local_evidence_preflight_payload(args: argparse.Namespace, gates: list
             "external_trial_json": str(args.external_trial_json),
             "external_trial_root": str(args.external_trial_root),
             "external_evidence_package_dir": str(args.external_evidence_package_dir),
+            "external_trial_verification_report": str(args.external_trial_verification_report)
+            if args.external_trial_verification_report
+            else None,
+            "external_evidence_package_verification_report": str(args.external_evidence_package_verification_report)
+            if args.external_evidence_package_verification_report
+            else None,
             "github_release_tag": args.github_release_tag,
             "local_evidence_preflight_only": args.local_evidence_preflight_only,
         },
@@ -151,7 +182,83 @@ def local_evidence_input_artifacts(args: argparse.Namespace) -> list[dict]:
         file_summary("package_handoff_trial_json", package_dir / "handoff_trial.json"),
         file_summary("package_zip", package_dir.parent / f"{package_dir.name}.zip"),
         file_summary("package_zip_sha256", package_dir.parent / f"{package_dir.name}.zip.sha256"),
+        *optional_file_summaries(
+            [
+                ("external_trial_verification_report", args.external_trial_verification_report),
+                (
+                    "external_evidence_package_verification_report",
+                    args.external_evidence_package_verification_report,
+                ),
+            ]
+        ),
     ]
+
+
+def optional_file_summaries(named_paths: list[tuple[str, Path | None]]) -> list[dict]:
+    return [file_summary(name, path) for name, path in named_paths if path is not None]
+
+
+def saved_verifier_gate(
+    name: str,
+    command: list[str],
+    verifier,
+    report: Path,
+) -> release_gate.Gate:
+    started = datetime.now(timezone.utc)
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+        status_code = verifier(
+            report,
+            require_report_pass=True,
+            verify_files=True,
+        )
+    detail = (stdout.getvalue() + stderr.getvalue()).strip()
+    elapsed = (datetime.now(timezone.utc) - started).total_seconds()
+    return release_gate.Gate(
+        name=name,
+        command=command,
+        status="PASS" if status_code == 0 else "FAIL",
+        elapsed_seconds=elapsed,
+        detail=detail,
+    )
+
+
+def saved_reviewer_report_gates(args: argparse.Namespace) -> list[release_gate.Gate]:
+    gates = []
+    if args.external_trial_verification_report:
+        gates.append(
+            saved_verifier_gate(
+                "Verify saved external L4 trial report",
+                [
+                    sys.executable,
+                    "benchmark/verify_external_trial_report.py",
+                    "--verify-report",
+                    str(args.external_trial_verification_report),
+                    "--verify-report-files",
+                    "--require-report-pass",
+                ],
+                verify_external_trial_report.verify_saved_external_trial_report,
+                args.external_trial_verification_report,
+            )
+        )
+    if args.external_evidence_package_verification_report:
+        gates.append(
+            saved_verifier_gate(
+                "Verify saved external L4 evidence package report",
+                [
+                    sys.executable,
+                    "benchmark/verify_external_evidence_package.py",
+                    "--verify-report",
+                    str(args.external_evidence_package_verification_report),
+                    "--verify-report-files",
+                    "--require-report-pass",
+                ],
+                verify_external_evidence_package.verify_saved_external_evidence_package_report,
+                args.external_evidence_package_verification_report,
+            )
+        )
+    return gates
 
 
 def file_summary(name: str, path: Path) -> dict:
@@ -194,6 +301,9 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
         f"- external_trial_json: `{metadata['external_trial_json']}`",
         f"- external_trial_root: `{metadata['external_trial_root']}`",
         f"- external_evidence_package_dir: `{metadata['external_evidence_package_dir']}`",
+        f"- external_trial_verification_report: `{metadata['external_trial_verification_report']}`",
+        "- external_evidence_package_verification_report: "
+        f"`{metadata['external_evidence_package_verification_report']}`",
         f"- github_release_tag: `{metadata['github_release_tag']}`",
         f"- validated_checks: `{', '.join(payload['validated_checks'])}`",
         f"- skipped_final_checks: `{', '.join(payload['skipped_final_checks'])}`",
@@ -250,6 +360,7 @@ def run_local_evidence_preflight(args: argparse.Namespace) -> int:
     gates = [
         release_gate.validate_external_trial_report(args.external_trial_json, args.external_trial_root),
         release_gate.validate_external_evidence_package(args.external_evidence_package_dir, args.external_trial_json),
+        *saved_reviewer_report_gates(args),
     ]
     payload = write_local_evidence_preflight_report(args, gates)
     for gate in gates:
@@ -267,6 +378,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--external-trial-json", type=Path)
     parser.add_argument("--external-trial-root", type=Path)
     parser.add_argument("--external-evidence-package-dir", type=Path)
+    parser.add_argument("--external-trial-verification-report", type=Path)
+    parser.add_argument("--external-evidence-package-verification-report", type=Path)
     parser.add_argument("--github-release-tag", help="Stable non-RC release tag, e.g. v0.1.0")
     parser.add_argument("--out-json", type=Path, default=DEFAULT_OUT_JSON)
     parser.add_argument("--out-md", type=Path, default=DEFAULT_OUT_MD)
@@ -321,6 +434,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.local_evidence_preflight_only:
         return run_local_evidence_preflight(args)
+    reviewer_gates = saved_reviewer_report_gates(args)
+    if reviewer_gates:
+        for gate in reviewer_gates:
+            print(f"{gate.name}: {gate.status}")
+            if gate.detail:
+                print(gate.detail)
+        if not all(gate.status == "PASS" for gate in reviewer_gates):
+            return 1
     print(shlex.join(command))
     return subprocess.run(command).returncode
 
@@ -357,6 +478,8 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
             "external_trial_json",
             "external_trial_root",
             "external_evidence_package_dir",
+            "external_trial_verification_report",
+            "external_evidence_package_verification_report",
             "github_release_tag",
             "local_evidence_preflight_only",
         ]:
@@ -396,7 +519,8 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
         failures.append("input_artifacts must be a list")
     else:
         names = {artifact.get("name") for artifact in artifacts if isinstance(artifact, dict)}
-        if names != LOCAL_PREFLIGHT_INPUT_NAMES:
+        allowed_names = LOCAL_PREFLIGHT_INPUT_NAMES | LOCAL_PREFLIGHT_OPTIONAL_INPUT_NAMES
+        if not LOCAL_PREFLIGHT_INPUT_NAMES.issubset(names) or names - allowed_names:
             failures.append(f"input_artifacts names={sorted(str(name) for name in names)}")
         for artifact in artifacts:
             if not isinstance(artifact, dict):
@@ -425,7 +549,8 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
         failures.append("gates must be a list")
     else:
         gate_names = {gate.get("name") for gate in gates if isinstance(gate, dict)}
-        if gate_names != LOCAL_PREFLIGHT_GATE_NAMES:
+        allowed_gate_names = LOCAL_PREFLIGHT_GATE_NAMES | LOCAL_PREFLIGHT_OPTIONAL_GATE_NAMES
+        if not LOCAL_PREFLIGHT_GATE_NAMES.issubset(gate_names) or gate_names - allowed_gate_names:
             failures.append(f"gate names={sorted(str(name) for name in gate_names)}")
         for gate in gates:
             if not isinstance(gate, dict):
