@@ -83,10 +83,10 @@ Real CellProfiler oracle benchmark setup is documented in [docs/BENCHMARK.md](do
 Before a release candidate, run:
 
 ```bash
-python3 benchmark/release_gate.py --run-l3 --build-release-artifact --release-version rc-preflight
+python3 benchmark/release_gate.py --require-clean-git --run-l3 --build-release-artifact --release-version rc-preflight
 ```
 
-For a fast audit of already-generated L3 artifacts, run `python3 benchmark/release_gate.py`.
+For a fast audit of already-generated L3 artifacts, run `python3 benchmark/release_gate.py`. Release-gate JSON and Markdown reports include the run timestamp, git commit, dirty-worktree status, and invoked arguments.
 
 ## CellProfiler-Style Wide Export
 

@@ -8,8 +8,10 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import time
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -191,7 +193,7 @@ def local_release_archive_name(version: str) -> str:
 
 def git_commit() -> str:
     completed = subprocess.run(
-        ["git", "rev-parse", "--short=12", "HEAD"],
+        ["git", "rev-parse", "HEAD"],
         cwd=ROOT,
         text=True,
         capture_output=True,
@@ -200,21 +202,53 @@ def git_commit() -> str:
     return completed.stdout.strip()
 
 
-def render_markdown(gates: list[Gate], out_json: Path) -> str:
-    status = "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL"
+def git_status_porcelain() -> list[str]:
+    completed = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return [line for line in completed.stdout.splitlines() if line]
+
+
+def validate_clean_git_worktree(status_lines: list[str]) -> Gate:
+    detail = "git worktree clean"
+    status = "PASS"
+    if status_lines:
+        status = "FAIL"
+        detail = "dirty git worktree:\n" + "\n".join(status_lines[:50])
+        if len(status_lines) > 50:
+            detail += f"\n... {len(status_lines) - 50} more entries"
+    return Gate(
+        name="Require clean git worktree",
+        command=["git", "status", "--porcelain"],
+        status=status,
+        elapsed_seconds=0.0,
+        detail=detail,
+    )
+
+
+def render_markdown(payload: dict, out_json: Path) -> str:
+    metadata = payload["metadata"]
     lines = [
         "# Release Gate Report",
         "",
-        f"- status: `{status}`",
+        f"- status: `{payload['status']}`",
         f"- json: `{out_json}`",
+        f"- generated_at_utc: `{metadata['generated_at_utc']}`",
+        f"- git_commit: `{metadata['git_commit']}`",
+        f"- git_dirty: `{metadata['git_dirty']}`",
+        f"- argv: `{' '.join(metadata['argv'])}`",
         "",
         "| Gate | Status | Seconds |",
         "|---|---:|---:|",
     ]
-    for gate in gates:
+    for gate in payload["gates"]:
         lines.append(f"| {gate.name} | {gate.status} | {gate.elapsed_seconds:.3f} |")
     lines.extend(["", "## Details", ""])
-    for gate in gates:
+    for gate in payload["gates"]:
         lines.append(f"### {gate.name}")
         lines.append("")
         lines.append(f"- status: `{gate.status}`")
@@ -237,8 +271,10 @@ def main() -> int:
     parser.add_argument("--build-release-artifact", action="store_true", help="Build and verify a local release archive")
     parser.add_argument("--release-version", default="local", help="Version label for --build-release-artifact")
     parser.add_argument("--verify-github-release", help="Download and verify an existing GitHub release tag")
+    parser.add_argument("--require-clean-git", action="store_true", help="Fail unless git status is clean")
     args = parser.parse_args()
 
+    git_status_lines = git_status_porcelain()
     cargo = cargo_bin()
     python_files = [
         *sorted(str(path.relative_to(ROOT)) for path in ROOT.glob("benchmark/*.py")),
@@ -246,37 +282,42 @@ def main() -> int:
         *sorted(str(path.relative_to(ROOT)) for path in ROOT.glob("tests/*.py")),
         *sorted(str(path.relative_to(ROOT)) for path in ROOT.glob("tests/parity/*.py")),
     ]
-    gates = [
-        run_command("Rust formatting", [cargo, "fmt", "--", "--check"]),
-        run_command("Rust tests", [cargo, "test"]),
-        run_command("Rust clippy", [cargo, "clippy", "--all-targets", "--", "-D", "warnings"]),
-        run_command("Python helper compilation", ["python3", "-m", "py_compile", *python_files]),
-        run_command("Python helper tests", ["python3", "-m", "unittest", "discover", "-s", "tests"]),
-        run_command(
-            "Validate handoff manifests",
-            [
-                "python3",
-                "benchmark/validate_handoff_manifest.py",
-                "benchmark/handoff/cellbindb_supported_columns.json",
-                "--var",
-                "base_dir=benchmark/results/cellbindb/oracle-full",
-                "--require-downstream-check",
-            ],
-        ),
-        run_command(
-            "Validate external lab handoff template",
-            [
-                "python3",
-                "benchmark/validate_handoff_manifest.py",
-                "benchmark/handoff/external_lab_template.json",
-                "--var",
-                "base_dir=benchmark/results/external-lab-template",
-                "--require-downstream-check",
-                "--require-external-evidence",
-                "--allow-external-evidence-placeholders",
-            ],
-        ),
-    ]
+    gates = []
+    if args.require_clean_git:
+        gates.append(validate_clean_git_worktree(git_status_lines))
+    gates.extend(
+        [
+            run_command("Rust formatting", [cargo, "fmt", "--", "--check"]),
+            run_command("Rust tests", [cargo, "test"]),
+            run_command("Rust clippy", [cargo, "clippy", "--all-targets", "--", "-D", "warnings"]),
+            run_command("Python helper compilation", ["python3", "-m", "py_compile", *python_files]),
+            run_command("Python helper tests", ["python3", "-m", "unittest", "discover", "-s", "tests"]),
+            run_command(
+                "Validate handoff manifests",
+                [
+                    "python3",
+                    "benchmark/validate_handoff_manifest.py",
+                    "benchmark/handoff/cellbindb_supported_columns.json",
+                    "--var",
+                    "base_dir=benchmark/results/cellbindb/oracle-full",
+                    "--require-downstream-check",
+                ],
+            ),
+            run_command(
+                "Validate external lab handoff template",
+                [
+                    "python3",
+                    "benchmark/validate_handoff_manifest.py",
+                    "benchmark/handoff/external_lab_template.json",
+                    "--var",
+                    "base_dir=benchmark/results/external-lab-template",
+                    "--require-downstream-check",
+                    "--require-external-evidence",
+                    "--allow-external-evidence-placeholders",
+                ],
+            ),
+        ]
+    )
     if args.build_release_artifact:
         gates.append(
             run_command(
@@ -329,12 +370,24 @@ def main() -> int:
 
     payload = {
         "status": "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL",
+        "metadata": {
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+            "git_commit": git_commit(),
+            "git_dirty": bool(git_status_lines),
+            "git_status": git_status_lines,
+            "argv": ["benchmark/release_gate.py", *sys.argv[1:]],
+            "run_l3": args.run_l3,
+            "build_release_artifact": args.build_release_artifact,
+            "release_version": args.release_version,
+            "verify_github_release": args.verify_github_release,
+            "require_clean_git": args.require_clean_git,
+        },
         "gates": [asdict(gate) for gate in gates],
     }
     args.out_json.parent.mkdir(parents=True, exist_ok=True)
     args.out_json.write_text(json.dumps(payload, indent=2) + "\n")
     args.out_md.parent.mkdir(parents=True, exist_ok=True)
-    args.out_md.write_text(render_markdown(gates, args.out_json) + "\n")
+    args.out_md.write_text(render_markdown({**payload, "gates": gates}, args.out_json) + "\n")
     print(f"wrote {args.out_json}")
     print(f"wrote {args.out_md}")
     print(f"status={payload['status']}")
