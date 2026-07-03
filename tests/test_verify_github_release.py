@@ -60,6 +60,35 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn("invalid checksum digest for archive.tar.gz", issues)
         self.assertIn("checksum file target mismatch for archive.tar.gz: other.tar.gz", issues)
 
+    def test_asset_issues_accepts_exact_expected_assets(self) -> None:
+        expected = verify_github_release.expected_asset_names("v0.1.0")
+
+        self.assertEqual([], verify_github_release.asset_issues(expected, expected, expected))
+
+    def test_asset_issues_rejects_missing_and_extra_assets(self) -> None:
+        expected = verify_github_release.expected_asset_names("v0.1.0")
+        missing = next(iter(expected))
+        release_assets = (expected - {missing}) | {"morphojet-v0.1.0-extra.tar.gz"}
+        downloaded_assets = expected | {"notes.txt"}
+
+        issues = verify_github_release.asset_issues(expected, release_assets, downloaded_assets)
+
+        self.assertIn("release metadata missing assets: " + missing, issues)
+        self.assertIn("release metadata has unexpected assets: morphojet-v0.1.0-extra.tar.gz", issues)
+        self.assertIn("unexpected downloaded assets: notes.txt", issues)
+        self.assertTrue(
+            any(issue.startswith("release metadata/download asset mismatch:") for issue in issues),
+            issues,
+        )
+
+    def test_release_asset_names_ignores_malformed_assets(self) -> None:
+        self.assertEqual(
+            {"asset.tar.gz"},
+            verify_github_release.release_asset_names(
+                {"assets": [{"name": "asset.tar.gz"}, {"name": None}, "not-an-object"]}
+            ),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -101,6 +101,43 @@ def release_type_issues(tag: str, release: dict, expect_prerelease: bool, expect
     return issues
 
 
+def expected_asset_names(tag: str) -> set[str]:
+    return {
+        f"morphojet-{tag}-linux-x86_64.tar.gz",
+        f"morphojet-{tag}-linux-x86_64.tar.gz.sha256",
+        f"morphojet-{tag}-macos-arm64.tar.gz",
+        f"morphojet-{tag}-macos-arm64.tar.gz.sha256",
+    }
+
+
+def release_asset_names(release: dict) -> set[str]:
+    names = set()
+    for asset in release.get("assets") or []:
+        if isinstance(asset, dict) and isinstance(asset.get("name"), str):
+            names.add(asset["name"])
+    return names
+
+
+def asset_issues(expected_assets: set[str], release_assets: set[str], downloaded_assets: set[str]) -> list[str]:
+    issues = []
+    missing_release_assets = sorted(expected_assets - release_assets)
+    if missing_release_assets:
+        issues.append(f"release metadata missing assets: {','.join(missing_release_assets)}")
+    unexpected_release_assets = sorted(release_assets - expected_assets)
+    if unexpected_release_assets:
+        issues.append(f"release metadata has unexpected assets: {','.join(unexpected_release_assets)}")
+    missing_downloaded_assets = sorted(expected_assets - downloaded_assets)
+    if missing_downloaded_assets:
+        issues.append(f"missing assets: {','.join(missing_downloaded_assets)}")
+    unexpected_downloaded_assets = sorted(downloaded_assets - expected_assets)
+    if unexpected_downloaded_assets:
+        issues.append(f"unexpected downloaded assets: {','.join(unexpected_downloaded_assets)}")
+    metadata_download_delta = sorted(release_assets ^ downloaded_assets)
+    if metadata_download_delta:
+        issues.append(f"release metadata/download asset mismatch: {','.join(metadata_download_delta)}")
+    return issues
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("tag")
@@ -124,16 +161,10 @@ def main() -> int:
         issues.append("--expect-prerelease and --expect-stable are mutually exclusive")
     issues.extend(release_type_issues(args.tag, release, args.expect_prerelease, args.expect_stable))
 
-    expected_assets = {
-        f"morphojet-{args.tag}-linux-x86_64.tar.gz",
-        f"morphojet-{args.tag}-linux-x86_64.tar.gz.sha256",
-        f"morphojet-{args.tag}-macos-arm64.tar.gz",
-        f"morphojet-{args.tag}-macos-arm64.tar.gz.sha256",
-    }
+    expected_assets = expected_asset_names(args.tag)
+    release_assets = release_asset_names(release)
     actual_assets = {path.name for path in out_dir.iterdir() if path.is_file()}
-    missing_assets = sorted(expected_assets - actual_assets)
-    if missing_assets:
-        issues.append(f"missing assets: {','.join(missing_assets)}")
+    issues.extend(asset_issues(expected_assets, release_assets, actual_assets))
 
     archive_summaries = []
     for archive in sorted(out_dir.glob("*.tar.gz")):
