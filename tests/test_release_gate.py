@@ -70,7 +70,7 @@ def valid_external_trial() -> dict:
         "external_evidence": external_evidence,
         "artifacts": release_gate.rendered_manifest_artifacts(manifest),
         "steps": [
-            {"name": name, "command": command, "status": "PASS"}
+            {"name": name, "command": command, "status": "PASS", "elapsed_seconds": 0.1}
             for name, command in release_gate.rendered_manifest_step_commands(manifest)
         ],
     }
@@ -467,6 +467,34 @@ class ReleaseGateTest(unittest.TestCase):
             failures = release_gate.external_trial_failures(trial, root)
 
         self.assertIn("trial step name is duplicated: Validate downstream contract", failures)
+
+    def test_external_trial_requires_step_elapsed_seconds(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            for step in trial["steps"]:
+                if step["name"] == "Compare Cells supported columns":
+                    del step["elapsed_seconds"]
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("trial step elapsed_seconds is invalid: Compare Cells supported columns", failures)
+
+    def test_external_trial_rejects_negative_step_elapsed_seconds(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            for step in trial["steps"]:
+                if step["name"] == "Validate downstream contract":
+                    step["elapsed_seconds"] = -0.1
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("trial step elapsed_seconds is invalid: Validate downstream contract", failures)
 
     def test_external_trial_requires_step_commands_from_rendered_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
