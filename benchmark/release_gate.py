@@ -315,15 +315,23 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> l
                 failures.append(f"trial artifact_provenance sha256 is invalid: {path}")
             if not isinstance(size_bytes, int) or size_bytes <= 0:
                 failures.append(f"trial artifact_provenance size_bytes is invalid: {path}")
-            provenance_by_path[path] = entry
+            if path in provenance_by_path:
+                failures.append(f"trial artifact_provenance path is duplicated: {path}")
+            else:
+                provenance_by_path[path] = entry
     if not isinstance(artifacts, list) or not artifacts:
         failures.append("trial artifacts must be a non-empty list")
     else:
         root = artifact_root or ROOT
+        artifact_paths = set()
         for artifact in artifacts:
             if not isinstance(artifact, str) or not artifact.strip():
                 failures.append("trial artifacts must be non-empty strings")
                 continue
+            if artifact in artifact_paths:
+                failures.append(f"trial artifact path is duplicated: {artifact}")
+                continue
+            artifact_paths.add(artifact)
             artifact_path = resolve_artifact_path(artifact, root)
             if not artifact_path.is_file():
                 failures.append(f"trial artifact does not exist: {artifact}")
@@ -339,6 +347,8 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> l
                 failures.append(f"trial artifact size mismatch: {artifact}")
             if provenance.get("sha256") != sha256_file(artifact_path):
                 failures.append(f"trial artifact sha256 mismatch: {artifact}")
+        for extra_path in sorted(set(provenance_by_path) - artifact_paths):
+            failures.append(f"trial artifact_provenance has unlisted artifact: {extra_path}")
     evidence = trial.get("external_evidence")
     if not isinstance(evidence, dict):
         failures.append("external_evidence must be present")

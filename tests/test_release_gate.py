@@ -124,6 +124,59 @@ class ReleaseGateTest(unittest.TestCase):
 
         self.assertIn("trial artifact sha256 mismatch: external/handoff_contract.json", failures)
 
+    def test_external_trial_rejects_duplicate_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / "external" / "handoff_contract.json"
+            artifact.parent.mkdir()
+            artifact.write_text("{}\n")
+            trial = valid_external_trial()
+            trial["artifacts"].append("external/handoff_contract.json")
+            add_artifact_provenance(trial, root)
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("trial artifact path is duplicated: external/handoff_contract.json", failures)
+
+    def test_external_trial_rejects_duplicate_artifact_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / "external" / "handoff_contract.json"
+            artifact.parent.mkdir()
+            artifact.write_text("{}\n")
+            trial = valid_external_trial()
+            add_artifact_provenance(trial, root)
+            trial["artifact_provenance"].append(dict(trial["artifact_provenance"][0]))
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn(
+            "trial artifact_provenance path is duplicated: external/handoff_contract.json",
+            failures,
+        )
+
+    def test_external_trial_rejects_unlisted_artifact_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / "external" / "handoff_contract.json"
+            extra = root / "external" / "extra.json"
+            artifact.parent.mkdir()
+            artifact.write_text("{}\n")
+            extra.write_text("{}\n")
+            trial = valid_external_trial()
+            add_artifact_provenance(trial, root)
+            trial["artifact_provenance"].append(
+                {
+                    "path": "external/extra.json",
+                    "size_bytes": extra.stat().st_size,
+                    "sha256": release_gate.sha256_file(extra),
+                }
+            )
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("trial artifact_provenance has unlisted artifact: external/extra.json", failures)
+
     def test_external_trial_requires_evidence(self) -> None:
         trial = valid_external_trial()
         del trial["external_evidence"]
