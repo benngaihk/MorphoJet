@@ -836,6 +836,7 @@ def is_l3_provenance_compatible_path(path: str) -> bool:
         or path == "benchmark/run_production_gate.py"
         or path == "benchmark/validate_handoff_manifest.py"
         or path == "benchmark/verify_github_release.py"
+        or path == "benchmark/verify_release_gate_report.py"
         or path == "benchmark/verify_release_archive.py"
     )
 
@@ -849,6 +850,7 @@ def is_external_trial_compatible_path(path: str) -> bool:
         or path == "benchmark/run_production_gate.py"
         or path == "benchmark/validate_handoff_manifest.py"
         or path == "benchmark/verify_github_release.py"
+        or path == "benchmark/verify_release_gate_report.py"
         or path == "benchmark/verify_release_archive.py"
     )
 

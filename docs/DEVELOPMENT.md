@@ -108,6 +108,13 @@ python3 benchmark/release_gate.py
 
 Use `--require-clean-git --require-l3-provenance` for any report intended to support a release or production-readiness claim. A normal release-gate `status=PASS` means the executed gates passed; the top-level `production_claim_status` remains `INCOMPLETE` until external L4 and stable GitHub release validation are also included. The JSON and Markdown reports also list top-level `missing_or_failed_checks` so the remaining production-claim blockers are visible without manually comparing the audit table. Use `--require-production-claim` only for final production/stable-release gates; it makes the overall release-gate status fail unless the production-claim audit is complete and passing.
 
+Saved release-gate JSON reports can be re-checked during review:
+
+```bash
+python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json
+python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/production-claim.json --require-report-pass --require-production-claim-pass
+```
+
 After a real external workflow trial has been run with `benchmark/run_handoff_trial.py`, add its JSON report to the production-readiness release gate:
 
 ```bash

@@ -98,6 +98,12 @@ python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --
 
 For a fast audit of already-generated L3 artifacts, run `python3 benchmark/release_gate.py`. Release-gate JSON and Markdown reports include the run timestamp, git commit, dirty-worktree status, invoked arguments, top-level `production_claim_status`, and top-level `missing_or_failed_checks`. Formal release reports should include `--require-l3-provenance`, which checks the CellBinDB provenance file written by a full non-`--skip-cellprofiler` L3 run and re-hashes the recorded artifacts. Final production or stable-release gates should add `--require-production-claim`, which fails unless the external L4 workflow and stable release checks are also present and passing.
 
+To re-check a saved release-gate JSON report during review:
+
+```bash
+python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json
+```
+
 For the final production claim, use the wrapper that assembles the required checks into one command:
 
 ```bash
