@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""Unit tests for handoff manifest validation."""
+
+from __future__ import annotations
+
+import copy
+import sys
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "benchmark"))
+
+import validate_handoff_manifest  # noqa: E402
+
+
+def valid_manifest() -> dict:
+    return {
+        "trial_id": "external-lab-supported-columns-handoff",
+        "morphojet_objects_csv": "morphojet/Objects.csv",
+        "external_evidence": {
+            "lab_or_org": "External Lab",
+            "workflow_owner": "Assay Owner",
+            "dataset_name": "Batch 42",
+            "dataset_source": "LIMS export",
+            "downstream_workflow": "Existing analysis notebook",
+            "execution_environment": "macOS 15, Python 3.12",
+            "manual_csv_editing": False,
+            "acceptance_criteria": [
+                "Existing downstream workflow consumes MorphoJet output without manual CSV edits."
+            ],
+        },
+        "exports": [
+            {
+                "name": "Cells",
+                "object_set": "Cells",
+                "channels": ["DNA"],
+                "out_csv": "morphojet/Cells.wide.csv",
+                "expected_cellprofiler_csv": "cellprofiler/Cells.csv",
+                "comparison_report": "workflow_bridge.md",
+                "comparison_json": "workflow_bridge.json",
+            }
+        ],
+        "downstream_checks": [
+            {
+                "name": "Validate downstream contract",
+                "command": ["python3", "benchmark/check_cellprofiler_wide_contract.py"],
+                "artifacts": ["handoff_contract.json"],
+            }
+        ],
+    }
+
+
+class HandoffManifestValidationTest(unittest.TestCase):
+    def test_external_evidence_manifest_passes(self) -> None:
+        issues = validate_handoff_manifest.validate_schema(
+            valid_manifest(),
+            require_downstream_check=True,
+            require_external_evidence=True,
+        )
+
+        self.assertEqual([], issues)
+
+    def test_external_evidence_is_required_for_l4_trial(self) -> None:
+        manifest = valid_manifest()
+        del manifest["external_evidence"]
+
+        issues = validate_handoff_manifest.validate_schema(
+            manifest,
+            require_downstream_check=True,
+            require_external_evidence=True,
+        )
+
+        self.assertIn(
+            "manifest.external_evidence must be an object for an external workflow trial",
+            issues,
+        )
+
+    def test_manual_csv_editing_must_be_false(self) -> None:
+        manifest = copy.deepcopy(valid_manifest())
+        manifest["external_evidence"]["manual_csv_editing"] = True
+
+        issues = validate_handoff_manifest.validate_schema(
+            manifest,
+            require_downstream_check=True,
+            require_external_evidence=True,
+        )
+
+        self.assertIn("external_evidence.manual_csv_editing must be false", issues)
+
+    def test_external_evidence_placeholders_are_rejected_for_real_trials(self) -> None:
+        manifest = copy.deepcopy(valid_manifest())
+        manifest["external_evidence"]["dataset_source"] = "REPLACE_WITH_SOURCE"
+
+        issues = validate_handoff_manifest.validate_schema(
+            manifest,
+            require_downstream_check=True,
+            require_external_evidence=True,
+        )
+
+        self.assertIn(
+            "external_evidence.dataset_source must replace template placeholder text",
+            issues,
+        )
+
+    def test_external_evidence_placeholders_are_allowed_for_template_validation(self) -> None:
+        manifest = copy.deepcopy(valid_manifest())
+        manifest["external_evidence"]["dataset_source"] = "REPLACE_WITH_SOURCE"
+
+        issues = validate_handoff_manifest.validate_schema(
+            manifest,
+            require_downstream_check=True,
+            require_external_evidence=True,
+            allow_external_evidence_placeholders=True,
+        )
+
+        self.assertEqual([], issues)
+
+
+if __name__ == "__main__":
+    unittest.main()

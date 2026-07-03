@@ -14,11 +14,12 @@ $HOME/.cargo/bin/cargo
 $HOME/.cargo/bin/cargo fmt -- --check
 $HOME/.cargo/bin/cargo test
 $HOME/.cargo/bin/cargo clippy --all-targets -- -D warnings
-python3 -m py_compile benchmark/summarize.py corpus/generate_smoke.py tests/parity/*.py
+python3 -m py_compile benchmark/*.py corpus/generate_smoke.py tests/*.py tests/parity/*.py
+python3 -m unittest discover -s tests
 git diff --check
 ```
 
-CI runs the same core path on GitHub Actions: Rust formatting, Rust tests, Clippy, Python helper compilation, smoke benchmark, and parity self-check.
+CI runs the same core path on GitHub Actions: Rust formatting, Rust tests, Clippy, Python helper compilation, Python helper tests, smoke benchmark, and parity self-check.
 
 ## CLI Safety Rules
 
@@ -119,7 +120,9 @@ python3 benchmark/validate_handoff_manifest.py benchmark/handoff/cellbindb_suppo
 
 python3 benchmark/validate_handoff_manifest.py benchmark/handoff/external_lab_template.json \
   --var base_dir=benchmark/results/external-lab-template \
-  --require-downstream-check
+  --require-downstream-check \
+  --require-external-evidence \
+  --allow-external-evidence-placeholders
 ```
 
 After a `v*` tag is published, verify the GitHub release assets:

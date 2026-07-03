@@ -242,6 +242,7 @@ Artifacts:
 - Bridge JSON: `benchmark/results/cellbindb/oracle-full/workflow_bridge.json`
 - Handoff runner: `benchmark/run_handoff_trial.py`
 - Handoff manifest validator: `benchmark/validate_handoff_manifest.py`
+- External evidence gate: `--require-external-evidence` requires lab/workflow owner, dataset source, downstream workflow, execution environment, acceptance criteria, and `manual_csv_editing=false` for real external trials.
 - Materializer: `benchmark/materialize_morphojet_cellprofiler_wide.py`
 - Comparator: `benchmark/compare_cellprofiler_wide_subset.py`
 - Contract checker: `benchmark/check_cellprofiler_wide_contract.py`
@@ -269,7 +270,7 @@ Result:
 
 Compared columns include supported area/center/bounding-box/perimeter/eccentricity/axis/solidity fields, derived `ConvexArea`, `EquivalentDiameter`, and `Extent`, `Location_Center_X/Y/Z`, `Number_Object_Number`, channel-suffixed intensity fields including quartiles, population standard deviation, and median absolute deviation, channel-suffixed center-of-mass intensity locations, and the 2D-safe `Location_MaxIntensity_Z` value. Ignored CellProfiler columns include feature families MorphoJet does not yet emit, such as edge intensity, Feret diameter, compactness, orientation, and max-intensity X/Y locations.
 
-Conclusion: this removes one CSV-shape and handoff-automation blocker for workflow trials on the supported subset. L4 remains incomplete until an external lab workflow consumes these files without manual CSV editing.
+Conclusion: this removes one CSV-shape and handoff-automation blocker for workflow trials on the supported subset. L4 remains incomplete until an external lab workflow consumes these files without manual CSV editing and the generated report preserves the required external evidence fields.
 
 ## Local Release Artifact Preflight
 

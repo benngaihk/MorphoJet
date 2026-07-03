@@ -201,7 +201,7 @@ The CellBinDB preflight manifest runs three no-manual-edit steps:
 2. Compare supported wide columns against CellProfiler `Cells.csv`.
 3. Validate the downstream CSV contract with `benchmark/check_cellprofiler_wide_contract.py`.
 
-The repository also includes `benchmark/handoff/external_lab_template.json` as the starting manifest for real lab handoff files. It is schema-validated by the release gate, but it is not L4 evidence until it is copied, filled with real paths/checks, and executed on an external lab workflow.
+The repository also includes `benchmark/handoff/external_lab_template.json` as the starting manifest for real lab handoff files. It is schema-validated by the release gate with `--require-external-evidence --allow-external-evidence-placeholders`, including lab/workflow owner, dataset source, downstream workflow, execution environment, acceptance criteria, and `manual_csv_editing=false`. A real external manifest must pass `--require-external-evidence` without placeholder allowance. It is not L4 evidence until it is copied, filled with real paths/checks/evidence, and executed on an external lab workflow.
 
 Current handoff preflight result:
 

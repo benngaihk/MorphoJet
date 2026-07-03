@@ -91,9 +91,34 @@ def render_markdown(payload: dict[str, Any], out_json: Path) -> str:
         f"- status: `{payload['status']}`",
         f"- json: `{out_json}`",
         "",
-        "| Step | Status | Seconds |",
-        "|---|---:|---:|",
     ]
+    evidence = payload.get("external_evidence")
+    if evidence:
+        lines.extend(
+            [
+                "## External Evidence",
+                "",
+                f"- lab_or_org: `{evidence['lab_or_org']}`",
+                f"- workflow_owner: `{evidence['workflow_owner']}`",
+                f"- dataset_name: `{evidence['dataset_name']}`",
+                f"- dataset_source: `{evidence['dataset_source']}`",
+                f"- downstream_workflow: `{evidence['downstream_workflow']}`",
+                f"- execution_environment: `{evidence['execution_environment']}`",
+                f"- manual_csv_editing: `{evidence['manual_csv_editing']}`",
+                "",
+                "Acceptance criteria:",
+                "",
+            ]
+        )
+        for criterion in evidence["acceptance_criteria"]:
+            lines.append(f"- {criterion}")
+        lines.append("")
+    lines.extend(
+        [
+            "| Step | Status | Seconds |",
+            "|---|---:|---:|",
+        ]
+    )
     for step in payload["steps"]:
         lines.append(f"| {step['name']} | {step['status']} | {step['elapsed_seconds']:.3f} |")
     lines.extend(["", "## Artifacts", ""])
@@ -190,6 +215,7 @@ def main() -> int:
         "status": "PASS" if all(step.status == "PASS" for step in steps) else "FAIL",
         "manifest": str(args.manifest),
         "variables": variables,
+        "external_evidence": manifest.get("external_evidence"),
         "artifacts": artifacts,
         "steps": [asdict(step) for step in steps],
     }

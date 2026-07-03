@@ -1,6 +1,20 @@
 {
   "trial_id": "external-lab-supported-columns-handoff",
   "description": "Template for an external lab no-manual-CSV-edit handoff trial. Replace placeholders with the lab handoff directory and expected object CSVs.",
+  "external_evidence": {
+    "lab_or_org": "REPLACE_WITH_EXTERNAL_LAB_OR_ORG",
+    "workflow_owner": "REPLACE_WITH_OWNER_NAME_OR_ROLE",
+    "dataset_name": "REPLACE_WITH_DATASET_OR_BATCH_NAME",
+    "dataset_source": "REPLACE_WITH_SOURCE_SYSTEM_OR_EXPORT_PATH",
+    "downstream_workflow": "REPLACE_WITH_DOWNSTREAM_WORKFLOW_NAME",
+    "execution_environment": "REPLACE_WITH_OS_HOST_AND_TOOL_VERSIONS",
+    "manual_csv_editing": false,
+    "acceptance_criteria": [
+      "MorphoJet-generated wide CSV is consumed by the existing downstream workflow without manual CSV edits.",
+      "Supported CellProfiler-style columns pass comparison against the expected CellProfiler object CSV.",
+      "Downstream contract checks pass with the real batch row count and required columns."
+    ]
+  },
   "morphojet_objects_csv": "{base_dir}/morphojet/Objects.csv",
   "exports": [
     {

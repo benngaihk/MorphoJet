@@ -20,9 +20,9 @@ Production-grade means:
 | CLI safety | Validate required paths and image-table schema, reject empty image tables, reject invalid thread counts, protect existing outputs unless explicitly overwritten | Implemented for current CLI |
 | Output safety | Avoid partial final `Image.csv` / `Objects.csv` files on failure and prevent diagnostic reports from masquerading as measurement CSVs | Implemented through staging writes plus final-target and report-target preflight checks for current CLI |
 | Correctness | CellProfiler oracle parity report for public data | L2 ExampleHuman PASS and L3 CellBinDB direct-mask PASS for the current measurement subset |
-| Testing | Unit, integration, CLI failure-mode, Clippy, benchmark smoke tests, and scheduler-ready L3 validation | Implemented for current CLI; CellBinDB L3 validation script added |
+| Testing | Unit, integration, CLI failure-mode, Clippy, Python helper tests, benchmark smoke tests, and scheduler-ready L3 validation | Implemented for current CLI; CellBinDB L3 validation script added |
 | Performance | Synthetic regression benchmark plus real CellProfiler benchmark | L3 CellBinDB benchmark PASS: 597.54x speedup, 12.15% RSS ratio |
-| Workflow fit | CellProfiler-style object CSV handoff can run without manual CSV editing | CellBinDB L4-preflight handoff PASS with 35 contract columns; manifest schema gate and external lab template implemented |
+| Workflow fit | CellProfiler-style object CSV handoff can run without manual CSV editing | CellBinDB L4-preflight handoff PASS with 35 contract columns; external trial template now requires auditable L4 evidence fields |
 | Observability | Clear stderr summary, actionable error context, runtime diagnostics, and machine-readable success/failure metadata | Runtime `doctor`, optional `measure --summary-json`, and optional `measure --error-json` with basic error codes implemented |
 | Release | GitHub release workflow and checksums | `v0.1.0-rc.1` prerelease PASS: GitHub Actions built Linux/macOS archives, checksums verified, macOS packaged `doctor` commit verified |
 | Documentation | Supported inputs, unsupported scope, parity gaps, and production caveats documented | L3 evidence and release gate documented; L4 workflow caveats remain |
@@ -32,7 +32,7 @@ Production-grade means:
 Priority order:
 
 1. Promote the release-candidate validation path from `v0.1.0-rc.1` to a stable `v0.1.0` tag after external workflow evidence.
-2. Copy `benchmark/handoff/external_lab_template.json` and run an external lab workflow trial against real batch handoff files.
+2. Copy `benchmark/handoff/external_lab_template.json`, fill the required external evidence block, and run an external lab workflow trial against real batch handoff files.
 3. Broaden the supported measurement subset beyond the current intensity and size/shape columns.
 
 ## Claim Policy

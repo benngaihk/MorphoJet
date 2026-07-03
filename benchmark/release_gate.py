@@ -243,6 +243,7 @@ def main() -> int:
     python_files = [
         *sorted(str(path.relative_to(ROOT)) for path in ROOT.glob("benchmark/*.py")),
         "corpus/generate_smoke.py",
+        *sorted(str(path.relative_to(ROOT)) for path in ROOT.glob("tests/*.py")),
         *sorted(str(path.relative_to(ROOT)) for path in ROOT.glob("tests/parity/*.py")),
     ]
     gates = [
@@ -250,6 +251,7 @@ def main() -> int:
         run_command("Rust tests", [cargo, "test"]),
         run_command("Rust clippy", [cargo, "clippy", "--all-targets", "--", "-D", "warnings"]),
         run_command("Python helper compilation", ["python3", "-m", "py_compile", *python_files]),
+        run_command("Python helper tests", ["python3", "-m", "unittest", "discover", "-s", "tests"]),
         run_command(
             "Validate handoff manifests",
             [
@@ -270,6 +272,8 @@ def main() -> int:
                 "--var",
                 "base_dir=benchmark/results/external-lab-template",
                 "--require-downstream-check",
+                "--require-external-evidence",
+                "--allow-external-evidence-placeholders",
             ],
         ),
     ]
