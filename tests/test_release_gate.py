@@ -30,34 +30,35 @@ def valid_external_trial() -> dict:
             "Existing downstream workflow consumes MorphoJet output without manual CSV edits."
         ],
     }
+    manifest = {
+        "trial_id": "external-lab-supported-columns-handoff",
+        "morphojet_objects_csv": "external/morphojet/Objects.csv",
+        "external_evidence": copy.deepcopy(external_evidence),
+        "exports": [
+            {
+                "name": "Cells",
+                "object_set": "Cells",
+                "channels": ["DNA"],
+                "out_csv": "external/morphojet/Cells.wide.csv",
+                "expected_cellprofiler_csv": "external/cellprofiler/Cells.csv",
+                "comparison_report": "external/workflow_bridge.md",
+                "comparison_json": "external/workflow_bridge.json",
+            }
+        ],
+        "downstream_checks": [
+            {
+                "name": "Validate downstream contract",
+                "command": ["python3", "benchmark/check_cellprofiler_wide_contract.py"],
+                "artifacts": ["external/handoff_contract.json"],
+            }
+        ],
+    }
     return {
         "trial_id": "external-lab-supported-columns-handoff",
         "status": "PASS",
-        "rendered_manifest": {
-            "trial_id": "external-lab-supported-columns-handoff",
-            "morphojet_objects_csv": "external/morphojet/Objects.csv",
-            "external_evidence": copy.deepcopy(external_evidence),
-            "exports": [
-                {
-                    "name": "Cells",
-                    "object_set": "Cells",
-                    "channels": ["DNA"],
-                    "out_csv": "external/morphojet/Cells.wide.csv",
-                    "expected_cellprofiler_csv": "external/cellprofiler/Cells.csv",
-                    "comparison_report": "external/workflow_bridge.md",
-                    "comparison_json": "external/workflow_bridge.json",
-                }
-            ],
-            "downstream_checks": [
-                {
-                    "name": "Validate downstream contract",
-                    "command": ["python3", "benchmark/check_cellprofiler_wide_contract.py"],
-                    "artifacts": ["external/handoff_contract.json"],
-                }
-            ],
-        },
+        "rendered_manifest": manifest,
         "external_evidence": external_evidence,
-        "artifacts": ["external/handoff_contract.json"],
+        "artifacts": release_gate.rendered_manifest_artifacts(manifest),
         "steps": [
             {"name": "Materialize Cells wide CSV", "status": "PASS"},
             {"name": "Validate downstream contract", "status": "PASS"},
@@ -65,15 +66,25 @@ def valid_external_trial() -> dict:
     }
 
 
+def write_trial_artifacts(trial: dict, root: Path, empty_paths: set[str] | None = None) -> None:
+    empty_paths = empty_paths or set()
+    for artifact in trial["artifacts"]:
+        path = root / artifact
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("" if artifact in empty_paths else "{}\n")
+
+
 def add_artifact_provenance(trial: dict, root: Path) -> None:
-    path = root / "external" / "handoff_contract.json"
-    trial["artifact_provenance"] = [
-        {
-            "path": "external/handoff_contract.json",
-            "size_bytes": path.stat().st_size,
-            "sha256": release_gate.sha256_file(path),
-        }
-    ]
+    trial["artifact_provenance"] = []
+    for artifact in trial["artifacts"]:
+        path = root / artifact
+        trial["artifact_provenance"].append(
+            {
+                "path": artifact,
+                "size_bytes": path.stat().st_size,
+                "sha256": release_gate.sha256_file(path),
+            }
+        )
 
 
 class ReleaseGateTest(unittest.TestCase):
@@ -171,10 +182,8 @@ class ReleaseGateTest(unittest.TestCase):
     def test_external_trial_report_passes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            artifact = root / "external" / "handoff_contract.json"
-            artifact.parent.mkdir()
-            artifact.write_text("{}\n")
             trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
             add_artifact_provenance(trial, root)
 
             self.assertEqual([], release_gate.external_trial_failures(trial, root))
@@ -188,13 +197,9 @@ class ReleaseGateTest(unittest.TestCase):
     def test_external_trial_rejects_empty_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            artifact = root / "external" / "handoff_contract.json"
-            artifact.parent.mkdir()
-            artifact.write_text("")
             trial = valid_external_trial()
-            trial["artifact_provenance"] = [
-                {"path": "external/handoff_contract.json", "size_bytes": 1, "sha256": "0" * 64}
-            ]
+            write_trial_artifacts(trial, root, empty_paths={"external/handoff_contract.json"})
+            add_artifact_provenance(trial, root)
 
             failures = release_gate.external_trial_failures(trial, root)
 
@@ -203,11 +208,10 @@ class ReleaseGateTest(unittest.TestCase):
     def test_external_trial_requires_artifact_provenance(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            artifact = root / "external" / "handoff_contract.json"
-            artifact.parent.mkdir()
-            artifact.write_text("{}\n")
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
 
-            failures = release_gate.external_trial_failures(valid_external_trial(), root)
+            failures = release_gate.external_trial_failures(trial, root)
 
         self.assertIn("trial artifact_provenance must be a non-empty list", failures)
         self.assertIn("trial artifact missing provenance: external/handoff_contract.json", failures)
@@ -215,10 +219,8 @@ class ReleaseGateTest(unittest.TestCase):
     def test_external_trial_requires_rendered_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            artifact = root / "external" / "handoff_contract.json"
-            artifact.parent.mkdir()
-            artifact.write_text("{}\n")
             trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
             add_artifact_provenance(trial, root)
             del trial["rendered_manifest"]
 
@@ -229,10 +231,8 @@ class ReleaseGateTest(unittest.TestCase):
     def test_external_trial_rejects_rendered_manifest_evidence_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            artifact = root / "external" / "handoff_contract.json"
-            artifact.parent.mkdir()
-            artifact.write_text("{}\n")
             trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
             add_artifact_provenance(trial, root)
             trial["rendered_manifest"]["external_evidence"]["dataset_name"] = "Different Batch"
 
@@ -243,12 +243,12 @@ class ReleaseGateTest(unittest.TestCase):
     def test_external_trial_rejects_artifact_hash_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            artifact = root / "external" / "handoff_contract.json"
-            artifact.parent.mkdir()
-            artifact.write_text("{}\n")
             trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
             add_artifact_provenance(trial, root)
-            trial["artifact_provenance"][0]["sha256"] = "0" * 64
+            for entry in trial["artifact_provenance"]:
+                if entry["path"] == "external/handoff_contract.json":
+                    entry["sha256"] = "0" * 64
 
             failures = release_gate.external_trial_failures(trial, root)
 
@@ -257,11 +257,9 @@ class ReleaseGateTest(unittest.TestCase):
     def test_external_trial_rejects_duplicate_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            artifact = root / "external" / "handoff_contract.json"
-            artifact.parent.mkdir()
-            artifact.write_text("{}\n")
             trial = valid_external_trial()
             trial["artifacts"].append("external/handoff_contract.json")
+            write_trial_artifacts(trial, root)
             add_artifact_provenance(trial, root)
 
             failures = release_gate.external_trial_failures(trial, root)
@@ -271,12 +269,15 @@ class ReleaseGateTest(unittest.TestCase):
     def test_external_trial_rejects_duplicate_artifact_provenance(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            artifact = root / "external" / "handoff_contract.json"
-            artifact.parent.mkdir()
-            artifact.write_text("{}\n")
             trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
             add_artifact_provenance(trial, root)
-            trial["artifact_provenance"].append(dict(trial["artifact_provenance"][0]))
+            handoff_entry = next(
+                entry
+                for entry in trial["artifact_provenance"]
+                if entry["path"] == "external/handoff_contract.json"
+            )
+            trial["artifact_provenance"].append(dict(handoff_entry))
 
             failures = release_gate.external_trial_failures(trial, root)
 
@@ -288,12 +289,11 @@ class ReleaseGateTest(unittest.TestCase):
     def test_external_trial_rejects_unlisted_artifact_provenance(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            artifact = root / "external" / "handoff_contract.json"
             extra = root / "external" / "extra.json"
-            artifact.parent.mkdir()
-            artifact.write_text("{}\n")
+            extra.parent.mkdir(parents=True)
             extra.write_text("{}\n")
             trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
             add_artifact_provenance(trial, root)
             trial["artifact_provenance"].append(
                 {
@@ -306,6 +306,33 @@ class ReleaseGateTest(unittest.TestCase):
             failures = release_gate.external_trial_failures(trial, root)
 
         self.assertIn("trial artifact_provenance has unlisted artifact: external/extra.json", failures)
+
+    def test_external_trial_requires_artifacts_from_rendered_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            trial["artifacts"].remove("external/workflow_bridge.json")
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn(
+            "trial artifact missing rendered_manifest output: external/workflow_bridge.json",
+            failures,
+        )
+
+    def test_external_trial_rejects_artifacts_not_declared_by_rendered_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            trial["artifacts"].append("external/extra.json")
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("trial artifact not declared by rendered_manifest: external/extra.json", failures)
 
     def test_external_trial_requires_evidence(self) -> None:
         trial = valid_external_trial()

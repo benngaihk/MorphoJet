@@ -284,6 +284,28 @@ def resolve_artifact_path(artifact: str, artifact_root: Path) -> Path:
     return artifact_root / path
 
 
+def rendered_manifest_artifacts(manifest: dict) -> list[str]:
+    artifacts = []
+    for export in manifest.get("exports", []):
+        if not isinstance(export, dict):
+            continue
+        out_csv = export.get("out_csv")
+        if isinstance(out_csv, str) and out_csv.strip():
+            artifacts.append(out_csv)
+        if "expected_cellprofiler_csv" in export:
+            for key in ["comparison_report", "comparison_json"]:
+                path = export.get(key)
+                if isinstance(path, str) and path.strip():
+                    artifacts.append(path)
+    for check in manifest.get("downstream_checks", []):
+        if not isinstance(check, dict):
+            continue
+        for path in check.get("artifacts", []):
+            if isinstance(path, str) and path.strip():
+                artifacts.append(path)
+    return artifacts
+
+
 def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> list[str]:
     failures = []
     if trial.get("status") != "PASS":
@@ -302,6 +324,14 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> l
         failures.extend(f"rendered_manifest.{issue}" for issue in manifest_issues)
         if rendered_manifest.get("trial_id") != trial.get("trial_id"):
             failures.append("rendered_manifest.trial_id must match trial_id")
+        expected_artifact_paths = rendered_manifest_artifacts(rendered_manifest)
+        seen_expected_paths = set()
+        for path in expected_artifact_paths:
+            if path in seen_expected_paths:
+                failures.append(f"rendered_manifest artifact path is duplicated: {path}")
+            else:
+                seen_expected_paths.add(path)
+    expected_artifact_set = set(seen_expected_paths) if isinstance(rendered_manifest, dict) else None
     steps = trial.get("steps")
     if not isinstance(steps, list) or not steps:
         failures.append("trial has no steps")
@@ -363,6 +393,11 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> l
                 failures.append(f"trial artifact sha256 mismatch: {artifact}")
         for extra_path in sorted(set(provenance_by_path) - artifact_paths):
             failures.append(f"trial artifact_provenance has unlisted artifact: {extra_path}")
+        if expected_artifact_set is not None:
+            for missing_path in sorted(expected_artifact_set - artifact_paths):
+                failures.append(f"trial artifact missing rendered_manifest output: {missing_path}")
+            for unexpected_path in sorted(artifact_paths - expected_artifact_set):
+                failures.append(f"trial artifact not declared by rendered_manifest: {unexpected_path}")
     evidence = trial.get("external_evidence")
     if not isinstance(evidence, dict):
         failures.append("external_evidence must be present")
