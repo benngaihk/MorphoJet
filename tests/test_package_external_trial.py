@@ -413,6 +413,38 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual("FAIL", gate.status)
         self.assertIn("package README missing acceptance criterion: 0", gate.detail)
 
+    def test_release_gate_rejects_package_readme_missing_validation_detail_text(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+            manifest = json.loads((package_dir / "artifact_manifest.json").read_text(encoding="utf-8"))
+            readme_path = package_dir / "README.md"
+            readme_path.write_text(
+                readme_path.read_text(encoding="utf-8").replace(
+                    manifest["validation_detail"],
+                    "External workflow trial PASS: redacted detail",
+                ),
+                encoding="utf-8",
+            )
+            zip_path = Path(result["zip"])
+            package_external_trial.zip_directory(package_dir, zip_path)
+            Path(result["sha256"]).write_text(
+                f"{release_gate.sha256_file(zip_path)}  external-l4-demo.zip\n",
+                encoding="utf-8",
+            )
+
+            gate = release_gate.validate_external_evidence_package(package_dir, trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("package README missing signoff field: validation_detail_text", gate.detail)
+
     def test_release_gate_rejects_artifact_manifest_validation_detail_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

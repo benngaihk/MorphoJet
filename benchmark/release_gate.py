@@ -665,8 +665,10 @@ def external_package_readme_failures(readme: str, trial: dict, artifact_manifest
         "downstream_workflow": f"- downstream_workflow: `{evidence.get('downstream_workflow')}`",
         "manual_csv_editing": f"- manual_csv_editing: `{evidence.get('manual_csv_editing')}`",
         "trial_git_commit": f"- trial_git_commit: `{metadata.get('git_commit')}`",
+        "trial_generated_at_utc": f"- trial_generated_at_utc: `{metadata.get('generated_at_utc')}`",
         "packaged_at_utc": f"- packaged_at_utc: `{artifact_manifest.get('packaged_at_utc')}`",
         "validation_detail": "This package was created only after the external trial report passed",
+        "validation_detail_text": str(artifact_manifest.get("validation_detail")),
         "revalidation_command": "python3 benchmark/release_gate.py --external-trial-json",
     }
     failures = []
