@@ -237,8 +237,10 @@ class ReleaseGateTest(unittest.TestCase):
                 gates,
                 self.production_metadata(),
             )
+            written_payload = json.loads((root / "report.json").read_text(encoding="utf-8"))
 
         self.assertEqual("FAIL", payload["status"])
+        self.assertEqual("INCOMPLETE", payload["production_claim_status"])
         self.assertEqual("INCOMPLETE", payload["production_claim_audit"]["status"])
         self.assertEqual(
             [
@@ -250,6 +252,12 @@ class ReleaseGateTest(unittest.TestCase):
             ],
             payload["production_claim_audit"]["missing_or_failed_checks"],
         )
+        self.assertEqual(
+            payload["production_claim_audit"]["missing_or_failed_checks"],
+            payload["missing_or_failed_checks"],
+        )
+        self.assertEqual("INCOMPLETE", written_payload["production_claim_status"])
+        self.assertEqual(payload["missing_or_failed_checks"], written_payload["missing_or_failed_checks"])
 
     def test_require_production_claim_passes_complete_audit(self) -> None:
         gates = self.production_gates(
@@ -291,6 +299,8 @@ class ReleaseGateTest(unittest.TestCase):
             )
 
         self.assertEqual("PASS", payload["status"])
+        self.assertEqual("PASS", payload["production_claim_status"])
+        self.assertEqual([], payload["missing_or_failed_checks"])
         self.assertEqual("PASS", payload["production_claim_audit"]["status"])
 
     def test_doc_path_allowlist(self) -> None:

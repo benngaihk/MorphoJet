@@ -949,8 +949,8 @@ def render_markdown(payload: dict, out_json: Path) -> str:
         "# Release Gate Report",
         "",
         f"- status: `{payload['status']}`",
-        f"- production_claim_status: `{audit['status']}`",
-        f"- missing_or_failed_checks: `{', '.join(audit['missing_or_failed_checks']) or 'none'}`",
+        f"- production_claim_status: `{payload['production_claim_status']}`",
+        f"- missing_or_failed_checks: `{', '.join(payload['missing_or_failed_checks']) or 'none'}`",
         f"- json: `{out_json}`",
         f"- generated_at_utc: `{metadata['generated_at_utc']}`",
         f"- git_commit: `{metadata['git_commit']}`",
@@ -1018,6 +1018,8 @@ def write_report(args: argparse.Namespace, gates: list[Gate], metadata: dict) ->
     production_claim_pass = audit["status"] == "PASS"
     payload = {
         "status": "PASS" if gates_pass and (production_claim_pass or not args.require_production_claim) else "FAIL",
+        "production_claim_status": audit["status"],
+        "missing_or_failed_checks": audit["missing_or_failed_checks"],
         "production_claim_audit": audit,
         "metadata": metadata,
         "gates": [asdict(gate) for gate in gates],
