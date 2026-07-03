@@ -93,8 +93,9 @@ Latest M0 oracle gate verification:
 - CellBinDB full L3 benchmark passes: 1,044 image rows, 107,936 expected rows, 107,936 actual rows, 0 row gaps, 0 numeric failures, 597.54x speedup, 12.15% RSS ratio.
 - CellBinDB workflow bridge passes: 107,936 CellProfiler rows, 107,936 MorphoJet wide rows, 33 compared value columns, 3,561,888 numeric comparisons, 0 numeric failures. The comparator records 17 unsupported CellProfiler columns as ignored, not claimed.
 - CellBinDB handoff preflight passes: 3 manifest steps, 107,936 wide rows, 35 required contract columns, 0 missing columns, 0 duplicate keys, 0 empty keys.
+- CellBinDB oracle runner writes `provenance.json` after full runs, capturing git commit, dirty status, command arguments, tool context, and SHA-256 hashes for the L3 parity, impact, workflow-bridge, handoff, CellProfiler, and MorphoJet artifacts.
 - Handoff manifest gates pass for the CellBinDB preflight manifest and the external lab template; the external template is validated with required lab/workflow owner, dataset source, downstream workflow, execution environment, acceptance criteria, and `manual_csv_editing=false` evidence fields.
-- Release gate script can run code gates and validate or rerun the CellBinDB L3 benchmark plus the workflow bridge and handoff trial artifacts, writing JSON and Markdown reports with run timestamp, git commit, dirty-worktree status, and invoked arguments.
+- Release gate script can run code gates and validate or rerun the CellBinDB L3 benchmark plus the workflow bridge and handoff trial artifacts, writing JSON and Markdown reports with run timestamp, git commit, dirty-worktree status, invoked arguments, and optional L3 provenance/hash validation.
 - Scheduler-ready CellBinDB L3 validation script is implemented with Zenodo archive verification, pinned CellProfiler Docker image pull, and full oracle execution.
 - CLI observability includes `morphojet doctor`, optional `measure --summary-json` run metadata, and optional `measure --error-json` failure reports with basic stable error codes for machine-readable batch monitoring.
 - Local release artifact preflight passes on macOS arm64: archive checksum verified and packaged `morphojet doctor` reports version, current commit, OS, and architecture.
@@ -113,7 +114,7 @@ Latest M0 oracle gate verification:
 
 The next gate toward production readiness is no longer L3 evidence; it is repeatability and L4 workflow fit:
 
-- Re-run `python3 benchmark/release_gate.py --require-clean-git --run-l3 --build-release-artifact --release-version rc-preflight` before promoting from RC to stable release.
+- Re-run `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --run-l3 --build-release-artifact --release-version rc-preflight` before promoting from RC to stable release.
 - Promote the CellBinDB full benchmark into scheduled/nightly validation.
 - Run an external lab workflow trial with real handoff files.
 - Copy `benchmark/handoff/external_lab_template.json`, fill the external evidence block, and exercise the manifest-driven handoff trial in that external workflow without manual CSV editing.

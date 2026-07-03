@@ -19,6 +19,7 @@ python3 benchmark/fetch_zenodo_file.py \
 docker pull --platform linux/amd64 cellprofiler/cellprofiler:4.2.6
 
 python3 benchmark/release_gate.py \
+  --require-l3-provenance \
   --run-l3 \
   --out-json benchmark/results/release-gate/l3-cellbindb.json \
   --out-md benchmark/results/release-gate/l3-cellbindb.md

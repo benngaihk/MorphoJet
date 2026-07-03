@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -62,6 +63,14 @@ def load_json(path: Path) -> dict:
     return json.loads(path.read_text())
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def validate_l3_artifacts() -> Gate:
     started = time.perf_counter()
     try:
@@ -92,6 +101,77 @@ def validate_l3_artifacts() -> Gate:
         detail = f"{type(exc).__name__}: {exc}"
     return Gate(
         name="Validate existing CellBinDB L3 artifacts",
+        command=None,
+        status=status,
+        elapsed_seconds=time.perf_counter() - started,
+        detail=detail,
+    )
+
+
+def validate_l3_provenance_artifact() -> Gate:
+    started = time.perf_counter()
+    path = ROOT / "benchmark/results/cellbindb/oracle-full/provenance.json"
+    try:
+        provenance = load_json(path)
+        failures = []
+        if provenance.get("schema_version") != 1:
+            failures.append(f"schema_version={provenance.get('schema_version')}")
+        if provenance.get("generator") != "benchmark/run_cellbindb_oracle.py":
+            failures.append(f"generator={provenance.get('generator')}")
+        current_commit = git_commit()
+        if provenance.get("git_commit") != current_commit:
+            failures.append(
+                "git_commit mismatch "
+                f"provenance={provenance.get('git_commit')} current={current_commit}"
+            )
+        if provenance.get("run_name") != "full":
+            failures.append(f"run_name={provenance.get('run_name')}")
+        if provenance.get("skip_cellprofiler") is not False:
+            failures.append("provenance was generated with skip_cellprofiler=true")
+        artifacts = provenance.get("artifacts")
+        if not isinstance(artifacts, list) or not artifacts:
+            failures.append("artifacts must be a non-empty list")
+            artifacts = []
+        required_paths = {
+            "benchmark/results/cellbindb/oracle-full/parity.json",
+            "benchmark/results/cellbindb/oracle-full/impact.json",
+            "benchmark/results/cellbindb/oracle-full/workflow_bridge.json",
+            "benchmark/results/cellbindb/oracle-full/handoff_trial.json",
+            "benchmark/results/cellbindb/oracle-full/morphojet/Objects.csv",
+            "benchmark/results/cellbindb/oracle-full/cellprofiler/Cells.csv",
+        }
+        observed_paths = {artifact.get("path") for artifact in artifacts if isinstance(artifact, dict)}
+        missing_required = sorted(required_paths - observed_paths)
+        if missing_required:
+            failures.append(f"missing provenance artifacts={','.join(missing_required)}")
+        checked = 0
+        for artifact in artifacts:
+            if not isinstance(artifact, dict):
+                failures.append("artifact entry must be an object")
+                continue
+            artifact_path = artifact.get("path")
+            expected_hash = artifact.get("sha256")
+            if not isinstance(artifact_path, str) or not isinstance(expected_hash, str):
+                failures.append(f"invalid artifact entry={artifact}")
+                continue
+            full_path = ROOT / artifact_path
+            if not full_path.is_file():
+                failures.append(f"artifact missing on disk={artifact_path}")
+                continue
+            actual_hash = sha256_file(full_path)
+            if actual_hash != expected_hash:
+                failures.append(f"sha256 mismatch for {artifact_path}")
+            checked += 1
+        status = "FAIL" if failures else "PASS"
+        detail = "; ".join(failures) if failures else (
+            "CellBinDB provenance PASS: "
+            f"commit={provenance.get('git_commit')[:12]}, artifacts={checked}"
+        )
+    except Exception as exc:  # noqa: BLE001 - report exact release gate failure.
+        status = "FAIL"
+        detail = f"{type(exc).__name__}: {exc}"
+    return Gate(
+        name="Validate CellBinDB L3 provenance",
         command=None,
         status=status,
         elapsed_seconds=time.perf_counter() - started,
@@ -263,6 +343,35 @@ def render_markdown(payload: dict, out_json: Path) -> str:
     return "\n".join(lines)
 
 
+def build_metadata(args: argparse.Namespace, git_status_lines: list[str]) -> dict:
+    return {
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "git_commit": git_commit(),
+        "git_dirty": bool(git_status_lines),
+        "git_status": git_status_lines,
+        "argv": ["benchmark/release_gate.py", *sys.argv[1:]],
+        "run_l3": args.run_l3,
+        "build_release_artifact": args.build_release_artifact,
+        "release_version": args.release_version,
+        "verify_github_release": args.verify_github_release,
+        "require_clean_git": args.require_clean_git,
+        "require_l3_provenance": args.require_l3_provenance,
+    }
+
+
+def write_report(args: argparse.Namespace, gates: list[Gate], metadata: dict) -> dict:
+    payload = {
+        "status": "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL",
+        "metadata": metadata,
+        "gates": [asdict(gate) for gate in gates],
+    }
+    args.out_json.parent.mkdir(parents=True, exist_ok=True)
+    args.out_json.write_text(json.dumps(payload, indent=2) + "\n")
+    args.out_md.parent.mkdir(parents=True, exist_ok=True)
+    args.out_md.write_text(render_markdown({**payload, "gates": gates}, args.out_json) + "\n")
+    return payload
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-json", type=Path, default=Path("benchmark/results/release-gate/report.json"))
@@ -272,9 +381,26 @@ def main() -> int:
     parser.add_argument("--release-version", default="local", help="Version label for --build-release-artifact")
     parser.add_argument("--verify-github-release", help="Download and verify an existing GitHub release tag")
     parser.add_argument("--require-clean-git", action="store_true", help="Fail unless git status is clean")
+    parser.add_argument(
+        "--require-l3-provenance",
+        action="store_true",
+        help="Fail unless CellBinDB L3 provenance exists and hashes match current artifacts",
+    )
     args = parser.parse_args()
 
     git_status_lines = git_status_porcelain()
+    metadata = build_metadata(args, git_status_lines)
+    gates = []
+    if args.require_clean_git:
+        clean_gate = validate_clean_git_worktree(git_status_lines)
+        gates.append(clean_gate)
+        if clean_gate.status != "PASS":
+            payload = write_report(args, gates, metadata)
+            print(f"wrote {args.out_json}")
+            print(f"wrote {args.out_md}")
+            print(f"status={payload['status']}")
+            return 1
+
     cargo = cargo_bin()
     python_files = [
         *sorted(str(path.relative_to(ROOT)) for path in ROOT.glob("benchmark/*.py")),
@@ -282,9 +408,6 @@ def main() -> int:
         *sorted(str(path.relative_to(ROOT)) for path in ROOT.glob("tests/*.py")),
         *sorted(str(path.relative_to(ROOT)) for path in ROOT.glob("tests/parity/*.py")),
     ]
-    gates = []
-    if args.require_clean_git:
-        gates.append(validate_clean_git_worktree(git_status_lines))
     gates.extend(
         [
             run_command("Rust formatting", [cargo, "fmt", "--", "--check"]),
@@ -365,29 +488,12 @@ def main() -> int:
             )
         )
     gates.append(validate_l3_artifacts())
+    if args.require_l3_provenance:
+        gates.append(validate_l3_provenance_artifact())
     gates.append(validate_workflow_bridge_artifacts())
     gates.append(validate_handoff_trial_artifacts())
 
-    payload = {
-        "status": "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL",
-        "metadata": {
-            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-            "git_commit": git_commit(),
-            "git_dirty": bool(git_status_lines),
-            "git_status": git_status_lines,
-            "argv": ["benchmark/release_gate.py", *sys.argv[1:]],
-            "run_l3": args.run_l3,
-            "build_release_artifact": args.build_release_artifact,
-            "release_version": args.release_version,
-            "verify_github_release": args.verify_github_release,
-            "require_clean_git": args.require_clean_git,
-        },
-        "gates": [asdict(gate) for gate in gates],
-    }
-    args.out_json.parent.mkdir(parents=True, exist_ok=True)
-    args.out_json.write_text(json.dumps(payload, indent=2) + "\n")
-    args.out_md.parent.mkdir(parents=True, exist_ok=True)
-    args.out_md.write_text(render_markdown({**payload, "gates": gates}, args.out_json) + "\n")
+    payload = write_report(args, gates, metadata)
     print(f"wrote {args.out_json}")
     print(f"wrote {args.out_md}")
     print(f"status={payload['status']}")

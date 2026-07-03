@@ -120,7 +120,7 @@ The runner will:
 4. Capture elapsed time and peak RSS for both tools.
 5. Normalize both object CSV files.
 6. Validate the handoff manifest and run the manifest-driven handoff trial for the supported CellProfiler-style wide object CSV subset.
-7. Write Markdown and JSON parity, workflow-bridge, handoff-trial, and impact reports.
+7. Write Markdown and JSON parity, workflow-bridge, handoff-trial, impact, and provenance reports.
 
 `benchmark/run.sh` still supports ad hoc runs through `CELLPROFILER_CMD`, but the manifest path is the production validation path.
 

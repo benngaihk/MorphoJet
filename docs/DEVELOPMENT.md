@@ -84,10 +84,10 @@ python3 benchmark/verify_release_archive.py \
 Before cutting a release candidate, run:
 
 ```bash
-python3 benchmark/release_gate.py --require-clean-git --run-l3 --build-release-artifact --release-version rc-preflight
+python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --run-l3 --build-release-artifact --release-version rc-preflight
 ```
 
-This runs the standard code gates, requires a clean git worktree, uses the pinned local CellBinDB archive, runs the full CellProfiler oracle benchmark, runs the supported CellProfiler-style handoff trial, and writes parity, workflow-bridge, handoff-trial, impact, metrics, and release-gate reports. Release-gate reports include run timestamp, git commit, dirty-worktree status, and invoked arguments. Fetch and verify the archive first when it is not already present:
+This runs the standard code gates, requires a clean git worktree, uses the pinned local CellBinDB archive, runs the full CellProfiler oracle benchmark, runs the supported CellProfiler-style handoff trial, and writes parity, workflow-bridge, handoff-trial, impact, metrics, provenance, and release-gate reports. Release-gate reports include run timestamp, git commit, dirty-worktree status, and invoked arguments. `--require-l3-provenance` checks that the CellBinDB provenance file was written by a full non-`--skip-cellprofiler` run for the current commit and that recorded artifact hashes still match. Fetch and verify the archive first when it is not already present:
 
 ```bash
 python3 benchmark/fetch_zenodo_file.py \
@@ -104,9 +104,9 @@ For a fast local audit of already-generated L3 artifacts, run:
 python3 benchmark/release_gate.py
 ```
 
-Use `--require-clean-git` for any report intended to support a release or production-readiness claim.
+Use `--require-clean-git --require-l3-provenance` for any report intended to support a release or production-readiness claim.
 
-For a scheduler-ready entrypoint that performs the fetch/verify step, pulls the pinned CellProfiler Docker image, and runs `python3 benchmark/release_gate.py --run-l3`, use:
+For a scheduler-ready entrypoint that performs the fetch/verify step, pulls the pinned CellProfiler Docker image, and runs `python3 benchmark/release_gate.py --require-l3-provenance --run-l3`, use:
 
 ```bash
 benchmark/run_cellbindb_l3_validation.sh

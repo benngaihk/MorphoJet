@@ -4,9 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
+import platform
 import shutil
 import subprocess
+import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -40,6 +45,72 @@ def remove(path: Path) -> None:
             path.unlink()
 
 
+def git_commit() -> str:
+    completed = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return completed.stdout.strip()
+
+
+def git_status_porcelain() -> list[str]:
+    completed = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return [line for line in completed.stdout.splitlines() if line]
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def artifact_entry(path: Path) -> dict:
+    return {
+        "path": str(path),
+        "size_bytes": path.stat().st_size,
+        "sha256": sha256_file(path),
+    }
+
+
+def write_provenance(
+    path: Path,
+    args: argparse.Namespace,
+    run_name: str,
+    artifacts: list[Path],
+) -> None:
+    existing_artifacts = [artifact_entry(artifact) for artifact in artifacts if artifact.is_file()]
+    payload = {
+        "schema_version": 1,
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "generator": "benchmark/run_cellbindb_oracle.py",
+        "argv": ["benchmark/run_cellbindb_oracle.py", *sys.argv[1:]],
+        "git_commit": git_commit(),
+        "git_dirty": bool(git_status_porcelain()),
+        "run_name": run_name,
+        "limit": args.limit,
+        "threads": args.threads,
+        "skip_cellprofiler": args.skip_cellprofiler,
+        "cellprofiler_image": CP_IMAGE,
+        "cellprofiler_platform": CP_PLATFORM,
+        "platform": platform.platform(),
+        "machine": platform.machine(),
+        "python": platform.python_version(),
+        "artifacts": existing_artifacts,
+    }
+    path.write_text(json.dumps(payload, indent=2) + "\n")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--zip", type=Path, default=Path("benchmark/data/cellbindb/CellBinDB.zip"))
@@ -66,6 +137,7 @@ def main() -> int:
     handoff_trial_json = base_dir / "handoff_trial.json"
     impact_md = base_dir / "impact.md"
     impact_json = base_dir / "impact.json"
+    provenance_json = base_dir / "provenance.json"
     cp_long = cp_dir / "Objects.long.csv"
 
     prepare_command = [
@@ -208,12 +280,34 @@ def main() -> int:
             str(impact_json),
         ]
     )
+    write_provenance(
+        provenance_json,
+        args,
+        run_name,
+        [
+            image_table,
+            summary_json,
+            pipeline,
+            cp_dir / "Cells.csv",
+            cp_dir / "Image.csv",
+            cp_long,
+            mj_dir / "Image.csv",
+            mj_dir / "Objects.csv",
+            metrics_dir / f"cellprofiler-cellbindb-{run_name}.metrics.json",
+            metrics_dir / f"morphojet-cellbindb-{run_name}.metrics.json",
+            parity_json,
+            workflow_bridge_json,
+            handoff_trial_json,
+            impact_json,
+        ],
+    )
     print("CellBinDB oracle run complete")
     print(f"summary: {summary_json}")
     print(f"parity: {parity_md}")
     print(f"workflow_bridge: {workflow_bridge_md}")
     print(f"handoff_trial: {handoff_trial_md}")
     print(f"impact: {impact_md}")
+    print(f"provenance: {provenance_json}")
     return 0
 
 
