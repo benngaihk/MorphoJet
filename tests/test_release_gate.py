@@ -60,9 +60,8 @@ def valid_external_trial() -> dict:
         "external_evidence": external_evidence,
         "artifacts": release_gate.rendered_manifest_artifacts(manifest),
         "steps": [
-            {"name": "Materialize Cells wide CSV", "status": "PASS"},
-            {"name": "Compare Cells supported columns", "status": "PASS"},
-            {"name": "Validate downstream contract", "status": "PASS"},
+            {"name": name, "command": command, "status": "PASS"}
+            for name, command in release_gate.rendered_manifest_step_commands(manifest)
         ],
     }
 
@@ -373,13 +372,46 @@ class ReleaseGateTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             trial = valid_external_trial()
-            trial["steps"].append({"name": "Validate downstream contract", "status": "PASS"})
+            step = next(
+                step
+                for step in trial["steps"]
+                if step["name"] == "Validate downstream contract"
+            )
+            trial["steps"].append(dict(step))
             write_trial_artifacts(trial, root)
             add_artifact_provenance(trial, root)
 
             failures = release_gate.external_trial_failures(trial, root)
 
         self.assertIn("trial step name is duplicated: Validate downstream contract", failures)
+
+    def test_external_trial_requires_step_commands_from_rendered_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            for step in trial["steps"]:
+                if step["name"] == "Compare Cells supported columns":
+                    del step["command"]
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("trial step command mismatch: Compare Cells supported columns", failures)
+
+    def test_external_trial_rejects_step_command_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            for step in trial["steps"]:
+                if step["name"] == "Materialize Cells wide CSV":
+                    step["command"] = ["python3", "manual_edit.py"]
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("trial step command mismatch: Materialize Cells wide CSV", failures)
 
     def test_external_trial_requires_evidence(self) -> None:
         trial = valid_external_trial()

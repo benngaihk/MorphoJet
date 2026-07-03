@@ -308,21 +308,65 @@ def rendered_manifest_artifacts(manifest: dict) -> list[str]:
 
 def rendered_manifest_step_names(manifest: dict) -> list[str]:
     step_names = []
+    for name, _command in rendered_manifest_step_commands(manifest):
+        step_names.append(name)
+    return step_names
+
+
+def rendered_manifest_step_commands(manifest: dict) -> list[tuple[str, list[str]]]:
+    step_commands = []
+    objects_csv = manifest.get("morphojet_objects_csv")
     for export in manifest.get("exports", []):
         if not isinstance(export, dict):
             continue
         name = export.get("name")
         if isinstance(name, str) and name.strip():
-            step_names.append(f"Materialize {name} wide CSV")
+            channels = export.get("channels")
+            channel_arg = ",".join(channels) if isinstance(channels, list) else ""
+            out_csv = export.get("out_csv")
+            object_set = export.get("object_set")
+            step_commands.append(
+                (
+                    f"Materialize {name} wide CSV",
+                    [
+                        "python3",
+                        "benchmark/materialize_morphojet_cellprofiler_wide.py",
+                        "--objects",
+                        export.get("objects_csv", objects_csv),
+                        "--object-set",
+                        object_set,
+                        "--channels",
+                        channel_arg,
+                        "--out",
+                        out_csv,
+                    ],
+                )
+            )
             if "expected_cellprofiler_csv" in export:
-                step_names.append(f"Compare {name} supported columns")
+                step_commands.append(
+                    (
+                        f"Compare {name} supported columns",
+                        [
+                            "python3",
+                            "benchmark/compare_cellprofiler_wide_subset.py",
+                            export.get("expected_cellprofiler_csv"),
+                            out_csv,
+                            "--out",
+                            export.get("comparison_report"),
+                            "--json-out",
+                            export.get("comparison_json"),
+                            "--fail-on-gap",
+                        ],
+                    )
+                )
     for check in manifest.get("downstream_checks", []):
         if not isinstance(check, dict):
             continue
         name = check.get("name")
-        if isinstance(name, str) and name.strip():
-            step_names.append(name)
-    return step_names
+        command = check.get("command")
+        if isinstance(name, str) and name.strip() and isinstance(command, list):
+            step_commands.append((name, command))
+    return step_commands
 
 
 def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> list[str]:
@@ -351,6 +395,7 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> l
             else:
                 seen_expected_paths.add(path)
         expected_step_names = rendered_manifest_step_names(rendered_manifest)
+        expected_step_commands = dict(rendered_manifest_step_commands(rendered_manifest))
         seen_expected_steps = set()
         for name in expected_step_names:
             if name in seen_expected_steps:
@@ -359,6 +404,7 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> l
                 seen_expected_steps.add(name)
     expected_artifact_set = set(seen_expected_paths) if isinstance(rendered_manifest, dict) else None
     expected_step_set = set(seen_expected_steps) if isinstance(rendered_manifest, dict) else None
+    expected_step_command_map = expected_step_commands if isinstance(rendered_manifest, dict) else None
     steps = trial.get("steps")
     if not isinstance(steps, list) or not steps:
         failures.append("trial has no steps")
@@ -380,6 +426,13 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> l
                 failures.append(f"trial step missing rendered_manifest action: {missing_step}")
             for unexpected_step in sorted(observed_step_set - expected_step_set):
                 failures.append(f"trial step not declared by rendered_manifest: {unexpected_step}")
+        if expected_step_command_map is not None:
+            for step in steps:
+                if not isinstance(step, dict):
+                    continue
+                name = step.get("name")
+                if name in expected_step_command_map and step.get("command") != expected_step_command_map[name]:
+                    failures.append(f"trial step command mismatch: {name}")
         failed_steps = [step.get("name", "<unnamed>") for step in steps if step.get("status") != "PASS"]
         if failed_steps:
             failures.append(f"failed trial steps={','.join(failed_steps)}")
