@@ -18,21 +18,45 @@ import release_gate  # noqa: E402
 
 
 def valid_external_trial() -> dict:
+    external_evidence = {
+        "lab_or_org": "External Lab",
+        "workflow_owner": "Assay Owner",
+        "dataset_name": "Batch 42",
+        "dataset_source": "LIMS export",
+        "downstream_workflow": "Existing analysis notebook",
+        "execution_environment": "Ubuntu 24.04, Python 3.12",
+        "manual_csv_editing": False,
+        "acceptance_criteria": [
+            "Existing downstream workflow consumes MorphoJet output without manual CSV edits."
+        ],
+    }
     return {
         "trial_id": "external-lab-supported-columns-handoff",
         "status": "PASS",
-        "external_evidence": {
-            "lab_or_org": "External Lab",
-            "workflow_owner": "Assay Owner",
-            "dataset_name": "Batch 42",
-            "dataset_source": "LIMS export",
-            "downstream_workflow": "Existing analysis notebook",
-            "execution_environment": "Ubuntu 24.04, Python 3.12",
-            "manual_csv_editing": False,
-            "acceptance_criteria": [
-                "Existing downstream workflow consumes MorphoJet output without manual CSV edits."
+        "rendered_manifest": {
+            "trial_id": "external-lab-supported-columns-handoff",
+            "morphojet_objects_csv": "external/morphojet/Objects.csv",
+            "external_evidence": copy.deepcopy(external_evidence),
+            "exports": [
+                {
+                    "name": "Cells",
+                    "object_set": "Cells",
+                    "channels": ["DNA"],
+                    "out_csv": "external/morphojet/Cells.wide.csv",
+                    "expected_cellprofiler_csv": "external/cellprofiler/Cells.csv",
+                    "comparison_report": "external/workflow_bridge.md",
+                    "comparison_json": "external/workflow_bridge.json",
+                }
+            ],
+            "downstream_checks": [
+                {
+                    "name": "Validate downstream contract",
+                    "command": ["python3", "benchmark/check_cellprofiler_wide_contract.py"],
+                    "artifacts": ["external/handoff_contract.json"],
+                }
             ],
         },
+        "external_evidence": external_evidence,
         "artifacts": ["external/handoff_contract.json"],
         "steps": [
             {"name": "Materialize Cells wide CSV", "status": "PASS"},
@@ -187,6 +211,34 @@ class ReleaseGateTest(unittest.TestCase):
 
         self.assertIn("trial artifact_provenance must be a non-empty list", failures)
         self.assertIn("trial artifact missing provenance: external/handoff_contract.json", failures)
+
+    def test_external_trial_requires_rendered_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / "external" / "handoff_contract.json"
+            artifact.parent.mkdir()
+            artifact.write_text("{}\n")
+            trial = valid_external_trial()
+            add_artifact_provenance(trial, root)
+            del trial["rendered_manifest"]
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("rendered_manifest must be present for external workflow trial reports", failures)
+
+    def test_external_trial_rejects_rendered_manifest_evidence_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / "external" / "handoff_contract.json"
+            artifact.parent.mkdir()
+            artifact.write_text("{}\n")
+            trial = valid_external_trial()
+            add_artifact_provenance(trial, root)
+            trial["rendered_manifest"]["external_evidence"]["dataset_name"] = "Different Batch"
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("rendered_manifest.external_evidence must match external_evidence", failures)
 
     def test_external_trial_rejects_artifact_hash_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

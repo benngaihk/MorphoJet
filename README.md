@@ -126,7 +126,7 @@ python3 benchmark/run_handoff_trial.py benchmark/handoff/cellbindb_supported_col
   --out-md benchmark/results/cellbindb/oracle-full/handoff_trial.md
 ```
 
-Use `benchmark/handoff/external_lab_template.json` as the starting point for real lab handoff files. External workflow trials must fill the `external_evidence` block and pass validation with `--require-external-evidence`; the trial report preserves those fields plus one SHA-256/size provenance entry for each listed artifact for L4 review.
+Use `benchmark/handoff/external_lab_template.json` as the starting point for real lab handoff files. External workflow trials must fill the `external_evidence` block and pass validation with `--require-external-evidence`; the trial report preserves those fields, the rendered manifest snapshot, and one SHA-256/size provenance entry for each listed artifact for L4 review.
 
 ## Parity Report
 

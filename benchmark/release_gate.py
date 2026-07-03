@@ -288,6 +288,20 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> l
     failures = []
     if trial.get("status") != "PASS":
         failures.append(f"trial status is {trial.get('status')}")
+    rendered_manifest = trial.get("rendered_manifest")
+    if not isinstance(rendered_manifest, dict):
+        failures.append("rendered_manifest must be present for external workflow trial reports")
+    else:
+        import validate_handoff_manifest
+
+        manifest_issues = validate_handoff_manifest.validate_schema(
+            rendered_manifest,
+            require_downstream_check=True,
+            require_external_evidence=True,
+        )
+        failures.extend(f"rendered_manifest.{issue}" for issue in manifest_issues)
+        if rendered_manifest.get("trial_id") != trial.get("trial_id"):
+            failures.append("rendered_manifest.trial_id must match trial_id")
     steps = trial.get("steps")
     if not isinstance(steps, list) or not steps:
         failures.append("trial has no steps")
@@ -353,6 +367,8 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> l
     if not isinstance(evidence, dict):
         failures.append("external_evidence must be present")
         return failures
+    if isinstance(rendered_manifest, dict) and rendered_manifest.get("external_evidence") != evidence:
+        failures.append("rendered_manifest.external_evidence must match external_evidence")
     required_strings = [
         "lab_or_org",
         "workflow_owner",

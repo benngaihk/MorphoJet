@@ -240,6 +240,7 @@ def main() -> int:
         "description": manifest.get("description", ""),
         "status": "PASS" if all(step.status == "PASS" for step in steps) else "FAIL",
         "manifest": str(args.manifest),
+        "rendered_manifest": manifest,
         "variables": variables,
         "external_evidence": manifest.get("external_evidence"),
         "artifacts": artifacts,
