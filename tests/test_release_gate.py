@@ -61,6 +61,7 @@ def valid_external_trial() -> dict:
         "artifacts": release_gate.rendered_manifest_artifacts(manifest),
         "steps": [
             {"name": "Materialize Cells wide CSV", "status": "PASS"},
+            {"name": "Compare Cells supported columns", "status": "PASS"},
             {"name": "Validate downstream contract", "status": "PASS"},
         ],
     }
@@ -334,6 +335,52 @@ class ReleaseGateTest(unittest.TestCase):
 
         self.assertIn("trial artifact not declared by rendered_manifest: external/extra.json", failures)
 
+    def test_external_trial_requires_steps_from_rendered_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            trial["steps"] = [
+                step
+                for step in trial["steps"]
+                if step["name"] != "Compare Cells supported columns"
+            ]
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn(
+            "trial step missing rendered_manifest action: Compare Cells supported columns",
+            failures,
+        )
+
+    def test_external_trial_rejects_steps_not_declared_by_rendered_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            trial["steps"].append({"name": "Manual spreadsheet cleanup", "status": "PASS"})
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn(
+            "trial step not declared by rendered_manifest: Manual spreadsheet cleanup",
+            failures,
+        )
+
+    def test_external_trial_rejects_duplicate_step_names(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            trial["steps"].append({"name": "Validate downstream contract", "status": "PASS"})
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("trial step name is duplicated: Validate downstream contract", failures)
+
     def test_external_trial_requires_evidence(self) -> None:
         trial = valid_external_trial()
         del trial["external_evidence"]
@@ -359,13 +406,18 @@ class ReleaseGateTest(unittest.TestCase):
         )
 
     def test_external_trial_rejects_failed_steps(self) -> None:
-        trial = copy.deepcopy(valid_external_trial())
-        trial["steps"][1]["status"] = "FAIL"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            for step in trial["steps"]:
+                if step["name"] == "Validate downstream contract":
+                    step["status"] = "FAIL"
 
-        self.assertIn(
-            "failed trial steps=Validate downstream contract",
-            release_gate.external_trial_failures(trial),
-        )
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("failed trial steps=Validate downstream contract", failures)
 
 
 if __name__ == "__main__":

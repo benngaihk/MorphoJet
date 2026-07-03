@@ -306,6 +306,25 @@ def rendered_manifest_artifacts(manifest: dict) -> list[str]:
     return artifacts
 
 
+def rendered_manifest_step_names(manifest: dict) -> list[str]:
+    step_names = []
+    for export in manifest.get("exports", []):
+        if not isinstance(export, dict):
+            continue
+        name = export.get("name")
+        if isinstance(name, str) and name.strip():
+            step_names.append(f"Materialize {name} wide CSV")
+            if "expected_cellprofiler_csv" in export:
+                step_names.append(f"Compare {name} supported columns")
+    for check in manifest.get("downstream_checks", []):
+        if not isinstance(check, dict):
+            continue
+        name = check.get("name")
+        if isinstance(name, str) and name.strip():
+            step_names.append(name)
+    return step_names
+
+
 def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> list[str]:
     failures = []
     if trial.get("status") != "PASS":
@@ -331,11 +350,36 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None) -> l
                 failures.append(f"rendered_manifest artifact path is duplicated: {path}")
             else:
                 seen_expected_paths.add(path)
+        expected_step_names = rendered_manifest_step_names(rendered_manifest)
+        seen_expected_steps = set()
+        for name in expected_step_names:
+            if name in seen_expected_steps:
+                failures.append(f"rendered_manifest step name is duplicated: {name}")
+            else:
+                seen_expected_steps.add(name)
     expected_artifact_set = set(seen_expected_paths) if isinstance(rendered_manifest, dict) else None
+    expected_step_set = set(seen_expected_steps) if isinstance(rendered_manifest, dict) else None
     steps = trial.get("steps")
     if not isinstance(steps, list) or not steps:
         failures.append("trial has no steps")
     else:
+        observed_step_names = []
+        for step in steps:
+            if isinstance(step, dict) and isinstance(step.get("name"), str) and step["name"].strip():
+                observed_step_names.append(step["name"])
+            else:
+                failures.append("trial step name must be a non-empty string")
+        duplicated_steps = sorted(
+            name for name in set(observed_step_names) if observed_step_names.count(name) > 1
+        )
+        for name in duplicated_steps:
+            failures.append(f"trial step name is duplicated: {name}")
+        if expected_step_set is not None:
+            observed_step_set = set(observed_step_names)
+            for missing_step in sorted(expected_step_set - observed_step_set):
+                failures.append(f"trial step missing rendered_manifest action: {missing_step}")
+            for unexpected_step in sorted(observed_step_set - expected_step_set):
+                failures.append(f"trial step not declared by rendered_manifest: {unexpected_step}")
         failed_steps = [step.get("name", "<unnamed>") for step in steps if step.get("status") != "PASS"]
         if failed_steps:
             failures.append(f"failed trial steps={','.join(failed_steps)}")
