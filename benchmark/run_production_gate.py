@@ -271,6 +271,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=Path,
         help="Validate an existing local evidence preflight JSON report and exit",
     )
+    parser.add_argument(
+        "--verify-local-evidence-preflight-files",
+        action="store_true",
+        help="With --verify-local-evidence-preflight-report, recompute recorded input artifact sizes and SHA-256 hashes",
+    )
     return parser.parse_args(argv)
 
 
@@ -278,7 +283,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         args = parse_args(argv)
         if args.verify_local_evidence_preflight_report:
-            return verify_local_evidence_preflight_report(args.verify_local_evidence_preflight_report)
+            return verify_local_evidence_preflight_report(
+                args.verify_local_evidence_preflight_report,
+                verify_files=args.verify_local_evidence_preflight_files,
+            )
         require_final_gate_args(args)
         command = build_release_gate_command(args)
         if not args.dry_run:
@@ -377,13 +385,39 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
     return failures
 
 
-def verify_local_evidence_preflight_report(path: Path) -> int:
+def validate_local_evidence_preflight_files(payload: dict) -> list[str]:
+    failures = []
+    for artifact in payload.get("input_artifacts", []):
+        if not isinstance(artifact, dict):
+            continue
+        name = artifact.get("name")
+        path_value = artifact.get("path")
+        if not isinstance(path_value, str) or not path_value:
+            continue
+        if artifact.get("exists") is not True:
+            continue
+        path = Path(path_value)
+        if not path.is_file():
+            failures.append(f"input artifact no longer exists: {name} {path}")
+            continue
+        actual_size = path.stat().st_size
+        if actual_size != artifact.get("size_bytes"):
+            failures.append(f"input artifact size mismatch: {name}")
+        actual_hash = release_gate.sha256_file(path)
+        if actual_hash != artifact.get("sha256"):
+            failures.append(f"input artifact sha256 mismatch: {name}")
+    return failures
+
+
+def verify_local_evidence_preflight_report(path: Path, verify_files: bool = False) -> int:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:  # noqa: BLE001 - exact report verification failure.
         print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
     failures = validate_local_evidence_preflight_payload(payload)
+    if not failures and verify_files:
+        failures.extend(validate_local_evidence_preflight_files(payload))
     if failures:
         for failure in failures:
             print(f"FAIL: {failure}", file=sys.stderr)
@@ -391,6 +425,7 @@ def verify_local_evidence_preflight_report(path: Path) -> int:
     print(f"local evidence preflight report ok: {path}")
     print(f"status={payload['status']}")
     print(f"claim_status={payload['claim_status']}")
+    print(f"verified_files={verify_files}")
     return 0
 
 

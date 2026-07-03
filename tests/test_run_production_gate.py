@@ -306,6 +306,85 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(0, status)
         self.assertIn("local evidence preflight report ok", stdout.getvalue())
 
+    def test_verify_local_evidence_preflight_report_recomputes_input_hashes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            out_json = root / "reports" / "preflight.json"
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(root / "reports" / "preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                run_production_gate.run_local_evidence_preflight(args)
+
+            with contextlib.redirect_stdout(io.StringIO()) as stdout:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                        "--verify-local-evidence-preflight-files",
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertIn("verified_files=True", stdout.getvalue())
+
+    def test_verify_local_evidence_preflight_report_rejects_hash_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            out_json = root / "reports" / "preflight.json"
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(root / "reports" / "preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                run_production_gate.run_local_evidence_preflight(args)
+            Path(package["zip"]).write_bytes(b"tampered\n")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                        "--verify-local-evidence-preflight-files",
+                    ]
+                )
+
+        self.assertEqual(1, status)
+        self.assertIn("input artifact", stderr.getvalue())
+
     def test_verify_local_evidence_preflight_report_rejects_claim_status_mutation(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

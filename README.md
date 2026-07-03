@@ -127,7 +127,8 @@ Re-check a saved local evidence preflight report without the original evidence p
 
 ```bash
 python3 benchmark/run_production_gate.py \
-  --verify-local-evidence-preflight-report benchmark/results/release-gate/local-evidence-preflight.json
+  --verify-local-evidence-preflight-report benchmark/results/release-gate/local-evidence-preflight.json \
+  --verify-local-evidence-preflight-files
 ```
 
 ## CellProfiler-Style Wide Export
