@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -633,6 +634,21 @@ def package_path_is_safe(package_path: object) -> bool:
     return not path.is_absolute() and ".." not in path.parts and "." not in path.parts
 
 
+def package_zip_sha256_issues(path: Path, zip_name: str) -> tuple[str | None, list[str]]:
+    parts = path.read_text(encoding="utf-8").split()
+    if not parts:
+        return None, [f"package zip sha256 file is empty: {path.name}"]
+    issues = []
+    digest = parts[0]
+    if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        issues.append(f"package zip sha256 digest is invalid: {path.name}")
+    if len(parts) < 2:
+        issues.append(f"package zip sha256 file missing zip name: {path.name}")
+    elif Path(parts[1]).name != zip_name:
+        issues.append(f"package zip sha256 target mismatch for {zip_name}: {parts[1]}")
+    return digest, issues
+
+
 def validate_external_evidence_package(package_dir: Path, trial_json: Path | None) -> Gate:
     started = time.perf_counter()
     try:
@@ -740,7 +756,8 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
         if not sha_path.is_file():
             failures.append(f"package zip sha256 file is missing: {sha_path.name}")
         if zip_path.is_file() and sha_path.is_file():
-            expected_zip_hash = sha_path.read_text(encoding="utf-8").split()[0]
+            expected_zip_hash, checksum_failures = package_zip_sha256_issues(sha_path, zip_path.name)
+            failures.extend(checksum_failures)
             if expected_zip_hash != sha256_file(zip_path):
                 failures.append(f"package zip sha256 mismatch: {zip_path.name}")
             try:

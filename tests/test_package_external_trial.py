@@ -113,6 +113,44 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual("FAIL", gate.status)
         self.assertIn("package zip sha256 mismatch", gate.detail)
 
+    def test_release_gate_rejects_package_zip_sha_target_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            zip_path = Path(result["zip"])
+            Path(result["sha256"]).write_text(
+                f"{release_gate.sha256_file(zip_path)}  other-package.zip\n",
+                encoding="utf-8",
+            )
+
+            gate = release_gate.validate_external_evidence_package(Path(result["package_dir"]), trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("package zip sha256 target mismatch for external-l4-demo.zip", gate.detail)
+
+    def test_release_gate_rejects_package_zip_sha_invalid_digest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            Path(result["sha256"]).write_text("not-a-sha  external-l4-demo.zip\n", encoding="utf-8")
+
+            gate = release_gate.validate_external_evidence_package(Path(result["package_dir"]), trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("package zip sha256 digest is invalid", gate.detail)
+
     def test_release_gate_rejects_package_zip_missing_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
