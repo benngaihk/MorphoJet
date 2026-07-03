@@ -35,6 +35,18 @@ Priority order:
 2. Promote the release-candidate validation path from `v0.1.0-rc.1` to a stable `v0.1.0` tag after external workflow evidence is accepted by `benchmark/release_gate.py --external-trial-json`, then verify it with `benchmark/release_gate.py --verify-github-release v0.1.0 --github-release-kind stable`.
 3. Broaden the supported measurement subset beyond the current intensity and size/shape columns.
 
+After items 1 and 2 are complete, run the final production wrapper:
+
+```bash
+python3 benchmark/run_production_gate.py \
+  --external-trial-json path/to/external/handoff_trial.json \
+  --external-trial-root path/to/external \
+  --external-evidence-package-dir path/to/evidence-packages/external-l4-trial \
+  --github-release-tag v0.1.0
+```
+
+This is the single command intended to produce the final production-claim report. It requires a stable non-RC tag and delegates to `benchmark/release_gate.py --require-production-claim`, so production remains incomplete until that command passes with real external evidence and a stable release.
+
 ## Claim Policy
 
 Until every required gate is complete, documentation may claim the narrow L3 benchmark result and the supported-column handoff preflight, but must not say "production-ready" or "replaces CellProfiler workflows" without an external workflow trial report and evidence package accepted by release gate.

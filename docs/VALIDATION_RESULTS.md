@@ -1,6 +1,31 @@
 # Validation Results
 
-Updated: 2026-07-02
+Updated: 2026-07-04
+
+## Production Gate Wrapper Milestone
+
+This milestone adds `benchmark/run_production_gate.py` as the final production-claim entrypoint. It does not replace the release gate; it assembles the required final checks into one command and rejects release-candidate tags before invoking release verification.
+
+Required final command shape:
+
+```bash
+python3 benchmark/run_production_gate.py \
+  --external-trial-json path/to/external/handoff_trial.json \
+  --external-trial-root path/to/external \
+  --external-evidence-package-dir path/to/evidence-packages/external-l4-trial \
+  --github-release-tag v0.1.0
+```
+
+The wrapper invokes `benchmark/release_gate.py` with `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, external L4 trial/package validation, `--verify-github-release`, and `--github-release-kind stable` in the same report. The current production claim remains incomplete until real external L4 evidence and a stable release are supplied and that combined gate passes.
+
+Local validation for the wrapper:
+
+| Command | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/run_production_gate.py tests/test_run_production_gate.py` | PASS |
+| `python3 tests/test_run_production_gate.py` | PASS |
+| `python3 -m unittest discover -s tests -p 'test_run_production_gate.py'` | PASS |
+| `python3 benchmark/run_production_gate.py --external-trial-json path/to/external/handoff_trial.json --external-trial-root path/to/external --external-evidence-package-dir path/to/evidence-packages/external-l4-trial --github-release-tag v0.1.0 --dry-run` | PASS |
 
 ## L2 ExampleHuman Oracle Snapshot
 

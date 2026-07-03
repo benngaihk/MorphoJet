@@ -131,6 +131,18 @@ python3 benchmark/package_external_trial.py \
 
 The package step reuses the release-gate external L4 validator and refuses invalid reports. A valid package contains the trial report, rendered manifest snapshot, external evidence JSON, artifact manifest, copied artifacts, a README, a zip archive containing every required package file and declared artifact, and a zip SHA-256 file. Production-claim release gates should pass both `--external-trial-json` and `--external-evidence-package-dir` so the accepted L4 trial and review package are verified together.
 
+For final production/stable-release signoff, use the dedicated wrapper so every required production-claim input is bound into the same release-gate report:
+
+```bash
+python3 benchmark/run_production_gate.py \
+  --external-trial-json path/to/external/handoff_trial.json \
+  --external-trial-root path/to/external \
+  --external-evidence-package-dir path/to/evidence-packages/external-l4-trial \
+  --github-release-tag v0.1.0
+```
+
+The wrapper rejects release-candidate tags such as `v0.1.0-rc.1` and invokes `benchmark/release_gate.py` with `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, the external L4 trial and package paths, `--verify-github-release`, and `--github-release-kind stable`. Use `--dry-run` to print the assembled command without network or release verification side effects.
+
 For a scheduler-ready entrypoint that performs the fetch/verify step, verifies an existing CellBinDB archive with pinned MD5/size when Zenodo metadata is temporarily unavailable, pulls the pinned CellProfiler Docker image, and runs `python3 benchmark/release_gate.py --require-l3-provenance --run-l3`, use:
 
 ```bash

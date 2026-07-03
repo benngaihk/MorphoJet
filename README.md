@@ -98,6 +98,18 @@ python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --
 
 For a fast audit of already-generated L3 artifacts, run `python3 benchmark/release_gate.py`. Release-gate JSON and Markdown reports include the run timestamp, git commit, dirty-worktree status, invoked arguments, and production-claim blockers. Formal release reports should include `--require-l3-provenance`, which checks the CellBinDB provenance file written by a full non-`--skip-cellprofiler` L3 run and re-hashes the recorded artifacts. Final production or stable-release gates should add `--require-production-claim`, which fails unless the external L4 workflow and stable release checks are also present and passing.
 
+For the final production claim, use the wrapper that assembles the required checks into one command:
+
+```bash
+python3 benchmark/run_production_gate.py \
+  --external-trial-json path/to/external/handoff_trial.json \
+  --external-trial-root path/to/external \
+  --external-evidence-package-dir path/to/evidence-packages/external-l4-trial \
+  --github-release-tag v0.1.0
+```
+
+The wrapper requires a stable non-RC tag and runs `benchmark/release_gate.py` with clean-git, L3 provenance, external L4 trial, external L4 evidence package, stable GitHub release, and `--require-production-claim` checks in the same report.
+
 ## CellProfiler-Style Wide Export
 
 MorphoJet's native `Objects.csv` is a long table keyed by `ImageNumber`, `ObjectSet`, `ObjectNumber`, and `Channel`. For downstream tools that expect a CellProfiler object CSV such as `Cells.csv`, materialize the supported measurement subset into a wide table:
