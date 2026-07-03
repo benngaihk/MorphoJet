@@ -8,7 +8,7 @@ This milestone adds `benchmark/run_production_gate.py` as the final production-c
 The wrapper is treated as a release-gate orchestration file for provenance compatibility, so changing it does not by itself require regenerating CellBinDB L3 artifacts; changes to measurement code or benchmark generators still do.
 Actual wrapper runs now fail fast when the external trial JSON, trial root, or evidence package directory is missing; `--dry-run` remains available for command review before those external artifacts exist.
 The wrapper also provides `--local-evidence-preflight-only` so a completed external L4 trial and evidence package can be validated before the stable GitHub release exists, using the same release-gate validators that the final production claim uses, and writes local evidence-preflight JSON/Markdown reports labeled `NOT_PRODUCTION_CLAIM` with skipped final checks and key input file hashes.
-Saved local evidence preflight JSON reports can also be re-checked with `--verify-local-evidence-preflight-report`, which validates the report schema, claim-scope labels, skipped/validated check lists, input artifact digest fields, and expected external L4 gate entries. Add `--verify-local-evidence-preflight-files` to recompute recorded input artifact sizes and SHA-256 hashes.
+Saved local evidence preflight JSON reports can also be re-checked with `--verify-local-evidence-preflight-report`, which validates the report schema, metadata types/formats, claim-scope labels, skipped/validated check lists, input artifact digest fields, and expected external L4 gate entries. Add `--verify-local-evidence-preflight-files` to recompute recorded input artifact sizes and SHA-256 hashes.
 
 Required final command shape:
 

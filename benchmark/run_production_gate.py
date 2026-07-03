@@ -337,6 +337,32 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
         ]:
             if key not in metadata:
                 failures.append(f"metadata missing {key}")
+        generated_at = metadata.get("generated_at_utc")
+        if isinstance(generated_at, str):
+            try:
+                parsed_generated_at = datetime.fromisoformat(generated_at)
+                if parsed_generated_at.tzinfo is None:
+                    failures.append("metadata.generated_at_utc must include timezone")
+            except ValueError:
+                failures.append(f"metadata.generated_at_utc is invalid: {generated_at}")
+        elif "generated_at_utc" in metadata:
+            failures.append("metadata.generated_at_utc must be a string")
+        git_commit = metadata.get("git_commit")
+        if isinstance(git_commit, str):
+            if not re.fullmatch(r"[0-9a-f]{40}", git_commit):
+                failures.append(f"metadata.git_commit is not a 40-character SHA: {git_commit}")
+        elif "git_commit" in metadata:
+            failures.append("metadata.git_commit must be a string")
+        if "git_dirty" in metadata and not isinstance(metadata.get("git_dirty"), bool):
+            failures.append("metadata.git_dirty must be a boolean")
+        for list_key in ["git_status", "argv"]:
+            value = metadata.get(list_key)
+            if list_key in metadata and (
+                not isinstance(value, list) or not all(isinstance(item, str) for item in value)
+            ):
+                failures.append(f"metadata.{list_key} must be a string list")
+        if metadata.get("local_evidence_preflight_only") is not True:
+            failures.append("metadata.local_evidence_preflight_only must be true")
 
     artifacts = payload.get("input_artifacts")
     if not isinstance(artifacts, list):

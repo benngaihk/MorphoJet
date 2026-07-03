@@ -417,6 +417,51 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(1, status)
         self.assertIn("claim_status=PASS", stderr.getvalue())
 
+    def test_verify_local_evidence_preflight_report_rejects_bad_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            out_json = root / "reports" / "preflight.json"
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(root / "reports" / "preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                run_production_gate.run_local_evidence_preflight(args)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            payload["metadata"]["git_commit"] = "abc123"
+            payload["metadata"]["git_dirty"] = "false"
+            payload["metadata"]["local_evidence_preflight_only"] = False
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(1, status)
+        self.assertIn("metadata.git_commit is not a 40-character SHA", stderr.getvalue())
+        self.assertIn("metadata.git_dirty must be a boolean", stderr.getvalue())
+        self.assertIn("metadata.local_evidence_preflight_only must be true", stderr.getvalue())
+
     def test_main_preflight_only_does_not_print_final_release_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
