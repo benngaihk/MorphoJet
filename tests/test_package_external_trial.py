@@ -61,6 +61,10 @@ class PackageExternalTrialTest(unittest.TestCase):
             self.assertEqual(4, len(manifest["artifacts"]))
             self.assertEqual(trial_json.stat().st_size, manifest["trial_json_size_bytes"])
             self.assertEqual(release_gate.sha256_file(trial_json), manifest["trial_json_sha256"])
+            self.assertEqual(
+                ["README.md", "external_evidence.json", "handoff_trial.json", "rendered_manifest.json"],
+                sorted(entry["path"] for entry in manifest["review_files"]),
+            )
             self.assertEqual(release_gate.sha256_file(zip_path), sha_path.read_text().split()[0])
             with zipfile.ZipFile(zip_path) as archive:
                 self.assertIn("external-l4-demo/README.md", archive.namelist())
@@ -557,6 +561,32 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual("FAIL", gate.status)
         self.assertIn("package README missing signoff field: trial_id", gate.detail)
         self.assertIn("package README missing signoff field: validation_detail", gate.detail)
+
+    def test_release_gate_rejects_tampered_review_file_digest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+            readme_path = package_dir / "README.md"
+            readme_path.write_text(readme_path.read_text(encoding="utf-8") + "\nTampered.\n", encoding="utf-8")
+            zip_path = Path(result["zip"])
+            package_external_trial.zip_directory(package_dir, zip_path)
+            Path(result["sha256"]).write_text(
+                f"{release_gate.sha256_file(zip_path)}  external-l4-demo.zip\n",
+                encoding="utf-8",
+            )
+
+            gate = release_gate.validate_external_evidence_package(package_dir, trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("package review_file size mismatch: README.md", gate.detail)
+        self.assertIn("package review_file sha256 mismatch: README.md", gate.detail)
 
     def test_release_gate_rejects_package_readme_missing_external_evidence_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

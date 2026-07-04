@@ -714,6 +714,45 @@ def external_package_readme_failures(readme: str, trial: dict, artifact_manifest
     return failures
 
 
+def external_package_review_file_failures(package_dir: Path, artifact_manifest: dict) -> list[str]:
+    failures = []
+    expected_review_files = {
+        "handoff_trial.json",
+        "rendered_manifest.json",
+        "external_evidence.json",
+        "README.md",
+    }
+    review_files = artifact_manifest.get("review_files")
+    if not isinstance(review_files, list) or not review_files:
+        return ["package artifact_manifest.review_files must be a non-empty list"]
+    entries_by_path = {}
+    for entry in review_files:
+        if not isinstance(entry, dict):
+            failures.append("package artifact_manifest review_file entries must be objects")
+            continue
+        review_path = entry.get("path")
+        if not package_path_is_safe(review_path):
+            failures.append(f"package review_file path is unsafe: {review_path}")
+            continue
+        if review_path in entries_by_path:
+            failures.append(f"package review_file path is duplicated: {review_path}")
+        entries_by_path[review_path] = entry
+        file_path = package_dir / review_path
+        if not file_path.is_file():
+            failures.append(f"package review_file is missing: {review_path}")
+            continue
+        if entry.get("size_bytes") != file_path.stat().st_size:
+            failures.append(f"package review_file size mismatch: {review_path}")
+        if entry.get("sha256") != sha256_file(file_path):
+            failures.append(f"package review_file sha256 mismatch: {review_path}")
+    observed_paths = set(entries_by_path)
+    for missing_path in sorted(expected_review_files - observed_paths):
+        failures.append(f"package artifact_manifest.review_files missing required file: {missing_path}")
+    for extra_path in sorted(observed_paths - expected_review_files):
+        failures.append(f"package artifact_manifest.review_files has unexpected file: {extra_path}")
+    return failures
+
+
 def validate_external_evidence_package(package_dir: Path, trial_json: Path | None) -> Gate:
     started = time.perf_counter()
     try:
@@ -809,6 +848,7 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
             failures.append("package rendered_manifest.json must match trial rendered_manifest")
         if external_evidence != trial.get("external_evidence"):
             failures.append("package external_evidence.json must match trial external_evidence")
+        failures.extend(external_package_review_file_failures(package_dir, artifact_manifest))
         failures.extend(external_package_readme_failures(readme, trial, artifact_manifest))
         manifest_artifacts = artifact_manifest.get("artifacts")
         if not isinstance(manifest_artifacts, list) or not manifest_artifacts:

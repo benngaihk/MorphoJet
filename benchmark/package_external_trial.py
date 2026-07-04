@@ -35,6 +35,14 @@ def write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def file_manifest_entry(path: Path, package_dir: Path) -> dict[str, Any]:
+    return {
+        "path": str(path.relative_to(package_dir)),
+        "size_bytes": path.stat().st_size,
+        "sha256": release_gate.sha256_file(path),
+    }
+
+
 def slugify(value: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-")
     return slug or "external-l4-trial"
@@ -177,11 +185,18 @@ def create_package(
         "validation_detail": release_gate.external_trial_pass_detail(trial),
         "artifacts": artifact_entries,
     }
-    write_json(package_dir / "artifact_manifest.json", artifact_manifest)
-    (package_dir / "README.md").write_text(
+    readme_path = package_dir / "README.md"
+    readme_path.write_text(
         render_readme(trial, artifact_manifest["validation_detail"], artifact_manifest),
         encoding="utf-8",
     )
+    artifact_manifest["review_files"] = [
+        file_manifest_entry(package_dir / "handoff_trial.json", package_dir),
+        file_manifest_entry(package_dir / "rendered_manifest.json", package_dir),
+        file_manifest_entry(package_dir / "external_evidence.json", package_dir),
+        file_manifest_entry(readme_path, package_dir),
+    ]
+    write_json(package_dir / "artifact_manifest.json", artifact_manifest)
     zip_directory(package_dir, zip_path)
     sha_path.write_text(f"{release_gate.sha256_file(zip_path)}  {zip_path.name}\n", encoding="utf-8")
     return {
