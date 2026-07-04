@@ -6,11 +6,14 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+
+ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_AUDIT_CHECKS = [
     "clean_git_worktree",
@@ -41,6 +44,16 @@ REQUIRED_PRODUCTION_GATE_NAMES = {
 }
 
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
+
+
+def git_commit_is_reachable(commit: str) -> bool:
+    completed = subprocess.run(
+        ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    return completed.returncode == 0
 
 
 def validate_metadata(metadata: Any) -> list[str]:
@@ -172,6 +185,8 @@ def validate_release_gate_report_payload(
     require_report_pass: bool = False,
     require_production_claim_pass: bool = False,
     expected_missing_checks: list[str] | None = None,
+    require_clean_git_metadata: bool = False,
+    verify_git_commit: bool = False,
 ) -> list[str]:
     failures: list[str] = []
     if not isinstance(payload, dict):
@@ -220,6 +235,16 @@ def validate_release_gate_report_payload(
 
     metadata = payload.get("metadata")
     failures.extend(validate_metadata(metadata))
+    if isinstance(metadata, dict):
+        if require_clean_git_metadata:
+            if metadata.get("git_dirty") is not False:
+                failures.append("metadata.git_dirty is not false")
+            if metadata.get("git_status") != []:
+                failures.append("metadata.git_status is not empty")
+        git_commit = metadata.get("git_commit")
+        if verify_git_commit and isinstance(git_commit, str) and re.fullmatch(r"[0-9a-f]{40}", git_commit):
+            if not git_commit_is_reachable(git_commit):
+                failures.append(f"metadata.git_commit is not reachable: {git_commit}")
     if top_level_claim_status == "PASS":
         failures.extend(validate_production_claim_metadata(metadata))
 
@@ -245,6 +270,8 @@ def verify_release_gate_report(
     require_report_pass: bool = False,
     require_production_claim_pass: bool = False,
     expected_missing_checks: list[str] | None = None,
+    require_clean_git_metadata: bool = False,
+    verify_git_commit: bool = False,
 ) -> int:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -256,6 +283,8 @@ def verify_release_gate_report(
         require_report_pass=require_report_pass,
         require_production_claim_pass=require_production_claim_pass,
         expected_missing_checks=expected_missing_checks,
+        require_clean_git_metadata=require_clean_git_metadata,
+        verify_git_commit=verify_git_commit,
     )
     if failures:
         for failure in failures:
@@ -267,6 +296,8 @@ def verify_release_gate_report(
     print(f"missing_or_failed_checks={','.join(payload['missing_or_failed_checks']) or 'none'}")
     if expected_missing_checks is not None:
         print(f"expected_missing_checks={','.join(expected_missing_checks) or 'none'}")
+    print(f"verified_git_commit={verify_git_commit}")
+    print(f"required_clean_git_metadata={require_clean_git_metadata}")
     return 0
 
 
@@ -288,6 +319,16 @@ def main() -> int:
     parser.add_argument("--require-report-pass", action="store_true")
     parser.add_argument("--require-production-claim-pass", action="store_true")
     parser.add_argument(
+        "--require-clean-git-metadata",
+        action="store_true",
+        help="Require metadata.git_dirty=false and metadata.git_status=[] in the saved report",
+    )
+    parser.add_argument(
+        "--verify-git-commit",
+        action="store_true",
+        help="Require metadata.git_commit to be reachable in the current checkout",
+    )
+    parser.add_argument(
         "--expect-missing-checks",
         type=parse_expected_missing_checks,
         help="Comma-separated production-claim blockers expected in missing_or_failed_checks, or 'none'",
@@ -298,6 +339,8 @@ def main() -> int:
         require_report_pass=args.require_report_pass,
         require_production_claim_pass=args.require_production_claim_pass,
         expected_missing_checks=args.expect_missing_checks,
+        require_clean_git_metadata=args.require_clean_git_metadata,
+        verify_git_commit=args.verify_git_commit,
     )
 
 

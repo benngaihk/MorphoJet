@@ -209,6 +209,42 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             failures,
         )
 
+    def test_can_require_clean_git_metadata(self) -> None:
+        payload = self.valid_payload()
+        payload["metadata"]["git_dirty"] = True
+        payload["metadata"]["git_status"] = [" M docs/DEVELOPMENT.md"]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(
+            payload,
+            require_clean_git_metadata=True,
+        )
+
+        self.assertIn("metadata.git_dirty is not false", failures)
+        self.assertIn("metadata.git_status is not empty", failures)
+
+    def test_can_verify_reachable_git_commit(self) -> None:
+        payload = self.valid_payload()
+        payload["metadata"]["git_commit"] = release_gate.git_commit()
+
+        self.assertEqual(
+            [],
+            verify_release_gate_report.validate_release_gate_report_payload(
+                payload,
+                verify_git_commit=True,
+            ),
+        )
+
+    def test_rejects_unreachable_git_commit_when_requested(self) -> None:
+        payload = self.valid_payload()
+        payload["metadata"]["git_commit"] = "0" * 40
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(
+            payload,
+            verify_git_commit=True,
+        )
+
+        self.assertIn("metadata.git_commit is not reachable: " + "0" * 40, failures)
+
     def test_parses_expected_missing_checks(self) -> None:
         self.assertEqual(
             ["external_l4_workflow_trial", "stable_github_release"],

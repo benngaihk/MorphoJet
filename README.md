@@ -102,10 +102,11 @@ To re-check a saved release-gate JSON report during review:
 
 ```bash
 python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json
-python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/production-claim.json --require-report-pass --require-production-claim-pass
+python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json --verify-git-commit
+python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/production-claim.json --require-report-pass --require-clean-git-metadata --verify-git-commit --require-production-claim-pass
 ```
 
-The saved release-gate verifier checks top-level summary fields against `production_claim_audit`, validates metadata and gate-entry schemas, requires the expected production-audit check list, and rejects production PASS reports that omit required clean-git, L3 provenance, external L4, or stable GitHub release gates. Production PASS reports must also carry metadata proving the final flags, external L4 paths, and stable release tag/kind were used.
+The saved release-gate verifier checks top-level summary fields against `production_claim_audit`, validates metadata and gate-entry schemas, requires the expected production-audit check list, can verify the recorded git commit is reachable, can require clean-git metadata, and rejects production PASS reports that omit required clean-git, L3 provenance, external L4, or stable GitHub release gates. Production PASS reports must also carry metadata proving the final flags, external L4 paths, and stable release tag/kind were used.
 
 For the final production claim, use the wrapper that assembles the required checks into one command:
 
