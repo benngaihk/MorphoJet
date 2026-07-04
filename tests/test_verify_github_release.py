@@ -183,6 +183,26 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertEqual(1, summary["release_metadata_count"])
         self.assertEqual(2, summary["downloaded_count"])
 
+    def test_asset_file_digest_issues_accepts_matching_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            asset = out_dir / "asset.tar.gz"
+            asset.write_text("asset\n", encoding="utf-8")
+            records = [{"name": asset.name, "digest": f"sha256:{verify_github_release.sha256(asset)}"}]
+
+            self.assertEqual([], verify_github_release.asset_file_digest_issues(records, out_dir, [asset.name]))
+
+    def test_asset_file_digest_issues_rejects_mismatched_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            asset = out_dir / "asset.tar.gz"
+            asset.write_text("asset\n", encoding="utf-8")
+            records = [{"name": asset.name, "digest": "sha256:" + "0" * 64}]
+
+            issues = verify_github_release.asset_file_digest_issues(records, out_dir, [asset.name])
+
+        self.assertIn("asset metadata digest changed: asset.tar.gz", issues)
+
     def test_doctor_run_issues_accepts_verified_archive(self) -> None:
         self.assertEqual([], verify_github_release.doctor_run_issues([{"doctor": {"issues": []}}]))
 
@@ -363,6 +383,18 @@ class VerifyGithubReleaseTest(unittest.TestCase):
 
         self.assertIn("passing github release verification report assets.downloaded must match assets.expected", failures)
         self.assertIn("archives must match downloaded .tar.gz assets", failures)
+
+    def test_saved_release_report_rejects_archive_digest_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            archive = payload["archives"][0]
+            metadata = next(record for record in payload["asset_metadata"] if record["name"] == archive["archive"])
+            metadata["digest"] = "sha256:" + "0" * 64
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn(f"archive sha256 does not match asset metadata digest: {archive['archive']}", failures)
 
     def test_saved_release_report_can_require_expected_tag(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -244,6 +244,46 @@ def asset_metadata_issues(records: Any, release_asset_names_payload: Any, repo: 
     return failures
 
 
+def asset_file_digest_issues(records: list[dict[str, Any]], out_dir: Path, asset_names: list[str]) -> list[str]:
+    failures = []
+    metadata_by_name = {record["name"]: record for record in records if isinstance(record.get("name"), str)}
+    for asset_name in asset_names:
+        metadata = metadata_by_name.get(asset_name)
+        if metadata is None:
+            failures.append(f"asset metadata missing for downloaded asset: {asset_name}")
+            continue
+        digest = metadata.get("digest")
+        if not isinstance(digest, str) or not ASSET_DIGEST_PATTERN.fullmatch(digest):
+            failures.append(f"asset_metadata.digest must be sha256:<64 lowercase hex>: {asset_name}")
+            continue
+        asset = out_dir / asset_name
+        if not asset.is_file():
+            failures.append(f"asset file missing for metadata digest: {asset_name}")
+            continue
+        if digest != f"sha256:{sha256(asset)}":
+            failures.append(f"asset metadata digest changed: {asset_name}")
+    return failures
+
+
+def archive_metadata_digest_issues(records: list[dict[str, Any]], archive_summaries: list[dict[str, Any]]) -> list[str]:
+    failures = []
+    metadata_by_name = {record["name"]: record for record in records if isinstance(record.get("name"), str)}
+    for archive in archive_summaries:
+        archive_name = archive.get("archive")
+        if not isinstance(archive_name, str):
+            continue
+        metadata = metadata_by_name.get(archive_name)
+        if metadata is None:
+            failures.append(f"asset metadata missing for archive: {archive_name}")
+            continue
+        digest = metadata.get("digest")
+        sha = archive.get("sha256")
+        if isinstance(digest, str) and ASSET_DIGEST_PATTERN.fullmatch(digest) and isinstance(sha, str):
+            if digest != f"sha256:{sha}":
+                failures.append(f"archive sha256 does not match asset metadata digest: {archive_name}")
+    return failures
+
+
 def release_report_url_issues(repo: Any, tag: Any, url: Any) -> list[str]:
     if not isinstance(repo, str) or not repo.strip() or not isinstance(tag, str) or not tag.strip():
         return []
@@ -413,7 +453,8 @@ def validate_verification_report_payload(
             and asset_count != len(downloaded_assets_payload)
         ):
             failures.append("asset_count does not match assets.downloaded")
-    failures.extend(asset_metadata_issues(payload.get("asset_metadata"), release_metadata_assets, repo=repo, tag=tag))
+    asset_metadata = payload.get("asset_metadata")
+    failures.extend(asset_metadata_issues(asset_metadata, release_metadata_assets, repo=repo, tag=tag))
 
     archives = payload.get("archives")
     if not isinstance(archives, list):
@@ -456,6 +497,13 @@ def validate_verification_report_payload(
         )
         if sorted(archive_names) != downloaded_archive_names:
             failures.append("archives must match downloaded .tar.gz assets")
+        if isinstance(asset_metadata, list):
+            failures.extend(
+                archive_metadata_digest_issues(
+                    [record for record in asset_metadata if isinstance(record, dict)],
+                    [archive for archive in archives if isinstance(archive, dict)],
+                )
+            )
     issues = payload.get("issues")
     if not isinstance(issues, list) or not all(isinstance(issue, str) for issue in issues):
         failures.append("issues must be a string list")
@@ -500,16 +548,7 @@ def verify_saved_github_release_report(
                 recorded_downloaded = payload["assets"]["downloaded"]
                 if downloaded != recorded_downloaded:
                     failures.append("downloaded asset list changed after report was written")
-                metadata_by_name = {record["name"]: record for record in payload["asset_metadata"]}
-                for asset_name in recorded_downloaded:
-                    asset = out_dir / asset_name
-                    metadata = metadata_by_name.get(asset_name)
-                    if metadata is None:
-                        failures.append(f"asset metadata missing for downloaded asset: {asset_name}")
-                        continue
-                    metadata_digest = metadata["digest"]
-                    if metadata_digest != f"sha256:{sha256(asset)}":
-                        failures.append(f"asset metadata digest changed: {asset_name}")
+                failures.extend(asset_file_digest_issues(payload["asset_metadata"], out_dir, recorded_downloaded))
                 for archive_summary in payload["archives"]:
                     archive = out_dir / archive_summary["archive"]
                     if not archive.is_file():
@@ -584,7 +623,10 @@ def main() -> int:
     expected_assets = expected_asset_names(args.tag)
     release_assets = release_asset_names(release)
     actual_assets = {path.name for path in out_dir.iterdir() if path.is_file()}
+    asset_metadata = release_asset_metadata(release)
     issues.extend(asset_issues(expected_assets, release_assets, actual_assets))
+    issues.extend(asset_metadata_issues(asset_metadata, sorted(release_assets), repo=args.repo, tag=args.tag))
+    issues.extend(asset_file_digest_issues(asset_metadata, out_dir, sorted(actual_assets)))
 
     archive_summaries = []
     for archive in sorted(out_dir.glob("*.tar.gz")):
@@ -628,7 +670,7 @@ def main() -> int:
         "expected_doctor_commit": expected_doctor_commit,
         "asset_count": len(actual_assets),
         "assets": asset_summary(expected_assets, release_assets, actual_assets),
-        "asset_metadata": release_asset_metadata(release),
+        "asset_metadata": asset_metadata,
         "archives": archive_summaries,
         "issues": issues,
     }
