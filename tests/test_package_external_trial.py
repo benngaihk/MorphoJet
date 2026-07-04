@@ -292,6 +292,40 @@ class PackageExternalTrialTest(unittest.TestCase):
 
         self.assertEqual(1, code)
 
+    def test_saved_package_verification_report_can_require_trial_json_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    json_out=json_out,
+                )
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                default_code = verify_external_evidence_package.verify_saved_external_evidence_package_report(
+                    json_out,
+                    require_report_pass=True,
+                    verify_files=True,
+                )
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                required_code = verify_external_evidence_package.verify_saved_external_evidence_package_report(
+                    json_out,
+                    require_report_pass=True,
+                    verify_files=True,
+                    require_trial_json=True,
+                )
+
+        self.assertEqual(0, default_code)
+        self.assertEqual(1, required_code)
+
     def test_release_gate_rejects_package_for_different_trial_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

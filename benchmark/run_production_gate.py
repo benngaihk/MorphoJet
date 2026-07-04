@@ -284,9 +284,15 @@ def saved_reviewer_report_gates(
                     str(args.external_evidence_package_verification_report),
                     "--verify-report-files",
                     "--require-report-pass",
+                    "--require-trial-json",
                 ],
                 verify_external_evidence_package.verify_saved_external_evidence_package_report,
                 args.external_evidence_package_verification_report,
+                verifier_kwargs={
+                    "require_report_pass": True,
+                    "verify_files": True,
+                    "require_trial_json": True,
+                },
             )
         )
     if include_github_release and args.github_release_verification_report:

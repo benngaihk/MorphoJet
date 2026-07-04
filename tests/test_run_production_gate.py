@@ -450,6 +450,44 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(1, status)
         self.assertIn("Verify saved external L4 evidence package report: FAIL", stdout.getvalue())
 
+    def test_local_evidence_preflight_fails_unbound_saved_package_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_report = root / "external-package-verification.json"
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(package["package_dir"]),
+                    json_out=package_report,
+                )
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--external-evidence-package-verification-report",
+                str(package_report),
+                "--local-evidence-preflight-json",
+                str(root / "failed-preflight.json"),
+                "--local-evidence-preflight-md",
+                str(root / "failed-preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+
+            with contextlib.redirect_stdout(io.StringIO()) as stdout:
+                status = run_production_gate.run_local_evidence_preflight(args)
+
+        self.assertEqual(1, status)
+        self.assertIn("trial_json is required for production package reviewer reports", stdout.getvalue())
+
     def test_local_evidence_preflight_writes_json_and_markdown_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

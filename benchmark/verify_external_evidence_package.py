@@ -47,7 +47,11 @@ def verify_external_evidence_package(
     return 1 if require_pass else 0
 
 
-def validate_verification_report_payload(payload: Any, require_report_pass: bool = False) -> list[str]:
+def validate_verification_report_payload(
+    payload: Any,
+    require_report_pass: bool = False,
+    require_trial_json: bool = False,
+) -> list[str]:
     failures: list[str] = []
     if not isinstance(payload, dict):
         return ["external evidence package verification report must be a JSON object"]
@@ -76,6 +80,8 @@ def validate_verification_report_payload(payload: Any, require_report_pass: bool
     trial_json = payload.get("trial_json")
     if trial_json is not None and (not isinstance(trial_json, str) or not trial_json.strip()):
         failures.append("trial_json must be null or a non-empty string")
+    if require_trial_json and (not isinstance(trial_json, str) or not trial_json.strip()):
+        failures.append("trial_json is required for production package reviewer reports")
     gate = payload.get("gate")
     if not isinstance(gate, dict):
         failures.append("gate must be an object")
@@ -101,13 +107,18 @@ def verify_saved_external_evidence_package_report(
     report: Path,
     require_report_pass: bool = False,
     verify_files: bool = False,
+    require_trial_json: bool = False,
 ) -> int:
     try:
         payload = json.loads(report.read_text(encoding="utf-8"))
     except Exception as exc:  # noqa: BLE001 - exact report verification failure.
         print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
-    failures = validate_verification_report_payload(payload, require_report_pass=require_report_pass)
+    failures = validate_verification_report_payload(
+        payload,
+        require_report_pass=require_report_pass,
+        require_trial_json=require_trial_json,
+    )
     if not failures and verify_files:
         package_dir = Path(payload["package_dir"])
         trial_json = Path(payload["trial_json"]) if payload.get("trial_json") is not None else None
@@ -146,6 +157,11 @@ def main() -> int:
     parser.add_argument("--verify-report-files", action="store_true", help="Recompute package validation from report paths")
     parser.add_argument("--require-report-pass", action="store_true", help="Reject saved verifier reports that are not PASS")
     parser.add_argument(
+        "--require-trial-json",
+        action="store_true",
+        help="With --verify-report, require the saved package reviewer report to be bound to a source trial JSON",
+    )
+    parser.add_argument(
         "--allow-fail-report",
         action="store_true",
         help="Write/print a FAIL report but exit 0; intended only for diagnostics",
@@ -156,6 +172,7 @@ def main() -> int:
             args.verify_report,
             require_report_pass=args.require_report_pass,
             verify_files=args.verify_report_files,
+            require_trial_json=args.require_trial_json,
         )
     if args.package_dir is None:
         parser.error("package_dir is required unless --verify-report is used")

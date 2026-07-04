@@ -1339,6 +1339,7 @@ def main() -> int:
                     str(args.external_evidence_package_verification_report),
                     "--verify-report-files",
                     "--require-report-pass",
+                    "--require-trial-json",
                 ],
             )
         )

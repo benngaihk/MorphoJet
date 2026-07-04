@@ -179,10 +179,11 @@ Saved package verifier reports can be re-checked during review:
 python3 benchmark/verify_external_evidence_package.py \
   --verify-report path/to/evidence-packages/external-l4-trial-verification.json \
   --verify-report-files \
-  --require-report-pass
+  --require-report-pass \
+  --require-trial-json
 ```
 
-`--verify-report-files` recomputes package validation from the report's `package_dir` and optional `trial_json` paths, then checks the report schema/verifier/timestamp plus the recorded gate status and detail against the fresh result.
+`--verify-report-files` recomputes package validation from the report's `package_dir` and optional `trial_json` paths, then checks the report schema/verifier/timestamp plus the recorded gate status and detail against the fresh result. Use `--require-trial-json` for production signoff so the saved package reviewer report must be bound to the exact source trial JSON.
 
 For final production/stable-release signoff, use the dedicated wrapper so every required production-claim input is bound into the same release-gate report:
 
@@ -197,7 +198,7 @@ python3 benchmark/run_production_gate.py \
   --github-release-tag v0.1.0
 ```
 
-The wrapper rejects release-candidate tags such as `v0.1.0-rc.1`, checks that the external trial JSON, trial root, evidence package directory, and any supplied reviewer verification reports exist before an actual run, fail-closed re-checks supplied saved verifier reports with `--verify-report-files --require-report-pass`, requires `--require-stable-report` for the saved GitHub release verifier report, and passes those reports into `benchmark/release_gate.py` so the final release-gate JSON/Markdown records reviewer-report gates along with `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, the external L4 trial and package paths, `--verify-github-release`, and `--github-release-kind stable`. The saved GitHub verification report is an audit artifact and does not replace the live stable-release check. Use `--dry-run` to print the assembled command without checking local evidence paths or performing network/release verification side effects.
+The wrapper rejects release-candidate tags such as `v0.1.0-rc.1`, checks that the external trial JSON, trial root, evidence package directory, and any supplied reviewer verification reports exist before an actual run, fail-closed re-checks supplied saved verifier reports with `--verify-report-files --require-report-pass`, requires `--require-trial-json` for saved package reviewer reports, requires `--require-stable-report` for the saved GitHub release verifier report, and passes those reports into `benchmark/release_gate.py` so the final release-gate JSON/Markdown records reviewer-report gates along with `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, the external L4 trial and package paths, `--verify-github-release`, and `--github-release-kind stable`. The saved GitHub verification report is an audit artifact and does not replace the live stable-release check. Use `--dry-run` to print the assembled command without checking local evidence paths or performing network/release verification side effects.
 
 When the external L4 trial and evidence package are ready but the stable GitHub release is not yet cut, run a local evidence preflight:
 
