@@ -1348,18 +1348,21 @@ def main() -> int:
             )
         )
     if args.github_release_verification_report:
+        command = [
+            "python3",
+            "benchmark/verify_github_release.py",
+            "--verify-report",
+            str(args.github_release_verification_report),
+            "--verify-report-files",
+            "--require-report-pass",
+            "--require-stable-report",
+        ]
+        if args.verify_github_release:
+            command.extend(["--expect-tag", args.verify_github_release])
         gates.append(
             run_command(
                 "Verify saved stable GitHub release report",
-                [
-                    "python3",
-                    "benchmark/verify_github_release.py",
-                    "--verify-report",
-                    str(args.github_release_verification_report),
-                    "--verify-report-files",
-                    "--require-report-pass",
-                    "--require-stable-report",
-                ],
+                command,
             )
         )
 

@@ -218,6 +218,24 @@ class VerifyGithubReleaseTest(unittest.TestCase):
 
         self.assertEqual(1, status)
 
+    def test_saved_release_report_can_require_expected_tag(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                matching_status = verify_github_release.verify_saved_github_release_report(
+                    report,
+                    expect_tag="v0.1.0",
+                )
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                mismatched_status = verify_github_release.verify_saved_github_release_report(
+                    report,
+                    expect_tag="v0.2.0",
+                )
+
+        self.assertEqual(0, matching_status)
+        self.assertEqual(1, mismatched_status)
+
     def test_saved_release_report_can_require_pass(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = self.valid_report(Path(tmp))

@@ -172,6 +172,7 @@ def validate_verification_report_payload(
     payload: Any,
     require_report_pass: bool = False,
     require_stable_report: bool = False,
+    expect_tag: str | None = None,
 ) -> list[str]:
     failures: list[str] = []
     if not isinstance(payload, dict):
@@ -184,6 +185,8 @@ def validate_verification_report_payload(
     tag = payload.get("tag")
     if not isinstance(tag, str) or not tag.strip():
         failures.append("tag must be a non-empty string")
+    elif expect_tag is not None and tag != expect_tag:
+        failures.append(f"github release verification report tag does not match expected tag: {tag} != {expect_tag}")
     repo = payload.get("repo")
     if not isinstance(repo, str) or not repo.strip():
         failures.append("repo must be a non-empty string")
@@ -267,6 +270,7 @@ def verify_saved_github_release_report(
     require_report_pass: bool = False,
     require_stable_report: bool = False,
     verify_files: bool = False,
+    expect_tag: str | None = None,
 ) -> int:
     try:
         payload = json.loads(report.read_text(encoding="utf-8"))
@@ -277,6 +281,7 @@ def verify_saved_github_release_report(
         payload,
         require_report_pass=require_report_pass,
         require_stable_report=require_stable_report,
+        expect_tag=expect_tag,
     )
     if not failures and verify_files:
         out_dir_value = payload.get("out_dir")
@@ -331,6 +336,7 @@ def main() -> int:
     parser.add_argument("--verify-report-files", action="store_true", help="Recompute downloaded asset file checks")
     parser.add_argument("--require-report-pass", action="store_true", help="Reject saved verifier reports that are not PASS")
     parser.add_argument("--require-stable-report", action="store_true", help="Reject saved verifier reports that are not stable-release reports")
+    parser.add_argument("--expect-tag", help="With --verify-report, reject saved verifier reports for a different tag")
     args = parser.parse_args()
     if args.verify_report:
         return verify_saved_github_release_report(
@@ -338,6 +344,7 @@ def main() -> int:
             require_report_pass=args.require_report_pass,
             require_stable_report=args.require_stable_report,
             verify_files=args.verify_report_files,
+            expect_tag=args.expect_tag,
         )
     if args.tag is None:
         parser.error("tag is required unless --verify-report is used")

@@ -307,6 +307,8 @@ def saved_reviewer_report_gates(
                     "--verify-report-files",
                     "--require-report-pass",
                     "--require-stable-report",
+                    "--expect-tag",
+                    args.github_release_tag,
                 ],
                 verify_github_release.verify_saved_github_release_report,
                 args.github_release_verification_report,
@@ -314,6 +316,7 @@ def saved_reviewer_report_gates(
                     "require_report_pass": True,
                     "require_stable_report": True,
                     "verify_files": True,
+                    "expect_tag": args.github_release_tag,
                 },
             )
         )

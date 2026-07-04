@@ -392,6 +392,8 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual("Verify saved stable GitHub release report", gates[0].name)
         self.assertEqual("PASS", gates[0].status)
         self.assertIn("--require-stable-report", gates[0].command)
+        self.assertIn("--expect-tag", gates[0].command)
+        self.assertEqual("v0.1.0", gates[0].command[gates[0].command.index("--expect-tag") + 1])
 
     def test_final_wrapper_rejects_non_stable_saved_github_release_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -407,6 +409,23 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(1, len(gates))
         self.assertEqual("FAIL", gates[0].status)
         self.assertIn("expected_release_kind is not stable", gates[0].detail)
+
+    def test_final_wrapper_rejects_saved_github_release_report_for_different_tag(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            github_report = self.write_valid_github_release_report(root)
+            args = self.parse(
+                "--github-release-tag",
+                "v0.2.0",
+                "--github-release-verification-report",
+                str(github_report),
+            )
+
+            gates = run_production_gate.saved_reviewer_report_gates(args, include_github_release=True)
+
+        self.assertEqual(1, len(gates))
+        self.assertEqual("FAIL", gates[0].status)
+        self.assertIn("tag does not match expected tag", gates[0].detail)
 
     def test_local_evidence_preflight_fails_tampered_saved_package_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
