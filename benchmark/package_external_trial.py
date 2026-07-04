@@ -171,6 +171,8 @@ def create_package(
         "packaged_at_utc": datetime.now(timezone.utc).isoformat(),
         "trial_id": trial["trial_id"],
         "trial_json": str(trial_json),
+        "trial_json_size_bytes": trial_json.stat().st_size,
+        "trial_json_sha256": release_gate.sha256_file(trial_json),
         "trial_root": str(trial_root),
         "validation_detail": release_gate.external_trial_pass_detail(trial),
         "artifacts": artifact_entries,

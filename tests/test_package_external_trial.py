@@ -59,6 +59,8 @@ class PackageExternalTrialTest(unittest.TestCase):
             self.assertTrue((package_dir / "artifacts/external/handoff_contract.json").is_file())
             self.assertEqual(4, result["artifact_count"])
             self.assertEqual(4, len(manifest["artifacts"]))
+            self.assertEqual(trial_json.stat().st_size, manifest["trial_json_size_bytes"])
+            self.assertEqual(release_gate.sha256_file(trial_json), manifest["trial_json_sha256"])
             self.assertEqual(release_gate.sha256_file(zip_path), sha_path.read_text().split()[0])
             with zipfile.ZipFile(zip_path) as archive:
                 self.assertIn("external-l4-demo/README.md", archive.namelist())
@@ -718,6 +720,41 @@ class PackageExternalTrialTest(unittest.TestCase):
 
         self.assertEqual("FAIL", gate.status)
         self.assertIn("package artifact_manifest.trial_json must match --external-trial-json", gate.detail)
+
+    def test_release_gate_rejects_artifact_manifest_trial_json_digest_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+            manifest_path = package_dir / "artifact_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["trial_json_size_bytes"] += 1
+            manifest["trial_json_sha256"] = "0" * 64
+            manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            zip_path = Path(result["zip"])
+            package_external_trial.zip_directory(package_dir, zip_path)
+            Path(result["sha256"]).write_text(
+                f"{release_gate.sha256_file(zip_path)}  external-l4-demo.zip\n",
+                encoding="utf-8",
+            )
+
+            gate = release_gate.validate_external_evidence_package(package_dir, trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn(
+            "package artifact_manifest.trial_json_size_bytes must match packaged handoff_trial.json",
+            gate.detail,
+        )
+        self.assertIn(
+            "package artifact_manifest.trial_json_sha256 must match packaged handoff_trial.json",
+            gate.detail,
+        )
 
     def test_release_gate_rejects_artifact_manifest_trial_root_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

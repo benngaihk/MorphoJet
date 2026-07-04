@@ -774,6 +774,25 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
             failures.append("package artifact_manifest.trial_json must match --external-trial-json")
         elif Path(manifest_trial_json).name != trial_path.name:
             failures.append("package artifact_manifest.trial_json must match packaged handoff_trial.json")
+        manifest_trial_json_size = artifact_manifest.get("trial_json_size_bytes")
+        if not isinstance(manifest_trial_json_size, int) or manifest_trial_json_size <= 0:
+            failures.append("package artifact_manifest.trial_json_size_bytes must be a positive integer")
+        elif manifest_trial_json_size != trial_path.stat().st_size:
+            failures.append("package artifact_manifest.trial_json_size_bytes must match packaged handoff_trial.json")
+        manifest_trial_json_sha = artifact_manifest.get("trial_json_sha256")
+        if not isinstance(manifest_trial_json_sha, str) or not re.fullmatch(r"[0-9a-f]{64}", manifest_trial_json_sha):
+            failures.append("package artifact_manifest.trial_json_sha256 must be a SHA-256 digest")
+        elif manifest_trial_json_sha != sha256_file(trial_path):
+            failures.append("package artifact_manifest.trial_json_sha256 must match packaged handoff_trial.json")
+        if trial_json is not None:
+            if isinstance(manifest_trial_json_size, int) and manifest_trial_json_size != trial_json.stat().st_size:
+                failures.append("package artifact_manifest.trial_json_size_bytes must match --external-trial-json")
+            if (
+                isinstance(manifest_trial_json_sha, str)
+                and re.fullmatch(r"[0-9a-f]{64}", manifest_trial_json_sha)
+                and manifest_trial_json_sha != sha256_file(trial_json)
+            ):
+                failures.append("package artifact_manifest.trial_json_sha256 must match --external-trial-json")
         manifest_trial_root = artifact_manifest.get("trial_root")
         if not isinstance(manifest_trial_root, str) or not Path(manifest_trial_root).is_absolute():
             failures.append("package artifact_manifest.trial_root must be an absolute path")
