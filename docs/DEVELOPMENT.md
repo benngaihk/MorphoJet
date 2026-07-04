@@ -273,10 +273,12 @@ python3 benchmark/verify_github_release.py \
   --verify-report benchmark/results/github-release/v0.1.0/verification.json \
   --verify-report-files \
   --require-report-pass \
-  --require-stable-report
+  --require-stable-report \
+  --verify-git-commit \
+  --expect-tag v0.1.0
 ```
 
-`--verify-report-files` recomputes downloaded asset names, archive SHA-256 values, and checksum file contents from the report's `out_dir`. Saved PASS reports must keep expected, release-metadata, and downloaded asset sets identical, and their `archives` list must cover every downloaded `.tar.gz` asset. Saved reports must also bind `expected_commit` to a full 40-character commit and `expected_doctor_commit` to its 12-character prefix, and any recorded compatible archive `doctor` summary must use that same prefix, have `status=PASS`, and contain no issues. Use `--require-stable-report` for production signoff so a prerelease verification JSON cannot satisfy the stable-release evidence slot.
+`--verify-report-files` recomputes downloaded asset names, archive SHA-256 values, and checksum file contents from the report's `out_dir`. `--verify-git-commit` requires `expected_commit` and `--expect-tag`, when supplied, to resolve to the same commit in the current git checkout. Saved PASS reports must keep expected, release-metadata, and downloaded asset sets identical, and their `archives` list must cover every downloaded `.tar.gz` asset. Saved reports must also bind `expected_commit` to a full 40-character commit and `expected_doctor_commit` to its 12-character prefix, and any recorded compatible archive `doctor` summary must use that same prefix, have `status=PASS`, and contain no issues. Use `--require-stable-report` for production signoff so a prerelease verification JSON cannot satisfy the stable-release evidence slot.
 Use `--expect-tag v0.1.0` with saved GitHub release verifier reports during signoff so a report for another stable tag cannot satisfy the reviewer-report slot.
 
 ## Parity Report Smoke

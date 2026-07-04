@@ -254,6 +254,27 @@ def expected_commit_issues(expected_commit: Any, expected_doctor_commit: Any) ->
     return failures
 
 
+def git_commit_verification_issues(expected_commit: Any, expect_tag: str | None) -> list[str]:
+    failures = []
+    if not isinstance(expected_commit, str) or not FULL_COMMIT_PATTERN.fullmatch(expected_commit):
+        return failures
+    try:
+        resolved_commit = git_commit(expected_commit)
+    except subprocess.CalledProcessError as exc:
+        return [f"expected_commit is not reachable in this git checkout: {expected_commit} ({exc})"]
+    if resolved_commit != expected_commit:
+        failures.append(f"expected_commit resolves to a different commit: {resolved_commit}")
+    if expect_tag is not None:
+        try:
+            tag_commit = git_commit(expect_tag)
+        except subprocess.CalledProcessError as exc:
+            failures.append(f"expected tag is not reachable in this git checkout: {expect_tag} ({exc})")
+        else:
+            if tag_commit != expected_commit:
+                failures.append(f"expected tag commit does not match expected_commit: {expect_tag}={tag_commit}")
+    return failures
+
+
 def validate_verification_report_payload(
     payload: Any,
     require_report_pass: bool = False,
@@ -421,6 +442,7 @@ def verify_saved_github_release_report(
     require_stable_report: bool = False,
     verify_files: bool = False,
     expect_tag: str | None = None,
+    verify_git_commit: bool = False,
 ) -> int:
     try:
         payload = json.loads(report.read_text(encoding="utf-8"))
@@ -433,6 +455,8 @@ def verify_saved_github_release_report(
         require_stable_report=require_stable_report,
         expect_tag=expect_tag,
     )
+    if verify_git_commit:
+        failures.extend(git_commit_verification_issues(payload.get("expected_commit"), expect_tag))
     if not failures and verify_files:
         out_dir_value = payload.get("out_dir")
         if not isinstance(out_dir_value, str) or not out_dir_value.strip():
@@ -470,6 +494,8 @@ def verify_saved_github_release_report(
     print(f"github release verification report ok: {report}")
     print(f"status={payload['status']}")
     print(f"tag={payload['tag']}")
+    if verify_git_commit:
+        print("verified_git_commit=True")
     return 0
 
 
@@ -484,6 +510,7 @@ def main() -> int:
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--verify-report", type=Path, help="Validate a saved GitHub release verification JSON report")
     parser.add_argument("--verify-report-files", action="store_true", help="Recompute downloaded asset file checks")
+    parser.add_argument("--verify-git-commit", action="store_true", help="Require the saved expected commit and expected tag to resolve in this checkout")
     parser.add_argument("--require-report-pass", action="store_true", help="Reject saved verifier reports that are not PASS")
     parser.add_argument("--require-stable-report", action="store_true", help="Reject saved verifier reports that are not stable-release reports")
     parser.add_argument("--expect-tag", help="With --verify-report, reject saved verifier reports for a different tag")
@@ -495,6 +522,7 @@ def main() -> int:
             require_stable_report=args.require_stable_report,
             verify_files=args.verify_report_files,
             expect_tag=args.expect_tag,
+            verify_git_commit=args.verify_git_commit,
         )
     if args.tag is None:
         parser.error("tag is required unless --verify-report is used")

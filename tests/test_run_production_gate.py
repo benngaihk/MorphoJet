@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -406,12 +407,14 @@ class RunProductionGateTest(unittest.TestCase):
             github_report = self.write_valid_github_release_report(root)
             args = self.parse("--github-release-verification-report", str(github_report))
 
-            gates = run_production_gate.saved_reviewer_report_gates(args, include_github_release=True)
+            with patch.object(verify_github_release, "git_commit", return_value=self.FULL_COMMIT):
+                gates = run_production_gate.saved_reviewer_report_gates(args, include_github_release=True)
 
         self.assertEqual(1, len(gates))
         self.assertEqual("Verify saved stable GitHub release report", gates[0].name)
         self.assertEqual("PASS", gates[0].status)
         self.assertIn("--require-stable-report", gates[0].command)
+        self.assertIn("--verify-git-commit", gates[0].command)
         self.assertIn("--expect-tag", gates[0].command)
         self.assertEqual("v0.1.0", gates[0].command[gates[0].command.index("--expect-tag") + 1])
 
@@ -424,7 +427,8 @@ class RunProductionGateTest(unittest.TestCase):
             github_report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
             args = self.parse("--github-release-verification-report", str(github_report))
 
-            gates = run_production_gate.saved_reviewer_report_gates(args, include_github_release=True)
+            with patch.object(verify_github_release, "git_commit", return_value=self.FULL_COMMIT):
+                gates = run_production_gate.saved_reviewer_report_gates(args, include_github_release=True)
 
         self.assertEqual(1, len(gates))
         self.assertEqual("FAIL", gates[0].status)
@@ -441,7 +445,8 @@ class RunProductionGateTest(unittest.TestCase):
                 str(github_report),
             )
 
-            gates = run_production_gate.saved_reviewer_report_gates(args, include_github_release=True)
+            with patch.object(verify_github_release, "git_commit", return_value=self.FULL_COMMIT):
+                gates = run_production_gate.saved_reviewer_report_gates(args, include_github_release=True)
 
         self.assertEqual(1, len(gates))
         self.assertEqual("FAIL", gates[0].status)

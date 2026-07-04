@@ -10,6 +10,7 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -360,6 +361,35 @@ class VerifyGithubReleaseTest(unittest.TestCase):
 
         self.assertEqual(0, matching_status)
         self.assertEqual(1, mismatched_status)
+
+    def test_saved_release_report_can_verify_git_commit_and_tag(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+
+            with patch.object(verify_github_release, "git_commit", return_value=self.FULL_COMMIT):
+                with redirect_stdout(StringIO()) as stdout, redirect_stderr(StringIO()):
+                    status = verify_github_release.verify_saved_github_release_report(
+                        report,
+                        expect_tag="v0.1.0",
+                        verify_git_commit=True,
+                    )
+
+        self.assertEqual(0, status)
+        self.assertIn("verified_git_commit=True", stdout.getvalue())
+
+    def test_saved_release_report_rejects_tag_commit_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+
+            with patch.object(verify_github_release, "git_commit", side_effect=[self.FULL_COMMIT, "b" * 40]):
+                with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                    status = verify_github_release.verify_saved_github_release_report(
+                        report,
+                        expect_tag="v0.1.0",
+                        verify_git_commit=True,
+                    )
+
+        self.assertEqual(1, status)
 
     def test_saved_release_report_can_require_pass(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
