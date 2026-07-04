@@ -138,6 +138,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                     "size": 12,
                     "content_type": "application/gzip",
                     "digest": "sha256:" + "a" * 64,
+                    "state": "uploaded",
                 },
                 {
                     "name": "b.tar.gz",
@@ -145,6 +146,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                     "size": 34,
                     "content_type": "application/gzip",
                     "digest": "sha256:" + "b" * 64,
+                    "state": "uploaded",
                 },
             ],
             verify_github_release.release_asset_metadata(
@@ -156,6 +158,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                             "size": 34,
                             "contentType": "application/gzip",
                             "digest": "sha256:" + "b" * 64,
+                            "state": "uploaded",
                         },
                         {
                             "name": "a.tar.gz",
@@ -163,6 +166,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                             "size": 12,
                             "contentType": "application/gzip",
                             "digest": "sha256:" + "a" * 64,
+                            "state": "uploaded",
                         },
                     ]
                 }
@@ -268,6 +272,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                     "size": (out_dir / name).stat().st_size,
                     "content_type": "application/gzip" if name.endswith(".tar.gz") else "text/plain",
                     "digest": f"sha256:{verify_github_release.sha256(out_dir / name)}",
+                    "state": "uploaded",
                 }
                 for name in expected_assets
             ],
@@ -475,6 +480,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             first["size"] = 0
             first["content_type"] = None
             first["digest"] = "sha256:not-a-digest"
+            first["state"] = "starter"
             payload["asset_metadata"].append(dict(payload["asset_metadata"][0]))
             report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
@@ -484,6 +490,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn(f"asset_metadata.size must be a positive integer: {first['name']}", failures)
         self.assertIn(f"asset_metadata.content_type must be a non-empty string: {first['name']}", failures)
         self.assertIn(f"asset_metadata.digest must be sha256:<64 lowercase hex>: {first['name']}", failures)
+        self.assertIn(f"asset_metadata.state must be uploaded: {first['name']}", failures)
         self.assertIn(f"asset_metadata name is duplicated: {first['name']}", failures)
 
     def test_saved_release_report_rejects_asset_url_not_bound_to_repo_tag_and_name(self) -> None:

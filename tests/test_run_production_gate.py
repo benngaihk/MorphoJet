@@ -90,6 +90,7 @@ class RunProductionGateTest(unittest.TestCase):
                             "size": (out_dir / name).stat().st_size,
                             "content_type": "application/gzip" if name.endswith(".tar.gz") else "text/plain",
                             "digest": f"sha256:{verify_github_release.sha256(out_dir / name)}",
+                            "state": "uploaded",
                         }
                         for name in expected_assets
                     ],

@@ -164,6 +164,7 @@ def release_asset_metadata(release: dict) -> list[dict[str, Any]]:
                 "size": asset.get("size"),
                 "content_type": asset.get("contentType"),
                 "digest": asset.get("digest"),
+                "state": asset.get("state"),
             }
         )
     return sorted(records, key=lambda record: record["name"])
@@ -234,6 +235,8 @@ def asset_metadata_issues(records: Any, release_asset_names_payload: Any, repo: 
         digest = record.get("digest")
         if not isinstance(digest, str) or not ASSET_DIGEST_PATTERN.fullmatch(digest):
             failures.append(f"asset_metadata.digest must be sha256:<64 lowercase hex>: {name}")
+        if record.get("state") != "uploaded":
+            failures.append(f"asset_metadata.state must be uploaded: {name}")
     if observed_names != sorted(observed_names):
         failures.append("asset_metadata entries must be sorted by name")
     duplicated_names = sorted(name for name in set(observed_names) if observed_names.count(name) > 1)
