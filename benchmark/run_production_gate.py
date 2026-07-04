@@ -18,6 +18,7 @@ from pathlib import Path
 import release_gate
 import verify_external_evidence_package
 import verify_external_trial_report
+import verify_github_release
 
 
 DEFAULT_OUT_JSON = Path("benchmark/results/release-gate/production-claim.json")
@@ -104,6 +105,11 @@ def validate_existing_inputs(args: argparse.Namespace) -> None:
             "--external-evidence-package-verification-report is not a file: "
             f"{args.external_evidence_package_verification_report}"
         )
+    if args.github_release_verification_report and not args.github_release_verification_report.is_file():
+        raise ProductionGateError(
+            "--github-release-verification-report is not a file: "
+            f"{args.github_release_verification_report}"
+        )
 
 
 def build_release_gate_command(args: argparse.Namespace) -> list[str]:
@@ -141,6 +147,13 @@ def build_release_gate_command(args: argparse.Namespace) -> list[str]:
             [
                 "--external-evidence-package-verification-report",
                 str(args.external_evidence_package_verification_report),
+            ]
+        )
+    if args.github_release_verification_report:
+        command.extend(
+            [
+                "--github-release-verification-report",
+                str(args.github_release_verification_report),
             ]
         )
     if args.run_l3:
@@ -217,16 +230,17 @@ def saved_verifier_gate(
     command: list[str],
     verifier,
     report: Path,
+    verifier_kwargs: dict | None = None,
 ) -> release_gate.Gate:
     started = datetime.now(timezone.utc)
     stdout = io.StringIO()
     stderr = io.StringIO()
+    kwargs = verifier_kwargs or {
+        "require_report_pass": True,
+        "verify_files": True,
+    }
     with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-        status_code = verifier(
-            report,
-            require_report_pass=True,
-            verify_files=True,
-        )
+        status_code = verifier(report, **kwargs)
     detail = (stdout.getvalue() + stderr.getvalue()).strip()
     elapsed = (datetime.now(timezone.utc) - started).total_seconds()
     return release_gate.Gate(
@@ -238,7 +252,10 @@ def saved_verifier_gate(
     )
 
 
-def saved_reviewer_report_gates(args: argparse.Namespace) -> list[release_gate.Gate]:
+def saved_reviewer_report_gates(
+    args: argparse.Namespace,
+    include_github_release: bool = False,
+) -> list[release_gate.Gate]:
     gates = []
     if args.external_trial_verification_report:
         gates.append(
@@ -270,6 +287,28 @@ def saved_reviewer_report_gates(args: argparse.Namespace) -> list[release_gate.G
                 ],
                 verify_external_evidence_package.verify_saved_external_evidence_package_report,
                 args.external_evidence_package_verification_report,
+            )
+        )
+    if include_github_release and args.github_release_verification_report:
+        gates.append(
+            saved_verifier_gate(
+                "Verify saved stable GitHub release report",
+                [
+                    sys.executable,
+                    "benchmark/verify_github_release.py",
+                    "--verify-report",
+                    str(args.github_release_verification_report),
+                    "--verify-report-files",
+                    "--require-report-pass",
+                    "--require-stable-report",
+                ],
+                verify_github_release.verify_saved_github_release_report,
+                args.github_release_verification_report,
+                verifier_kwargs={
+                    "require_report_pass": True,
+                    "require_stable_report": True,
+                    "verify_files": True,
+                },
             )
         )
     return gates
@@ -394,6 +433,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--external-evidence-package-dir", type=Path)
     parser.add_argument("--external-trial-verification-report", type=Path)
     parser.add_argument("--external-evidence-package-verification-report", type=Path)
+    parser.add_argument("--github-release-verification-report", type=Path)
     parser.add_argument("--github-release-tag", help="Stable non-RC release tag, e.g. v0.1.0")
     parser.add_argument("--out-json", type=Path, default=DEFAULT_OUT_JSON)
     parser.add_argument("--out-md", type=Path, default=DEFAULT_OUT_MD)
@@ -448,7 +488,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.local_evidence_preflight_only:
         return run_local_evidence_preflight(args)
-    reviewer_gates = saved_reviewer_report_gates(args)
+    reviewer_gates = saved_reviewer_report_gates(args, include_github_release=True)
     if reviewer_gates:
         for gate in reviewer_gates:
             print(f"{gate.name}: {gate.status}")

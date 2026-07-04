@@ -1123,6 +1123,9 @@ def build_metadata(args: argparse.Namespace, git_status_lines: list[str]) -> dic
         "external_evidence_package_verification_report": str(args.external_evidence_package_verification_report)
         if args.external_evidence_package_verification_report
         else None,
+        "github_release_verification_report": str(args.github_release_verification_report)
+        if args.github_release_verification_report
+        else None,
     }
 
 
@@ -1194,6 +1197,11 @@ def main() -> int:
         "--external-evidence-package-verification-report",
         type=Path,
         help="Re-check a saved external evidence package verifier JSON report",
+    )
+    parser.add_argument(
+        "--github-release-verification-report",
+        type=Path,
+        help="Re-check a saved stable GitHub release verifier JSON report",
     )
     args = parser.parse_args()
 
@@ -1331,6 +1339,21 @@ def main() -> int:
                     str(args.external_evidence_package_verification_report),
                     "--verify-report-files",
                     "--require-report-pass",
+                ],
+            )
+        )
+    if args.github_release_verification_report:
+        gates.append(
+            run_command(
+                "Verify saved stable GitHub release report",
+                [
+                    "python3",
+                    "benchmark/verify_github_release.py",
+                    "--verify-report",
+                    str(args.github_release_verification_report),
+                    "--verify-report-files",
+                    "--require-report-pass",
+                    "--require-stable-report",
                 ],
             )
         )

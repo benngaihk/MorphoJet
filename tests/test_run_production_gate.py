@@ -20,6 +20,7 @@ import package_external_trial  # noqa: E402
 import run_production_gate  # noqa: E402
 import verify_external_evidence_package  # noqa: E402
 import verify_external_trial_report  # noqa: E402
+import verify_github_release  # noqa: E402
 from test_release_gate import add_artifact_provenance, valid_external_trial, write_trial_artifacts  # noqa: E402
 
 
@@ -32,6 +33,53 @@ class RunProductionGateTest(unittest.TestCase):
         trial_json.parent.mkdir(parents=True, exist_ok=True)
         trial_json.write_text(json.dumps(trial, indent=2) + "\n", encoding="utf-8")
         return trial_json
+
+    def write_valid_github_release_report(self, root: Path) -> Path:
+        out_dir = root / "github-release"
+        out_dir.mkdir()
+        archive = out_dir / "morphojet-v0.1.0-linux-x86_64.tar.gz"
+        archive.write_bytes(b"archive\n")
+        digest = verify_github_release.sha256(archive)
+        (out_dir / (archive.name + ".sha256")).write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
+        expected_assets = sorted(verify_github_release.expected_asset_names("v0.1.0"))
+        downloaded = sorted([archive.name, archive.name + ".sha256"])
+        report = root / "github-release-verification.json"
+        report.write_text(
+            json.dumps(
+                {
+                    "status": "PASS",
+                    "tag": "v0.1.0",
+                    "repo": "benngaihk/MorphoJet",
+                    "url": "https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0",
+                    "out_dir": str(out_dir),
+                    "is_prerelease": False,
+                    "expected_release_kind": "stable",
+                    "expected_commit": "abc123",
+                    "asset_count": len(downloaded),
+                    "assets": {
+                        "expected": expected_assets,
+                        "release_metadata": expected_assets,
+                        "downloaded": downloaded,
+                        "expected_count": len(expected_assets),
+                        "release_metadata_count": len(expected_assets),
+                        "downloaded_count": len(downloaded),
+                    },
+                    "archives": [
+                        {
+                            "archive": archive.name,
+                            "sha256": digest,
+                            "checksum_match": True,
+                            "doctor": {"issues": []},
+                        }
+                    ],
+                    "issues": [],
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return report
 
     def parse(self, *extra: str):
         return run_production_gate.parse_args(
@@ -55,6 +103,8 @@ class RunProductionGateTest(unittest.TestCase):
                 "external/trial-verification.json",
                 "--external-evidence-package-verification-report",
                 "evidence/package-verification.json",
+                "--github-release-verification-report",
+                "github/verification.json",
             )
         )
 
@@ -74,6 +124,11 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(
             "evidence/package-verification.json",
             command[command.index("--external-evidence-package-verification-report") + 1],
+        )
+        self.assertIn("--github-release-verification-report", command)
+        self.assertEqual(
+            "github/verification.json",
+            command[command.index("--github-release-verification-report") + 1],
         )
         self.assertIn("--verify-github-release", command)
         self.assertIn("v0.1.0", command)
@@ -197,6 +252,29 @@ class RunProductionGateTest(unittest.TestCase):
             with self.assertRaisesRegex(run_production_gate.ProductionGateError, "--external-trial-verification-report"):
                 run_production_gate.validate_existing_inputs(args)
 
+    def test_existing_input_validation_rejects_missing_github_release_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_root = root / "external"
+            package_dir = root / "evidence" / "external-l4-trial"
+            trial_root.mkdir()
+            package_dir.mkdir(parents=True)
+            trial_json = trial_root / "handoff_trial.json"
+            trial_json.write_text("{}\n", encoding="utf-8")
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(trial_root),
+                "--external-evidence-package-dir",
+                str(package_dir),
+                "--github-release-verification-report",
+                str(root / "missing-github-release-verification.json"),
+            )
+
+            with self.assertRaisesRegex(run_production_gate.ProductionGateError, "--github-release-verification-report"):
+                run_production_gate.validate_existing_inputs(args)
+
     def test_dry_run_does_not_require_existing_paths(self) -> None:
         with contextlib.redirect_stdout(io.StringIO()):
             status = run_production_gate.main(
@@ -301,6 +379,34 @@ class RunProductionGateTest(unittest.TestCase):
         gate_names = {gate["name"] for gate in payload["gates"]}
         self.assertIn("Verify saved external L4 trial report", gate_names)
         self.assertIn("Verify saved external L4 evidence package report", gate_names)
+
+    def test_final_wrapper_binds_saved_github_release_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            github_report = self.write_valid_github_release_report(root)
+            args = self.parse("--github-release-verification-report", str(github_report))
+
+            gates = run_production_gate.saved_reviewer_report_gates(args, include_github_release=True)
+
+        self.assertEqual(1, len(gates))
+        self.assertEqual("Verify saved stable GitHub release report", gates[0].name)
+        self.assertEqual("PASS", gates[0].status)
+        self.assertIn("--require-stable-report", gates[0].command)
+
+    def test_final_wrapper_rejects_non_stable_saved_github_release_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            github_report = self.write_valid_github_release_report(root)
+            payload = json.loads(github_report.read_text(encoding="utf-8"))
+            payload["expected_release_kind"] = "prerelease"
+            github_report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+            args = self.parse("--github-release-verification-report", str(github_report))
+
+            gates = run_production_gate.saved_reviewer_report_gates(args, include_github_release=True)
+
+        self.assertEqual(1, len(gates))
+        self.assertEqual("FAIL", gates[0].status)
+        self.assertIn("expected_release_kind is not stable", gates[0].detail)
 
     def test_local_evidence_preflight_fails_tampered_saved_package_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -26,10 +26,11 @@ python3 benchmark/run_production_gate.py \
   --external-trial-json path/to/external/handoff_trial.json \
   --external-trial-root path/to/external \
   --external-evidence-package-dir path/to/evidence-packages/external-l4-trial \
+  --github-release-verification-report path/to/github-release/verification.json \
   --github-release-tag v0.1.0
 ```
 
-The wrapper invokes `benchmark/release_gate.py` with `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, external L4 trial/package validation, `--verify-github-release`, and `--github-release-kind stable` in the same report. The current production claim remains incomplete until real external L4 evidence and a stable release are supplied and that combined gate passes.
+The wrapper invokes `benchmark/release_gate.py` with `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, external L4 trial/package validation, saved reviewer report checks when supplied, `--verify-github-release`, and `--github-release-kind stable` in the same report. Saved GitHub release verification JSON is rechecked with file hashes and stable-report requirements when supplied, but the current production claim remains incomplete until real external L4 evidence and a live stable release verification are supplied and that combined gate passes.
 
 Local validation for the wrapper:
 

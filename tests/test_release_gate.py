@@ -113,6 +113,7 @@ class ReleaseGateTest(unittest.TestCase):
             "external_evidence_package_dir": None,
             "verify_github_release": None,
             "github_release_kind": "prerelease",
+            "github_release_verification_report": None,
             "require_production_claim": False,
             "out_json": Path("release-gate.json"),
             "out_md": Path("release-gate.md"),
