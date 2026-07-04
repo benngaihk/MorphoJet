@@ -139,6 +139,8 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                     "content_type": "application/gzip",
                     "digest": "sha256:" + "a" * 64,
                     "state": "uploaded",
+                    "created_at": "2026-07-03T00:00:00Z",
+                    "updated_at": "2026-07-03T00:00:01Z",
                 },
                 {
                     "name": "b.tar.gz",
@@ -147,6 +149,8 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                     "content_type": "application/gzip",
                     "digest": "sha256:" + "b" * 64,
                     "state": "uploaded",
+                    "created_at": "2026-07-03T00:00:00Z",
+                    "updated_at": "2026-07-03T00:00:01Z",
                 },
             ],
             verify_github_release.release_asset_metadata(
@@ -159,6 +163,8 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                             "contentType": "application/gzip",
                             "digest": "sha256:" + "b" * 64,
                             "state": "uploaded",
+                            "createdAt": "2026-07-03T00:00:00Z",
+                            "updatedAt": "2026-07-03T00:00:01Z",
                         },
                         {
                             "name": "a.tar.gz",
@@ -167,6 +173,8 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                             "contentType": "application/gzip",
                             "digest": "sha256:" + "a" * 64,
                             "state": "uploaded",
+                            "createdAt": "2026-07-03T00:00:00Z",
+                            "updatedAt": "2026-07-03T00:00:01Z",
                         },
                     ]
                 }
@@ -273,6 +281,8 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                     "content_type": "application/gzip" if name.endswith(".tar.gz") else "text/plain",
                     "digest": f"sha256:{verify_github_release.sha256(out_dir / name)}",
                     "state": "uploaded",
+                    "created_at": "2026-07-03T00:00:00Z",
+                    "updated_at": "2026-07-03T00:00:01Z",
                 }
                 for name in expected_assets
             ],
@@ -481,6 +491,8 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             first["content_type"] = None
             first["digest"] = "sha256:not-a-digest"
             first["state"] = "starter"
+            first["created_at"] = "not-a-date"
+            first["updated_at"] = "2026-07-02T00:00:00"
             payload["asset_metadata"].append(dict(payload["asset_metadata"][0]))
             report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
@@ -491,6 +503,8 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn(f"asset_metadata.content_type must be a non-empty string: {first['name']}", failures)
         self.assertIn(f"asset_metadata.digest must be sha256:<64 lowercase hex>: {first['name']}", failures)
         self.assertIn(f"asset_metadata.state must be uploaded: {first['name']}", failures)
+        self.assertIn(f"asset_metadata.created_at is invalid: {first['name']}", failures)
+        self.assertIn(f"asset_metadata.updated_at must include timezone: {first['name']}", failures)
         self.assertIn(f"asset_metadata name is duplicated: {first['name']}", failures)
 
     def test_saved_release_report_rejects_asset_url_not_bound_to_repo_tag_and_name(self) -> None:
@@ -506,6 +520,18 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             f"asset_metadata.url does not match repo/tag/name for {first['name']}: {first['url']}",
             failures,
         )
+
+    def test_saved_release_report_rejects_asset_timestamp_order(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            first = payload["asset_metadata"][0]
+            first["created_at"] = "2026-07-03T00:00:02Z"
+            first["updated_at"] = "2026-07-03T00:00:01Z"
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn(f"asset_metadata.updated_at must not be earlier than created_at: {first['name']}", failures)
 
     def test_saved_release_report_recomputes_asset_list(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

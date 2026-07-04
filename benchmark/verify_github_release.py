@@ -165,6 +165,8 @@ def release_asset_metadata(release: dict) -> list[dict[str, Any]]:
                 "content_type": asset.get("contentType"),
                 "digest": asset.get("digest"),
                 "state": asset.get("state"),
+                "created_at": asset.get("createdAt"),
+                "updated_at": asset.get("updatedAt"),
             }
         )
     return sorted(records, key=lambda record: record["name"])
@@ -237,6 +239,12 @@ def asset_metadata_issues(records: Any, release_asset_names_payload: Any, repo: 
             failures.append(f"asset_metadata.digest must be sha256:<64 lowercase hex>: {name}")
         if record.get("state") != "uploaded":
             failures.append(f"asset_metadata.state must be uploaded: {name}")
+        created_at = record.get("created_at")
+        updated_at = record.get("updated_at")
+        parsed_created_at = parse_asset_timestamp(created_at, f"asset_metadata.created_at", name, failures)
+        parsed_updated_at = parse_asset_timestamp(updated_at, f"asset_metadata.updated_at", name, failures)
+        if parsed_created_at is not None and parsed_updated_at is not None and parsed_updated_at < parsed_created_at:
+            failures.append(f"asset_metadata.updated_at must not be earlier than created_at: {name}")
     if observed_names != sorted(observed_names):
         failures.append("asset_metadata entries must be sorted by name")
     duplicated_names = sorted(name for name in set(observed_names) if observed_names.count(name) > 1)
@@ -245,6 +253,21 @@ def asset_metadata_issues(records: Any, release_asset_names_payload: Any, repo: 
     if sorted(observed_names) != release_asset_names_payload:
         failures.append("asset_metadata names do not match assets.release_metadata")
     return failures
+
+
+def parse_asset_timestamp(value: Any, field: str, asset_name: str, failures: list[str]) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        failures.append(f"{field} must be a non-empty ISO timestamp: {asset_name}")
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        failures.append(f"{field} is invalid: {asset_name}")
+        return None
+    if parsed.tzinfo is None:
+        failures.append(f"{field} must include timezone: {asset_name}")
+        return None
+    return parsed
 
 
 def asset_file_metadata_issues(records: list[dict[str, Any]], out_dir: Path, asset_names: list[str]) -> list[str]:
