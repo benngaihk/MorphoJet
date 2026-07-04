@@ -5,9 +5,144 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+
+REQUIRED_AUDIT_CHECKS = [
+    "clean_git_worktree",
+    "standard_code_and_artifact_gates",
+    "l3_provenance_hashes",
+    "external_l4_workflow_trial",
+    "external_l4_evidence_package",
+    "stable_github_release",
+]
+
+REQUIRED_PRODUCTION_GATE_NAMES = {
+    "Require clean git worktree",
+    "Rust formatting",
+    "Rust tests",
+    "Rust clippy",
+    "Python helper compilation",
+    "Python helper tests",
+    "Validate handoff manifests",
+    "Validate external lab handoff template",
+    "Validate existing CellBinDB L3 artifacts",
+    "Validate CellBinDB L3 provenance",
+    "Validate CellBinDB workflow bridge artifacts",
+    "Validate CellBinDB handoff trial artifacts",
+    "Validate external L4 workflow trial report",
+    "Validate external L4 evidence package",
+    "Verify GitHub release assets",
+}
+
+
+def validate_metadata(metadata: Any) -> list[str]:
+    failures: list[str] = []
+    if not isinstance(metadata, dict):
+        return ["metadata must be an object"]
+    required_keys = [
+        "generated_at_utc",
+        "git_commit",
+        "git_dirty",
+        "git_status",
+        "argv",
+        "require_clean_git",
+        "require_l3_provenance",
+        "require_production_claim",
+        "verify_github_release",
+        "github_release_kind",
+    ]
+    for key in required_keys:
+        if key not in metadata:
+            failures.append(f"metadata missing {key}")
+    generated_at = metadata.get("generated_at_utc")
+    if isinstance(generated_at, str):
+        try:
+            parsed_generated_at = datetime.fromisoformat(generated_at)
+            if parsed_generated_at.tzinfo is None:
+                failures.append("metadata.generated_at_utc must include timezone")
+        except ValueError:
+            failures.append(f"metadata.generated_at_utc is invalid: {generated_at}")
+    elif "generated_at_utc" in metadata:
+        failures.append("metadata.generated_at_utc must be a string")
+    git_commit = metadata.get("git_commit")
+    if isinstance(git_commit, str):
+        if not re.fullmatch(r"[0-9a-f]{40}", git_commit):
+            failures.append(f"metadata.git_commit is not a 40-character SHA: {git_commit}")
+    elif "git_commit" in metadata:
+        failures.append("metadata.git_commit must be a string")
+    for bool_key in ["git_dirty", "require_clean_git", "require_l3_provenance", "require_production_claim"]:
+        if bool_key in metadata and not isinstance(metadata.get(bool_key), bool):
+            failures.append(f"metadata.{bool_key} must be a boolean")
+    for list_key in ["git_status", "argv"]:
+        value = metadata.get(list_key)
+        if list_key in metadata and (
+            not isinstance(value, list) or not all(isinstance(item, str) for item in value)
+        ):
+            failures.append(f"metadata.{list_key} must be a string list")
+    verify_github_release = metadata.get("verify_github_release")
+    if verify_github_release is not None and not isinstance(verify_github_release, str):
+        failures.append("metadata.verify_github_release must be null or a string")
+    github_release_kind = metadata.get("github_release_kind")
+    if github_release_kind not in {"prerelease", "stable", None}:
+        failures.append(f"metadata.github_release_kind={github_release_kind}")
+    return failures
+
+
+def validate_gate_entry(gate: Any) -> list[str]:
+    failures: list[str] = []
+    if not isinstance(gate, dict):
+        return ["gate entries must be objects"]
+    name = gate.get("name")
+    if not isinstance(name, str) or not name:
+        failures.append("gate name must be a non-empty string")
+    command = gate.get("command")
+    if command is not None and (
+        not isinstance(command, list) or not all(isinstance(item, str) for item in command)
+    ):
+        failures.append(f"gate command must be null or a string list: {name}")
+    if gate.get("status") not in {"PASS", "FAIL"}:
+        failures.append(f"gate status invalid for {name}: {gate.get('status')}")
+    elapsed = gate.get("elapsed_seconds")
+    if not isinstance(elapsed, (int, float)) or elapsed < 0:
+        failures.append(f"gate elapsed_seconds must be non-negative: {name}")
+    if not isinstance(gate.get("detail"), str):
+        failures.append(f"gate detail must be a string: {name}")
+    return failures
+
+
+def validate_audit_checks(audit: dict, top_level_missing: Any) -> list[str]:
+    failures: list[str] = []
+    checks = audit.get("checks")
+    if not isinstance(checks, list) or not checks:
+        return ["production_claim_audit.checks must be a non-empty list"]
+    check_names = []
+    failed_check_names = []
+    for check in checks:
+        if not isinstance(check, dict):
+            failures.append("production_claim_audit.check entries must be objects")
+            continue
+        name = check.get("name")
+        status = check.get("status")
+        if not isinstance(name, str) or not name:
+            failures.append("production_claim_audit.check name must be a non-empty string")
+            continue
+        check_names.append(name)
+        if status not in {"PASS", "FAIL", "MISSING"}:
+            failures.append(f"production_claim_audit.check status invalid for {name}: {status}")
+        if not isinstance(check.get("detail"), str):
+            failures.append(f"production_claim_audit.check detail must be a string: {name}")
+        if status != "PASS":
+            failed_check_names.append(name)
+    if check_names != REQUIRED_AUDIT_CHECKS:
+        failures.append(f"production_claim_audit.check names={check_names}")
+    if isinstance(top_level_missing, list) and failed_check_names != top_level_missing:
+        failures.append("missing_or_failed_checks does not match audit check statuses")
+    return failures
 
 
 def validate_release_gate_report_payload(
@@ -49,24 +184,26 @@ def validate_release_gate_report_payload(
     if top_level_claim_status == "PASS" and top_level_missing != []:
         failures.append("passing production claim must have no missing_or_failed_checks")
 
-    checks = audit.get("checks")
-    if not isinstance(checks, list) or not checks:
-        failures.append("production_claim_audit.checks must be a non-empty list")
-    else:
-        failed_check_names = [
-            check.get("name")
-            for check in checks
-            if isinstance(check, dict) and check.get("status") != "PASS" and isinstance(check.get("name"), str)
-        ]
-        if isinstance(top_level_missing, list) and failed_check_names != top_level_missing:
-            failures.append("missing_or_failed_checks does not match audit check statuses")
+    if isinstance(audit, dict):
+        failures.extend(validate_audit_checks(audit, top_level_missing))
 
     metadata = payload.get("metadata")
-    if not isinstance(metadata, dict):
-        failures.append("metadata must be an object")
+    failures.extend(validate_metadata(metadata))
+
     gates = payload.get("gates")
     if not isinstance(gates, list) or not gates:
         failures.append("gates must be a non-empty list")
+        gate_names = set()
+    else:
+        gate_names = set()
+        for gate in gates:
+            failures.extend(validate_gate_entry(gate))
+            if isinstance(gate, dict) and isinstance(gate.get("name"), str):
+                gate_names.add(gate["name"])
+        if top_level_claim_status == "PASS":
+            missing_required_gates = sorted(REQUIRED_PRODUCTION_GATE_NAMES - gate_names)
+            if missing_required_gates:
+                failures.append("passing production claim missing gates: " + ",".join(missing_required_gates))
     return failures
 
 
