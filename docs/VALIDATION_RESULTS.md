@@ -269,7 +269,7 @@ Parity:
 | Numeric compared | 2,806,336 |
 | Numeric failures | 0 |
 
-Provenance: the scheduler-ready L3 release gate passed for commit `f5d0624545f5` with a clean worktree, `skip_cellprofiler=false`, 14 hashed artifacts, and `missing_or_failed_checks=["external_l4_workflow_trial", "stable_github_release"]`.
+Provenance: the scheduler-ready L3 release gate passed for commit `f5d0624545f5` with a clean worktree, `skip_cellprofiler=false`, 14 hashed artifacts. Under the current production-claim audit model, the L3 evidence still leaves `missing_or_failed_checks=["external_l4_workflow_trial", "external_l4_evidence_package", "stable_github_release"]`.
 
 Conclusion: L3 passes for this CellBinDB direct-mask measurement benchmark with artifact provenance. This does not prove full CellProfiler replacement, upstream segmentation replacement, or external lab workflow fit; those remain L4/production-readiness work.
 
