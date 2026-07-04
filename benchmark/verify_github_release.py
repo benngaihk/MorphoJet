@@ -126,6 +126,14 @@ def release_identity_issues(tag: str, release: dict) -> list[str]:
     return issues
 
 
+def expected_release_url(repo: str, tag: str) -> str:
+    return f"https://github.com/{repo}/releases/tag/{tag}"
+
+
+def expected_asset_url(repo: str, tag: str, name: str) -> str:
+    return f"https://github.com/{repo}/releases/download/{tag}/{name}"
+
+
 def expected_asset_names(tag: str) -> set[str]:
     return {
         f"morphojet-{tag}-linux-x86_64.tar.gz",
@@ -190,7 +198,7 @@ def asset_summary(expected_assets: set[str], release_assets: set[str], downloade
     }
 
 
-def asset_metadata_issues(records: Any, release_asset_names_payload: Any) -> list[str]:
+def asset_metadata_issues(records: Any, release_asset_names_payload: Any, repo: Any = None, tag: Any = None) -> list[str]:
     failures = []
     if not isinstance(records, list) or not records:
         return ["asset_metadata must be a non-empty list"]
@@ -211,6 +219,10 @@ def asset_metadata_issues(records: Any, release_asset_names_payload: Any) -> lis
         url = record.get("url")
         if not isinstance(url, str) or not url.strip():
             failures.append(f"asset_metadata.url must be a non-empty string: {name}")
+        elif isinstance(repo, str) and repo.strip() and isinstance(tag, str) and tag.strip():
+            expected_url = expected_asset_url(repo, tag, name)
+            if url != expected_url:
+                failures.append(f"asset_metadata.url does not match repo/tag/name for {name}: {url}")
         size = record.get("size")
         if not isinstance(size, int) or size <= 0:
             failures.append(f"asset_metadata.size must be a positive integer: {name}")
@@ -225,6 +237,17 @@ def asset_metadata_issues(records: Any, release_asset_names_payload: Any) -> lis
     if sorted(observed_names) != release_asset_names_payload:
         failures.append("asset_metadata names do not match assets.release_metadata")
     return failures
+
+
+def release_report_url_issues(repo: Any, tag: Any, url: Any) -> list[str]:
+    if not isinstance(repo, str) or not repo.strip() or not isinstance(tag, str) or not tag.strip():
+        return []
+    if not isinstance(url, str) or not url.strip():
+        return []
+    expected_url = expected_release_url(repo, tag)
+    if url != expected_url:
+        return [f"url does not match repo/tag: {url} != {expected_url}"]
+    return []
 
 
 def doctor_run_issues(archive_summaries: list[dict]) -> list[str]:
@@ -314,6 +337,8 @@ def validate_verification_report_payload(
     url = payload.get("url")
     if not isinstance(url, str) or not url.strip():
         failures.append("url must be a non-empty string")
+    else:
+        failures.extend(release_report_url_issues(repo, tag, url))
     if not isinstance(payload.get("is_prerelease"), bool):
         failures.append("is_prerelease must be a boolean")
     expected_kind = payload.get("expected_release_kind")
@@ -383,7 +408,7 @@ def validate_verification_report_payload(
             and asset_count != len(downloaded_assets_payload)
         ):
             failures.append("asset_count does not match assets.downloaded")
-    failures.extend(asset_metadata_issues(payload.get("asset_metadata"), release_metadata_assets))
+    failures.extend(asset_metadata_issues(payload.get("asset_metadata"), release_metadata_assets, repo=repo, tag=tag))
 
     archives = payload.get("archives")
     if not isinstance(archives, list):

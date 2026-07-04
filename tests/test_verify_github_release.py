@@ -289,6 +289,21 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn("verifier=other.py", failures)
         self.assertIn("generated_at_utc is invalid: not-a-date", failures)
 
+    def test_saved_release_report_rejects_url_not_bound_to_repo_and_tag(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["url"] = "https://github.com/other/repo/releases/tag/v0.1.0"
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn(
+            "url does not match repo/tag: "
+            "https://github.com/other/repo/releases/tag/v0.1.0 != "
+            "https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0",
+            failures,
+        )
+
     def test_saved_release_report_rejects_unbound_commit_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = self.valid_report(Path(tmp))
@@ -424,6 +439,20 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn(f"asset_metadata.size must be a positive integer: {first['name']}", failures)
         self.assertIn(f"asset_metadata.content_type must be a non-empty string: {first['name']}", failures)
         self.assertIn(f"asset_metadata name is duplicated: {first['name']}", failures)
+
+    def test_saved_release_report_rejects_asset_url_not_bound_to_repo_tag_and_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            first = payload["asset_metadata"][0]
+            first["url"] = "https://github.com/benngaihk/MorphoJet/releases/download/v0.2.0/other.tar.gz"
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn(
+            f"asset_metadata.url does not match repo/tag/name for {first['name']}: {first['url']}",
+            failures,
+        )
 
     def test_saved_release_report_recomputes_asset_list(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
