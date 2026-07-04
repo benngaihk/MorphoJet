@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+"""Reject unsupported production and replacement claims in source docs."""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_PATHS = [
+    ROOT / "README.md",
+    *(ROOT / "docs").glob("*.md"),
+]
+RISKY_PATTERNS = [
+    re.compile(r"\bproduction[- ]ready\b", re.IGNORECASE),
+    re.compile(r"\bproduction[- ]grade\b", re.IGNORECASE),
+    re.compile(r"\bready for production\b", re.IGNORECASE),
+    re.compile(r"\breplaces?\s+CellProfiler\b", re.IGNORECASE),
+    re.compile(r"\bCellProfiler[- ]replacement\b", re.IGNORECASE),
+]
+SAFE_LINE_MARKERS = [
+    "not ",
+    "not-",
+    "must not",
+    "should not",
+    "do not",
+    "does not",
+    "without",
+    "until",
+    "unproven",
+    "unsupported",
+    "incomplete",
+    "blocking",
+    "remain",
+    "remains",
+    "before",
+    "not enough",
+    "not allowed",
+]
+SAFE_CONTEXT_MARKERS = [
+    "not allowed",
+    "not production-grade until",
+    "must not",
+    "should not",
+    "do not",
+]
+
+
+def risky_matches(line: str) -> list[str]:
+    return [pattern.pattern for pattern in RISKY_PATTERNS if pattern.search(line)]
+
+
+def is_guarded_claim(line: str, previous_lines: list[str]) -> bool:
+    normalized = line.lower()
+    if any(marker in normalized for marker in SAFE_LINE_MARKERS):
+        return True
+    context = "\n".join(previous_lines[-5:]).lower()
+    return any(marker in context for marker in SAFE_CONTEXT_MARKERS)
+
+
+def display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
+def validate_file(path: Path) -> list[str]:
+    failures: list[str] = []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    previous: list[str] = []
+    for index, line in enumerate(lines, start=1):
+        matches = risky_matches(line)
+        if matches and not is_guarded_claim(line, previous):
+            failures.append(f"{display_path(path)}:{index}: unsupported production/replacement claim: {line.strip()}")
+        previous.append(line)
+    return failures
+
+
+def validate_paths(paths: list[Path]) -> list[str]:
+    failures: list[str] = []
+    for path in paths:
+        if path.is_dir():
+            for child in sorted(path.glob("*.md")):
+                failures.extend(validate_file(child))
+        else:
+            failures.extend(validate_file(path))
+    return failures
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("paths", nargs="*", type=Path, help="Markdown files or directories to scan")
+    args = parser.parse_args()
+    paths = args.paths or DEFAULT_PATHS
+    failures = validate_paths(paths)
+    if failures:
+        for failure in failures:
+            print(f"FAIL: {failure}", file=sys.stderr)
+        return 1
+    print(f"claim language ok: {len(paths)} path(s)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

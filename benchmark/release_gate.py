@@ -991,6 +991,7 @@ def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], me
         "Rust clippy",
         "Python helper compilation",
         "Python helper tests",
+        "Validate claim language",
         "Validate handoff manifests",
         "Validate external lab handoff template",
         "Validate existing CellBinDB L3 artifacts",
@@ -1232,6 +1233,7 @@ def main() -> int:
             run_command("Rust clippy", [cargo, "clippy", "--all-targets", "--", "-D", "warnings"]),
             run_command("Python helper compilation", ["python3", "-m", "py_compile", *python_files]),
             run_command("Python helper tests", ["python3", "-m", "unittest", "discover", "-s", "tests"]),
+            run_command("Validate claim language", ["python3", "benchmark/validate_claim_language.py"]),
             run_command(
                 "Validate handoff manifests",
                 [

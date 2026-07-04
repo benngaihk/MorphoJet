@@ -28,6 +28,7 @@ REQUIRED_PRODUCTION_GATE_NAMES = {
     "Rust clippy",
     "Python helper compilation",
     "Python helper tests",
+    "Validate claim language",
     "Validate handoff manifests",
     "Validate external lab handoff template",
     "Validate existing CellBinDB L3 artifacts",
