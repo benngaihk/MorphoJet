@@ -39,6 +39,8 @@ REQUIRED_PRODUCTION_GATE_NAMES = {
     "Verify GitHub release assets",
 }
 
+STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
+
 
 def validate_metadata(metadata: Any) -> list[str]:
     failures: list[str] = []
@@ -90,6 +92,25 @@ def validate_metadata(metadata: Any) -> list[str]:
     github_release_kind = metadata.get("github_release_kind")
     if github_release_kind not in {"prerelease", "stable", None}:
         failures.append(f"metadata.github_release_kind={github_release_kind}")
+    return failures
+
+
+def validate_production_claim_metadata(metadata: Any) -> list[str]:
+    failures: list[str] = []
+    if not isinstance(metadata, dict):
+        return failures
+    for key in ["require_clean_git", "require_l3_provenance", "require_production_claim"]:
+        if metadata.get(key) is not True:
+            failures.append(f"production PASS metadata.{key} must be true")
+    for key in ["external_trial_json", "external_trial_root", "external_evidence_package_dir"]:
+        value = metadata.get(key)
+        if not isinstance(value, str) or not value.strip():
+            failures.append(f"production PASS metadata.{key} must be a non-empty string")
+    tag = metadata.get("verify_github_release")
+    if not isinstance(tag, str) or not STABLE_TAG_PATTERN.fullmatch(tag):
+        failures.append("production PASS metadata.verify_github_release must be a stable semver tag like v0.1.0")
+    if metadata.get("github_release_kind") != "stable":
+        failures.append(f"production PASS metadata.github_release_kind must be stable: {metadata.get('github_release_kind')}")
     return failures
 
 
@@ -189,6 +210,8 @@ def validate_release_gate_report_payload(
 
     metadata = payload.get("metadata")
     failures.extend(validate_metadata(metadata))
+    if top_level_claim_status == "PASS":
+        failures.extend(validate_production_claim_metadata(metadata))
 
     gates = payload.get("gates")
     if not isinstance(gates, list) or not gates:

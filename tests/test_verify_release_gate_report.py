@@ -196,6 +196,46 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
 
         self.assertIn("passing production claim missing gates: Verify GitHub release assets", failures)
 
+    def test_rejects_passing_production_claim_without_final_metadata_flags(self) -> None:
+        payload = self.complete_production_claim_payload()
+        payload["metadata"]["require_clean_git"] = False
+        payload["metadata"]["require_l3_provenance"] = False
+        payload["metadata"]["require_production_claim"] = False
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn("production PASS metadata.require_clean_git must be true", failures)
+        self.assertIn("production PASS metadata.require_l3_provenance must be true", failures)
+        self.assertIn("production PASS metadata.require_production_claim must be true", failures)
+
+    def test_rejects_passing_production_claim_without_external_metadata_paths(self) -> None:
+        payload = self.complete_production_claim_payload()
+        payload["metadata"]["external_trial_json"] = None
+        payload["metadata"]["external_trial_root"] = ""
+        payload["metadata"]["external_evidence_package_dir"] = None
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn("production PASS metadata.external_trial_json must be a non-empty string", failures)
+        self.assertIn("production PASS metadata.external_trial_root must be a non-empty string", failures)
+        self.assertIn(
+            "production PASS metadata.external_evidence_package_dir must be a non-empty string",
+            failures,
+        )
+
+    def test_rejects_passing_production_claim_without_stable_release_metadata(self) -> None:
+        payload = self.complete_production_claim_payload()
+        payload["metadata"]["verify_github_release"] = "v0.1.0-rc.1"
+        payload["metadata"]["github_release_kind"] = "prerelease"
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "production PASS metadata.verify_github_release must be a stable semver tag like v0.1.0",
+            failures,
+        )
+        self.assertIn("production PASS metadata.github_release_kind must be stable: prerelease", failures)
+
     def test_rejects_bad_metadata_shape(self) -> None:
         payload = self.valid_payload()
         payload["metadata"]["git_commit"] = "abc123"

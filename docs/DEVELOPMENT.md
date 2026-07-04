@@ -115,7 +115,7 @@ python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/r
 python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/production-claim.json --require-report-pass --require-production-claim-pass
 ```
 
-The verifier checks the top-level summary against `production_claim_audit`, validates report metadata and each gate entry shape, requires the expected production-audit check list, and rejects a saved production-claim PASS report unless the required clean-git, standard code/artifact, L3 provenance, external L4, and stable GitHub release gates are present in the report.
+The verifier checks the top-level summary against `production_claim_audit`, validates report metadata and each gate entry shape, requires the expected production-audit check list, and rejects a saved production-claim PASS report unless the required clean-git, standard code/artifact, L3 provenance, external L4, and stable GitHub release gates are present in the report. A production PASS report must also carry metadata proving `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, external L4 paths, and a stable release tag/kind were used.
 
 After a real external workflow trial has been run with `benchmark/run_handoff_trial.py`, add its JSON report to the production-readiness release gate:
 
