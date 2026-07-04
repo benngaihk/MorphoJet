@@ -85,7 +85,7 @@ class RunProductionGateTest(unittest.TestCase):
                             "archive": archive.name,
                             "sha256": digest,
                             "checksum_match": True,
-                            "doctor": {"issues": [], "expected_commit": self.DOCTOR_COMMIT},
+                            "doctor": {"status": "PASS", "issues": [], "expected_commit": self.DOCTOR_COMMIT},
                         }
                     ],
                     "issues": [],

@@ -232,7 +232,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                     "archive": archive.name,
                     "sha256": digest,
                     "checksum_match": True,
-                    "doctor": {"issues": [], "expected_commit": self.DOCTOR_COMMIT},
+                    "doctor": {"status": "PASS", "issues": [], "expected_commit": self.DOCTOR_COMMIT},
                 }
             ],
             "issues": [],
@@ -309,6 +309,21 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             failures = verify_github_release.validate_verification_report_payload(payload)
 
         self.assertIn("expected_commit must be a full 40-character lowercase git commit", failures)
+
+    def test_saved_release_report_rejects_failed_doctor_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["archives"][0]["doctor"]["status"] = "FAIL"
+            payload["archives"][0]["doctor"]["issues"] = ["doctor output missing morphojet.commit="]
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn(
+            "archive doctor status is not PASS: morphojet-v0.1.0-linux-x86_64.tar.gz status=FAIL",
+            failures,
+        )
+        self.assertIn("archive doctor has issues: morphojet-v0.1.0-linux-x86_64.tar.gz", failures)
 
     def test_saved_release_report_can_require_expected_tag(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

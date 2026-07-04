@@ -362,7 +362,16 @@ def validate_verification_report_payload(
             if doctor is not None:
                 if not isinstance(doctor, dict):
                     failures.append(f"archive doctor must be an object or null: {archive.get('archive')}")
-                elif doctor.get("expected_commit") != expected_doctor_commit:
+                    continue
+                doctor_status = doctor.get("status")
+                if doctor_status != "PASS":
+                    failures.append(f"archive doctor status is not PASS: {archive.get('archive')} status={doctor_status}")
+                doctor_issues = doctor.get("issues")
+                if not isinstance(doctor_issues, list) or not all(isinstance(issue, str) for issue in doctor_issues):
+                    failures.append(f"archive doctor issues must be a string list: {archive.get('archive')}")
+                elif doctor_issues:
+                    failures.append(f"archive doctor has issues: {archive.get('archive')}")
+                if doctor.get("expected_commit") != expected_doctor_commit:
                     failures.append(f"archive doctor expected_commit does not match expected_doctor_commit: {archive.get('archive')}")
     issues = payload.get("issues")
     if not isinstance(issues, list) or not all(isinstance(issue, str) for issue in issues):

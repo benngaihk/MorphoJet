@@ -276,7 +276,7 @@ python3 benchmark/verify_github_release.py \
   --require-stable-report
 ```
 
-`--verify-report-files` recomputes downloaded asset names, archive SHA-256 values, and checksum file contents from the report's `out_dir`. Saved reports must bind `expected_commit` to a full 40-character commit and `expected_doctor_commit` to its 12-character prefix, and any recorded compatible archive `doctor` summary must use that same prefix. Use `--require-stable-report` for production signoff so a prerelease verification JSON cannot satisfy the stable-release evidence slot.
+`--verify-report-files` recomputes downloaded asset names, archive SHA-256 values, and checksum file contents from the report's `out_dir`. Saved reports must bind `expected_commit` to a full 40-character commit and `expected_doctor_commit` to its 12-character prefix, and any recorded compatible archive `doctor` summary must use that same prefix, have `status=PASS`, and contain no issues. Use `--require-stable-report` for production signoff so a prerelease verification JSON cannot satisfy the stable-release evidence slot.
 Use `--expect-tag v0.1.0` with saved GitHub release verifier reports during signoff so a report for another stable tag cannot satisfy the reviewer-report slot.
 
 ## Parity Report Smoke
