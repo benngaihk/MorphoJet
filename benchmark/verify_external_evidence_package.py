@@ -7,10 +7,14 @@ import argparse
 import json
 import sys
 from dataclasses import asdict
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import release_gate
+
+SCHEMA_VERSION = 1
+VERIFIER = "benchmark/verify_external_evidence_package.py"
 
 
 def verify_external_evidence_package(
@@ -21,6 +25,9 @@ def verify_external_evidence_package(
 ) -> int:
     gate = release_gate.validate_external_evidence_package(package_dir, trial_json)
     payload = {
+        "schema_version": SCHEMA_VERSION,
+        "verifier": VERIFIER,
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "status": gate.status,
         "package_dir": str(package_dir),
         "trial_json": str(trial_json) if trial_json else None,
@@ -49,6 +56,20 @@ def validate_verification_report_payload(payload: Any, require_report_pass: bool
         failures.append(f"status={status}")
     if require_report_pass and status != "PASS":
         failures.append(f"external evidence package verification report status is not PASS: {status}")
+    if payload.get("schema_version") != SCHEMA_VERSION:
+        failures.append(f"schema_version={payload.get('schema_version')}")
+    if payload.get("verifier") != VERIFIER:
+        failures.append(f"verifier={payload.get('verifier')}")
+    generated_at = payload.get("generated_at_utc")
+    if isinstance(generated_at, str):
+        try:
+            parsed_generated_at = datetime.fromisoformat(generated_at)
+            if parsed_generated_at.tzinfo is None:
+                failures.append("generated_at_utc must include timezone")
+        except ValueError:
+            failures.append(f"generated_at_utc is invalid: {generated_at}")
+    else:
+        failures.append("generated_at_utc must be a string")
     package_dir = payload.get("package_dir")
     if not isinstance(package_dir, str) or not package_dir.strip():
         failures.append("package_dir must be a non-empty string")

@@ -45,6 +45,9 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
             payload = json.loads(json_out.read_text(encoding="utf-8"))
 
         self.assertEqual(0, code)
+        self.assertEqual(1, payload["schema_version"])
+        self.assertEqual("benchmark/verify_external_trial_report.py", payload["verifier"])
+        self.assertIn("+00:00", payload["generated_at_utc"])
         self.assertEqual("PASS", payload["status"])
         self.assertEqual("Validate external L4 workflow trial report", payload["gate"]["name"])
         self.assertIn("External workflow trial PASS", payload["gate"]["detail"])
@@ -118,6 +121,28 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
                 )
             payload = json.loads(json_out.read_text(encoding="utf-8"))
             payload["status"] = "FAIL"
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = verify_external_trial_report.verify_saved_external_trial_report(json_out)
+
+        self.assertEqual(1, code)
+
+    def test_saved_verification_report_rejects_metadata_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["schema_version"] = 2
+            payload["verifier"] = "other.py"
+            payload["generated_at_utc"] = "not-a-date"
             json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
             with redirect_stdout(StringIO()), redirect_stderr(StringIO()):

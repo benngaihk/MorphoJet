@@ -138,7 +138,7 @@ python3 benchmark/verify_external_trial_report.py \
   --json-out path/to/external/handoff_trial-verification.json
 ```
 
-The standalone verifier uses the same external trial validator as `benchmark/release_gate.py`; `--trial-root` must resolve every declared trial artifact, and `--json-out` writes a machine-readable PASS/FAIL report. Use `--allow-fail-report` only when collecting diagnostic evidence from a known-bad trial report, because normal review should fail closed.
+The standalone verifier uses the same external trial validator as `benchmark/release_gate.py`; `--trial-root` must resolve every declared trial artifact, and `--json-out` writes a machine-readable PASS/FAIL report with `schema_version`, verifier identity, and generation timestamp. Use `--allow-fail-report` only when collecting diagnostic evidence from a known-bad trial report, because normal review should fail closed.
 
 Saved external trial verifier reports can be re-checked during review:
 
@@ -149,7 +149,7 @@ python3 benchmark/verify_external_trial_report.py \
   --require-report-pass
 ```
 
-`--verify-report-files` recomputes the external trial validation from the report's `trial_json` and `trial_root` paths, then checks the recorded gate status and detail against the fresh result.
+`--verify-report-files` recomputes the external trial validation from the report's `trial_json` and `trial_root` paths, then checks the report schema/verifier/timestamp plus the recorded gate status and detail against the fresh result.
 
 After the external trial gate passes, package the evidence for external review and release signoff:
 
@@ -171,7 +171,7 @@ python3 benchmark/verify_external_evidence_package.py \
   --json-out path/to/evidence-packages/external-l4-trial-verification.json
 ```
 
-The standalone verifier uses the same package validator as `benchmark/release_gate.py`; `--trial-json` binds the package to the exact source trial report, and `--json-out` writes a machine-readable PASS/FAIL report. Use `--allow-fail-report` only when collecting diagnostic evidence from a known-bad package, because normal review should fail closed.
+The standalone verifier uses the same package validator as `benchmark/release_gate.py`; `--trial-json` binds the package to the exact source trial report, and `--json-out` writes a machine-readable PASS/FAIL report with `schema_version`, verifier identity, and generation timestamp. Use `--allow-fail-report` only when collecting diagnostic evidence from a known-bad package, because normal review should fail closed.
 
 Saved package verifier reports can be re-checked during review:
 
@@ -182,7 +182,7 @@ python3 benchmark/verify_external_evidence_package.py \
   --require-report-pass
 ```
 
-`--verify-report-files` recomputes package validation from the report's `package_dir` and optional `trial_json` paths, then checks the recorded gate status and detail against the fresh result.
+`--verify-report-files` recomputes package validation from the report's `package_dir` and optional `trial_json` paths, then checks the report schema/verifier/timestamp plus the recorded gate status and detail against the fresh result.
 
 For final production/stable-release signoff, use the dedicated wrapper so every required production-claim input is bound into the same release-gate report:
 
