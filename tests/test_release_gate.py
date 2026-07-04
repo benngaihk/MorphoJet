@@ -739,6 +739,16 @@ class ReleaseGateTest(unittest.TestCase):
             release_gate.external_trial_failures(trial),
         )
 
+    def test_external_trial_rejects_review_before_trial_generation(self) -> None:
+        trial = copy.deepcopy(valid_external_trial())
+        trial["metadata"]["generated_at_utc"] = "2026-07-03T01:02:04+00:00"
+        trial["external_evidence"]["reviewed_at_utc"] = "2026-07-03T01:02:03+00:00"
+
+        self.assertIn(
+            "external_evidence.reviewed_at_utc must be at or after metadata.generated_at_utc",
+            release_gate.external_trial_failures(trial),
+        )
+
     def test_external_trial_requires_no_manual_csv_editing(self) -> None:
         trial = copy.deepcopy(valid_external_trial())
         trial["external_evidence"]["manual_csv_editing"] = True

@@ -586,6 +586,7 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None, arti
         elif has_placeholder(value):
             failures.append(f"external_evidence.{key} must replace template placeholder text")
     reviewed_at = evidence.get("reviewed_at_utc")
+    parsed_reviewed_at = None
     if isinstance(reviewed_at, str) and not has_placeholder(reviewed_at):
         try:
             parsed_reviewed_at = datetime.fromisoformat(reviewed_at)
@@ -593,6 +594,20 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None, arti
                 failures.append("external_evidence.reviewed_at_utc must include timezone")
         except ValueError:
             failures.append(f"external_evidence.reviewed_at_utc is invalid: {reviewed_at}")
+    metadata_generated_at = (
+        trial.get("metadata", {}).get("generated_at_utc") if isinstance(trial.get("metadata"), dict) else None
+    )
+    if parsed_reviewed_at is not None and isinstance(metadata_generated_at, str):
+        try:
+            parsed_generated_at = datetime.fromisoformat(metadata_generated_at)
+            if (
+                parsed_reviewed_at.tzinfo is not None
+                and parsed_generated_at.tzinfo is not None
+                and parsed_reviewed_at < parsed_generated_at
+            ):
+                failures.append("external_evidence.reviewed_at_utc must be at or after metadata.generated_at_utc")
+        except ValueError:
+            pass
     criteria = evidence.get("acceptance_criteria")
     if not isinstance(criteria, list) or not criteria or not all(
         isinstance(item, str) and item.strip() for item in criteria
