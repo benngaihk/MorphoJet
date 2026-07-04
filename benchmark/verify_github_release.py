@@ -22,6 +22,8 @@ from verify_release_archive import verify
 VERIFIER = "benchmark/verify_github_release.py"
 REQUIRED_PACKAGE_FILES = {"morphojet", "README.md", "LICENSE"}
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
+FULL_COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
+SHORT_COMMIT_PATTERN = re.compile(r"[0-9a-f]{12}")
 
 
 def run(command: list[str]) -> str:
@@ -30,7 +32,15 @@ def run(command: list[str]) -> str:
 
 
 def git_tag_commit(tag: str) -> str:
-    return run(["git", "rev-list", "-n", "1", "--abbrev-commit", "--abbrev=12", tag]).strip()
+    return run(["git", "rev-list", "-n", "1", tag]).strip()
+
+
+def git_commit(rev: str) -> str:
+    return run(["git", "rev-parse", f"{rev}^{{commit}}"]).strip()
+
+
+def doctor_commit_for(full_commit: str) -> str:
+    return full_commit[:12]
 
 
 def sha256(path: Path) -> str:
@@ -223,6 +233,27 @@ def doctor_run_issues(archive_summaries: list[dict]) -> list[str]:
     return ["no compatible release archive was doctor-verified on this machine"]
 
 
+def expected_commit_issues(expected_commit: Any, expected_doctor_commit: Any) -> list[str]:
+    failures = []
+    if not isinstance(expected_commit, str) or not expected_commit.strip():
+        failures.append("expected_commit must be a non-empty string")
+    elif not FULL_COMMIT_PATTERN.fullmatch(expected_commit):
+        failures.append("expected_commit must be a full 40-character lowercase git commit")
+    if not isinstance(expected_doctor_commit, str) or not expected_doctor_commit.strip():
+        failures.append("expected_doctor_commit must be a non-empty string")
+    elif not SHORT_COMMIT_PATTERN.fullmatch(expected_doctor_commit):
+        failures.append("expected_doctor_commit must be a 12-character lowercase git commit prefix")
+    if (
+        isinstance(expected_commit, str)
+        and FULL_COMMIT_PATTERN.fullmatch(expected_commit)
+        and isinstance(expected_doctor_commit, str)
+        and SHORT_COMMIT_PATTERN.fullmatch(expected_doctor_commit)
+        and expected_doctor_commit != doctor_commit_for(expected_commit)
+    ):
+        failures.append("expected_doctor_commit must match the first 12 characters of expected_commit")
+    return failures
+
+
 def validate_verification_report_payload(
     payload: Any,
     require_report_pass: bool = False,
@@ -275,8 +306,8 @@ def validate_verification_report_payload(
         if isinstance(tag, str) and not STABLE_TAG_PATTERN.fullmatch(tag):
             failures.append("stable report tag must be a non-prerelease semver tag like v0.1.0")
     expected_commit = payload.get("expected_commit")
-    if not isinstance(expected_commit, str) or not expected_commit.strip():
-        failures.append("expected_commit must be a non-empty string")
+    expected_doctor_commit = payload.get("expected_doctor_commit")
+    failures.extend(expected_commit_issues(expected_commit, expected_doctor_commit))
     out_dir = payload.get("out_dir")
     if out_dir is not None and (not isinstance(out_dir, str) or not out_dir.strip()):
         failures.append("out_dir must be null or a non-empty string")
@@ -327,6 +358,12 @@ def validate_verification_report_payload(
                 failures.append(f"archive sha256 invalid: {archive.get('archive')}")
             if not isinstance(archive.get("checksum_match"), bool):
                 failures.append(f"archive checksum_match must be boolean: {archive.get('archive')}")
+            doctor = archive.get("doctor")
+            if doctor is not None:
+                if not isinstance(doctor, dict):
+                    failures.append(f"archive doctor must be an object or null: {archive.get('archive')}")
+                elif doctor.get("expected_commit") != expected_doctor_commit:
+                    failures.append(f"archive doctor expected_commit does not match expected_doctor_commit: {archive.get('archive')}")
     issues = payload.get("issues")
     if not isinstance(issues, list) or not all(isinstance(issue, str) for issue in issues):
         failures.append("issues must be a string list")
@@ -422,7 +459,8 @@ def main() -> int:
         parser.error("tag is required unless --verify-report is used")
 
     out_dir = args.out_dir or Path("benchmark/results/github-release") / args.tag
-    expected_commit = args.expect_commit or git_tag_commit(args.tag)
+    expected_commit = git_commit(args.expect_commit) if args.expect_commit else git_tag_commit(args.tag)
+    expected_doctor_commit = doctor_commit_for(expected_commit)
     release = release_json(args.repo, args.tag)
     download_release(args.repo, args.tag, out_dir)
 
@@ -454,7 +492,7 @@ def main() -> int:
 
         doctor_summary = None
         if compatible_archive(archive):
-            doctor_summary = verify(archive, checksum, expected_commit)
+            doctor_summary = verify(archive, checksum, expected_doctor_commit)
             issues.extend(doctor_summary["issues"])
         archive_summaries.append(
             {
@@ -478,6 +516,7 @@ def main() -> int:
         "is_prerelease": release.get("isPrerelease"),
         "expected_release_kind": "stable" if args.expect_stable else "prerelease" if args.expect_prerelease else None,
         "expected_commit": expected_commit,
+        "expected_doctor_commit": expected_doctor_commit,
         "asset_count": len(actual_assets),
         "assets": asset_summary(expected_assets, release_assets, actual_assets),
         "asset_metadata": release_asset_metadata(release),

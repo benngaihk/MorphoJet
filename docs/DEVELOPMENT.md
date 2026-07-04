@@ -264,7 +264,7 @@ For a stable non-RC release after external workflow evidence has passed:
 python3 benchmark/release_gate.py --verify-github-release v0.1.0 --github-release-kind stable
 ```
 
-The GitHub release verifier downloads the release assets, checks release tag identity and URL, rejects prerelease or non-semver tags for stable gates, requires the release metadata and downloaded files to contain exactly the expected Linux and macOS archives plus `.sha256` files, records schema version, verifier identity, generation timestamp, the expected/release/downloaded asset lists, plus GitHub asset metadata records in JSON, checks each release asset metadata entry for name, URL, size, and content type, checks each checksum digest and checksum target filename, validates archive package contents with traversal-safe extraction that rejects links and special files, and requires at least one archive compatible with the current machine to pass `morphojet doctor`.
+The GitHub release verifier downloads the release assets, checks release tag identity and URL, rejects prerelease or non-semver tags for stable gates, requires the release metadata and downloaded files to contain exactly the expected Linux and macOS archives plus `.sha256` files, records schema version, verifier identity, generation timestamp, the full 40-character tag commit, the 12-character `doctor` commit prefix, the expected/release/downloaded asset lists, plus GitHub asset metadata records in JSON, checks each release asset metadata entry for name, URL, size, and content type, checks each checksum digest and checksum target filename, validates archive package contents with traversal-safe extraction that rejects links and special files, and requires at least one archive compatible with the current machine to pass `morphojet doctor` with the expected commit prefix.
 
 Saved GitHub release verification JSON reports can be re-checked during review:
 
@@ -276,7 +276,7 @@ python3 benchmark/verify_github_release.py \
   --require-stable-report
 ```
 
-`--verify-report-files` recomputes downloaded asset names, archive SHA-256 values, and checksum file contents from the report's `out_dir`. Use `--require-stable-report` for production signoff so a prerelease verification JSON cannot satisfy the stable-release evidence slot.
+`--verify-report-files` recomputes downloaded asset names, archive SHA-256 values, and checksum file contents from the report's `out_dir`. Saved reports must bind `expected_commit` to a full 40-character commit and `expected_doctor_commit` to its 12-character prefix, and any recorded compatible archive `doctor` summary must use that same prefix. Use `--require-stable-report` for production signoff so a prerelease verification JSON cannot satisfy the stable-release evidence slot.
 Use `--expect-tag v0.1.0` with saved GitHub release verifier reports during signoff so a report for another stable tag cannot satisfy the reviewer-report slot.
 
 ## Parity Report Smoke

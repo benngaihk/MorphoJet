@@ -25,6 +25,9 @@ from test_release_gate import add_artifact_provenance, valid_external_trial, wri
 
 
 class RunProductionGateTest(unittest.TestCase):
+    FULL_COMMIT = "a" * 40
+    DOCTOR_COMMIT = "a" * 12
+
     def write_valid_trial(self, root: Path) -> Path:
         trial = valid_external_trial()
         write_trial_artifacts(trial, root)
@@ -57,7 +60,8 @@ class RunProductionGateTest(unittest.TestCase):
                     "out_dir": str(out_dir),
                     "is_prerelease": False,
                     "expected_release_kind": "stable",
-                    "expected_commit": "abc123",
+                    "expected_commit": self.FULL_COMMIT,
+                    "expected_doctor_commit": self.DOCTOR_COMMIT,
                     "asset_count": len(downloaded),
                     "assets": {
                         "expected": expected_assets,
@@ -81,7 +85,7 @@ class RunProductionGateTest(unittest.TestCase):
                             "archive": archive.name,
                             "sha256": digest,
                             "checksum_match": True,
-                            "doctor": {"issues": []},
+                            "doctor": {"issues": [], "expected_commit": self.DOCTOR_COMMIT},
                         }
                     ],
                     "issues": [],

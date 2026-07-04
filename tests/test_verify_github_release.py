@@ -19,6 +19,9 @@ import verify_github_release  # noqa: E402
 
 
 class VerifyGithubReleaseTest(unittest.TestCase):
+    FULL_COMMIT = "a" * 40
+    DOCTOR_COMMIT = "a" * 12
+
     def test_prerelease_expectation(self) -> None:
         self.assertEqual(
             [],
@@ -204,7 +207,8 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             "out_dir": str(out_dir),
             "is_prerelease": False,
             "expected_release_kind": "stable",
-            "expected_commit": "abc123",
+            "expected_commit": self.FULL_COMMIT,
+            "expected_doctor_commit": self.DOCTOR_COMMIT,
             "asset_count": len(downloaded),
             "assets": {
                 "expected": expected_assets,
@@ -228,7 +232,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                     "archive": archive.name,
                     "sha256": digest,
                     "checksum_match": True,
-                    "doctor": {"issues": []},
+                    "doctor": {"issues": [], "expected_commit": self.DOCTOR_COMMIT},
                 }
             ],
             "issues": [],
@@ -279,6 +283,32 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn("schema_version=2", failures)
         self.assertIn("verifier=other.py", failures)
         self.assertIn("generated_at_utc is invalid: not-a-date", failures)
+
+    def test_saved_release_report_rejects_unbound_commit_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["expected_doctor_commit"] = "b" * 12
+            payload["archives"][0]["doctor"]["expected_commit"] = "c" * 12
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn("expected_doctor_commit must match the first 12 characters of expected_commit", failures)
+        self.assertIn(
+            "archive doctor expected_commit does not match expected_doctor_commit: "
+            "morphojet-v0.1.0-linux-x86_64.tar.gz",
+            failures,
+        )
+
+    def test_saved_release_report_rejects_short_expected_commit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["expected_commit"] = "abc123"
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn("expected_commit must be a full 40-character lowercase git commit", failures)
 
     def test_saved_release_report_can_require_expected_tag(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
