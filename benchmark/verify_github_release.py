@@ -131,6 +131,22 @@ def release_asset_names(release: dict) -> set[str]:
     return names
 
 
+def release_asset_metadata(release: dict) -> list[dict[str, Any]]:
+    records = []
+    for asset in release.get("assets") or []:
+        if not isinstance(asset, dict) or not isinstance(asset.get("name"), str):
+            continue
+        records.append(
+            {
+                "name": asset["name"],
+                "url": asset.get("url"),
+                "size": asset.get("size"),
+                "content_type": asset.get("contentType"),
+            }
+        )
+    return sorted(records, key=lambda record: record["name"])
+
+
 def asset_issues(expected_assets: set[str], release_assets: set[str], downloaded_assets: set[str]) -> list[str]:
     issues = []
     missing_release_assets = sorted(expected_assets - release_assets)
@@ -160,6 +176,43 @@ def asset_summary(expected_assets: set[str], release_assets: set[str], downloade
         "release_metadata_count": len(release_assets),
         "downloaded_count": len(downloaded_assets),
     }
+
+
+def asset_metadata_issues(records: Any, release_asset_names_payload: Any) -> list[str]:
+    failures = []
+    if not isinstance(records, list) or not records:
+        return ["asset_metadata must be a non-empty list"]
+    if not isinstance(release_asset_names_payload, list) or not all(
+        isinstance(item, str) for item in release_asset_names_payload
+    ):
+        release_asset_names_payload = []
+    observed_names = []
+    for record in records:
+        if not isinstance(record, dict):
+            failures.append("asset_metadata entries must be objects")
+            continue
+        name = record.get("name")
+        if not isinstance(name, str) or not name.strip():
+            failures.append("asset_metadata.name must be a non-empty string")
+            continue
+        observed_names.append(name)
+        url = record.get("url")
+        if not isinstance(url, str) or not url.strip():
+            failures.append(f"asset_metadata.url must be a non-empty string: {name}")
+        size = record.get("size")
+        if not isinstance(size, int) or size <= 0:
+            failures.append(f"asset_metadata.size must be a positive integer: {name}")
+        content_type = record.get("content_type")
+        if not isinstance(content_type, str) or not content_type.strip():
+            failures.append(f"asset_metadata.content_type must be a non-empty string: {name}")
+    if observed_names != sorted(observed_names):
+        failures.append("asset_metadata entries must be sorted by name")
+    duplicated_names = sorted(name for name in set(observed_names) if observed_names.count(name) > 1)
+    for name in duplicated_names:
+        failures.append(f"asset_metadata name is duplicated: {name}")
+    if sorted(observed_names) != release_asset_names_payload:
+        failures.append("asset_metadata names do not match assets.release_metadata")
+    return failures
 
 
 def doctor_run_issues(archive_summaries: list[dict]) -> list[str]:
@@ -216,6 +269,7 @@ def validate_verification_report_payload(
         failures.append(f"asset_count={asset_count}")
 
     assets = payload.get("assets")
+    release_metadata_assets: Any = []
     if not isinstance(assets, dict):
         failures.append("assets must be an object")
     else:
@@ -237,8 +291,10 @@ def validate_verification_report_payload(
             elif isinstance(values, list) and count != len(values):
                 failures.append(f"assets.{key} does not match assets.{list_key}")
         downloaded = assets.get("downloaded")
+        release_metadata_assets = assets.get("release_metadata")
         if isinstance(asset_count, int) and isinstance(downloaded, list) and asset_count != len(downloaded):
             failures.append("asset_count does not match assets.downloaded")
+    failures.extend(asset_metadata_issues(payload.get("asset_metadata"), release_metadata_assets))
 
     archives = payload.get("archives")
     if not isinstance(archives, list):
@@ -405,6 +461,7 @@ def main() -> int:
         "expected_commit": expected_commit,
         "asset_count": len(actual_assets),
         "assets": asset_summary(expected_assets, release_assets, actual_assets),
+        "asset_metadata": release_asset_metadata(release),
         "archives": archive_summaries,
         "issues": issues,
     }

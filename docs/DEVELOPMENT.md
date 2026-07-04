@@ -264,7 +264,7 @@ For a stable non-RC release after external workflow evidence has passed:
 python3 benchmark/release_gate.py --verify-github-release v0.1.0 --github-release-kind stable
 ```
 
-The GitHub release verifier downloads the release assets, checks release tag identity and URL, rejects prerelease or non-semver tags for stable gates, requires the release metadata and downloaded files to contain exactly the expected Linux and macOS archives plus `.sha256` files, records the expected/release/downloaded asset lists in JSON, checks each checksum digest and checksum target filename, validates archive package contents with traversal-safe extraction that rejects links and special files, and requires at least one archive compatible with the current machine to pass `morphojet doctor`.
+The GitHub release verifier downloads the release assets, checks release tag identity and URL, rejects prerelease or non-semver tags for stable gates, requires the release metadata and downloaded files to contain exactly the expected Linux and macOS archives plus `.sha256` files, records the expected/release/downloaded asset lists plus GitHub asset metadata records in JSON, checks each release asset metadata entry for name, URL, size, and content type, checks each checksum digest and checksum target filename, validates archive package contents with traversal-safe extraction that rejects links and special files, and requires at least one archive compatible with the current machine to pass `morphojet doctor`.
 
 Saved GitHub release verification JSON reports can be re-checked during review:
 

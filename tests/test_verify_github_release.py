@@ -125,6 +125,42 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             ),
         )
 
+    def test_release_asset_metadata_keeps_auditable_fields_sorted_by_name(self) -> None:
+        self.assertEqual(
+            [
+                {
+                    "name": "a.tar.gz",
+                    "url": "https://example.test/a",
+                    "size": 12,
+                    "content_type": "application/gzip",
+                },
+                {
+                    "name": "b.tar.gz",
+                    "url": "https://example.test/b",
+                    "size": 34,
+                    "content_type": "application/gzip",
+                },
+            ],
+            verify_github_release.release_asset_metadata(
+                {
+                    "assets": [
+                        {
+                            "name": "b.tar.gz",
+                            "url": "https://example.test/b",
+                            "size": 34,
+                            "contentType": "application/gzip",
+                        },
+                        {
+                            "name": "a.tar.gz",
+                            "url": "https://example.test/a",
+                            "size": 12,
+                            "contentType": "application/gzip",
+                        },
+                    ]
+                }
+            ),
+        )
+
     def test_asset_summary_sorts_assets_and_counts_each_source(self) -> None:
         summary = verify_github_release.asset_summary(
             {"b.tar.gz", "a.tar.gz"},
@@ -175,6 +211,15 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                 "release_metadata_count": len(expected_assets),
                 "downloaded_count": len(downloaded),
             },
+            "asset_metadata": [
+                {
+                    "name": name,
+                    "url": f"https://github.com/benngaihk/MorphoJet/releases/download/v0.1.0/{name}",
+                    "size": 100 + index,
+                    "content_type": "application/gzip" if name.endswith(".tar.gz") else "text/plain",
+                }
+                for index, name in enumerate(expected_assets)
+            ],
             "archives": [
                 {
                     "archive": archive.name,
@@ -251,6 +296,24 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                 )
 
         self.assertEqual(1, status)
+
+    def test_saved_release_report_rejects_bad_asset_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            first = payload["asset_metadata"][0]
+            first["url"] = ""
+            first["size"] = 0
+            first["content_type"] = None
+            payload["asset_metadata"].append(dict(payload["asset_metadata"][0]))
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn(f"asset_metadata.url must be a non-empty string: {first['name']}", failures)
+        self.assertIn(f"asset_metadata.size must be a positive integer: {first['name']}", failures)
+        self.assertIn(f"asset_metadata.content_type must be a non-empty string: {first['name']}", failures)
+        self.assertIn(f"asset_metadata name is duplicated: {first['name']}", failures)
 
     def test_saved_release_report_recomputes_asset_list(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

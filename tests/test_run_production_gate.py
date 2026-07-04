@@ -64,6 +64,15 @@ class RunProductionGateTest(unittest.TestCase):
                         "release_metadata_count": len(expected_assets),
                         "downloaded_count": len(downloaded),
                     },
+                    "asset_metadata": [
+                        {
+                            "name": name,
+                            "url": f"https://github.com/benngaihk/MorphoJet/releases/download/v0.1.0/{name}",
+                            "size": 100 + index,
+                            "content_type": "application/gzip" if name.endswith(".tar.gz") else "text/plain",
+                        }
+                        for index, name in enumerate(expected_assets)
+                    ],
                     "archives": [
                         {
                             "archive": archive.name,
