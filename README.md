@@ -96,13 +96,16 @@ Before a release candidate, run:
 python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --run-l3 --build-release-artifact --release-version rc-preflight
 ```
 
-For a fast audit of already-generated L3 artifacts, run `python3 benchmark/release_gate.py`. Release-gate JSON and Markdown reports include the run timestamp, git commit, dirty-worktree status, invoked arguments, top-level `production_claim_status`, and top-level `missing_or_failed_checks`. Formal release reports should include `--require-l3-provenance`, which checks the CellBinDB provenance file written by a full non-`--skip-cellprofiler` L3 run and re-hashes the recorded artifacts. Final production or stable-release gates should add `--require-production-claim`, which fails unless the external L4 workflow and stable release checks are also present and passing.
+For a fast audit of already-generated L3 artifacts, run `python3 benchmark/release_gate.py`. Release-gate JSON and Markdown reports include the run timestamp, git commit, dirty-worktree status, invoked arguments, top-level `production_claim_status`, and top-level `missing_or_failed_checks`. Formal release reports should include `--require-l3-provenance`, which checks the CellBinDB provenance file written by a full non-`--skip-cellprofiler` L3 run and re-hashes the recorded artifacts. Final production or stable-release gates should add `--require-production-claim`, which fails unless the external L4 workflow trial, matching evidence package, and stable release checks are also present and passing.
 
 To re-check a saved release-gate JSON report during review:
 
 ```bash
 python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json
+python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/production-claim.json --require-report-pass --require-production-claim-pass
 ```
+
+The saved release-gate verifier checks top-level summary fields against `production_claim_audit`, validates metadata and gate-entry schemas, requires the expected production-audit check list, and rejects production PASS reports that omit required clean-git, L3 provenance, external L4, or stable GitHub release gates.
 
 For the final production claim, use the wrapper that assembles the required checks into one command:
 
@@ -113,10 +116,11 @@ python3 benchmark/run_production_gate.py \
   --external-evidence-package-dir path/to/evidence-packages/external-l4-trial \
   --external-trial-verification-report path/to/external/trial-verification.json \
   --external-evidence-package-verification-report path/to/evidence-packages/package-verification.json \
+  --github-release-verification-report path/to/github-release/verification.json \
   --github-release-tag v0.1.0
 ```
 
-The wrapper requires a stable non-RC tag, fail-fast checks that the external trial JSON, trial root, evidence package directory, and any supplied reviewer verification reports exist for actual runs, fail-closed re-checks supplied saved verifier reports with `--verify-report-files --require-report-pass`, and passes those reviewer reports through to `benchmark/release_gate.py` so the final JSON/Markdown includes the reviewer-report gates alongside clean-git, L3 provenance, external L4 trial, external L4 evidence package, stable GitHub release, and `--require-production-claim` checks. Use `--dry-run` to inspect the assembled command without requiring those external paths yet.
+The wrapper requires a stable non-RC tag, fail-fast checks that the external trial JSON, trial root, evidence package directory, and any supplied reviewer verification reports exist for actual runs, fail-closed re-checks supplied saved verifier reports with `--verify-report-files --require-report-pass`, requires `--require-stable-report` for a supplied saved GitHub release verifier report, and passes those reviewer reports through to `benchmark/release_gate.py` so the final JSON/Markdown includes the reviewer-report gates alongside clean-git, L3 provenance, external L4 trial, external L4 evidence package, live stable GitHub release, and `--require-production-claim` checks. The saved GitHub release verifier report is an audit artifact and does not replace the live stable-release check. Use `--dry-run` to inspect the assembled command without requiring those external paths yet.
 
 Before the stable release exists, validate a completed external L4 trial and evidence package locally with the same release-gate validators:
 
@@ -131,7 +135,7 @@ python3 benchmark/run_production_gate.py \
   --local-evidence-preflight-only
 ```
 
-This preflight writes `benchmark/results/release-gate/local-evidence-preflight.json` and `.md` by default, records `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`, lists the final production checks it intentionally skips, and records size/SHA-256 summaries for the trial JSON, packaged trial JSON, package zip, zip checksum file, and any supplied saved reviewer verification reports. It only checks the external L4 trial report, evidence package, and supplied reviewer reports before the final stable-release gate is available.
+This preflight writes `benchmark/results/release-gate/local-evidence-preflight.json` and `.md` by default, records `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`, lists the final production checks it intentionally skips, and records size/SHA-256 summaries for the trial JSON, packaged trial JSON, package zip, zip checksum file, and any supplied external L4 saved reviewer verification reports. It only checks the external L4 trial report, evidence package, and supplied external L4 reviewer reports before the final stable-release gate is available.
 
 Re-check a saved local evidence preflight report without the original evidence paths:
 
@@ -205,4 +209,4 @@ Current validation results are summarized in [docs/VALIDATION_RESULTS.md](docs/V
 
 The CellProfiler oracle validation checklist is in [docs/ORACLE_VALIDATION.md](docs/ORACLE_VALIDATION.md).
 
-Production-readiness gates are tracked in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). MorphoJet has a passing L3 public direct-mask benchmark, a verified `v0.1.0-rc.1` prerelease, and an L4-preflight handoff harness, but should not be described as production-ready until an external workflow-fit trial passes.
+Production-readiness gates are tracked in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). MorphoJet has a passing L3 public direct-mask benchmark, a verified `v0.1.0-rc.1` prerelease, and an L4-preflight handoff harness, but should not be described as production-ready until a real external L4 workflow trial, the matching evidence package, and a live stable GitHub release all pass in the same production-claim gate.
