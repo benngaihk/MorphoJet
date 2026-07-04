@@ -465,6 +465,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="With --verify-local-evidence-preflight-report, recompute recorded input artifact sizes and SHA-256 hashes",
     )
     parser.add_argument(
+        "--verify-local-evidence-preflight-gates",
+        action="store_true",
+        help="With --verify-local-evidence-preflight-report, rerun recorded external L4 gates and compare results",
+    )
+    parser.add_argument(
         "--require-local-evidence-preflight-pass",
         action="store_true",
         help="With --verify-local-evidence-preflight-report, fail unless the saved report status is PASS",
@@ -479,6 +484,7 @@ def main(argv: list[str] | None = None) -> int:
             return verify_local_evidence_preflight_report(
                 args.verify_local_evidence_preflight_report,
                 verify_files=args.verify_local_evidence_preflight_files,
+                verify_gates=args.verify_local_evidence_preflight_gates,
                 require_pass=args.require_local_evidence_preflight_pass,
             )
         require_final_gate_args(args)
@@ -647,9 +653,62 @@ def validate_local_evidence_preflight_files(payload: dict) -> list[str]:
     return failures
 
 
+def validate_local_evidence_preflight_gates(payload: dict) -> list[str]:
+    failures = []
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, dict):
+        return ["metadata must be an object before gate recheck"]
+    try:
+        args = argparse.Namespace(
+            external_trial_json=Path(metadata["external_trial_json"]),
+            external_trial_root=Path(metadata["external_trial_root"]),
+            external_evidence_package_dir=Path(metadata["external_evidence_package_dir"]),
+            external_trial_verification_report=Path(metadata["external_trial_verification_report"])
+            if metadata.get("external_trial_verification_report")
+            else None,
+            external_evidence_package_verification_report=Path(
+                metadata["external_evidence_package_verification_report"]
+            )
+            if metadata.get("external_evidence_package_verification_report")
+            else None,
+            github_release_verification_report=None,
+        )
+    except (KeyError, TypeError) as exc:
+        return [f"metadata cannot be used for gate recheck: {type(exc).__name__}: {exc}"]
+    recomputed_gates = [
+        release_gate.validate_external_trial_report(args.external_trial_json, args.external_trial_root),
+        release_gate.validate_external_evidence_package(args.external_evidence_package_dir, args.external_trial_json),
+        *saved_reviewer_report_gates(args),
+    ]
+    recorded_gates = payload.get("gates")
+    if not isinstance(recorded_gates, list):
+        return ["gates must be a list before gate recheck"]
+    if len(recorded_gates) != len(recomputed_gates):
+        failures.append(f"gate count changed: {len(recorded_gates)} != {len(recomputed_gates)}")
+    for index, recomputed in enumerate(recomputed_gates):
+        if index >= len(recorded_gates):
+            continue
+        recorded = recorded_gates[index]
+        if not isinstance(recorded, dict):
+            failures.append(f"gate entry is not an object at index {index}")
+            continue
+        if recorded.get("name") != recomputed.name:
+            failures.append(f"gate.name changed at index {index}: {recorded.get('name')} != {recomputed.name}")
+        if recorded.get("status") != recomputed.status:
+            failures.append(
+                f"gate.status changed for {recomputed.name}: {recorded.get('status')} != {recomputed.status}"
+            )
+        if recorded.get("detail") != recomputed.detail:
+            failures.append(f"gate.detail changed for {recomputed.name}")
+        if recorded.get("command") != recomputed.command:
+            failures.append(f"gate.command changed for {recomputed.name}")
+    return failures
+
+
 def verify_local_evidence_preflight_report(
     path: Path,
     verify_files: bool = False,
+    verify_gates: bool = False,
     require_pass: bool = False,
 ) -> int:
     try:
@@ -662,6 +721,8 @@ def verify_local_evidence_preflight_report(
         failures.append(f"local evidence preflight status is not PASS: {payload.get('status')}")
     if not failures and verify_files:
         failures.extend(validate_local_evidence_preflight_files(payload))
+    if not failures and verify_gates:
+        failures.extend(validate_local_evidence_preflight_gates(payload))
     if failures:
         for failure in failures:
             print(f"FAIL: {failure}", file=sys.stderr)
@@ -670,6 +731,7 @@ def verify_local_evidence_preflight_report(
     print(f"status={payload['status']}")
     print(f"claim_status={payload['claim_status']}")
     print(f"verified_files={verify_files}")
+    print(f"verified_gates={verify_gates}")
     print(f"required_pass={require_pass}")
     return 0
 

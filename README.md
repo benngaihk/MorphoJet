@@ -143,10 +143,11 @@ Re-check a saved local evidence preflight report without the original evidence p
 python3 benchmark/run_production_gate.py \
   --verify-local-evidence-preflight-report benchmark/results/release-gate/local-evidence-preflight.json \
   --verify-local-evidence-preflight-files \
+  --verify-local-evidence-preflight-gates \
   --require-local-evidence-preflight-pass
 ```
 
-The verifier also confirms that the report's `metadata.git_commit` is a reachable commit in the current checkout.
+The verifier also confirms that the report's `metadata.git_commit` is a reachable commit in the current checkout. With `--verify-local-evidence-preflight-gates`, it reruns the recorded external L4 trial, package, and saved reviewer-report gates from the report metadata and rejects stale gate status/detail/command data.
 
 ## CellProfiler-Style Wide Export
 

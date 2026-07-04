@@ -221,10 +221,11 @@ Saved local evidence preflight JSON reports can be schema-checked later without 
 python3 benchmark/run_production_gate.py \
   --verify-local-evidence-preflight-report benchmark/results/release-gate/local-evidence-preflight.json \
   --verify-local-evidence-preflight-files \
+  --verify-local-evidence-preflight-gates \
   --require-local-evidence-preflight-pass
 ```
 
-This verifier checks the local evidence report schema, metadata types/formats, reachable `metadata.git_commit`, `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, `final_evidence_acceptable=false`, validated/skipped check lists, input artifact digest fields, and the expected external L4 gate entries. Add `--verify-local-evidence-preflight-files` when the evidence files are still available to recompute recorded sizes and SHA-256 hashes. Add `--require-local-evidence-preflight-pass` for review/signoff so structurally valid FAIL reports cannot be accepted accidentally.
+This verifier checks the local evidence report schema, metadata types/formats, reachable `metadata.git_commit`, `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, `final_evidence_acceptable=false`, validated/skipped check lists, input artifact digest fields, and the expected external L4 gate entries. Add `--verify-local-evidence-preflight-files` when the evidence files are still available to recompute recorded sizes and SHA-256 hashes. Add `--verify-local-evidence-preflight-gates` to rerun the recorded external trial, package, and saved reviewer-report gates from report metadata and reject stale gate status/detail/command data. Add `--require-local-evidence-preflight-pass` for review/signoff so structurally valid FAIL reports cannot be accepted accidentally.
 
 For a scheduler-ready entrypoint that performs the fetch/verify step, verifies an existing CellBinDB archive with pinned MD5/size when Zenodo metadata is temporarily unavailable, pulls the pinned CellProfiler Docker image, and runs `python3 benchmark/release_gate.py --require-l3-provenance --run-l3`, use:
 
