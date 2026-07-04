@@ -40,12 +40,23 @@ class RunProductionGateTest(unittest.TestCase):
     def write_valid_github_release_report(self, root: Path) -> Path:
         out_dir = root / "github-release"
         out_dir.mkdir()
-        archive = out_dir / "morphojet-v0.1.0-linux-x86_64.tar.gz"
-        archive.write_bytes(b"archive\n")
-        digest = verify_github_release.sha256(archive)
-        (out_dir / (archive.name + ".sha256")).write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
         expected_assets = sorted(verify_github_release.expected_asset_names("v0.1.0"))
-        downloaded = sorted([archive.name, archive.name + ".sha256"])
+        archive_summaries = []
+        for archive_name in [name for name in expected_assets if name.endswith(".tar.gz")]:
+            archive = out_dir / archive_name
+            archive.write_text(f"{archive_name}\n", encoding="utf-8")
+            digest = verify_github_release.sha256(archive)
+            (out_dir / f"{archive_name}.sha256").write_text(f"{digest}  {archive_name}\n", encoding="utf-8")
+            archive_summaries.append(
+                {
+                    "archive": archive.name,
+                    "sha256": digest,
+                    "checksum_match": True,
+                    "doctor": {"status": "PASS", "issues": [], "expected_commit": self.DOCTOR_COMMIT}
+                    if "linux-x86_64" in archive.name
+                    else None,
+                }
+            )
         report = root / "github-release-verification.json"
         report.write_text(
             json.dumps(
@@ -62,14 +73,14 @@ class RunProductionGateTest(unittest.TestCase):
                     "expected_release_kind": "stable",
                     "expected_commit": self.FULL_COMMIT,
                     "expected_doctor_commit": self.DOCTOR_COMMIT,
-                    "asset_count": len(downloaded),
+                    "asset_count": len(expected_assets),
                     "assets": {
                         "expected": expected_assets,
                         "release_metadata": expected_assets,
-                        "downloaded": downloaded,
+                        "downloaded": expected_assets,
                         "expected_count": len(expected_assets),
                         "release_metadata_count": len(expected_assets),
-                        "downloaded_count": len(downloaded),
+                        "downloaded_count": len(expected_assets),
                     },
                     "asset_metadata": [
                         {
@@ -80,14 +91,7 @@ class RunProductionGateTest(unittest.TestCase):
                         }
                         for index, name in enumerate(expected_assets)
                     ],
-                    "archives": [
-                        {
-                            "archive": archive.name,
-                            "sha256": digest,
-                            "checksum_match": True,
-                            "doctor": {"status": "PASS", "issues": [], "expected_commit": self.DOCTOR_COMMIT},
-                        }
-                    ],
+                    "archives": archive_summaries,
                     "issues": [],
                 },
                 indent=2,

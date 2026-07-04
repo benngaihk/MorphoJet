@@ -316,7 +316,9 @@ def validate_verification_report_payload(
         failures.append(f"asset_count={asset_count}")
 
     assets = payload.get("assets")
+    expected_assets_payload: Any = []
     release_metadata_assets: Any = []
+    downloaded_assets_payload: Any = []
     if not isinstance(assets, dict):
         failures.append("assets must be an object")
     else:
@@ -326,6 +328,9 @@ def validate_verification_report_payload(
                 failures.append(f"assets.{key} must be a string list")
             elif value != sorted(value):
                 failures.append(f"assets.{key} must be sorted")
+        expected_assets_payload = assets.get("expected")
+        release_metadata_assets = assets.get("release_metadata")
+        downloaded_assets_payload = assets.get("downloaded")
         for key, list_key in [
             ("expected_count", "expected"),
             ("release_metadata_count", "release_metadata"),
@@ -337,9 +342,25 @@ def validate_verification_report_payload(
                 failures.append(f"assets.{key}={count}")
             elif isinstance(values, list) and count != len(values):
                 failures.append(f"assets.{key} does not match assets.{list_key}")
-        downloaded = assets.get("downloaded")
-        release_metadata_assets = assets.get("release_metadata")
-        if isinstance(asset_count, int) and isinstance(downloaded, list) and asset_count != len(downloaded):
+        if (
+            status == "PASS"
+            and isinstance(expected_assets_payload, list)
+            and isinstance(release_metadata_assets, list)
+            and expected_assets_payload != release_metadata_assets
+        ):
+            failures.append("passing github release verification report assets.release_metadata must match assets.expected")
+        if (
+            status == "PASS"
+            and isinstance(expected_assets_payload, list)
+            and isinstance(downloaded_assets_payload, list)
+            and expected_assets_payload != downloaded_assets_payload
+        ):
+            failures.append("passing github release verification report assets.downloaded must match assets.expected")
+        if (
+            isinstance(asset_count, int)
+            and isinstance(downloaded_assets_payload, list)
+            and asset_count != len(downloaded_assets_payload)
+        ):
             failures.append("asset_count does not match assets.downloaded")
     failures.extend(asset_metadata_issues(payload.get("asset_metadata"), release_metadata_assets))
 
@@ -347,12 +368,15 @@ def validate_verification_report_payload(
     if not isinstance(archives, list):
         failures.append("archives must be a list")
     else:
+        archive_names = []
         for archive in archives:
             if not isinstance(archive, dict):
                 failures.append("archive entries must be objects")
                 continue
             if not isinstance(archive.get("archive"), str) or not archive["archive"].endswith(".tar.gz"):
                 failures.append(f"archive name invalid: {archive.get('archive')}")
+            else:
+                archive_names.append(archive["archive"])
             digest = archive.get("sha256")
             if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
                 failures.append(f"archive sha256 invalid: {archive.get('archive')}")
@@ -373,6 +397,14 @@ def validate_verification_report_payload(
                     failures.append(f"archive doctor has issues: {archive.get('archive')}")
                 if doctor.get("expected_commit") != expected_doctor_commit:
                     failures.append(f"archive doctor expected_commit does not match expected_doctor_commit: {archive.get('archive')}")
+        downloaded_archive_names = (
+            sorted(name for name in downloaded_assets_payload if name.endswith(".tar.gz"))
+            if isinstance(downloaded_assets_payload, list)
+            and all(isinstance(name, str) for name in downloaded_assets_payload)
+            else []
+        )
+        if sorted(archive_names) != downloaded_archive_names:
+            failures.append("archives must match downloaded .tar.gz assets")
     issues = payload.get("issues")
     if not isinstance(issues, list) or not all(isinstance(issue, str) for issue in issues):
         failures.append("issues must be a string list")
