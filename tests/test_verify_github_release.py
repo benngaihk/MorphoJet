@@ -183,24 +183,31 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertEqual(1, summary["release_metadata_count"])
         self.assertEqual(2, summary["downloaded_count"])
 
-    def test_asset_file_digest_issues_accepts_matching_files(self) -> None:
+    def test_asset_file_metadata_issues_accepts_matching_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             out_dir = Path(tmp)
             asset = out_dir / "asset.tar.gz"
             asset.write_text("asset\n", encoding="utf-8")
-            records = [{"name": asset.name, "digest": f"sha256:{verify_github_release.sha256(asset)}"}]
+            records = [
+                {
+                    "name": asset.name,
+                    "size": asset.stat().st_size,
+                    "digest": f"sha256:{verify_github_release.sha256(asset)}",
+                }
+            ]
 
-            self.assertEqual([], verify_github_release.asset_file_digest_issues(records, out_dir, [asset.name]))
+            self.assertEqual([], verify_github_release.asset_file_metadata_issues(records, out_dir, [asset.name]))
 
-    def test_asset_file_digest_issues_rejects_mismatched_files(self) -> None:
+    def test_asset_file_metadata_issues_rejects_mismatched_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             out_dir = Path(tmp)
             asset = out_dir / "asset.tar.gz"
             asset.write_text("asset\n", encoding="utf-8")
-            records = [{"name": asset.name, "digest": "sha256:" + "0" * 64}]
+            records = [{"name": asset.name, "size": asset.stat().st_size + 1, "digest": "sha256:" + "0" * 64}]
 
-            issues = verify_github_release.asset_file_digest_issues(records, out_dir, [asset.name])
+            issues = verify_github_release.asset_file_metadata_issues(records, out_dir, [asset.name])
 
+        self.assertIn("asset metadata size changed: asset.tar.gz", issues)
         self.assertIn("asset metadata digest changed: asset.tar.gz", issues)
 
     def test_doctor_run_issues_accepts_verified_archive(self) -> None:
@@ -531,6 +538,21 @@ class VerifyGithubReleaseTest(unittest.TestCase):
 
         self.assertEqual(1, status)
         self.assertIn(f"asset metadata digest changed: {checksum_name}", stderr.getvalue())
+
+    def test_saved_release_report_recomputes_asset_metadata_size(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = self.valid_report(root)
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            first = payload["asset_metadata"][0]
+            first["size"] += 1
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                status = verify_github_release.verify_saved_github_release_report(report, verify_files=True)
+
+        self.assertEqual(1, status)
+        self.assertIn(f"asset metadata size changed: {first['name']}", stderr.getvalue())
 
 
 if __name__ == "__main__":

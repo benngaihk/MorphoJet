@@ -244,7 +244,7 @@ def asset_metadata_issues(records: Any, release_asset_names_payload: Any, repo: 
     return failures
 
 
-def asset_file_digest_issues(records: list[dict[str, Any]], out_dir: Path, asset_names: list[str]) -> list[str]:
+def asset_file_metadata_issues(records: list[dict[str, Any]], out_dir: Path, asset_names: list[str]) -> list[str]:
     failures = []
     metadata_by_name = {record["name"]: record for record in records if isinstance(record.get("name"), str)}
     for asset_name in asset_names:
@@ -260,6 +260,9 @@ def asset_file_digest_issues(records: list[dict[str, Any]], out_dir: Path, asset
         if not asset.is_file():
             failures.append(f"asset file missing for metadata digest: {asset_name}")
             continue
+        size = metadata.get("size")
+        if isinstance(size, int) and size > 0 and size != asset.stat().st_size:
+            failures.append(f"asset metadata size changed: {asset_name}")
         if digest != f"sha256:{sha256(asset)}":
             failures.append(f"asset metadata digest changed: {asset_name}")
     return failures
@@ -548,7 +551,7 @@ def verify_saved_github_release_report(
                 recorded_downloaded = payload["assets"]["downloaded"]
                 if downloaded != recorded_downloaded:
                     failures.append("downloaded asset list changed after report was written")
-                failures.extend(asset_file_digest_issues(payload["asset_metadata"], out_dir, recorded_downloaded))
+                failures.extend(asset_file_metadata_issues(payload["asset_metadata"], out_dir, recorded_downloaded))
                 for archive_summary in payload["archives"]:
                     archive = out_dir / archive_summary["archive"]
                     if not archive.is_file():
@@ -626,7 +629,7 @@ def main() -> int:
     asset_metadata = release_asset_metadata(release)
     issues.extend(asset_issues(expected_assets, release_assets, actual_assets))
     issues.extend(asset_metadata_issues(asset_metadata, sorted(release_assets), repo=args.repo, tag=args.tag))
-    issues.extend(asset_file_digest_issues(asset_metadata, out_dir, sorted(actual_assets)))
+    issues.extend(asset_file_metadata_issues(asset_metadata, out_dir, sorted(actual_assets)))
 
     archive_summaries = []
     for archive in sorted(out_dir.glob("*.tar.gz")):
