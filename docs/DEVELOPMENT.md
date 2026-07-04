@@ -112,10 +112,13 @@ Saved release-gate JSON reports can be re-checked during review:
 
 ```bash
 python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json
+python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json \
+  --expect-missing-checks clean_git_worktree,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,stable_github_release
 python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/production-claim.json --require-report-pass --require-production-claim-pass
+python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/production-claim.json --require-report-pass --require-production-claim-pass --expect-missing-checks none
 ```
 
-The verifier checks the top-level summary against `production_claim_audit`, validates report metadata and each gate entry shape, requires the expected production-audit check list, and rejects a saved production-claim PASS report unless the required clean-git, standard code/artifact, L3 provenance, external L4, and stable GitHub release gates are present in the report. A production PASS report must also carry metadata proving `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, external L4 paths, and a stable release tag/kind were used.
+The verifier checks the top-level summary against `production_claim_audit`, validates report metadata and each gate entry shape, requires the expected production-audit check list, and can pin the exact expected `missing_or_failed_checks` list with `--expect-missing-checks`. Use that expectation in reviews so production blockers cannot drift silently between reports. It rejects a saved production-claim PASS report unless the required clean-git, standard code/artifact, L3 provenance, external L4, and stable GitHub release gates are present in the report. A production PASS report must also carry metadata proving `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, external L4 paths, and a stable release tag/kind were used.
 
 After a real external workflow trial has been run with `benchmark/run_handoff_trial.py`, add its JSON report to the production-readiness release gate:
 

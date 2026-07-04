@@ -171,6 +171,7 @@ def validate_release_gate_report_payload(
     payload: Any,
     require_report_pass: bool = False,
     require_production_claim_pass: bool = False,
+    expected_missing_checks: list[str] | None = None,
 ) -> list[str]:
     failures: list[str] = []
     if not isinstance(payload, dict):
@@ -205,6 +206,14 @@ def validate_release_gate_report_payload(
         failures.append("missing_or_failed_checks does not match production_claim_audit")
     if top_level_claim_status == "PASS" and top_level_missing != []:
         failures.append("passing production claim must have no missing_or_failed_checks")
+    if expected_missing_checks is not None:
+        if not isinstance(top_level_missing, list):
+            failures.append("missing_or_failed_checks must be a list before comparing expected checks")
+        elif top_level_missing != expected_missing_checks:
+            failures.append(
+                "missing_or_failed_checks does not match expected checks: "
+                f"{top_level_missing} != {expected_missing_checks}"
+            )
 
     if isinstance(audit, dict):
         failures.extend(validate_audit_checks(audit, top_level_missing))
@@ -235,6 +244,7 @@ def verify_release_gate_report(
     path: Path,
     require_report_pass: bool = False,
     require_production_claim_pass: bool = False,
+    expected_missing_checks: list[str] | None = None,
 ) -> int:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -245,6 +255,7 @@ def verify_release_gate_report(
         payload,
         require_report_pass=require_report_pass,
         require_production_claim_pass=require_production_claim_pass,
+        expected_missing_checks=expected_missing_checks,
     )
     if failures:
         for failure in failures:
@@ -254,7 +265,21 @@ def verify_release_gate_report(
     print(f"status={payload['status']}")
     print(f"production_claim_status={payload['production_claim_status']}")
     print(f"missing_or_failed_checks={','.join(payload['missing_or_failed_checks']) or 'none'}")
+    if expected_missing_checks is not None:
+        print(f"expected_missing_checks={','.join(expected_missing_checks) or 'none'}")
     return 0
+
+
+def parse_expected_missing_checks(value: str) -> list[str]:
+    if value == "none":
+        return []
+    checks = [item.strip() for item in value.split(",") if item.strip()]
+    if not checks:
+        raise argparse.ArgumentTypeError("expected checks must be comma-separated names or 'none'")
+    unknown = sorted(set(checks) - set(REQUIRED_AUDIT_CHECKS))
+    if unknown:
+        raise argparse.ArgumentTypeError("unknown expected check(s): " + ",".join(unknown))
+    return checks
 
 
 def main() -> int:
@@ -262,11 +287,17 @@ def main() -> int:
     parser.add_argument("report", type=Path, help="Release-gate JSON report to validate")
     parser.add_argument("--require-report-pass", action="store_true")
     parser.add_argument("--require-production-claim-pass", action="store_true")
+    parser.add_argument(
+        "--expect-missing-checks",
+        type=parse_expected_missing_checks,
+        help="Comma-separated production-claim blockers expected in missing_or_failed_checks, or 'none'",
+    )
     args = parser.parse_args()
     return verify_release_gate_report(
         args.report,
         require_report_pass=args.require_report_pass,
         require_production_claim_pass=args.require_production_claim_pass,
+        expected_missing_checks=args.expect_missing_checks,
     )
 
 

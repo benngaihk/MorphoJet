@@ -176,6 +176,50 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             ),
         )
 
+    def test_can_require_exact_missing_checks(self) -> None:
+        self.assertEqual(
+            [],
+            verify_release_gate_report.validate_release_gate_report_payload(
+                self.valid_payload(),
+                expected_missing_checks=[
+                    "clean_git_worktree",
+                    "l3_provenance_hashes",
+                    "external_l4_workflow_trial",
+                    "external_l4_evidence_package",
+                    "stable_github_release",
+                ],
+            ),
+        )
+
+    def test_rejects_unexpected_missing_checks(self) -> None:
+        failures = verify_release_gate_report.validate_release_gate_report_payload(
+            self.valid_payload(),
+            expected_missing_checks=[
+                "external_l4_workflow_trial",
+                "external_l4_evidence_package",
+                "stable_github_release",
+            ],
+        )
+
+        self.assertIn(
+            "missing_or_failed_checks does not match expected checks: "
+            "['clean_git_worktree', 'l3_provenance_hashes', 'external_l4_workflow_trial', "
+            "'external_l4_evidence_package', 'stable_github_release'] != "
+            "['external_l4_workflow_trial', 'external_l4_evidence_package', 'stable_github_release']",
+            failures,
+        )
+
+    def test_parses_expected_missing_checks(self) -> None:
+        self.assertEqual(
+            ["external_l4_workflow_trial", "stable_github_release"],
+            verify_release_gate_report.parse_expected_missing_checks(
+                "external_l4_workflow_trial,stable_github_release"
+            ),
+        )
+        self.assertEqual([], verify_release_gate_report.parse_expected_missing_checks("none"))
+        with self.assertRaisesRegex(Exception, "unknown expected check"):
+            verify_release_gate_report.parse_expected_missing_checks("not_a_gate")
+
     def test_accepts_complete_production_claim_report(self) -> None:
         payload = self.complete_production_claim_payload()
 
