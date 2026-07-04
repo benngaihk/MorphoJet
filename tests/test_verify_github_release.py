@@ -137,12 +137,14 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                     "url": "https://example.test/a",
                     "size": 12,
                     "content_type": "application/gzip",
+                    "digest": "sha256:" + "a" * 64,
                 },
                 {
                     "name": "b.tar.gz",
                     "url": "https://example.test/b",
                     "size": 34,
                     "content_type": "application/gzip",
+                    "digest": "sha256:" + "b" * 64,
                 },
             ],
             verify_github_release.release_asset_metadata(
@@ -153,12 +155,14 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                             "url": "https://example.test/b",
                             "size": 34,
                             "contentType": "application/gzip",
+                            "digest": "sha256:" + "b" * 64,
                         },
                         {
                             "name": "a.tar.gz",
                             "url": "https://example.test/a",
                             "size": 12,
                             "contentType": "application/gzip",
+                            "digest": "sha256:" + "a" * 64,
                         },
                     ]
                 }
@@ -234,10 +238,11 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                 {
                     "name": name,
                     "url": f"https://github.com/benngaihk/MorphoJet/releases/download/v0.1.0/{name}",
-                    "size": 100 + index,
+                    "size": (out_dir / name).stat().st_size,
                     "content_type": "application/gzip" if name.endswith(".tar.gz") else "text/plain",
+                    "digest": f"sha256:{verify_github_release.sha256(out_dir / name)}",
                 }
-                for index, name in enumerate(expected_assets)
+                for name in expected_assets
             ],
             "archives": archive_summaries,
             "issues": [],
@@ -430,6 +435,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             first["url"] = ""
             first["size"] = 0
             first["content_type"] = None
+            first["digest"] = "sha256:not-a-digest"
             payload["asset_metadata"].append(dict(payload["asset_metadata"][0]))
             report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
@@ -438,6 +444,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn(f"asset_metadata.url must be a non-empty string: {first['name']}", failures)
         self.assertIn(f"asset_metadata.size must be a positive integer: {first['name']}", failures)
         self.assertIn(f"asset_metadata.content_type must be a non-empty string: {first['name']}", failures)
+        self.assertIn(f"asset_metadata.digest must be sha256:<64 lowercase hex>: {first['name']}", failures)
         self.assertIn(f"asset_metadata name is duplicated: {first['name']}", failures)
 
     def test_saved_release_report_rejects_asset_url_not_bound_to_repo_tag_and_name(self) -> None:
@@ -477,6 +484,21 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                 status = verify_github_release.verify_saved_github_release_report(report, verify_files=True)
 
         self.assertEqual(1, status)
+
+    def test_saved_release_report_recomputes_asset_metadata_digest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = self.valid_report(root)
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            checksum_name = next(name for name in payload["assets"]["downloaded"] if name.endswith(".sha256"))
+            checksum = root / "release" / checksum_name
+            checksum.write_text(checksum.read_text(encoding="utf-8").rstrip() + "  \n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                status = verify_github_release.verify_saved_github_release_report(report, verify_files=True)
+
+        self.assertEqual(1, status)
+        self.assertIn(f"asset metadata digest changed: {checksum_name}", stderr.getvalue())
 
 
 if __name__ == "__main__":

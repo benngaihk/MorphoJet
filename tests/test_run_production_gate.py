@@ -87,10 +87,11 @@ class RunProductionGateTest(unittest.TestCase):
                         {
                             "name": name,
                             "url": f"https://github.com/benngaihk/MorphoJet/releases/download/v0.1.0/{name}",
-                            "size": 100 + index,
+                            "size": (out_dir / name).stat().st_size,
                             "content_type": "application/gzip" if name.endswith(".tar.gz") else "text/plain",
+                            "digest": f"sha256:{verify_github_release.sha256(out_dir / name)}",
                         }
-                        for index, name in enumerate(expected_assets)
+                        for name in expected_assets
                     ],
                     "archives": archive_summaries,
                     "issues": [],

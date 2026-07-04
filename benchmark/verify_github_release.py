@@ -24,6 +24,7 @@ REQUIRED_PACKAGE_FILES = {"morphojet", "README.md", "LICENSE"}
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 FULL_COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
 SHORT_COMMIT_PATTERN = re.compile(r"[0-9a-f]{12}")
+ASSET_DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
 
 
 def run(command: list[str]) -> str:
@@ -162,6 +163,7 @@ def release_asset_metadata(release: dict) -> list[dict[str, Any]]:
                 "url": asset.get("url"),
                 "size": asset.get("size"),
                 "content_type": asset.get("contentType"),
+                "digest": asset.get("digest"),
             }
         )
     return sorted(records, key=lambda record: record["name"])
@@ -229,6 +231,9 @@ def asset_metadata_issues(records: Any, release_asset_names_payload: Any, repo: 
         content_type = record.get("content_type")
         if not isinstance(content_type, str) or not content_type.strip():
             failures.append(f"asset_metadata.content_type must be a non-empty string: {name}")
+        digest = record.get("digest")
+        if not isinstance(digest, str) or not ASSET_DIGEST_PATTERN.fullmatch(digest):
+            failures.append(f"asset_metadata.digest must be sha256:<64 lowercase hex>: {name}")
     if observed_names != sorted(observed_names):
         failures.append("asset_metadata entries must be sorted by name")
     duplicated_names = sorted(name for name in set(observed_names) if observed_names.count(name) > 1)
@@ -495,6 +500,16 @@ def verify_saved_github_release_report(
                 recorded_downloaded = payload["assets"]["downloaded"]
                 if downloaded != recorded_downloaded:
                     failures.append("downloaded asset list changed after report was written")
+                metadata_by_name = {record["name"]: record for record in payload["asset_metadata"]}
+                for asset_name in recorded_downloaded:
+                    asset = out_dir / asset_name
+                    metadata = metadata_by_name.get(asset_name)
+                    if metadata is None:
+                        failures.append(f"asset metadata missing for downloaded asset: {asset_name}")
+                        continue
+                    metadata_digest = metadata["digest"]
+                    if metadata_digest != f"sha256:{sha256(asset)}":
+                        failures.append(f"asset metadata digest changed: {asset_name}")
                 for archive_summary in payload["archives"]:
                     archive = out_dir / archive_summary["archive"]
                     if not archive.is_file():
