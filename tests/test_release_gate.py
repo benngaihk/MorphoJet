@@ -26,6 +26,9 @@ def valid_external_trial() -> dict:
         "dataset_source": "LIMS export",
         "downstream_workflow": "Existing analysis notebook",
         "execution_environment": "Ubuntu 24.04, Python 3.12",
+        "reviewer_name_or_role": "External QA Reviewer",
+        "reviewed_at_utc": "2026-07-03T01:02:03+00:00",
+        "signoff_statement": "Reviewed against the lab workflow acceptance criteria.",
         "manual_csv_editing": False,
         "acceptance_criteria": [
             "Existing downstream workflow consumes MorphoJet output without manual CSV edits."
@@ -319,6 +322,7 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("docs/PRODUCTION_READINESS.md"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("tests/test_release_gate.py"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/release_gate.py"))
+        self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/handoff/external_lab_template.json"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/package_external_trial.py"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/run_production_gate.py"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/validate_claim_language.py"))
@@ -450,6 +454,7 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertTrue(release_gate.is_external_trial_compatible_path("docs/PRODUCTION_READINESS.md"))
         self.assertTrue(release_gate.is_external_trial_compatible_path("tests/test_release_gate.py"))
         self.assertTrue(release_gate.is_external_trial_compatible_path("benchmark/release_gate.py"))
+        self.assertTrue(release_gate.is_external_trial_compatible_path("benchmark/handoff/external_lab_template.json"))
         self.assertTrue(release_gate.is_external_trial_compatible_path("benchmark/package_external_trial.py"))
         self.assertTrue(release_gate.is_external_trial_compatible_path("benchmark/run_production_gate.py"))
         self.assertTrue(release_gate.is_external_trial_compatible_path("benchmark/validate_claim_language.py"))
@@ -710,6 +715,27 @@ class ReleaseGateTest(unittest.TestCase):
 
         self.assertIn(
             "external_evidence.acceptance_criteria[0] must replace template placeholder text",
+            release_gate.external_trial_failures(trial),
+        )
+
+    def test_external_trial_requires_signoff_fields(self) -> None:
+        trial = copy.deepcopy(valid_external_trial())
+        del trial["external_evidence"]["reviewer_name_or_role"]
+        trial["external_evidence"]["reviewed_at_utc"] = "2026-07-03T01:02:03"
+        trial["external_evidence"]["signoff_statement"] = "REPLACE_WITH_SIGNOFF"
+
+        failures = release_gate.external_trial_failures(trial)
+
+        self.assertIn("external_evidence.reviewer_name_or_role must be a non-empty string", failures)
+        self.assertIn("external_evidence.reviewed_at_utc must include timezone", failures)
+        self.assertIn("external_evidence.signoff_statement must replace template placeholder text", failures)
+
+    def test_external_trial_rejects_invalid_reviewed_at(self) -> None:
+        trial = copy.deepcopy(valid_external_trial())
+        trial["external_evidence"]["reviewed_at_utc"] = "not-a-date"
+
+        self.assertIn(
+            "external_evidence.reviewed_at_utc is invalid: not-a-date",
             release_gate.external_trial_failures(trial),
         )
 

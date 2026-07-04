@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -74,11 +75,22 @@ def validate_external_evidence(evidence: Any, issues: list[str], allow_placehold
         "dataset_source",
         "downstream_workflow",
         "execution_environment",
+        "reviewer_name_or_role",
+        "reviewed_at_utc",
+        "signoff_statement",
     ]:
         require_string(evidence, key, issues, prefix)
         value = evidence.get(key)
         if isinstance(value, str) and has_placeholder(value) and not allow_placeholders:
             issues.append(f"{prefix}.{key} must replace template placeholder text")
+    reviewed_at = evidence.get("reviewed_at_utc")
+    if isinstance(reviewed_at, str) and not has_placeholder(reviewed_at):
+        try:
+            parsed_reviewed_at = datetime.fromisoformat(reviewed_at)
+            if parsed_reviewed_at.tzinfo is None:
+                issues.append(f"{prefix}.reviewed_at_utc must include timezone")
+        except ValueError:
+            issues.append(f"{prefix}.reviewed_at_utc is invalid: {reviewed_at}")
     criteria = evidence.get("acceptance_criteria")
     if (
         not isinstance(criteria, list)

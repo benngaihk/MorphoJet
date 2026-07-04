@@ -575,6 +575,9 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None, arti
         "dataset_source",
         "downstream_workflow",
         "execution_environment",
+        "reviewer_name_or_role",
+        "reviewed_at_utc",
+        "signoff_statement",
     ]
     for key in required_strings:
         value = evidence.get(key)
@@ -582,6 +585,14 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None, arti
             failures.append(f"external_evidence.{key} must be a non-empty string")
         elif has_placeholder(value):
             failures.append(f"external_evidence.{key} must replace template placeholder text")
+    reviewed_at = evidence.get("reviewed_at_utc")
+    if isinstance(reviewed_at, str) and not has_placeholder(reviewed_at):
+        try:
+            parsed_reviewed_at = datetime.fromisoformat(reviewed_at)
+            if parsed_reviewed_at.tzinfo is None:
+                failures.append("external_evidence.reviewed_at_utc must include timezone")
+        except ValueError:
+            failures.append(f"external_evidence.reviewed_at_utc is invalid: {reviewed_at}")
     criteria = evidence.get("acceptance_criteria")
     if not isinstance(criteria, list) or not criteria or not all(
         isinstance(item, str) and item.strip() for item in criteria
@@ -665,6 +676,9 @@ def external_package_readme_failures(readme: str, trial: dict, artifact_manifest
         "dataset_source": f"- dataset_source: `{evidence.get('dataset_source')}`",
         "downstream_workflow": f"- downstream_workflow: `{evidence.get('downstream_workflow')}`",
         "execution_environment": f"- execution_environment: `{evidence.get('execution_environment')}`",
+        "reviewer_name_or_role": f"- reviewer_name_or_role: `{evidence.get('reviewer_name_or_role')}`",
+        "reviewed_at_utc": f"- reviewed_at_utc: `{evidence.get('reviewed_at_utc')}`",
+        "signoff_statement": f"- signoff_statement: `{evidence.get('signoff_statement')}`",
         "manual_csv_editing": f"- manual_csv_editing: `{evidence.get('manual_csv_editing')}`",
         "trial_git_commit": f"- trial_git_commit: `{metadata.get('git_commit')}`",
         "trial_generated_at_utc": f"- trial_generated_at_utc: `{metadata.get('generated_at_utc')}`",
@@ -926,6 +940,7 @@ def is_l3_provenance_compatible_path(path: str) -> bool:
         is_doc_path(path)
         or path.startswith("tests/")
         or path == "benchmark/release_gate.py"
+        or path == "benchmark/handoff/external_lab_template.json"
         or path == "benchmark/package_external_trial.py"
         or path == "benchmark/run_production_gate.py"
         or path == "benchmark/validate_claim_language.py"
@@ -943,6 +958,7 @@ def is_external_trial_compatible_path(path: str) -> bool:
         is_doc_path(path)
         or path.startswith("tests/")
         or path == "benchmark/release_gate.py"
+        or path == "benchmark/handoff/external_lab_template.json"
         or path == "benchmark/package_external_trial.py"
         or path == "benchmark/run_production_gate.py"
         or path == "benchmark/validate_claim_language.py"

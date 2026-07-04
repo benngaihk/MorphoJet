@@ -573,6 +573,15 @@ class PackageExternalTrialTest(unittest.TestCase):
                 readme.replace("- dataset_source: `LIMS export`\n", "").replace(
                     "- execution_environment: `Ubuntu 24.04, Python 3.12`\n",
                     "",
+                ).replace(
+                    "- reviewer_name_or_role: `External QA Reviewer`\n",
+                    "",
+                ).replace(
+                    "- reviewed_at_utc: `2026-07-03T01:02:03+00:00`\n",
+                    "",
+                ).replace(
+                    "- signoff_statement: `Reviewed against the lab workflow acceptance criteria.`\n",
+                    "",
                 ),
                 encoding="utf-8",
             )
@@ -588,6 +597,9 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual("FAIL", gate.status)
         self.assertIn("package README missing signoff field: dataset_source", gate.detail)
         self.assertIn("package README missing signoff field: execution_environment", gate.detail)
+        self.assertIn("package README missing signoff field: reviewer_name_or_role", gate.detail)
+        self.assertIn("package README missing signoff field: reviewed_at_utc", gate.detail)
+        self.assertIn("package README missing signoff field: signoff_statement", gate.detail)
 
     def test_release_gate_rejects_package_readme_missing_acceptance_criterion(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

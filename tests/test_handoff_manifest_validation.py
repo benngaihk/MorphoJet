@@ -26,6 +26,9 @@ def valid_manifest() -> dict:
             "dataset_source": "LIMS export",
             "downstream_workflow": "Existing analysis notebook",
             "execution_environment": "macOS 15, Python 3.12",
+            "reviewer_name_or_role": "External QA Reviewer",
+            "reviewed_at_utc": "2026-07-03T01:02:03+00:00",
+            "signoff_statement": "Reviewed against the lab workflow acceptance criteria.",
             "manual_csv_editing": False,
             "acceptance_criteria": [
                 "Existing downstream workflow consumes MorphoJet output without manual CSV edits."
@@ -119,10 +122,39 @@ class HandoffManifestValidationTest(unittest.TestCase):
             issues,
         )
 
+    def test_external_signoff_fields_are_required_for_real_trials(self) -> None:
+        manifest = copy.deepcopy(valid_manifest())
+        del manifest["external_evidence"]["reviewer_name_or_role"]
+        manifest["external_evidence"]["reviewed_at_utc"] = "2026-07-03T01:02:03"
+        manifest["external_evidence"]["signoff_statement"] = "REPLACE_WITH_SIGNOFF"
+
+        issues = validate_handoff_manifest.validate_schema(
+            manifest,
+            require_downstream_check=True,
+            require_external_evidence=True,
+        )
+
+        self.assertIn("external_evidence.reviewer_name_or_role must be a non-empty string", issues)
+        self.assertIn("external_evidence.reviewed_at_utc must include timezone", issues)
+        self.assertIn("external_evidence.signoff_statement must replace template placeholder text", issues)
+
+    def test_external_reviewed_at_must_be_iso_datetime(self) -> None:
+        manifest = copy.deepcopy(valid_manifest())
+        manifest["external_evidence"]["reviewed_at_utc"] = "not-a-date"
+
+        issues = validate_handoff_manifest.validate_schema(
+            manifest,
+            require_downstream_check=True,
+            require_external_evidence=True,
+        )
+
+        self.assertIn("external_evidence.reviewed_at_utc is invalid: not-a-date", issues)
+
     def test_external_evidence_placeholders_are_allowed_for_template_validation(self) -> None:
         manifest = copy.deepcopy(valid_manifest())
         manifest["external_evidence"]["dataset_source"] = "REPLACE_WITH_SOURCE"
         manifest["external_evidence"]["acceptance_criteria"] = ["REPLACE_WITH_ACCEPTANCE_CRITERION"]
+        manifest["external_evidence"]["reviewed_at_utc"] = "REPLACE_WITH_REVIEWED_AT"
 
         issues = validate_handoff_manifest.validate_schema(
             manifest,
