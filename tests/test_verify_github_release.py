@@ -194,6 +194,9 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         expected_assets = sorted(verify_github_release.expected_asset_names("v0.1.0"))
         downloaded = sorted([archive.name, archive.name + ".sha256"])
         report = {
+            "schema_version": 1,
+            "verifier": "benchmark/verify_github_release.py",
+            "generated_at_utc": "2026-07-03T00:00:00+00:00",
             "status": "PASS",
             "tag": "v0.1.0",
             "repo": "benngaihk/MorphoJet",
@@ -262,6 +265,20 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                 )
 
         self.assertEqual(1, status)
+
+    def test_saved_release_report_rejects_bad_report_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["schema_version"] = 2
+            payload["verifier"] = "other.py"
+            payload["generated_at_utc"] = "not-a-date"
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn("schema_version=2", failures)
+        self.assertIn("verifier=other.py", failures)
+        self.assertIn("generated_at_utc is invalid: not-a-date", failures)
 
     def test_saved_release_report_can_require_expected_tag(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

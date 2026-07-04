@@ -47,6 +47,9 @@ class RunProductionGateTest(unittest.TestCase):
         report.write_text(
             json.dumps(
                 {
+                    "schema_version": 1,
+                    "verifier": "benchmark/verify_github_release.py",
+                    "generated_at_utc": "2026-07-03T00:00:00+00:00",
                     "status": "PASS",
                     "tag": "v0.1.0",
                     "repo": "benngaihk/MorphoJet",

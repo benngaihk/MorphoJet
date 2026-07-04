@@ -12,12 +12,14 @@ import shutil
 import subprocess
 import sys
 import tarfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from verify_release_archive import verify
 
 
+VERIFIER = "benchmark/verify_github_release.py"
 REQUIRED_PACKAGE_FILES = {"morphojet", "README.md", "LICENSE"}
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 
@@ -230,6 +232,20 @@ def validate_verification_report_payload(
     failures: list[str] = []
     if not isinstance(payload, dict):
         return ["github release verification report must be a JSON object"]
+    if payload.get("schema_version") != 1:
+        failures.append(f"schema_version={payload.get('schema_version')}")
+    if payload.get("verifier") != VERIFIER:
+        failures.append(f"verifier={payload.get('verifier')}")
+    generated_at = payload.get("generated_at_utc")
+    if not isinstance(generated_at, str) or not generated_at.strip():
+        failures.append("generated_at_utc must be a non-empty string")
+    else:
+        try:
+            parsed_generated_at = datetime.fromisoformat(generated_at)
+            if parsed_generated_at.tzinfo is None:
+                failures.append("generated_at_utc must include timezone")
+        except ValueError:
+            failures.append(f"generated_at_utc is invalid: {generated_at}")
     status = payload.get("status")
     if status not in {"PASS", "FAIL"}:
         failures.append(f"status={status}")
@@ -451,6 +467,9 @@ def main() -> int:
     issues.extend(doctor_run_issues(archive_summaries))
 
     summary = {
+        "schema_version": 1,
+        "verifier": VERIFIER,
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "status": "PASS" if not issues else "FAIL",
         "tag": args.tag,
         "repo": args.repo,
