@@ -831,21 +831,27 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
     if not isinstance(gates, list):
         failures.append("gates must be a list")
     else:
-        gate_names = {gate.get("name") for gate in gates if isinstance(gate, dict)}
+        gate_names = set()
         failed_gate_names = []
         allowed_gate_names = LOCAL_PREFLIGHT_GATE_NAMES | LOCAL_PREFLIGHT_OPTIONAL_GATE_NAMES
-        if not LOCAL_PREFLIGHT_GATE_NAMES.issubset(gate_names) or gate_names - allowed_gate_names:
-            failures.append(f"gate names={sorted(str(name) for name in gate_names)}")
         for gate in gates:
             if not isinstance(gate, dict):
                 failures.append("gate entries must be objects")
                 continue
+            name = gate.get("name")
+            if isinstance(name, str):
+                if name in gate_names:
+                    failures.append(f"duplicate gate name: {name}")
+                else:
+                    gate_names.add(name)
             if gate.get("status") not in {"PASS", "FAIL"}:
                 failures.append(f"gate status invalid for {gate.get('name')}: {gate.get('status')}")
             elif gate.get("status") == "FAIL" and isinstance(gate.get("name"), str):
                 failed_gate_names.append(gate["name"])
             if not isinstance(gate.get("detail"), str):
                 failures.append(f"gate detail must be a string: {gate.get('name')}")
+        if not LOCAL_PREFLIGHT_GATE_NAMES.issubset(gate_names) or gate_names - allowed_gate_names:
+            failures.append(f"gate names={sorted(str(name) for name in gate_names)}")
         expected_status = "FAIL" if failed_gate_names else "PASS"
         if payload.get("status") in {"PASS", "FAIL"} and payload.get("status") != expected_status:
             failures.append(
