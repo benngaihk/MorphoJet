@@ -258,7 +258,10 @@ def validate_release_gate_report_payload(
         for gate in gates:
             failures.extend(validate_gate_entry(gate))
             if isinstance(gate, dict) and isinstance(gate.get("name"), str):
-                gate_names.add(gate["name"])
+                if gate["name"] in gate_names:
+                    failures.append(f"duplicate gate name: {gate['name']}")
+                else:
+                    gate_names.add(gate["name"])
                 if gate.get("status") == "FAIL":
                     failed_gate_names.append(gate["name"])
         if payload.get("status") == "PASS" and failed_gate_names:

@@ -190,6 +190,14 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             failures,
         )
 
+    def test_rejects_duplicate_gate_names(self) -> None:
+        payload = self.valid_payload()
+        payload["gates"][1]["name"] = payload["gates"][0]["name"]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn("duplicate gate name: Rust formatting", failures)
+
     def test_can_require_production_claim_pass(self) -> None:
         self.assertIn(
             "production_claim_status is not PASS: INCOMPLETE",
