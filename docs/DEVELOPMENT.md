@@ -247,7 +247,7 @@ For a scheduler-ready entrypoint that performs the fetch/verify step, verifies a
 benchmark/run_cellbindb_l3_validation.sh
 ```
 
-The release gate also validates handoff manifests. The validator rejects duplicate or path-equivalent output artifact paths and output paths that would overwrite declared input CSVs, so real external L4 trials fail before a run can clobber `Objects.csv` or expected CellProfiler CSV inputs. Use the runner's `--require-external-evidence` flag for real L4 runs; keep the default runner mode only for local CellBinDB handoff preflight fixtures that intentionally have no external signoff block:
+The release gate also validates handoff manifests. The validator rejects duplicate or path-equivalent output artifact paths and output paths that would overwrite declared input CSVs, so real external L4 trials fail before a run can clobber `Objects.csv` or expected CellProfiler CSV inputs. `benchmark/run_handoff_trial.py` applies those checks before execution and also rejects `--out-json` / `--out-md` report paths that would overwrite the manifest file, declared inputs, or declared artifacts. Use the runner's `--require-external-evidence` flag for real L4 runs; keep the default runner mode only for local CellBinDB handoff preflight fixtures that intentionally have no external signoff block:
 
 ```bash
 python3 benchmark/validate_handoff_manifest.py benchmark/handoff/cellbindb_supported_columns.json \

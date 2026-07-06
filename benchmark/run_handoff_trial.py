@@ -150,6 +150,38 @@ def validate_manifest(manifest: dict[str, Any], require_external_evidence: bool 
         raise SystemExit("\n".join(f"ERROR: {issue}" for issue in issues))
 
 
+def normalized_path_key(path: str | Path) -> str:
+    return str(Path(path).expanduser().resolve(strict=False))
+
+
+def validate_report_outputs(
+    manifest_path: Path,
+    manifest: dict[str, Any],
+    out_json: Path,
+    out_md: Path,
+) -> None:
+    import validate_handoff_manifest
+
+    protected_by_key = {
+        normalized_path_key(manifest_path): f"manifest file: {manifest_path}",
+    }
+    for path in validate_handoff_manifest.collect_paths(manifest):
+        protected_by_key.setdefault(normalized_path_key(path), f"manifest input: {path}")
+    for path in validate_handoff_manifest.collect_output_paths(manifest):
+        protected_by_key.setdefault(normalized_path_key(path), f"manifest artifact: {path}")
+
+    issues = []
+    report_outputs = [("--out-json", out_json), ("--out-md", out_md)]
+    if normalized_path_key(out_json) == normalized_path_key(out_md):
+        issues.append("report outputs --out-json and --out-md must be different paths")
+    for flag, path in report_outputs:
+        protected = protected_by_key.get(normalized_path_key(path))
+        if protected:
+            issues.append(f"report output {flag} must not overwrite {protected}")
+    if issues:
+        raise SystemExit("\n".join(f"ERROR: {issue}" for issue in issues))
+
+
 def render_markdown(payload: dict[str, Any], out_json: Path) -> str:
     lines = [
         "# Handoff Trial Report",
@@ -280,6 +312,7 @@ def main() -> int:
     if not isinstance(manifest, dict):
         raise SystemExit("manifest root must be an object")
     validate_manifest(manifest, require_external_evidence=args.require_external_evidence)
+    validate_report_outputs(args.manifest, manifest, args.out_json, args.out_md)
     steps, artifacts = run_trial(manifest)
     payload = {
         "trial_id": require(manifest, "trial_id"),

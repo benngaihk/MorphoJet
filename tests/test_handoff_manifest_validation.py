@@ -99,6 +99,48 @@ class HandoffManifestValidationTest(unittest.TestCase):
 
         run_handoff_trial.validate_manifest(manifest)
 
+    def test_handoff_runner_rejects_report_output_over_manifest_input(self) -> None:
+        with self.assertRaises(SystemExit) as context:
+            run_handoff_trial.validate_report_outputs(
+                Path("manifest.json"),
+                valid_manifest(),
+                Path("morphojet/Objects.csv"),
+                Path("handoff_trial.md"),
+            )
+
+        self.assertIn(
+            "ERROR: report output --out-json must not overwrite manifest input: morphojet/Objects.csv",
+            str(context.exception),
+        )
+
+    def test_handoff_runner_rejects_report_output_over_declared_artifact(self) -> None:
+        with self.assertRaises(SystemExit) as context:
+            run_handoff_trial.validate_report_outputs(
+                Path("manifest.json"),
+                valid_manifest(),
+                Path("handoff_trial.json"),
+                Path("workflow_bridge.md"),
+            )
+
+        self.assertIn(
+            "ERROR: report output --out-md must not overwrite manifest artifact: workflow_bridge.md",
+            str(context.exception),
+        )
+
+    def test_handoff_runner_report_outputs_must_be_distinct(self) -> None:
+        with self.assertRaises(SystemExit) as context:
+            run_handoff_trial.validate_report_outputs(
+                Path("manifest.json"),
+                valid_manifest(),
+                Path("handoff_trial.json"),
+                Path("./handoff_trial.json"),
+            )
+
+        self.assertIn(
+            "ERROR: report outputs --out-json and --out-md must be different paths",
+            str(context.exception),
+        )
+
     def test_manual_csv_editing_must_be_false(self) -> None:
         manifest = copy.deepcopy(valid_manifest())
         manifest["external_evidence"]["manual_csv_editing"] = True
