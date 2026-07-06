@@ -66,6 +66,17 @@ class RunProductionGateTest(unittest.TestCase):
                     "verifier": "benchmark/verify_github_release.py",
                     "generated_at_utc": "2026-07-03T00:00:00+00:00",
                     "status": "PASS",
+                    "argv": [
+                        "benchmark/verify_github_release.py",
+                        "v0.1.0",
+                        "--repo",
+                        "benngaihk/MorphoJet",
+                        "--out-dir",
+                        str(out_dir),
+                        "--expect-stable",
+                        "--json-out",
+                        str(root / "github-release-verification.json"),
+                    ],
                     "tag": "v0.1.0",
                     "repo": "benngaihk/MorphoJet",
                     "url": "https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0",
@@ -713,6 +724,7 @@ class RunProductionGateTest(unittest.TestCase):
             github_report = self.write_valid_github_release_report(root)
             payload = json.loads(github_report.read_text(encoding="utf-8"))
             payload["repo"] = "other/repo"
+            payload["argv"][payload["argv"].index("--repo") + 1] = "other/repo"
             payload["url"] = "https://github.com/other/repo/releases/tag/v0.1.0"
             payload["release_api_url"] = "https://api.github.com/repos/other/repo/releases/123"
             for record in payload["asset_metadata"]:

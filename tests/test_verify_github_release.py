@@ -318,6 +318,17 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             "verifier": "benchmark/verify_github_release.py",
             "generated_at_utc": "2026-07-03T00:00:00+00:00",
             "status": "PASS",
+            "argv": [
+                "benchmark/verify_github_release.py",
+                "v0.1.0",
+                "--repo",
+                "benngaihk/MorphoJet",
+                "--out-dir",
+                str(out_dir),
+                "--expect-stable",
+                "--json-out",
+                str(root / "github-release-verification.json"),
+            ],
             "tag": "v0.1.0",
             "repo": "benngaihk/MorphoJet",
             "url": "https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0",
@@ -403,6 +414,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             payload["verifier"] = "other.py"
             payload["generated_at_utc"] = "not-a-date"
             payload["is_draft"] = "no"
+            payload["argv"] = "not-a-list"
 
             failures = verify_github_release.validate_verification_report_payload(payload)
 
@@ -410,6 +422,35 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn("verifier=other.py", failures)
         self.assertIn("generated_at_utc is invalid: not-a-date", failures)
         self.assertIn("is_draft must be a boolean", failures)
+        self.assertIn("argv must be a non-empty string list", failures)
+
+    def test_saved_release_report_rejects_argv_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["argv"] = [
+                "benchmark/verify_github_release.py",
+                "v0.2.0",
+                "--repo",
+                "other/repo",
+                "--out-dir",
+                "--expect-prerelease",
+                "--expect-stable",
+                "--expect-stable",
+                "--json-out",
+                str(report),
+                "--verify-report",
+                str(report),
+            ]
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn("argv must include tag exactly once: v0.1.0", failures)
+        self.assertIn("repo must match argv --repo other/repo", failures)
+        self.assertIn("argv --out-dir must include a value", failures)
+        self.assertIn("argv has duplicate --expect-stable", failures)
+        self.assertIn("argv must not include --expect-prerelease unless expected_release_kind is prerelease", failures)
+        self.assertIn("argv must not include --verify-report for a generated verifier report", failures)
 
     def test_saved_release_report_rejects_bad_release_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

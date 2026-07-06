@@ -102,6 +102,31 @@ def release_json(repo: str, tag: str) -> dict:
     return json.loads(run(["gh", "release", "view", tag, "--repo", repo, "--json", fields]))
 
 
+def argv_values(argv: list[str], flag: str) -> list[str | None]:
+    values: list[str | None] = []
+    for index, item in enumerate(argv):
+        if item != flag:
+            continue
+        if index + 1 >= len(argv) or argv[index + 1].startswith("--"):
+            values.append(None)
+        else:
+            values.append(argv[index + 1])
+    return values
+
+
+def verifier_argv(args: argparse.Namespace, out_dir: Path) -> list[str]:
+    argv = [VERIFIER, args.tag, "--repo", args.repo, "--out-dir", str(out_dir)]
+    if args.expect_commit:
+        argv.extend(["--expect-commit", args.expect_commit])
+    if args.expect_prerelease:
+        argv.append("--expect-prerelease")
+    if args.expect_stable:
+        argv.append("--expect-stable")
+    if args.json_out:
+        argv.extend(["--json-out", str(args.json_out)])
+    return argv
+
+
 def normalized_path_key(path: Path) -> str:
     return str(path.expanduser().resolve(strict=False))
 
@@ -590,6 +615,18 @@ def validate_verification_report_payload(
     out_dir = payload.get("out_dir")
     if out_dir is not None and (not isinstance(out_dir, str) or not out_dir.strip()):
         failures.append("out_dir must be null or a non-empty string")
+    argv = payload.get("argv")
+    if not isinstance(argv, list) or not argv or not all(isinstance(item, str) and item for item in argv):
+        failures.append("argv must be a non-empty string list")
+    elif (
+        isinstance(tag, str)
+        and tag.strip()
+        and isinstance(repo, str)
+        and repo.strip()
+        and isinstance(out_dir, str)
+        and out_dir.strip()
+    ):
+        failures.extend(verification_report_argv_issues(argv, tag, repo, out_dir, expected_kind, expected_commit))
     asset_count = payload.get("asset_count")
     if not isinstance(asset_count, int) or asset_count < 0:
         failures.append(f"asset_count={asset_count}")
@@ -708,6 +745,61 @@ def validate_verification_report_payload(
         failures.append("passing github release verification report must have no issues")
     if status == "PASS" and isinstance(archives, list):
         failures.extend(doctor_run_issues([archive for archive in archives if isinstance(archive, dict)]))
+    return failures
+
+
+def verification_report_argv_issues(
+    argv: list[str],
+    tag: str,
+    repo: str,
+    out_dir: str,
+    expected_kind: Any,
+    expected_commit: Any,
+) -> list[str]:
+    failures = []
+    if argv[0] != VERIFIER:
+        failures.append(f"argv[0]={argv[0]}")
+    if "--verify-report" in argv:
+        failures.append("argv must not include --verify-report for a generated verifier report")
+    if argv.count(tag) != 1:
+        failures.append(f"argv must include tag exactly once: {tag}")
+    for flag, expected in [("--repo", repo), ("--out-dir", out_dir)]:
+        values = argv_values(argv, flag)
+        if len(values) > 1:
+            failures.append(f"argv has duplicate {flag}")
+        if not values:
+            failures.append(f"argv missing {flag}")
+        for value in values:
+            if value is None:
+                failures.append(f"argv {flag} must include a value")
+            elif value != expected:
+                failures.append(f"{flag[2:].replace('-', '_')} must match argv {flag} {value}")
+    expect_commit_values = argv_values(argv, "--expect-commit")
+    if len(expect_commit_values) > 1:
+        failures.append("argv has duplicate --expect-commit")
+    for value in expect_commit_values:
+        if value is None:
+            failures.append("argv --expect-commit must include a value")
+        elif isinstance(expected_commit, str) and expected_commit.strip() and value != expected_commit:
+            failures.append(f"expected_commit must match argv --expect-commit {value}")
+    if argv.count("--expect-stable") > 1:
+        failures.append("argv has duplicate --expect-stable")
+    if argv.count("--expect-prerelease") > 1:
+        failures.append("argv has duplicate --expect-prerelease")
+    if expected_kind == "stable" and argv.count("--expect-stable") != 1:
+        failures.append("argv must include exactly one --expect-stable for stable reports")
+    if expected_kind == "prerelease" and argv.count("--expect-prerelease") != 1:
+        failures.append("argv must include exactly one --expect-prerelease for prerelease reports")
+    if expected_kind != "stable" and "--expect-stable" in argv:
+        failures.append("argv must not include --expect-stable unless expected_release_kind is stable")
+    if expected_kind != "prerelease" and "--expect-prerelease" in argv:
+        failures.append("argv must not include --expect-prerelease unless expected_release_kind is prerelease")
+    json_out_values = argv_values(argv, "--json-out")
+    if len(json_out_values) > 1:
+        failures.append("argv has duplicate --json-out")
+    for value in json_out_values:
+        if value is None:
+            failures.append("argv --json-out must include a value")
     return failures
 
 
@@ -858,6 +950,7 @@ def main() -> int:
         "verifier": VERIFIER,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "status": "PASS" if not issues else "FAIL",
+        "argv": verifier_argv(args, out_dir),
         "tag": args.tag,
         "repo": args.repo,
         "url": release.get("url"),
