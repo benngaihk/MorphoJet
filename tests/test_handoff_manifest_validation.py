@@ -177,6 +177,18 @@ class HandoffManifestValidationTest(unittest.TestCase):
 
         self.assertIn("output path is duplicated: workflow_bridge.json", issues)
 
+    def test_equivalent_output_paths_must_not_be_duplicated(self) -> None:
+        manifest = copy.deepcopy(valid_manifest())
+        manifest["downstream_checks"][0]["artifacts"] = ["./workflow_bridge.json"]
+
+        issues = validate_handoff_manifest.validate_schema(
+            manifest,
+            require_downstream_check=True,
+            require_external_evidence=True,
+        )
+
+        self.assertIn("output path is duplicated: ./workflow_bridge.json", issues)
+
     def test_output_paths_must_not_overwrite_inputs(self) -> None:
         manifest = copy.deepcopy(valid_manifest())
         manifest["exports"][0]["out_csv"] = "cellprofiler/Cells.csv"
@@ -188,6 +200,18 @@ class HandoffManifestValidationTest(unittest.TestCase):
         )
 
         self.assertIn("output path must not overwrite an input file: cellprofiler/Cells.csv", issues)
+
+    def test_missing_top_level_objects_csv_reports_schema_issue_without_crashing(self) -> None:
+        manifest = copy.deepcopy(valid_manifest())
+        del manifest["morphojet_objects_csv"]
+
+        issues = validate_handoff_manifest.validate_schema(
+            manifest,
+            require_downstream_check=True,
+            require_external_evidence=True,
+        )
+
+        self.assertIn("manifest.morphojet_objects_csv must be a non-empty string", issues)
 
 
 if __name__ == "__main__":

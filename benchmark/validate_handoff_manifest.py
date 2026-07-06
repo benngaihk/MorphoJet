@@ -144,12 +144,16 @@ def validate_schema(
 
 
 def collect_paths(data: dict[str, Any]) -> list[str]:
-    paths = [data["morphojet_objects_csv"]]
+    paths = []
+    if isinstance(data.get("morphojet_objects_csv"), str):
+        paths.append(data["morphojet_objects_csv"])
     for export in data.get("exports", []):
-        paths.append(export.get("objects_csv", data["morphojet_objects_csv"]))
+        if not isinstance(export, dict):
+            continue
+        paths.append(export.get("objects_csv", data.get("morphojet_objects_csv")))
         if "expected_cellprofiler_csv" in export:
             paths.append(export["expected_cellprofiler_csv"])
-    return paths
+    return [path for path in paths if isinstance(path, str)]
 
 
 def collect_output_paths(data: dict[str, Any]) -> list[str]:
@@ -172,13 +176,22 @@ def collect_output_paths(data: dict[str, Any]) -> list[str]:
 
 def validate_path_contract(data: dict[str, Any]) -> list[str]:
     issues = []
-    inputs = [path for path in collect_paths(data) if isinstance(path, str)]
+    inputs = collect_paths(data)
     outputs = collect_output_paths(data)
-    for output in sorted(path for path in set(outputs) if outputs.count(path) > 1):
-        issues.append(f"output path is duplicated: {output}")
-    for output in sorted(set(outputs) & set(inputs)):
+    output_by_key: dict[str, list[str]] = {}
+    for output in outputs:
+        output_by_key.setdefault(normalized_path_key(output), []).append(output)
+    for output_paths in output_by_key.values():
+        if len(output_paths) > 1:
+            issues.append(f"output path is duplicated: {sorted(output_paths)[0]}")
+    input_keys = {normalized_path_key(path) for path in inputs}
+    for output in sorted(output for output in outputs if normalized_path_key(output) in input_keys):
         issues.append(f"output path must not overwrite an input file: {output}")
     return issues
+
+
+def normalized_path_key(path: str) -> str:
+    return str(Path(path).expanduser().resolve(strict=False))
 
 
 def validate_files(data: dict[str, Any], root: Path) -> list[str]:
