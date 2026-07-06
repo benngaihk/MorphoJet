@@ -416,6 +416,92 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("Verify saved external L4 trial report", gate_names)
         self.assertIn("Verify saved external L4 evidence package report", gate_names)
 
+    def test_saved_trial_report_must_match_current_trial_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            other_root = root / "other"
+            other_trial_json = self.write_valid_trial(other_root)
+            trial_report = root / "other-trial-verification.json"
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    other_trial_json,
+                    other_root,
+                    json_out=trial_report,
+                )
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--external-trial-verification-report",
+                str(trial_report),
+            )
+
+            gates = run_production_gate.saved_reviewer_report_gates(args)
+
+        self.assertEqual(1, len(gates))
+        self.assertEqual("FAIL", gates[0].status)
+        self.assertIn("saved external trial report trial_json does not match --external-trial-json", gates[0].detail)
+        self.assertIn("saved external trial report trial_root does not match --external-trial-root", gates[0].detail)
+
+    def test_saved_package_report_must_match_current_package_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            other_root = root / "other"
+            other_trial_json = self.write_valid_trial(other_root)
+            other_package = package_external_trial.create_package(
+                other_trial_json,
+                other_root,
+                root / "other-package-out",
+                package_name="external-l4-other",
+            )
+            package_report = root / "other-package-verification.json"
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(other_package["package_dir"]),
+                    trial_json=other_trial_json,
+                    json_out=package_report,
+                )
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--external-evidence-package-verification-report",
+                str(package_report),
+            )
+
+            gates = run_production_gate.saved_reviewer_report_gates(args)
+
+        self.assertEqual(1, len(gates))
+        self.assertEqual("FAIL", gates[0].status)
+        self.assertIn(
+            "saved external evidence package report package_dir does not match --external-evidence-package-dir",
+            gates[0].detail,
+        )
+        self.assertIn(
+            "saved external evidence package report trial_json does not match --external-trial-json",
+            gates[0].detail,
+        )
+
     def test_final_wrapper_binds_saved_github_release_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
