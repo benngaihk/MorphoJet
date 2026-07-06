@@ -67,7 +67,11 @@ def valid_external_trial() -> dict:
             "git_commit": release_gate.git_commit(),
             "git_dirty": False,
             "git_status": [],
-            "argv": ["benchmark/run_handoff_trial.py", "external_manifest.json"],
+            "argv": [
+                "benchmark/run_handoff_trial.py",
+                "external_manifest.json",
+                "--require-external-evidence",
+            ],
         },
         "rendered_manifest": manifest,
         "external_evidence": external_evidence,
@@ -436,6 +440,21 @@ class ReleaseGateTest(unittest.TestCase):
             failures = release_gate.external_trial_failures(trial, root)
 
         self.assertIn("metadata.generator=manual_report.py", failures)
+
+    def test_external_trial_requires_strict_runner_evidence_flag(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            trial["metadata"]["argv"] = ["benchmark/run_handoff_trial.py", "external_manifest.json"]
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn(
+            "metadata.argv must include --require-external-evidence for external workflow trial reports",
+            failures,
+        )
 
     def test_external_trial_rejects_unreachable_metadata_commit(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

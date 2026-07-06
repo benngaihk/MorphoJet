@@ -427,6 +427,8 @@ def external_trial_metadata_failures(metadata: object) -> list[str]:
         failures.append("metadata.argv must be a non-empty string list")
     elif argv[0] != "benchmark/run_handoff_trial.py":
         failures.append(f"metadata.argv[0]={argv[0]}")
+    elif "--require-external-evidence" not in argv:
+        failures.append("metadata.argv must include --require-external-evidence for external workflow trial reports")
     return failures
 
 
