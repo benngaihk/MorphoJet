@@ -155,7 +155,7 @@ python3 benchmark/verify_external_trial_report.py \
   --json-out path/to/external/handoff_trial-verification.json
 ```
 
-The standalone verifier uses the same external trial validator as `benchmark/release_gate.py`; `--trial-root` must resolve every declared trial artifact, and `--json-out` writes a machine-readable PASS/FAIL report with `schema_version`, verifier identity, generation timestamp, and canonical verifier `argv` binding the source trial JSON, trial root, and saved JSON output. The verifier rejects `--json-out` paths that would overwrite the source trial JSON or any declared trial artifact, so reviewer reports should live in a separate review path. Use `--allow-fail-report` only when collecting diagnostic evidence from a known-bad trial report, because normal review should fail closed.
+The standalone verifier uses the same external trial validator as `benchmark/release_gate.py`; `--trial-root` must resolve every declared trial artifact, and `--json-out` writes a machine-readable PASS/FAIL report with `schema_version`, verifier identity, generation timestamp, and canonical verifier `argv` binding the source trial JSON, trial root, and saved JSON output. The verifier rejects `--json-out` paths that would overwrite or create files inside the source trial JSON or any declared trial artifact, so reviewer reports should live in a separate review path. Use `--allow-fail-report` only when collecting diagnostic evidence from a known-bad trial report, because normal review should fail closed.
 
 Saved external trial verifier reports can be re-checked during review:
 
@@ -188,7 +188,7 @@ python3 benchmark/verify_external_evidence_package.py \
   --json-out path/to/evidence-packages/external-l4-trial-verification.json
 ```
 
-The standalone verifier uses the same package validator as `benchmark/release_gate.py`; `--trial-json` binds the package to the exact source trial report, and `--json-out` writes a machine-readable PASS/FAIL report with `schema_version`, verifier identity, generation timestamp, and canonical verifier `argv` binding the package directory, optional source trial JSON, and saved JSON output. The verifier rejects `--json-out` paths that would overwrite the source trial JSON, package review files, package zip/checksum files, or package-declared artifacts, so reviewer reports should live outside the evidence package contents. Use `--allow-fail-report` only when collecting diagnostic evidence from a known-bad package, because normal review should fail closed.
+The standalone verifier uses the same package validator as `benchmark/release_gate.py`; `--trial-json` binds the package to the exact source trial report, and `--json-out` writes a machine-readable PASS/FAIL report with `schema_version`, verifier identity, generation timestamp, and canonical verifier `argv` binding the package directory, optional source trial JSON, and saved JSON output. The verifier rejects `--json-out` paths that would overwrite or create files inside the source trial JSON, package review files, package zip/checksum files, or package-declared artifacts, so reviewer reports should live outside the evidence package contents. Use `--allow-fail-report` only when collecting diagnostic evidence from a known-bad package, because normal review should fail closed.
 
 Saved package verifier reports can be re-checked during review:
 

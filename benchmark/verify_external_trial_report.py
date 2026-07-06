@@ -165,16 +165,33 @@ def normalized_path_key(path: Path) -> str:
     return str(path.expanduser().resolve(strict=False))
 
 
+def path_matches_or_is_inside(root: Path, path: Path) -> bool:
+    normalized_root = root.expanduser().resolve(strict=False)
+    normalized_path = path.expanduser().resolve(strict=False)
+    try:
+        normalized_path.relative_to(normalized_root)
+        return True
+    except ValueError:
+        return False
+
+
 def validate_json_out_path(json_out: Path | None, trial_json: Path, trial_root: Path) -> None:
     if json_out is None:
         return
-    protected = {normalized_path_key(trial_json): f"trial JSON: {trial_json}"}
+    protected_paths = [(trial_json, f"trial JSON: {trial_json}")]
     for artifact in load_trial_artifacts(trial_json):
         artifact_path = release_gate.resolve_artifact_path(artifact, trial_root)
-        protected[normalized_path_key(artifact_path)] = f"trial artifact: {artifact}"
-    protected_label = protected.get(normalized_path_key(json_out))
-    if protected_label:
-        raise SystemExit(f"--json-out must not overwrite {protected_label}")
+        protected_paths.append((artifact_path, f"trial artifact: {artifact}"))
+    seen = set()
+    for protected_path, protected_label in protected_paths:
+        key = (normalized_path_key(protected_path), protected_label)
+        if key in seen:
+            continue
+        seen.add(key)
+        if normalized_path_key(json_out) == normalized_path_key(protected_path):
+            raise SystemExit(f"--json-out must not overwrite {protected_label}")
+        if path_matches_or_is_inside(protected_path, json_out):
+            raise SystemExit(f"--json-out must not create a file inside {protected_label}")
 
 
 def verify_external_trial_report(

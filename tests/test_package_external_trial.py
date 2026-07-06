@@ -239,6 +239,30 @@ class PackageExternalTrialTest(unittest.TestCase):
             str(context.exception),
         )
 
+    def test_package_verifier_json_out_must_not_create_file_inside_package_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+
+            with self.assertRaises(SystemExit) as context:
+                verify_external_evidence_package.verify_external_evidence_package(
+                    package_dir,
+                    trial_json=trial_json,
+                    json_out=package_dir / "artifacts" / "external" / "handoff_contract.json" / "review.json",
+                )
+
+        self.assertIn(
+            "--json-out must not create a file inside package artifact: artifacts/external/handoff_contract.json",
+            str(context.exception),
+        )
+
     def test_standalone_verifier_rejects_invalid_package(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

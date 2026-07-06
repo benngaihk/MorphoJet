@@ -86,6 +86,23 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
 
         self.assertIn("--json-out must not overwrite trial artifact: external/handoff_contract.json", str(context.exception))
 
+    def test_verifier_json_out_must_not_create_file_inside_trial_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+
+            with self.assertRaises(SystemExit) as context:
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=root / "external" / "handoff_contract.json" / "review.json",
+                )
+
+        self.assertIn(
+            "--json-out must not create a file inside trial artifact: external/handoff_contract.json",
+            str(context.exception),
+        )
+
     def test_verifier_rejects_invalid_trial(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
