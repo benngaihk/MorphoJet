@@ -479,6 +479,20 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertEqual(1, status)
         self.assertIn("argv missing --json-out for saved verifier report", stderr.getvalue())
 
+    def test_saved_release_report_rejects_report_inside_recorded_out_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["out_dir"] = str(report.parent)
+            payload["argv"][payload["argv"].index("--out-dir") + 1] = str(report.parent)
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                status = verify_github_release.verify_saved_github_release_report(report)
+
+        self.assertEqual(1, status)
+        self.assertIn("--json-out must not be inside --out-dir", stderr.getvalue())
+
     def test_saved_release_report_rejects_bad_release_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = self.valid_report(Path(tmp))

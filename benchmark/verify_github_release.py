@@ -616,6 +616,8 @@ def validate_verification_report_payload(
     out_dir = payload.get("out_dir")
     if out_dir is not None and (not isinstance(out_dir, str) or not out_dir.strip()):
         failures.append("out_dir must be null or a non-empty string")
+    if report_path is not None and isinstance(tag, str) and tag.strip() and isinstance(out_dir, str) and out_dir.strip():
+        failures.extend(release_output_safety_issues(tag, Path(out_dir), json_out=report_path))
     argv = payload.get("argv")
     if not isinstance(argv, list) or not argv or not all(isinstance(item, str) and item for item in argv):
         failures.append("argv must be a non-empty string list")
