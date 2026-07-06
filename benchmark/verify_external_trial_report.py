@@ -121,12 +121,29 @@ def recomputed_input_file_issues(recorded: dict[str, Any], trial_json: Path, tri
     return failures
 
 
+def normalized_path_key(path: Path) -> str:
+    return str(path.expanduser().resolve(strict=False))
+
+
+def validate_json_out_path(json_out: Path | None, trial_json: Path, trial_root: Path) -> None:
+    if json_out is None:
+        return
+    protected = {normalized_path_key(trial_json): f"trial JSON: {trial_json}"}
+    for artifact in load_trial_artifacts(trial_json):
+        artifact_path = release_gate.resolve_artifact_path(artifact, trial_root)
+        protected[normalized_path_key(artifact_path)] = f"trial artifact: {artifact}"
+    protected_label = protected.get(normalized_path_key(json_out))
+    if protected_label:
+        raise SystemExit(f"--json-out must not overwrite {protected_label}")
+
+
 def verify_external_trial_report(
     trial_json: Path,
     trial_root: Path,
     json_out: Path | None = None,
     require_pass: bool = True,
 ) -> int:
+    validate_json_out_path(json_out, trial_json, trial_root)
     gate = release_gate.validate_external_trial_report(trial_json, trial_root)
     payload = {
         "schema_version": SCHEMA_VERSION,

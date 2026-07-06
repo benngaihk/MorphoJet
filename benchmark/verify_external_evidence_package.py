@@ -107,12 +107,56 @@ def recomputed_input_file_issues(recorded: dict[str, Any], package_dir: Path, tr
     return failures
 
 
+def normalized_path_key(path: Path) -> str:
+    return str(path.expanduser().resolve(strict=False))
+
+
+def package_artifact_paths(package_dir: Path) -> dict[str, Path]:
+    manifest_path = package_dir / "artifact_manifest.json"
+    if not manifest_path.is_file():
+        return {}
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    if not isinstance(manifest, dict):
+        return {}
+    paths = {}
+    for entry in manifest.get("artifacts", []):
+        if isinstance(entry, dict) and isinstance(entry.get("package_path"), str) and entry["package_path"]:
+            paths[f"package artifact: {entry['package_path']}"] = package_dir / entry["package_path"]
+    return paths
+
+
+def validate_json_out_path(json_out: Path | None, package_dir: Path, trial_json: Path | None) -> None:
+    if json_out is None:
+        return
+    protected = {
+        normalized_path_key(package_dir / filename): f"package review file: {filename}"
+        for filename in PACKAGE_REVIEW_FILES.values()
+    }
+    protected[normalized_path_key(package_dir.parent / f"{package_dir.name}.zip")] = (
+        f"package zip: {package_dir.name}.zip"
+    )
+    protected[normalized_path_key(package_dir.parent / f"{package_dir.name}.zip.sha256")] = (
+        f"package checksum: {package_dir.name}.zip.sha256"
+    )
+    if trial_json is not None:
+        protected[normalized_path_key(trial_json)] = f"source trial JSON: {trial_json}"
+    for label, path in package_artifact_paths(package_dir).items():
+        protected[normalized_path_key(path)] = label
+    protected_label = protected.get(normalized_path_key(json_out))
+    if protected_label:
+        raise SystemExit(f"--json-out must not overwrite {protected_label}")
+
+
 def verify_external_evidence_package(
     package_dir: Path,
     trial_json: Path | None = None,
     json_out: Path | None = None,
     require_pass: bool = True,
 ) -> int:
+    validate_json_out_path(json_out, package_dir, trial_json)
     gate = release_gate.validate_external_evidence_package(package_dir, trial_json)
     payload = {
         "schema_version": SCHEMA_VERSION,

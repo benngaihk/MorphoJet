@@ -57,6 +57,34 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
         self.assertEqual(expected_trial_sha, payload["input_files"]["trial_json"]["sha256"])
         self.assertEqual(expected_artifact_files, payload["input_files"]["artifact_files"])
 
+    def test_verifier_json_out_must_not_overwrite_trial_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+
+            with self.assertRaises(SystemExit) as context:
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=trial_json,
+                )
+
+        self.assertIn("--json-out must not overwrite trial JSON", str(context.exception))
+
+    def test_verifier_json_out_must_not_overwrite_trial_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+
+            with self.assertRaises(SystemExit) as context:
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=root / "external" / "handoff_contract.json",
+                )
+
+        self.assertIn("--json-out must not overwrite trial artifact: external/handoff_contract.json", str(context.exception))
+
     def test_verifier_rejects_invalid_trial(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -159,6 +159,71 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual(expected_zip_sha, payload["input_files"]["package_zip"]["sha256"])
         self.assertEqual(expected_manifest_sha, payload["input_files"]["package_artifact_manifest"]["sha256"])
 
+    def test_package_verifier_json_out_must_not_overwrite_source_trial_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+
+            with self.assertRaises(SystemExit) as context:
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=trial_json,
+                )
+
+        self.assertIn("--json-out must not overwrite source trial JSON", str(context.exception))
+
+    def test_package_verifier_json_out_must_not_overwrite_package_review_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+
+            with self.assertRaises(SystemExit) as context:
+                verify_external_evidence_package.verify_external_evidence_package(
+                    package_dir,
+                    trial_json=trial_json,
+                    json_out=package_dir / "artifact_manifest.json",
+                )
+
+        self.assertIn("--json-out must not overwrite package review file: artifact_manifest.json", str(context.exception))
+
+    def test_package_verifier_json_out_must_not_overwrite_package_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+
+            with self.assertRaises(SystemExit) as context:
+                verify_external_evidence_package.verify_external_evidence_package(
+                    package_dir,
+                    trial_json=trial_json,
+                    json_out=package_dir / "artifacts" / "external" / "handoff_contract.json",
+                )
+
+        self.assertIn(
+            "--json-out must not overwrite package artifact: artifacts/external/handoff_contract.json",
+            str(context.exception),
+        )
+
     def test_standalone_verifier_rejects_invalid_package(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
