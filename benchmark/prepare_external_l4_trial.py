@@ -158,6 +158,7 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
         failures.append(f"claim_status={payload.get('claim_status')}")
     commands = payload.get("commands")
     expected_command_names = [
+        "verify_plan",
         "validate_manifest",
         "check_readiness",
         "verify_readiness",
@@ -238,6 +239,7 @@ def plan_commands(
     workspace: Path,
     package_name: str,
 ) -> dict[str, list[str]]:
+    plan_path = workspace / PLAN_NAME
     trial_json = workspace / "handoff_trial.json"
     trial_md = workspace / "handoff_trial.md"
     trial_verification = workspace / "handoff_trial-verification.json"
@@ -249,6 +251,13 @@ def plan_commands(
     readiness_json = workspace / "readiness.json"
     base_var = f"base_dir={workspace}"
     return {
+        "verify_plan": [
+            "python3",
+            "benchmark/prepare_external_l4_trial.py",
+            "--verify-plan",
+            str(plan_path),
+            "--verify-plan-files",
+        ],
         "validate_manifest": [
             "python3",
             "benchmark/validate_handoff_manifest.py",
@@ -360,6 +369,7 @@ def render_readme(plan: dict[str, Any]) -> str:
         "",
     ]
     for name in [
+        "verify_plan",
         "validate_manifest",
         "check_readiness",
         "verify_readiness",

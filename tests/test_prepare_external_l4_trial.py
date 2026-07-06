@@ -53,6 +53,17 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 json.loads(TEMPLATE.read_text(encoding="utf-8")),
                 json.loads((workspace / "external_manifest.json").read_text(encoding="utf-8")),
             )
+            verify_plan = plan["commands"]["verify_plan"]
+            self.assertEqual(
+                [
+                    "python3",
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(workspace / "trial_plan.json"),
+                    "--verify-plan-files",
+                ],
+                verify_plan,
+            )
             run_command = plan["commands"]["run_trial"]
             self.assertIn("--require-external-evidence", run_command)
             self.assertIn(f"base_dir={workspace}", run_command)
@@ -68,6 +79,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("--require-ready", verify_readiness)
             self.assertIn("--local-evidence-preflight-only", plan["commands"]["local_evidence_preflight"])
             readme = (workspace / "README.md").read_text(encoding="utf-8")
+            self.assertLess(readme.index("## verify_plan"), readme.index("## validate_manifest"))
             self.assertLess(readme.index("## verify_readiness"), readme.index("## run_trial"))
 
     def test_prepare_workspace_records_custom_generator_argv(self) -> None:
