@@ -120,6 +120,8 @@ python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/p
 python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/production-claim.json --require-report-pass --require-clean-git-metadata --verify-git-commit --require-production-claim-pass --expect-missing-checks none
 ```
 
+The saved report verifier rejects reports whose top-level `status=PASS` conflicts with any recorded gate `status=FAIL`.
+
 The verifier checks the top-level summary against `production_claim_audit`, validates report metadata and each gate entry shape, requires the expected production-audit check list, can confirm `metadata.git_commit` is reachable with `--verify-git-commit`, can require `metadata.git_dirty=false` plus an empty `metadata.git_status` with `--require-clean-git-metadata`, and can pin the exact expected `missing_or_failed_checks` list with `--expect-missing-checks`. Use that expectation in reviews so production blockers cannot drift silently between reports. It rejects a saved production-claim PASS report unless the required clean-git, standard code/artifact, L3 provenance, external L4, and stable GitHub release gates are present in the report. A production PASS report must also carry metadata proving `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, external L4 paths, and a stable release tag/kind were used.
 
 Run real external workflow trials with the runner's strict L4 preflight so missing signoff/evidence fields fail before any handoff commands execute:

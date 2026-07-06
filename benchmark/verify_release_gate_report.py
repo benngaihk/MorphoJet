@@ -254,10 +254,15 @@ def validate_release_gate_report_payload(
         gate_names = set()
     else:
         gate_names = set()
+        failed_gate_names = []
         for gate in gates:
             failures.extend(validate_gate_entry(gate))
             if isinstance(gate, dict) and isinstance(gate.get("name"), str):
                 gate_names.add(gate["name"])
+                if gate.get("status") == "FAIL":
+                    failed_gate_names.append(gate["name"])
+        if payload.get("status") == "PASS" and failed_gate_names:
+            failures.append("passing release-gate report has failed gates: " + ",".join(failed_gate_names))
         if top_level_claim_status == "PASS":
             missing_required_gates = sorted(REQUIRED_PRODUCTION_GATE_NAMES - gate_names)
             if missing_required_gates:
