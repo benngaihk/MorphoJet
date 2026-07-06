@@ -124,6 +124,22 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                 gates,
                 {
                     **self.production_metadata(),
+                    "argv": [
+                        "benchmark/release_gate.py",
+                        "--require-clean-git",
+                        "--require-l3-provenance",
+                        "--require-production-claim",
+                        "--external-trial-json",
+                        "external/handoff_trial.json",
+                        "--external-trial-root",
+                        "external",
+                        "--external-evidence-package-dir",
+                        "evidence/external-l4-trial",
+                        "--verify-github-release",
+                        "v0.1.0",
+                        "--github-release-kind",
+                        "stable",
+                    ],
                     "verify_github_release": "v0.1.0",
                     "github_release_kind": "stable",
                     "require_clean_git": True,
@@ -348,6 +364,24 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             failures,
         )
         self.assertIn("production PASS metadata.github_release_kind must be stable: prerelease", failures)
+
+    def test_rejects_metadata_argv_that_omits_recorded_flags_and_inputs(self) -> None:
+        payload = self.complete_production_claim_payload()
+        payload["metadata"]["argv"] = ["other.py", "--require-clean-git"]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn("metadata.argv[0]=other.py", failures)
+        self.assertIn("metadata.argv missing --require-l3-provenance for metadata.require_l3_provenance=true", failures)
+        self.assertIn("metadata.argv missing --require-production-claim for metadata.require_production_claim=true", failures)
+        self.assertIn("metadata.argv missing --external-trial-json external/handoff_trial.json", failures)
+        self.assertIn("metadata.argv missing --external-trial-root external", failures)
+        self.assertIn(
+            "metadata.argv missing --external-evidence-package-dir evidence/external-l4-trial",
+            failures,
+        )
+        self.assertIn("metadata.argv missing --verify-github-release v0.1.0", failures)
+        self.assertIn("metadata.argv missing --github-release-kind stable", failures)
 
     def test_rejects_bad_metadata_shape(self) -> None:
         payload = self.valid_payload()

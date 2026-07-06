@@ -106,6 +106,60 @@ def validate_metadata(metadata: Any) -> list[str]:
     github_release_kind = metadata.get("github_release_kind")
     if github_release_kind not in {"prerelease", "stable", None}:
         failures.append(f"metadata.github_release_kind={github_release_kind}")
+    failures.extend(validate_metadata_argv(metadata))
+    return failures
+
+
+def argv_has_flag(argv: list[str], flag: str) -> bool:
+    return flag in argv
+
+
+def argv_has_flag_value(argv: list[str], flag: str, expected: str) -> bool:
+    for index, item in enumerate(argv[:-1]):
+        if item == flag and argv[index + 1] == expected:
+            return True
+    return False
+
+
+def validate_metadata_argv(metadata: Any) -> list[str]:
+    if not isinstance(metadata, dict):
+        return []
+    argv = metadata.get("argv")
+    if not isinstance(argv, list) or not all(isinstance(item, str) for item in argv):
+        return []
+    failures = []
+    if not argv:
+        return failures
+    if argv[0] != "benchmark/release_gate.py":
+        failures.append(f"metadata.argv[0]={argv[0]}")
+    required_bool_flags = {
+        "require_clean_git": "--require-clean-git",
+        "require_l3_provenance": "--require-l3-provenance",
+        "require_production_claim": "--require-production-claim",
+    }
+    for metadata_key, flag in required_bool_flags.items():
+        if metadata.get(metadata_key) is True and not argv_has_flag(argv, flag):
+            failures.append(f"metadata.argv missing {flag} for metadata.{metadata_key}=true")
+    required_path_flags = {
+        "external_trial_json": "--external-trial-json",
+        "external_trial_root": "--external-trial-root",
+        "external_evidence_package_dir": "--external-evidence-package-dir",
+        "external_trial_verification_report": "--external-trial-verification-report",
+        "external_evidence_package_verification_report": "--external-evidence-package-verification-report",
+        "github_release_verification_report": "--github-release-verification-report",
+        "verify_github_release": "--verify-github-release",
+    }
+    for metadata_key, flag in required_path_flags.items():
+        value = metadata.get(metadata_key)
+        if isinstance(value, str) and value.strip() and not argv_has_flag_value(argv, flag, value):
+            failures.append(f"metadata.argv missing {flag} {value}")
+    github_release_kind = metadata.get("github_release_kind")
+    if (
+        isinstance(github_release_kind, str)
+        and github_release_kind != "prerelease"
+        and not argv_has_flag_value(argv, "--github-release-kind", github_release_kind)
+    ):
+        failures.append(f"metadata.argv missing --github-release-kind {github_release_kind}")
     return failures
 
 
