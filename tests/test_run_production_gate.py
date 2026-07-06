@@ -365,6 +365,31 @@ class RunProductionGateTest(unittest.TestCase):
                 ],
             )
 
+    def test_final_report_output_must_not_create_file_inside_declared_trial_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--out-json",
+                str(root / "external" / "handoff_contract.json" / "production-claim.json"),
+            )
+
+            with self.assertRaisesRegex(
+                run_production_gate.ProductionGateError,
+                "--out-json must not create a file inside external trial artifact: external/handoff_contract.json",
+            ):
+                run_production_gate.validate_report_output_paths(
+                    args,
+                    [
+                        ("--out-json", args.out_json),
+                        ("--out-md", args.out_md),
+                    ],
+                )
+
     def test_local_preflight_output_must_not_overwrite_package_checksum(self) -> None:
         args = self.parse(
             "--local-evidence-preflight-json",
@@ -375,6 +400,25 @@ class RunProductionGateTest(unittest.TestCase):
         with self.assertRaisesRegex(
             run_production_gate.ProductionGateError,
             "--local-evidence-preflight-json must not overwrite evidence package checksum",
+        ):
+            run_production_gate.validate_report_output_paths(
+                args,
+                [
+                    ("--local-evidence-preflight-json", args.local_evidence_preflight_json),
+                    ("--local-evidence-preflight-md", args.local_evidence_preflight_md),
+                ],
+            )
+
+    def test_local_preflight_output_must_not_create_file_inside_package_dir(self) -> None:
+        args = self.parse(
+            "--local-evidence-preflight-json",
+            "evidence/external-l4-trial/review/local-preflight.json",
+            "--local-evidence-preflight-only",
+        )
+
+        with self.assertRaisesRegex(
+            run_production_gate.ProductionGateError,
+            "--local-evidence-preflight-json must not create a file inside --external-evidence-package-dir",
         ):
             run_production_gate.validate_report_output_paths(
                 args,

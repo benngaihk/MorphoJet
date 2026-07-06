@@ -117,6 +117,16 @@ def normalized_path_key(path: Path) -> str:
     return str(path.expanduser().resolve(strict=False))
 
 
+def path_matches_or_is_inside(root: Path, path: Path) -> bool:
+    normalized_root = root.expanduser().resolve(strict=False)
+    normalized_path = path.expanduser().resolve(strict=False)
+    try:
+        normalized_path.relative_to(normalized_root)
+        return True
+    except ValueError:
+        return False
+
+
 def add_protected_path(paths: dict[Path, str], path: Path, label: str) -> None:
     paths[path] = label
 
@@ -166,7 +176,7 @@ def add_package_artifact_paths(paths: dict[Path, str], args: argparse.Namespace)
             )
 
 
-def protected_input_paths(args: argparse.Namespace) -> dict[str, str]:
+def protected_input_path_entries(args: argparse.Namespace) -> dict[Path, str]:
     paths = {
         args.external_trial_json: "--external-trial-json",
         args.external_trial_root: "--external-trial-root",
@@ -192,12 +202,19 @@ def protected_input_paths(args: argparse.Namespace) -> dict[str, str]:
             paths[path] = label
     add_trial_artifact_paths(paths, args)
     add_package_artifact_paths(paths, args)
+    return paths
+
+
+def protected_input_paths(args: argparse.Namespace) -> dict[str, str]:
+    paths = protected_input_path_entries(args)
     return {normalized_path_key(path): label for path, label in paths.items()}
 
 
 def validate_report_output_paths(args: argparse.Namespace, outputs: list[tuple[str, Path]]) -> None:
     protected = protected_input_paths(args)
+    protected_entries = protected_input_path_entries(args)
     output_keys: dict[str, str] = {}
+    output_paths: dict[str, Path] = {}
     failures = []
     for label, path in outputs:
         key = normalized_path_key(path)
@@ -205,9 +222,26 @@ def validate_report_output_paths(args: argparse.Namespace, outputs: list[tuple[s
             failures.append(f"{label} must not use the same path as {output_keys[key]}")
         else:
             output_keys[key] = label
+            output_paths[label] = path
         protected_label = protected.get(key)
         if protected_label:
             failures.append(f"{label} must not overwrite {protected_label}: {path}")
+            continue
+        for protected_path, protected_label in protected_entries.items():
+            if protected_label == "--external-trial-root":
+                continue
+            if path_matches_or_is_inside(protected_path, path):
+                failures.append(f"{label} must not create a file inside {protected_label}: {path}")
+                break
+        for prior_label, prior_path in output_paths.items():
+            if prior_label == label:
+                continue
+            if path_matches_or_is_inside(prior_path, path):
+                failures.append(f"{label} must not create a file inside {prior_label}: {path}")
+                break
+            if path_matches_or_is_inside(path, prior_path):
+                failures.append(f"{prior_label} must not create a file inside {label}: {prior_path}")
+                break
     if failures:
         raise ProductionGateError("; ".join(failures))
 
