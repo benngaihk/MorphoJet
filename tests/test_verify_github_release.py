@@ -134,6 +134,8 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             [
                 {
                     "name": "a.tar.gz",
+                    "github_id": "asset-a",
+                    "api_url": "https://api.github.com/repos/benngaihk/MorphoJet/releases/assets/1",
                     "url": "https://example.test/a",
                     "size": 12,
                     "content_type": "application/gzip",
@@ -144,6 +146,8 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                 },
                 {
                     "name": "b.tar.gz",
+                    "github_id": "asset-b",
+                    "api_url": "https://api.github.com/repos/benngaihk/MorphoJet/releases/assets/2",
                     "url": "https://example.test/b",
                     "size": 34,
                     "content_type": "application/gzip",
@@ -158,6 +162,8 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                     "assets": [
                         {
                             "name": "b.tar.gz",
+                            "id": "asset-b",
+                            "apiUrl": "https://api.github.com/repos/benngaihk/MorphoJet/releases/assets/2",
                             "url": "https://example.test/b",
                             "size": 34,
                             "contentType": "application/gzip",
@@ -168,6 +174,8 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                         },
                         {
                             "name": "a.tar.gz",
+                            "id": "asset-a",
+                            "apiUrl": "https://api.github.com/repos/benngaihk/MorphoJet/releases/assets/1",
                             "url": "https://example.test/a",
                             "size": 12,
                             "contentType": "application/gzip",
@@ -276,6 +284,8 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             "asset_metadata": [
                 {
                     "name": name,
+                    "github_id": f"asset-{index}",
+                    "api_url": f"https://api.github.com/repos/benngaihk/MorphoJet/releases/assets/{index}",
                     "url": f"https://github.com/benngaihk/MorphoJet/releases/download/v0.1.0/{name}",
                     "size": (out_dir / name).stat().st_size,
                     "content_type": "application/gzip" if name.endswith(".tar.gz") else "text/plain",
@@ -284,7 +294,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                     "created_at": "2026-07-03T00:00:00Z",
                     "updated_at": "2026-07-03T00:00:01Z",
                 }
-                for name in expected_assets
+                for index, name in enumerate(expected_assets, start=1)
             ],
             "archives": archive_summaries,
             "issues": [],
@@ -486,6 +496,8 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             report = self.valid_report(Path(tmp))
             payload = json.loads(report.read_text(encoding="utf-8"))
             first = payload["asset_metadata"][0]
+            first["github_id"] = ""
+            first["api_url"] = "https://api.github.com/repos/other/repo/releases/assets/1"
             first["url"] = ""
             first["size"] = 0
             first["content_type"] = None
@@ -498,6 +510,8 @@ class VerifyGithubReleaseTest(unittest.TestCase):
 
             failures = verify_github_release.validate_verification_report_payload(payload)
 
+        self.assertIn(f"asset_metadata.github_id must be a non-empty string: {first['name']}", failures)
+        self.assertIn(f"asset_metadata.api_url does not match repo for {first['name']}: {first['api_url']}", failures)
         self.assertIn(f"asset_metadata.url must be a non-empty string: {first['name']}", failures)
         self.assertIn(f"asset_metadata.size must be a positive integer: {first['name']}", failures)
         self.assertIn(f"asset_metadata.content_type must be a non-empty string: {first['name']}", failures)
@@ -506,6 +520,20 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn(f"asset_metadata.created_at is invalid: {first['name']}", failures)
         self.assertIn(f"asset_metadata.updated_at must include timezone: {first['name']}", failures)
         self.assertIn(f"asset_metadata name is duplicated: {first['name']}", failures)
+
+    def test_saved_release_report_rejects_duplicate_asset_identity_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            first = payload["asset_metadata"][0]
+            second = payload["asset_metadata"][1]
+            second["github_id"] = first["github_id"]
+            second["api_url"] = first["api_url"]
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn(f"asset_metadata github_id is duplicated: {first['github_id']}", failures)
+        self.assertIn(f"asset_metadata api_url is duplicated: {first['api_url']}", failures)
 
     def test_saved_release_report_rejects_asset_url_not_bound_to_repo_tag_and_name(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

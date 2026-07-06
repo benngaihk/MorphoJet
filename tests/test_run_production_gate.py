@@ -86,6 +86,8 @@ class RunProductionGateTest(unittest.TestCase):
                     "asset_metadata": [
                         {
                             "name": name,
+                            "github_id": f"asset-{index}",
+                            "api_url": f"https://api.github.com/repos/benngaihk/MorphoJet/releases/assets/{index}",
                             "url": f"https://github.com/benngaihk/MorphoJet/releases/download/v0.1.0/{name}",
                             "size": (out_dir / name).stat().st_size,
                             "content_type": "application/gzip" if name.endswith(".tar.gz") else "text/plain",
@@ -94,7 +96,7 @@ class RunProductionGateTest(unittest.TestCase):
                             "created_at": "2026-07-03T00:00:00Z",
                             "updated_at": "2026-07-03T00:00:01Z",
                         }
-                        for name in expected_assets
+                        for index, name in enumerate(expected_assets, start=1)
                     ],
                     "archives": archive_summaries,
                     "issues": [],

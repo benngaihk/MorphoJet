@@ -135,6 +135,10 @@ def expected_asset_url(repo: str, tag: str, name: str) -> str:
     return f"https://github.com/{repo}/releases/download/{tag}/{name}"
 
 
+def expected_asset_api_url_prefix(repo: str) -> str:
+    return f"https://api.github.com/repos/{repo}/releases/assets/"
+
+
 def expected_asset_names(tag: str) -> set[str]:
     return {
         f"morphojet-{tag}-linux-x86_64.tar.gz",
@@ -160,6 +164,8 @@ def release_asset_metadata(release: dict) -> list[dict[str, Any]]:
         records.append(
             {
                 "name": asset["name"],
+                "github_id": asset.get("id"),
+                "api_url": asset.get("apiUrl"),
                 "url": asset.get("url"),
                 "size": asset.get("size"),
                 "content_type": asset.get("contentType"),
@@ -212,6 +218,8 @@ def asset_metadata_issues(records: Any, release_asset_names_payload: Any, repo: 
     ):
         release_asset_names_payload = []
     observed_names = []
+    observed_github_ids = []
+    observed_api_urls = []
     for record in records:
         if not isinstance(record, dict):
             failures.append("asset_metadata entries must be objects")
@@ -221,6 +229,20 @@ def asset_metadata_issues(records: Any, release_asset_names_payload: Any, repo: 
             failures.append("asset_metadata.name must be a non-empty string")
             continue
         observed_names.append(name)
+        github_id = record.get("github_id")
+        if not isinstance(github_id, str) or not github_id.strip():
+            failures.append(f"asset_metadata.github_id must be a non-empty string: {name}")
+        else:
+            observed_github_ids.append(github_id)
+        api_url = record.get("api_url")
+        if not isinstance(api_url, str) or not api_url.strip():
+            failures.append(f"asset_metadata.api_url must be a non-empty string: {name}")
+        else:
+            observed_api_urls.append(api_url)
+            if isinstance(repo, str) and repo.strip():
+                expected_prefix = expected_asset_api_url_prefix(repo)
+                if not api_url.startswith(expected_prefix):
+                    failures.append(f"asset_metadata.api_url does not match repo for {name}: {api_url}")
         url = record.get("url")
         if not isinstance(url, str) or not url.strip():
             failures.append(f"asset_metadata.url must be a non-empty string: {name}")
@@ -250,6 +272,14 @@ def asset_metadata_issues(records: Any, release_asset_names_payload: Any, repo: 
     duplicated_names = sorted(name for name in set(observed_names) if observed_names.count(name) > 1)
     for name in duplicated_names:
         failures.append(f"asset_metadata name is duplicated: {name}")
+    duplicated_github_ids = sorted(
+        github_id for github_id in set(observed_github_ids) if observed_github_ids.count(github_id) > 1
+    )
+    for github_id in duplicated_github_ids:
+        failures.append(f"asset_metadata github_id is duplicated: {github_id}")
+    duplicated_api_urls = sorted(api_url for api_url in set(observed_api_urls) if observed_api_urls.count(api_url) > 1)
+    for api_url in duplicated_api_urls:
+        failures.append(f"asset_metadata api_url is duplicated: {api_url}")
     if sorted(observed_names) != release_asset_names_payload:
         failures.append("asset_metadata names do not match assets.release_metadata")
     return failures
