@@ -41,6 +41,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("--require-external-evidence", run_command)
             self.assertIn(f"base_dir={workspace}", run_command)
             self.assertEqual(str(workspace / "handoff_trial.json"), run_command[run_command.index("--out-json") + 1])
+            self.assertEqual(str(workspace), plan["commands"]["check_readiness"][3])
             self.assertIn("--local-evidence-preflight-only", plan["commands"]["local_evidence_preflight"])
 
     def test_prepare_workspace_refuses_to_overwrite_generated_files_by_default(self) -> None:

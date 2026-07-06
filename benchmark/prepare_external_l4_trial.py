@@ -82,6 +82,14 @@ def plan_commands(
             "--require-downstream-check",
             "--require-external-evidence",
         ],
+        "check_readiness": [
+            "python3",
+            "benchmark/check_external_l4_readiness.py",
+            "--workspace",
+            str(workspace),
+            "--json-out",
+            str(workspace / "readiness.json"),
+        ],
         "run_trial": [
             "python3",
             "benchmark/run_handoff_trial.py",
@@ -166,6 +174,7 @@ def render_readme(plan: dict[str, Any]) -> str:
     ]
     for name in [
         "validate_manifest",
+        "check_readiness",
         "run_trial",
         "verify_trial",
         "package_evidence",
