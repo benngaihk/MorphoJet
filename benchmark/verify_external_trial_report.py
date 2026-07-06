@@ -305,6 +305,8 @@ def verification_report_argv_issues(
     json_out_values = argv_values(argv, "--json-out")
     if len(json_out_values) > 1:
         failures.append("argv has duplicate --json-out")
+    if report_path is not None and not json_out_values:
+        failures.append("argv missing --json-out for saved verifier report")
     for value in json_out_values:
         if value is None:
             failures.append("argv --json-out must include a value")

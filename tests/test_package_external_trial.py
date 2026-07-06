@@ -415,6 +415,34 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual(1, code)
         self.assertIn("argv --json-out must match saved verifier report path", stderr.getvalue())
 
+    def test_saved_package_verification_report_requires_json_out_path_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            json_out_index = payload["argv"].index("--json-out")
+            del payload["argv"][json_out_index:json_out_index + 2]
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn("argv missing --json-out for saved verifier report", stderr.getvalue())
+
     def test_saved_package_verification_report_recomputes_package_validation(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

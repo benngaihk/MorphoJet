@@ -465,6 +465,20 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertEqual(1, status)
         self.assertIn("argv --json-out must match saved verifier report path", stderr.getvalue())
 
+    def test_saved_release_report_requires_json_out_path_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            json_out_index = payload["argv"].index("--json-out")
+            del payload["argv"][json_out_index:json_out_index + 2]
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                status = verify_github_release.verify_saved_github_release_report(report)
+
+        self.assertEqual(1, status)
+        self.assertIn("argv missing --json-out for saved verifier report", stderr.getvalue())
+
     def test_saved_release_report_rejects_bad_release_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = self.valid_report(Path(tmp))
