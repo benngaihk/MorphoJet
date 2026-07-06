@@ -1017,6 +1017,7 @@ def package_artifact_manifest_argv_failures(
     ]
     if trial_json is not None:
         expected_values[0] = ("--trial-json", str(trial_json.resolve()))
+    expected_by_flag = dict(expected_values)
     for flag, expected in expected_values:
         values = argv_values(argv, flag)
         if len(values) > 1:
@@ -1031,7 +1032,36 @@ def package_artifact_manifest_argv_failures(
                     failures.append(f"package artifact_manifest.argv {flag} must match artifact_manifest")
             elif value != expected:
                 failures.append(f"package artifact_manifest.argv {flag} must match package name")
+    canonical_argv = [
+        "benchmark/package_external_trial.py",
+        "--trial-json",
+        normalized_path_key(Path(str(expected_by_flag["--trial-json"]))),
+        "--trial-root",
+        normalized_path_key(Path(str(expected_by_flag["--trial-root"]))),
+        "--out-dir",
+        normalized_path_key(Path(str(expected_by_flag["--out-dir"]))),
+        "--package-name",
+        str(expected_by_flag["--package-name"]),
+    ]
+    normalized_argv = normalize_package_artifact_manifest_argv(argv)
+    if normalized_argv not in [canonical_argv, [*canonical_argv, "--overwrite"]]:
+        failures.append("package artifact_manifest.argv must match canonical packager argv")
     return failures
+
+
+def normalize_package_artifact_manifest_argv(argv: list[str]) -> list[str]:
+    normalized = []
+    path_flags = {"--trial-json", "--trial-root", "--out-dir"}
+    index = 0
+    while index < len(argv):
+        item = argv[index]
+        normalized.append(item)
+        if item in path_flags and index + 1 < len(argv) and not argv[index + 1].startswith("--"):
+            normalized.append(normalized_path_key(Path(argv[index + 1])))
+            index += 2
+            continue
+        index += 1
+    return normalized
 
 
 def validate_external_evidence_package(package_dir: Path, trial_json: Path | None) -> Gate:
