@@ -70,6 +70,7 @@ def plan_commands(
     package_verification = workspace / "evidence-package-verification.json"
     preflight_json = workspace / "local-evidence-preflight.json"
     preflight_md = workspace / "local-evidence-preflight.md"
+    readiness_json = workspace / "readiness.json"
     base_var = f"base_dir={workspace}"
     return {
         "validate_manifest": [
@@ -90,7 +91,15 @@ def plan_commands(
             "--package-name",
             package_name,
             "--json-out",
-            str(workspace / "readiness.json"),
+            str(readiness_json),
+        ],
+        "verify_readiness": [
+            "python3",
+            "benchmark/check_external_l4_readiness.py",
+            "--verify-report",
+            str(readiness_json),
+            "--verify-report-files",
+            "--require-ready",
         ],
         "run_trial": [
             "python3",
@@ -177,6 +186,7 @@ def render_readme(plan: dict[str, Any]) -> str:
     for name in [
         "validate_manifest",
         "check_readiness",
+        "verify_readiness",
         "run_trial",
         "verify_trial",
         "package_evidence",

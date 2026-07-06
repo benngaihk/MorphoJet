@@ -43,7 +43,16 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertEqual(str(workspace / "handoff_trial.json"), run_command[run_command.index("--out-json") + 1])
             self.assertEqual(str(workspace), plan["commands"]["check_readiness"][3])
             self.assertEqual(plan["package_name"], plan["commands"]["check_readiness"][5])
+            verify_readiness = plan["commands"]["verify_readiness"]
+            self.assertEqual(
+                str(workspace / "readiness.json"),
+                verify_readiness[verify_readiness.index("--verify-report") + 1],
+            )
+            self.assertIn("--verify-report-files", verify_readiness)
+            self.assertIn("--require-ready", verify_readiness)
             self.assertIn("--local-evidence-preflight-only", plan["commands"]["local_evidence_preflight"])
+            readme = (workspace / "README.md").read_text(encoding="utf-8")
+            self.assertLess(readme.index("## verify_readiness"), readme.index("## run_trial"))
 
     def test_prepare_workspace_binds_custom_package_name_into_readiness(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
