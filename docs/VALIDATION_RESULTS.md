@@ -2,22 +2,22 @@
 
 Updated: 2026-07-06
 
-## Release-Gate Snapshot for `3607114`
+## Release-Gate Snapshot for `422de52`
 
-This snapshot records the clean `main` verification for the code commit that adds the external L4 trial workspace preparer. It is not a production claim; it confirms that the committed release-gate evidence still passes L3 while exposing the exact final blockers.
+This snapshot records the clean `main` verification for the code commit that adds the external L4 readiness audit. It is not a production claim; it confirms that the committed release-gate evidence still passes L3 while exposing the exact final blockers.
 
 Environment:
 
 - Branch: `main`
-- Verified code commit: `3607114`
-- Release-gate command: `PATH="$HOME/.cargo/bin:$PATH" python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-3607114.json --out-md /tmp/morphojet-l3-release-report-main-3607114.md`
-- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-3607114.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,stable_github_release`
+- Verified code commit: `422de52`
+- Release-gate command: `PATH="$HOME/.cargo/bin:$PATH" python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-422de52.json --out-md /tmp/morphojet-l3-release-report-main-422de52.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-422de52.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,stable_github_release`
 
 Result:
 
 | Gate | Result |
 |---|---:|
-| Full Python unit test suite | PASS, 282 tests |
+| Full Python unit test suite | PASS, 285 tests |
 | Source claim-language guard | PASS |
 | Whitespace diff check | PASS |
 | Clean L3 release gate | PASS |
