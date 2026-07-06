@@ -138,10 +138,14 @@ def artifact_provenance(artifacts: list[str]) -> list[dict[str, Any]]:
     return provenance
 
 
-def validate_manifest(manifest: dict[str, Any]) -> None:
+def validate_manifest(manifest: dict[str, Any], require_external_evidence: bool = False) -> None:
     import validate_handoff_manifest
 
-    issues = validate_handoff_manifest.validate_schema(manifest, require_downstream_check=True)
+    issues = validate_handoff_manifest.validate_schema(
+        manifest,
+        require_downstream_check=True,
+        require_external_evidence=require_external_evidence,
+    )
     if issues:
         raise SystemExit("\n".join(f"ERROR: {issue}" for issue in issues))
 
@@ -263,6 +267,11 @@ def main() -> int:
     parser.add_argument("--var", action="append", default=[], help="Template variable key=value")
     parser.add_argument("--out-json", type=Path, required=True)
     parser.add_argument("--out-md", type=Path, required=True)
+    parser.add_argument(
+        "--require-external-evidence",
+        action="store_true",
+        help="Require filled external L4 evidence fields before executing the trial",
+    )
     args = parser.parse_args()
 
     variables = parse_vars(args.var)
@@ -270,7 +279,7 @@ def main() -> int:
     manifest = render(raw_manifest, variables)
     if not isinstance(manifest, dict):
         raise SystemExit("manifest root must be an object")
-    validate_manifest(manifest)
+    validate_manifest(manifest, require_external_evidence=args.require_external_evidence)
     steps, artifacts = run_trial(manifest)
     payload = {
         "trial_id": require(manifest, "trial_id"),

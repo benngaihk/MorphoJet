@@ -121,7 +121,17 @@ python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/p
 
 The verifier checks the top-level summary against `production_claim_audit`, validates report metadata and each gate entry shape, requires the expected production-audit check list, can confirm `metadata.git_commit` is reachable with `--verify-git-commit`, can require `metadata.git_dirty=false` plus an empty `metadata.git_status` with `--require-clean-git-metadata`, and can pin the exact expected `missing_or_failed_checks` list with `--expect-missing-checks`. Use that expectation in reviews so production blockers cannot drift silently between reports. It rejects a saved production-claim PASS report unless the required clean-git, standard code/artifact, L3 provenance, external L4, and stable GitHub release gates are present in the report. A production PASS report must also carry metadata proving `--require-clean-git`, `--require-l3-provenance`, `--require-production-claim`, external L4 paths, and a stable release tag/kind were used.
 
-After a real external workflow trial has been run with `benchmark/run_handoff_trial.py`, add its JSON report to the production-readiness release gate:
+Run real external workflow trials with the runner's strict L4 preflight so missing signoff/evidence fields fail before any handoff commands execute:
+
+```bash
+python3 benchmark/run_handoff_trial.py benchmark/handoff/external_lab_template.json \
+  --var base_dir=path/to/external \
+  --require-external-evidence \
+  --out-json path/to/external/handoff_trial.json \
+  --out-md path/to/external/handoff_trial.md
+```
+
+After a real external workflow trial has been run with `benchmark/run_handoff_trial.py --require-external-evidence`, add its JSON report to the production-readiness release gate:
 
 ```bash
 python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance \
@@ -130,7 +140,7 @@ python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance \
   --external-evidence-package-dir path/to/evidence-packages/external-l4-trial
 ```
 
-The external trial gate requires `status=PASS`, generator metadata from `benchmark/run_handoff_trial.py` with a clean git worktree and a 40-character commit SHA that matches the current release gate commit or differs only by docs/tests/release-gate/evidence-packaging/release-verification changes, all trial steps passing with non-negative runtime records and string execution details, a rendered manifest snapshot that still passes the external-evidence handoff schema, a step list and step commands that exactly match the manifest-declared actions, a non-empty artifact list that exactly matches the manifest-declared outputs, files that exist and are non-empty under `--external-trial-root`, exactly one matching `artifact_provenance` SHA-256/size entry for each listed artifact with no unlisted provenance paths, filled external evidence fields, acceptance criteria, reviewer identity/role, timezone-qualified review timestamp at or after the trial generation timestamp, and signoff statement with no `REPLACE_WITH` placeholders, and `manual_csv_editing=false`. Changes to `benchmark/run_handoff_trial.py` or MorphoJet measurement code require rerunning the external trial.
+The external trial gate requires `status=PASS`, generator metadata from `benchmark/run_handoff_trial.py` with a clean git worktree and a 40-character commit SHA that matches the current release gate commit or differs only by docs/tests/release-gate/evidence-packaging/release-verification changes, all trial steps passing with non-negative runtime records and string execution details, a rendered manifest snapshot that still passes the external-evidence handoff schema, a step list and step commands that exactly match the manifest-declared actions, a non-empty artifact list that exactly matches the manifest-declared outputs, files that exist and are non-empty under `--external-trial-root`, exactly one matching `artifact_provenance` SHA-256/size entry for each listed artifact with no unlisted provenance paths, filled external evidence fields, acceptance criteria, reviewer identity/role, timezone-qualified review timestamp at or after the trial generation timestamp, and signoff statement with no `REPLACE_WITH` placeholders, and `manual_csv_editing=false`. The runner's `--require-external-evidence` flag enforces the same external-evidence schema before execution. Changes to `benchmark/run_handoff_trial.py` or MorphoJet measurement code require rerunning the external trial.
 The gate PASS detail includes the external trial commit and generation timestamp so release reports can be audited without opening the trial JSON first.
 
 Reviewers can check the external trial report directly before evidence packaging:
@@ -237,7 +247,7 @@ For a scheduler-ready entrypoint that performs the fetch/verify step, verifies a
 benchmark/run_cellbindb_l3_validation.sh
 ```
 
-The release gate also validates handoff manifests. The validator rejects duplicate or path-equivalent output artifact paths and output paths that would overwrite declared input CSVs, so real external L4 trials fail before a run can clobber `Objects.csv` or expected CellProfiler CSV inputs:
+The release gate also validates handoff manifests. The validator rejects duplicate or path-equivalent output artifact paths and output paths that would overwrite declared input CSVs, so real external L4 trials fail before a run can clobber `Objects.csv` or expected CellProfiler CSV inputs. Use the runner's `--require-external-evidence` flag for real L4 runs; keep the default runner mode only for local CellBinDB handoff preflight fixtures that intentionally have no external signoff block:
 
 ```bash
 python3 benchmark/validate_handoff_manifest.py benchmark/handoff/cellbindb_supported_columns.json \

@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "benchmark"))
 
 import validate_handoff_manifest  # noqa: E402
+import run_handoff_trial  # noqa: E402
 
 
 def valid_manifest() -> dict:
@@ -79,6 +80,24 @@ class HandoffManifestValidationTest(unittest.TestCase):
             "manifest.external_evidence must be an object for an external workflow trial",
             issues,
         )
+
+    def test_handoff_runner_strict_mode_requires_external_evidence_before_execution(self) -> None:
+        manifest = valid_manifest()
+        del manifest["external_evidence"]
+
+        with self.assertRaises(SystemExit) as context:
+            run_handoff_trial.validate_manifest(manifest, require_external_evidence=True)
+
+        self.assertIn(
+            "ERROR: manifest.external_evidence must be an object for an external workflow trial",
+            str(context.exception),
+        )
+
+    def test_handoff_runner_default_mode_keeps_local_preflight_compatible(self) -> None:
+        manifest = valid_manifest()
+        del manifest["external_evidence"]
+
+        run_handoff_trial.validate_manifest(manifest)
 
     def test_manual_csv_editing_must_be_false(self) -> None:
         manifest = copy.deepcopy(valid_manifest())
