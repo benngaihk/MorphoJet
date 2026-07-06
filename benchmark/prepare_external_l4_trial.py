@@ -210,6 +210,22 @@ def generated_paths(workspace: Path) -> list[Path]:
     ]
 
 
+def planned_execution_outputs(workspace: Path, package_slug: str) -> list[Path]:
+    package_out = workspace / "evidence-package"
+    return [
+        workspace / "readiness.json",
+        workspace / "handoff_trial.json",
+        workspace / "handoff_trial.md",
+        workspace / "handoff_trial-verification.json",
+        workspace / "evidence-package-verification.json",
+        workspace / "local-evidence-preflight.json",
+        workspace / "local-evidence-preflight.md",
+        package_out / package_slug,
+        package_out / f"{package_slug}.zip",
+        package_out / f"{package_slug}.zip.sha256",
+    ]
+
+
 def prepare_workspace(
     template_path: Path,
     workspace: Path,
@@ -226,6 +242,10 @@ def prepare_workspace(
     if existing and not overwrite:
         names = ", ".join(str(path) for path in existing)
         raise PrepareError(f"generated workspace files already exist; pass --overwrite: {names}")
+    stale_outputs = [path for path in planned_execution_outputs(workspace, package_slug) if path.exists()]
+    if stale_outputs:
+        names = ", ".join(str(path) for path in stale_outputs)
+        raise PrepareError(f"stale external L4 execution outputs already exist; move or remove them first: {names}")
 
     workspace.mkdir(parents=True, exist_ok=True)
     (workspace / "morphojet").mkdir(exist_ok=True)

@@ -79,6 +79,31 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
 
             self.assertEqual(str(workspace / "external_manifest.json"), plan["manifest"])
 
+    def test_prepare_workspace_refuses_stale_trial_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            workspace.mkdir()
+            (workspace / "handoff_trial.json").write_text("{}\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                prepare_external_l4_trial.PrepareError,
+                "stale external L4 execution outputs already exist",
+            ):
+                prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+
+    def test_prepare_workspace_overwrite_refuses_stale_package_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            package_dir = workspace / "evidence-package" / "external-l4-external-lab-supported-columns-handoff"
+            package_dir.mkdir()
+
+            with self.assertRaisesRegex(
+                prepare_external_l4_trial.PrepareError,
+                "stale external L4 execution outputs already exist",
+            ):
+                prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace, overwrite=True)
+
 
 if __name__ == "__main__":
     unittest.main()
