@@ -1,6 +1,31 @@
 # Validation Results
 
-Updated: 2026-07-04
+Updated: 2026-07-06
+
+## Current Main Release-Gate Snapshot
+
+This snapshot records the latest clean `main` verification after saved release-gate report hardening. It is not a production claim; it confirms that the current committed release-gate evidence still passes L3 while exposing the exact final blockers.
+
+Environment:
+
+- Branch: `main`
+- Commit: `caea9b0`
+- Release-gate command: `PATH="$HOME/.cargo/bin:$PATH" python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-caea9b0.json --out-md /tmp/morphojet-l3-release-report-main-caea9b0.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-caea9b0.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,stable_github_release`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Full Python unit test suite | PASS, 260 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `stable_github_release` |
+
+The saved release-gate verifier now checks production metadata and `metadata.argv` both ways: final metadata values must appear in the recorded command line, and key production command-line arguments must be reflected back into metadata without duplicate critical flags or missing flag values. This prevents stale or hand-edited release reports from silently appearing stronger than the command that produced them.
 
 ## Production Gate Wrapper Milestone
 
