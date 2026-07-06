@@ -153,7 +153,7 @@ python3 benchmark/verify_external_trial_report.py \
   --require-report-pass
 ```
 
-`--verify-report-files` recomputes the external trial validation from the report's `trial_json` and `trial_root` paths, then checks the report schema/verifier/timestamp plus the recorded gate status and detail against the fresh result.
+`--verify-report-files` recomputes the external trial validation from the report's `trial_json` and `trial_root` paths, then checks the report schema/verifier/timestamp plus the recorded gate status and detail against the fresh result. Saved reports also record the source trial JSON size/SHA-256 and every resolved trial artifact size/SHA-256; file recheck recomputes those summaries so a reviewer can catch stale or swapped trial inputs even when the paths still exist.
 
 After the external trial gate passes, package the evidence for external review and release signoff:
 

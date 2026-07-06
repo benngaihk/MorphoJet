@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -15,6 +16,109 @@ import release_gate
 
 SCHEMA_VERSION = 1
 VERIFIER = "benchmark/verify_external_trial_report.py"
+SHA256_RE = re.compile(r"[0-9a-f]{64}")
+
+
+def file_summary(path: Path) -> dict[str, Any]:
+    summary: dict[str, Any] = {"path": str(path), "exists": path.is_file()}
+    if path.is_file():
+        summary["size_bytes"] = path.stat().st_size
+        summary["sha256"] = release_gate.sha256_file(path)
+    else:
+        summary["size_bytes"] = None
+        summary["sha256"] = None
+    return summary
+
+
+def load_trial_artifacts(trial_json: Path) -> list[str]:
+    try:
+        with trial_json.open("r", encoding="utf-8") as handle:
+            trial = json.load(handle)
+    except Exception:  # noqa: BLE001 - malformed reports still need diagnostic summaries.
+        return []
+    artifacts = trial.get("artifacts") if isinstance(trial, dict) else None
+    if not isinstance(artifacts, list):
+        return []
+    return [artifact for artifact in artifacts if isinstance(artifact, str)]
+
+
+def trial_input_files(trial_json: Path, trial_root: Path) -> dict[str, Any]:
+    artifact_files = []
+    for artifact in load_trial_artifacts(trial_json):
+        resolved_path = release_gate.resolve_artifact_path(artifact, trial_root)
+        summary = file_summary(resolved_path)
+        artifact_files.append({"source_path": artifact, **summary})
+    return {
+        "trial_json": file_summary(trial_json),
+        "artifact_files": sorted(artifact_files, key=lambda entry: entry["source_path"]),
+    }
+
+
+def file_summary_issues(name: str, summary: Any, require_exists: bool) -> list[str]:
+    failures = []
+    if not isinstance(summary, dict):
+        return [f"input_files.{name} must be an object"]
+    path = summary.get("path")
+    if not isinstance(path, str) or not path.strip():
+        failures.append(f"input_files.{name}.path must be a non-empty string")
+    exists = summary.get("exists")
+    if not isinstance(exists, bool):
+        failures.append(f"input_files.{name}.exists must be a boolean")
+    elif require_exists and not exists:
+        failures.append(f"input_files.{name}.exists must be true")
+    size = summary.get("size_bytes")
+    digest = summary.get("sha256")
+    if exists is True:
+        if not isinstance(size, int) or size <= 0:
+            failures.append(f"input_files.{name}.size_bytes must be a positive integer")
+        if not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
+            failures.append(f"input_files.{name}.sha256 must be a SHA-256 digest")
+    else:
+        if size is not None:
+            failures.append(f"input_files.{name}.size_bytes must be null when missing")
+        if digest is not None:
+            failures.append(f"input_files.{name}.sha256 must be null when missing")
+    return failures
+
+
+def input_files_issues(input_files: Any, status: Any) -> list[str]:
+    failures = []
+    if not isinstance(input_files, dict):
+        return ["input_files must be an object"]
+    failures.extend(file_summary_issues("trial_json", input_files.get("trial_json"), require_exists=status == "PASS"))
+    artifact_files = input_files.get("artifact_files")
+    if not isinstance(artifact_files, list):
+        return failures + ["input_files.artifact_files must be a list"]
+    observed_sources = []
+    for index, artifact in enumerate(artifact_files):
+        if not isinstance(artifact, dict):
+            failures.append("input_files.artifact_files entries must be objects")
+            continue
+        source_path = artifact.get("source_path")
+        if not isinstance(source_path, str) or not source_path.strip():
+            failures.append(f"input_files.artifact_files[{index}].source_path must be a non-empty string")
+            continue
+        observed_sources.append(source_path)
+        failures.extend(file_summary_issues(f"artifact_files[{index}]", artifact, require_exists=status == "PASS"))
+    if observed_sources != sorted(observed_sources):
+        failures.append("input_files.artifact_files must be sorted by source_path")
+    for source_path in sorted(source for source in set(observed_sources) if observed_sources.count(source) > 1):
+        failures.append(f"input_files.artifact_files source_path is duplicated: {source_path}")
+    return failures
+
+
+def recomputed_input_file_issues(recorded: dict[str, Any], trial_json: Path, trial_root: Path) -> list[str]:
+    failures = []
+    current = trial_input_files(trial_json, trial_root)
+    for field in ["path", "exists", "size_bytes", "sha256"]:
+        if recorded["trial_json"].get(field) != current["trial_json"].get(field):
+            failures.append(f"input_files.trial_json.{field} changed after recomputing trial validation")
+    recorded_artifacts = recorded.get("artifact_files")
+    if not isinstance(recorded_artifacts, list):
+        return failures + ["input_files.artifact_files must be a list"]
+    if recorded_artifacts != current["artifact_files"]:
+        failures.append("input_files.artifact_files changed after recomputing trial validation")
+    return failures
 
 
 def verify_external_trial_report(
@@ -31,6 +135,7 @@ def verify_external_trial_report(
         "status": gate.status,
         "trial_json": str(trial_json),
         "trial_root": str(trial_root),
+        "input_files": trial_input_files(trial_json, trial_root),
         "gate": asdict(gate),
     }
     if json_out:
@@ -76,6 +181,8 @@ def validate_verification_report_payload(payload: Any, require_report_pass: bool
     trial_root = payload.get("trial_root")
     if not isinstance(trial_root, str) or not trial_root.strip():
         failures.append("trial_root must be a non-empty string")
+    input_files = payload.get("input_files")
+    failures.extend(input_files_issues(input_files, status))
     gate = payload.get("gate")
     if not isinstance(gate, dict):
         failures.append("gate must be an object")
@@ -121,6 +228,7 @@ def verify_saved_external_trial_report(
             failures.append("gate.detail changed after recomputing trial report validation")
         if payload.get("status") != gate.status:
             failures.append(f"status changed after recomputing trial report validation: {payload.get('status')} != {gate.status}")
+        failures.extend(recomputed_input_file_issues(payload["input_files"], trial_json, trial_root))
     if failures:
         for failure in failures:
             print(f"FAIL: {failure}", file=sys.stderr)

@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT / "benchmark"))
 sys.path.insert(0, str(ROOT / "tests"))
 
 import verify_external_trial_report  # noqa: E402
+import release_gate  # noqa: E402
 from test_release_gate import add_artifact_provenance, valid_external_trial, write_trial_artifacts  # noqa: E402
 
 
@@ -43,6 +44,8 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
                     json_out=json_out,
                 )
             payload = json.loads(json_out.read_text(encoding="utf-8"))
+            expected_trial_sha = release_gate.sha256_file(trial_json)
+            expected_artifact_files = verify_external_trial_report.trial_input_files(trial_json, root)["artifact_files"]
 
         self.assertEqual(0, code)
         self.assertEqual(1, payload["schema_version"])
@@ -51,6 +54,8 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
         self.assertEqual("PASS", payload["status"])
         self.assertEqual("Validate external L4 workflow trial report", payload["gate"]["name"])
         self.assertIn("External workflow trial PASS", payload["gate"]["detail"])
+        self.assertEqual(expected_trial_sha, payload["input_files"]["trial_json"]["sha256"])
+        self.assertEqual(expected_artifact_files, payload["input_files"]["artifact_files"])
 
     def test_verifier_rejects_invalid_trial(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -172,6 +177,30 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
                 )
 
         self.assertEqual(1, code)
+
+    def test_saved_verification_report_recomputes_input_file_summaries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["input_files"]["trial_json"]["sha256"] = "0" * 64
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_trial_report.verify_saved_external_trial_report(
+                    json_out,
+                    verify_files=True,
+                )
+
+        self.assertEqual(1, code)
+        self.assertIn("input_files.trial_json.sha256 changed after recomputing trial validation", stderr.getvalue())
 
     def test_saved_verification_report_can_require_pass(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
