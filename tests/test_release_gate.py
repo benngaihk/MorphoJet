@@ -361,6 +361,7 @@ class ReleaseGateTest(unittest.TestCase):
             write_trial_artifacts(trial, root)
             add_artifact_provenance(trial, root)
             report = root / "handoff_trial.json"
+            trial["metadata"]["argv"][trial["metadata"]["argv"].index("--out-json") + 1] = str(report)
             report.write_text(json.dumps(trial) + "\n")
 
             gate = release_gate.validate_external_trial_report(report, root)
@@ -368,6 +369,23 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertEqual("PASS", gate.status)
         self.assertIn(f"trial_commit={trial['metadata']['git_commit'][:12]}", gate.detail)
         self.assertIn("generated_at_utc=2026-07-03T00:00:00+00:00", gate.detail)
+
+    def test_external_trial_gate_rejects_out_json_metadata_for_different_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            report = root / "handoff_trial.json"
+            trial["metadata"]["argv"][trial["metadata"]["argv"].index("--out-json") + 1] = str(
+                root / "other_handoff_trial.json"
+            )
+            report.write_text(json.dumps(trial) + "\n")
+
+            gate = release_gate.validate_external_trial_report(report, root)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("metadata.argv --out-json must match external trial report path", gate.detail)
 
     def test_external_trial_requires_artifacts_to_exist(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

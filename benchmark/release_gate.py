@@ -574,7 +574,11 @@ def argv_values(argv: list[str], flag: str) -> list[str | None]:
     return values
 
 
-def external_trial_metadata_argv_failures(metadata: dict, trial: dict) -> list[str]:
+def external_trial_metadata_argv_failures(
+    metadata: dict,
+    trial: dict,
+    report_path: Path | None = None,
+) -> list[str]:
     failures = []
     argv = metadata.get("argv")
     if not isinstance(argv, list) or not argv or not all(isinstance(item, str) and item for item in argv):
@@ -604,10 +608,20 @@ def external_trial_metadata_argv_failures(metadata: dict, trial: dict) -> list[s
         for value in values:
             if value is None:
                 failures.append(f"metadata.argv {flag} must include a value")
+            elif (
+                flag == "--out-json"
+                and report_path is not None
+                and normalized_path_key(Path(value)) != normalized_path_key(report_path)
+            ):
+                failures.append("metadata.argv --out-json must match external trial report path")
     return failures
 
 
-def external_trial_metadata_failures(metadata: object, trial: dict) -> list[str]:
+def external_trial_metadata_failures(
+    metadata: object,
+    trial: dict,
+    report_path: Path | None = None,
+) -> list[str]:
     failures = []
     if not isinstance(metadata, dict):
         return ["metadata must be present for external workflow trial reports"]
@@ -650,15 +664,20 @@ def external_trial_metadata_failures(metadata: object, trial: dict) -> list[str]
     git_status = metadata.get("git_status")
     if git_status != []:
         failures.append("metadata.git_status must be empty for a clean external trial")
-    failures.extend(external_trial_metadata_argv_failures(metadata, trial))
+    failures.extend(external_trial_metadata_argv_failures(metadata, trial, report_path))
     return failures
 
 
-def external_trial_failures(trial: dict, artifact_root: Path | None = None, artifact_resolver=None) -> list[str]:
+def external_trial_failures(
+    trial: dict,
+    artifact_root: Path | None = None,
+    artifact_resolver=None,
+    report_path: Path | None = None,
+) -> list[str]:
     failures = []
     if trial.get("status") != "PASS":
         failures.append(f"trial status is {trial.get('status')}")
-    failures.extend(external_trial_metadata_failures(trial.get("metadata"), trial))
+    failures.extend(external_trial_metadata_failures(trial.get("metadata"), trial, report_path))
     rendered_manifest = trial.get("rendered_manifest")
     if not isinstance(rendered_manifest, dict):
         failures.append("rendered_manifest must be present for external workflow trial reports")
@@ -866,7 +885,7 @@ def validate_external_trial_report(path: Path, artifact_root: Path | None) -> Ga
     started = time.perf_counter()
     try:
         trial = load_json(path)
-        failures = external_trial_failures(trial, artifact_root)
+        failures = external_trial_failures(trial, artifact_root, report_path=path)
         status = "FAIL" if failures else "PASS"
         detail = "; ".join(failures) if failures else external_trial_pass_detail(trial)
     except Exception as exc:  # noqa: BLE001 - report exact release gate failure.

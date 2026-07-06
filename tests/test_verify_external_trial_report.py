@@ -27,6 +27,7 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
         write_trial_artifacts(trial, root)
         add_artifact_provenance(trial, root)
         trial_json = root / "external" / "handoff_trial.json"
+        trial["metadata"]["argv"][trial["metadata"]["argv"].index("--out-json") + 1] = str(trial_json)
         trial_json.parent.mkdir(parents=True, exist_ok=True)
         trial_json.write_text(json.dumps(trial, indent=2) + "\n", encoding="utf-8")
         return trial_json
