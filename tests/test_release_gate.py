@@ -511,6 +511,60 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertIn("--verify-git-commit", command)
         self.assertNotIn("--expect-tag", command)
 
+    def test_saved_external_trial_report_binding_failures_reject_mismatched_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = root / "trial-verification.json"
+            report.write_text(
+                json.dumps(
+                    {
+                        "trial_json": str(root / "other" / "handoff_trial.json"),
+                        "trial_root": str(root / "other"),
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            args = Namespace(
+                external_trial_json=root / "external" / "handoff_trial.json",
+                external_trial_root=root / "external",
+            )
+
+            failures = release_gate.saved_external_trial_report_binding_failures(report, args)
+
+        self.assertIn("saved external trial report trial_json does not match --external-trial-json", failures)
+        self.assertIn("saved external trial report trial_root does not match --external-trial-root", failures)
+
+    def test_saved_external_package_report_binding_failures_reject_mismatched_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = root / "package-verification.json"
+            report.write_text(
+                json.dumps(
+                    {
+                        "package_dir": str(root / "other-package"),
+                        "trial_json": str(root / "other" / "handoff_trial.json"),
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            args = Namespace(
+                external_trial_json=root / "external" / "handoff_trial.json",
+                external_evidence_package_dir=root / "package",
+            )
+
+            failures = release_gate.saved_external_package_report_binding_failures(report, args)
+
+        self.assertIn(
+            "saved external evidence package report package_dir does not match --external-evidence-package-dir",
+            failures,
+        )
+        self.assertIn(
+            "saved external evidence package report trial_json does not match --external-trial-json",
+            failures,
+        )
+
     def test_external_trial_rejects_rendered_manifest_evidence_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

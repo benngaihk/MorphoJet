@@ -306,6 +306,59 @@ def saved_github_release_report_command(report: Path, expected_tag: str | None =
     return command
 
 
+def paths_match(recorded: object, expected: Path | None) -> bool:
+    if expected is None or not isinstance(recorded, str) or not recorded.strip():
+        return False
+    return Path(recorded).resolve(strict=False) == expected.resolve(strict=False)
+
+
+def load_reviewer_report(path: Path) -> dict:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"saved reviewer report must be a JSON object: {path}")
+    return payload
+
+
+def gate_with_binding_failures(gate: Gate, failures: list[str]) -> Gate:
+    if not failures:
+        return gate
+    detail_parts = [gate.detail] if gate.detail else []
+    detail_parts.extend(f"FAIL: {failure}" for failure in failures)
+    return Gate(
+        name=gate.name,
+        command=gate.command,
+        status="FAIL",
+        elapsed_seconds=gate.elapsed_seconds,
+        detail="\n".join(detail_parts),
+    )
+
+
+def saved_external_trial_report_binding_failures(report: Path, args: argparse.Namespace) -> list[str]:
+    try:
+        payload = load_reviewer_report(report)
+    except Exception as exc:  # noqa: BLE001 - binding diagnostics should fail closed.
+        return [f"cannot read saved external trial report for binding: {type(exc).__name__}: {exc}"]
+    failures = []
+    if not paths_match(payload.get("trial_json"), args.external_trial_json):
+        failures.append("saved external trial report trial_json does not match --external-trial-json")
+    if not paths_match(payload.get("trial_root"), args.external_trial_root):
+        failures.append("saved external trial report trial_root does not match --external-trial-root")
+    return failures
+
+
+def saved_external_package_report_binding_failures(report: Path, args: argparse.Namespace) -> list[str]:
+    try:
+        payload = load_reviewer_report(report)
+    except Exception as exc:  # noqa: BLE001 - binding diagnostics should fail closed.
+        return [f"cannot read saved external evidence package report for binding: {type(exc).__name__}: {exc}"]
+    failures = []
+    if not paths_match(payload.get("package_dir"), args.external_evidence_package_dir):
+        failures.append("saved external evidence package report package_dir does not match --external-evidence-package-dir")
+    if not paths_match(payload.get("trial_json"), args.external_trial_json):
+        failures.append("saved external evidence package report trial_json does not match --external-trial-json")
+    return failures
+
+
 def rendered_manifest_artifacts(manifest: dict) -> list[str]:
     artifacts = []
     for export in manifest.get("exports", []):
@@ -1432,32 +1485,47 @@ def main() -> int:
     if args.external_evidence_package_dir:
         gates.append(validate_external_evidence_package(args.external_evidence_package_dir, args.external_trial_json))
     if args.external_trial_verification_report:
+        gate = run_command(
+            "Verify saved external L4 trial report",
+            [
+                "python3",
+                "benchmark/verify_external_trial_report.py",
+                "--verify-report",
+                str(args.external_trial_verification_report),
+                "--verify-report-files",
+                "--require-report-pass",
+            ],
+        )
         gates.append(
-            run_command(
-                "Verify saved external L4 trial report",
-                [
-                    "python3",
-                    "benchmark/verify_external_trial_report.py",
-                    "--verify-report",
-                    str(args.external_trial_verification_report),
-                    "--verify-report-files",
-                    "--require-report-pass",
-                ],
+            gate_with_binding_failures(
+                gate,
+                saved_external_trial_report_binding_failures(args.external_trial_verification_report, args)
+                if gate.status == "PASS"
+                else [],
             )
         )
     if args.external_evidence_package_verification_report:
+        gate = run_command(
+            "Verify saved external L4 evidence package report",
+            [
+                "python3",
+                "benchmark/verify_external_evidence_package.py",
+                "--verify-report",
+                str(args.external_evidence_package_verification_report),
+                "--verify-report-files",
+                "--require-report-pass",
+                "--require-trial-json",
+            ],
+        )
         gates.append(
-            run_command(
-                "Verify saved external L4 evidence package report",
-                [
-                    "python3",
-                    "benchmark/verify_external_evidence_package.py",
-                    "--verify-report",
-                    str(args.external_evidence_package_verification_report),
-                    "--verify-report-files",
-                    "--require-report-pass",
-                    "--require-trial-json",
-                ],
+            gate_with_binding_failures(
+                gate,
+                saved_external_package_report_binding_failures(
+                    args.external_evidence_package_verification_report,
+                    args,
+                )
+                if gate.status == "PASS"
+                else [],
             )
         )
     if args.github_release_verification_report:
