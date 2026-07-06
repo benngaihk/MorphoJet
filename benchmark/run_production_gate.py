@@ -117,6 +117,55 @@ def normalized_path_key(path: Path) -> str:
     return str(path.expanduser().resolve(strict=False))
 
 
+def add_protected_path(paths: dict[Path, str], path: Path, label: str) -> None:
+    paths[path] = label
+
+
+def load_json_if_file(path: Path) -> object | None:
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def add_trial_artifact_paths(paths: dict[Path, str], args: argparse.Namespace) -> None:
+    trial = load_json_if_file(args.external_trial_json)
+    if not isinstance(trial, dict):
+        return
+    artifacts = trial.get("artifacts")
+    if not isinstance(artifacts, list):
+        return
+    for artifact in artifacts:
+        if isinstance(artifact, str) and artifact:
+            add_protected_path(
+                paths,
+                release_gate.resolve_artifact_path(artifact, args.external_trial_root),
+                f"external trial artifact: {artifact}",
+            )
+
+
+def add_package_artifact_paths(paths: dict[Path, str], args: argparse.Namespace) -> None:
+    artifact_manifest = load_json_if_file(args.external_evidence_package_dir / "artifact_manifest.json")
+    if not isinstance(artifact_manifest, dict):
+        return
+    for entry in artifact_manifest.get("review_files", []):
+        if isinstance(entry, dict) and isinstance(entry.get("path"), str) and entry["path"]:
+            add_protected_path(
+                paths,
+                args.external_evidence_package_dir / entry["path"],
+                f"evidence package review file: {entry['path']}",
+            )
+    for entry in artifact_manifest.get("artifacts", []):
+        if isinstance(entry, dict) and isinstance(entry.get("package_path"), str) and entry["package_path"]:
+            add_protected_path(
+                paths,
+                args.external_evidence_package_dir / entry["package_path"],
+                f"evidence package artifact: {entry['package_path']}",
+            )
+
+
 def protected_input_paths(args: argparse.Namespace) -> dict[str, str]:
     paths = {
         args.external_trial_json: "--external-trial-json",
@@ -141,6 +190,8 @@ def protected_input_paths(args: argparse.Namespace) -> dict[str, str]:
     ]:
         if path is not None:
             paths[path] = label
+    add_trial_artifact_paths(paths, args)
+    add_package_artifact_paths(paths, args)
     return {normalized_path_key(path): label for path, label in paths.items()}
 
 
