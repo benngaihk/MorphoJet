@@ -294,6 +294,16 @@ def normalized_path_key(path: Path) -> str:
     return str(path.expanduser().resolve(strict=False))
 
 
+def path_matches_or_is_inside(root: Path, path: Path) -> bool:
+    normalized_root = root.expanduser().resolve(strict=False)
+    normalized_path = path.expanduser().resolve(strict=False)
+    try:
+        normalized_path.relative_to(normalized_root)
+        return True
+    except ValueError:
+        return False
+
+
 def load_json_if_file(path: Path | None) -> object | None:
     if path is None or not path.is_file():
         return None
@@ -303,12 +313,12 @@ def load_json_if_file(path: Path | None) -> object | None:
         return None
 
 
-def add_protected_path(paths: dict[str, str], path: Path | None, label: str) -> None:
+def add_protected_path(paths: dict[Path, str], path: Path | None, label: str) -> None:
     if path is not None:
-        paths[normalized_path_key(path)] = label
+        paths[path] = label
 
 
-def add_external_trial_protected_paths(paths: dict[str, str], args: argparse.Namespace) -> None:
+def add_external_trial_protected_paths(paths: dict[Path, str], args: argparse.Namespace) -> None:
     external_trial_json = getattr(args, "external_trial_json", None)
     external_trial_root = getattr(args, "external_trial_root", None)
     add_protected_path(paths, external_trial_json, "--external-trial-json")
@@ -327,7 +337,7 @@ def add_external_trial_protected_paths(paths: dict[str, str], args: argparse.Nam
             )
 
 
-def add_package_protected_paths(paths: dict[str, str], package_dir: Path | None) -> None:
+def add_package_protected_paths(paths: dict[Path, str], package_dir: Path | None) -> None:
     if package_dir is None:
         return
     for filename in [
@@ -352,8 +362,8 @@ def add_package_protected_paths(paths: dict[str, str], package_dir: Path | None)
             )
 
 
-def protected_report_input_paths(args: argparse.Namespace) -> dict[str, str]:
-    paths: dict[str, str] = {}
+def protected_report_input_path_entries(args: argparse.Namespace) -> dict[Path, str]:
+    paths: dict[Path, str] = {}
     add_external_trial_protected_paths(paths, args)
     add_package_protected_paths(paths, getattr(args, "external_evidence_package_dir", None))
     add_protected_path(
@@ -381,10 +391,16 @@ def protected_report_input_paths(args: argparse.Namespace) -> dict[str, str]:
     return paths
 
 
+def protected_report_input_paths(args: argparse.Namespace) -> dict[str, str]:
+    return {normalized_path_key(path): label for path, label in protected_report_input_path_entries(args).items()}
+
+
 def validate_report_output_paths(args: argparse.Namespace) -> None:
     protected = protected_report_input_paths(args)
+    protected_entries = protected_report_input_path_entries(args)
     outputs = [("--out-json", args.out_json), ("--out-md", args.out_md)]
     output_keys: dict[str, str] = {}
+    output_paths: dict[str, Path] = {}
     failures = []
     for label, path in outputs:
         key = normalized_path_key(path)
@@ -393,9 +409,24 @@ def validate_report_output_paths(args: argparse.Namespace) -> None:
             failures.append(f"{label} must not use the same path as {previous_label}")
         else:
             output_keys[key] = label
+            output_paths[label] = path
         protected_label = protected.get(key)
         if protected_label:
             failures.append(f"{label} must not overwrite {protected_label}: {path}")
+            continue
+        for protected_path, protected_label in protected_entries.items():
+            if path_matches_or_is_inside(protected_path, path):
+                failures.append(f"{label} must not create a file inside {protected_label}: {path}")
+                break
+        for prior_label, prior_path in output_paths.items():
+            if prior_label == label:
+                continue
+            if path_matches_or_is_inside(prior_path, path):
+                failures.append(f"{label} must not create a file inside {prior_label}: {path}")
+                break
+            if path_matches_or_is_inside(path, prior_path):
+                failures.append(f"{prior_label} must not create a file inside {label}: {prior_path}")
+                break
     if failures:
         raise SystemExit("\n".join(f"ERROR: {failure}" for failure in failures))
 

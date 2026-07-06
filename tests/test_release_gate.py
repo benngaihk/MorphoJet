@@ -688,6 +688,27 @@ class ReleaseGateTest(unittest.TestCase):
             ):
                 release_gate.validate_report_output_paths(args)
 
+    def test_report_output_must_not_create_file_inside_external_trial_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            trial_json = root / "external" / "handoff_trial.json"
+            trial_json.write_text(json.dumps(trial, indent=2) + "\n", encoding="utf-8")
+            args = self.production_args(
+                external_trial_json=trial_json,
+                external_trial_root=root,
+                out_json=root / "external" / "handoff_contract.json" / "release-gate.json",
+            )
+
+            with self.assertRaisesRegex(
+                SystemExit,
+                "--out-json must not create a file inside external trial artifact: "
+                "external/handoff_contract.json",
+            ):
+                release_gate.validate_report_output_paths(args)
+
     def test_report_output_must_not_overwrite_evidence_package_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -717,6 +738,39 @@ class ReleaseGateTest(unittest.TestCase):
             with self.assertRaisesRegex(
                 SystemExit,
                 "--out-md must not overwrite evidence package artifact: artifacts/external/handoff_contract.json",
+            ):
+                release_gate.validate_report_output_paths(args)
+
+    def test_report_output_must_not_create_file_inside_evidence_package_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            package_dir = root / "package"
+            artifact = package_dir / "artifacts" / "external" / "handoff_contract.json"
+            artifact.parent.mkdir(parents=True)
+            artifact.write_text("{}\n", encoding="utf-8")
+            package_dir.mkdir(exist_ok=True)
+            (package_dir / "artifact_manifest.json").write_text(
+                json.dumps(
+                    {
+                        "artifacts": [
+                            {
+                                "package_path": "artifacts/external/handoff_contract.json",
+                            }
+                        ]
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            args = self.production_args(
+                external_evidence_package_dir=package_dir,
+                out_md=artifact / "release-gate.md",
+            )
+
+            with self.assertRaisesRegex(
+                SystemExit,
+                "--out-md must not create a file inside evidence package artifact: "
+                "artifacts/external/handoff_contract.json",
             ):
                 release_gate.validate_report_output_paths(args)
 
