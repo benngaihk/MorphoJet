@@ -2,22 +2,22 @@
 
 Updated: 2026-07-06
 
-## Release-Gate Snapshot for `b954a69`
+## Release-Gate Snapshot for `672f8f6`
 
-This snapshot records the clean `main` verification for the code commit that protects external L4 workspaces from stale execution outputs before preparation, keeps readiness, reviewer, release-gate, local-preflight, and final wrapper report outputs from overwriting or creating files inside protected evidence paths, records audit metadata on external L4 readiness reports, and rejects saved stable-release PASS reports whose archive summaries record a failed checksum match. It is not a production claim; it confirms that the committed release-gate evidence still passes L3 while exposing the exact final blockers.
+This snapshot records the clean `main` verification for the code commit that protects external L4 workspaces from stale execution outputs before preparation, keeps readiness, reviewer, release-gate, local-preflight, and final wrapper report outputs from overwriting or creating files inside protected evidence paths, records audit metadata on external L4 readiness reports, re-checks saved readiness reports before trial execution, and rejects saved stable-release PASS reports whose archive summaries record a failed checksum match. It is not a production claim; it confirms that the committed release-gate evidence still passes L3 while exposing the exact final blockers.
 
 Environment:
 
 - Branch: `main`
-- Verified code commit: `b954a69`
-- Release-gate command: `PATH="$HOME/.cargo/bin:$PATH" python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-b954a69.json --out-md /tmp/morphojet-l3-release-report-main-b954a69.md`
-- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-b954a69.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,stable_github_release`
+- Verified code commit: `672f8f6`
+- Release-gate command: `PATH="$HOME/.cargo/bin:$PATH" python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-672f8f6.json --out-md /tmp/morphojet-l3-release-report-main-672f8f6.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-672f8f6.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,stable_github_release`
 
 Result:
 
 | Gate | Result |
 |---|---:|
-| Full Python unit test suite | PASS, 304 tests |
+| Full Python unit test suite | PASS, 308 tests |
 | Source claim-language guard | PASS |
 | Whitespace diff check | PASS |
 | Clean L3 release gate | PASS |
@@ -25,7 +25,7 @@ Result:
 | `production_claim_status` | `INCOMPLETE` |
 | Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `stable_github_release` |
 
-The saved release-gate verifier checks production metadata and `metadata.argv` both ways: final metadata values must appear in the recorded command line, and key production command-line arguments must be reflected back into metadata without duplicate critical flags or missing flag values. The local evidence preflight verifier, external trial reports, external reviewer verifier reports, and GitHub release verifier reports now apply the same binding discipline to their own canonical argv; external trial runner argv must preserve the source manifest, sorted `--var` values, output paths, and strict external-evidence flag. `benchmark/prepare_external_l4_trial.py` now creates a concrete external trial workspace with the template manifest, input directories, generated validation/readiness/run/package/preflight commands, stale execution-output checks, and a `NOT_PRODUCTION_CLAIM` plan so external reviewers can prepare real evidence without implying that the scaffold itself is evidence. `benchmark/check_external_l4_readiness.py` adds a pre-execution readiness report for filled external evidence, input files, MorphoJet Objects.csv and expected CellProfiler CSV schema/row coverage, absent manifest-declared trial outputs, absent planned reviewer/preflight report outputs, report output safety, package output paths, protected readiness report output paths and descendants, plus `generated_at_utc` and canonical checker `argv` before any real trial is run. Saved reviewer reports also require exactly one recorded `--json-out` value bound to the saved report path under review, the standalone trial/package reviewer tools reject reviewer outputs that would overwrite or create files inside protected evidence inputs/artifacts, and release-gate plus production-wrapper reports apply the same path-safety rule to protected external evidence paths. This prevents stale or hand-edited reports from silently appearing stronger than the command that produced them.
+The saved release-gate verifier checks production metadata and `metadata.argv` both ways: final metadata values must appear in the recorded command line, and key production command-line arguments must be reflected back into metadata without duplicate critical flags or missing flag values. The local evidence preflight verifier, external trial reports, external reviewer verifier reports, and GitHub release verifier reports now apply the same binding discipline to their own canonical argv; external trial runner argv must preserve the source manifest, sorted `--var` values, output paths, and strict external-evidence flag. `benchmark/prepare_external_l4_trial.py` now creates a concrete external trial workspace with the template manifest, input directories, generated validation/readiness/run/package/preflight commands, stale execution-output checks, and a `NOT_PRODUCTION_CLAIM` plan so external reviewers can prepare real evidence without implying that the scaffold itself is evidence. `benchmark/check_external_l4_readiness.py` adds a pre-execution readiness report for filled external evidence, input files, MorphoJet Objects.csv and expected CellProfiler CSV schema/row coverage, absent manifest-declared trial outputs, absent planned reviewer/preflight report outputs, report output safety, package output paths, protected readiness report output paths and descendants, plus `generated_at_utc` and canonical checker `argv` before any real trial is run. Saved readiness reports can now be re-checked for schema, timestamp, `NOT_PRODUCTION_CLAIM`, canonical `argv`, status/issues/check consistency, and rerun workspace readiness with `--verify-report-files --require-ready`. Saved reviewer reports also require exactly one recorded `--json-out` value bound to the saved report path under review, the standalone trial/package reviewer tools reject reviewer outputs that would overwrite or create files inside protected evidence inputs/artifacts, and release-gate plus production-wrapper reports apply the same path-safety rule to protected external evidence paths. This prevents stale or hand-edited reports from silently appearing stronger than the command that produced them.
 
 ## Production Gate Wrapper Milestone
 
