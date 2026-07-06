@@ -517,6 +517,18 @@ class ReleaseGateTest(unittest.TestCase):
             failures,
         )
 
+    def test_external_trial_rejects_non_canonical_metadata_argv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            trial["metadata"]["argv"].extend(["--dry-run", "unused-positional"])
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("metadata.argv must match canonical external trial runner argv", failures)
+
     def test_external_trial_requires_manifest_source_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -7,7 +7,6 @@ import argparse
 import hashlib
 import json
 import subprocess
-import sys
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -108,7 +107,17 @@ def git_status_porcelain() -> list[str]:
     return [line for line in completed.stdout.splitlines() if line]
 
 
-def build_metadata() -> dict[str, Any]:
+def canonical_argv(args: argparse.Namespace, variables: dict[str, str]) -> list[str]:
+    argv = ["benchmark/run_handoff_trial.py", str(args.manifest)]
+    for key in sorted(variables):
+        argv.extend(["--var", f"{key}={variables[key]}"])
+    argv.extend(["--out-json", str(args.out_json), "--out-md", str(args.out_md)])
+    if args.require_external_evidence:
+        argv.append("--require-external-evidence")
+    return argv
+
+
+def build_metadata(args: argparse.Namespace, variables: dict[str, str]) -> dict[str, Any]:
     git_status = git_status_porcelain()
     return {
         "schema_version": 1,
@@ -117,7 +126,7 @@ def build_metadata() -> dict[str, Any]:
         "git_commit": git_commit(),
         "git_dirty": bool(git_status),
         "git_status": git_status,
-        "argv": ["benchmark/run_handoff_trial.py", *sys.argv[1:]],
+        "argv": canonical_argv(args, variables),
     }
 
 
@@ -318,7 +327,7 @@ def main() -> int:
         "trial_id": require(manifest, "trial_id"),
         "description": manifest.get("description", ""),
         "status": "PASS" if all(step.status == "PASS" for step in steps) else "FAIL",
-        "metadata": build_metadata(),
+        "metadata": build_metadata(args, variables),
         "manifest": str(args.manifest),
         "rendered_manifest": manifest,
         "variables": variables,

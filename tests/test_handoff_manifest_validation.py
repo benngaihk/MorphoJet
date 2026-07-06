@@ -6,6 +6,7 @@ from __future__ import annotations
 import copy
 import sys
 import unittest
+from argparse import Namespace
 from pathlib import Path
 
 
@@ -98,6 +99,33 @@ class HandoffManifestValidationTest(unittest.TestCase):
         del manifest["external_evidence"]
 
         run_handoff_trial.validate_manifest(manifest)
+
+    def test_handoff_runner_records_canonical_argv(self) -> None:
+        args = Namespace(
+            manifest=Path("manifest.json"),
+            out_json=Path("reports/handoff_trial.json"),
+            out_md=Path("reports/handoff_trial.md"),
+            require_external_evidence=True,
+        )
+
+        argv = run_handoff_trial.canonical_argv(args, {"z": "last", "a": "first"})
+
+        self.assertEqual(
+            [
+                "benchmark/run_handoff_trial.py",
+                "manifest.json",
+                "--var",
+                "a=first",
+                "--var",
+                "z=last",
+                "--out-json",
+                "reports/handoff_trial.json",
+                "--out-md",
+                "reports/handoff_trial.md",
+                "--require-external-evidence",
+            ],
+            argv,
+        )
 
     def test_handoff_runner_rejects_report_output_over_manifest_input(self) -> None:
         with self.assertRaises(SystemExit) as context:

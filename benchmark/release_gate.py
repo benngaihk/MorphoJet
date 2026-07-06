@@ -614,7 +614,66 @@ def external_trial_metadata_argv_failures(
                 and normalized_path_key(Path(value)) != normalized_path_key(report_path)
             ):
                 failures.append("metadata.argv --out-json must match external trial report path")
+    failures.extend(canonical_external_trial_argv_failures(argv, trial, report_path))
     return failures
+
+
+def canonical_external_trial_argv_failures(
+    argv: list[str],
+    trial: dict,
+    report_path: Path | None = None,
+) -> list[str]:
+    manifest = trial.get("manifest")
+    out_json_values = argv_values(argv, "--out-json")
+    out_md_values = argv_values(argv, "--out-md")
+    if (
+        not isinstance(manifest, str)
+        or not manifest.strip()
+        or len(out_json_values) != 1
+        or len(out_md_values) != 1
+        or out_json_values[0] is None
+        or out_md_values[0] is None
+        or argv.count("--require-external-evidence") != 1
+    ):
+        return []
+    variables = trial.get("variables")
+    if variables is None:
+        variables = {}
+    if not isinstance(variables, dict) or not all(
+        isinstance(key, str) and isinstance(value, str) for key, value in variables.items()
+    ):
+        return []
+    expected_out_json = str(report_path) if report_path is not None else out_json_values[0]
+    canonical = ["benchmark/run_handoff_trial.py", manifest]
+    for key in sorted(variables):
+        canonical.extend(["--var", f"{key}={variables[key]}"])
+    canonical.extend(
+        [
+            "--out-json",
+            normalized_path_key(Path(expected_out_json)),
+            "--out-md",
+            normalized_path_key(Path(out_md_values[0])),
+            "--require-external-evidence",
+        ]
+    )
+    if normalize_external_trial_metadata_argv(argv) != canonical:
+        return ["metadata.argv must match canonical external trial runner argv"]
+    return []
+
+
+def normalize_external_trial_metadata_argv(argv: list[str]) -> list[str]:
+    normalized = []
+    path_flags = {"--out-json", "--out-md"}
+    index = 0
+    while index < len(argv):
+        item = argv[index]
+        normalized.append(item)
+        if item in path_flags and index + 1 < len(argv) and not argv[index + 1].startswith("--"):
+            normalized.append(normalized_path_key(Path(argv[index + 1])))
+            index += 2
+            continue
+        index += 1
+    return normalized
 
 
 def external_trial_metadata_failures(
