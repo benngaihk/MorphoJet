@@ -113,6 +113,54 @@ def validate_existing_inputs(args: argparse.Namespace) -> None:
         )
 
 
+def normalized_path_key(path: Path) -> str:
+    return str(path.expanduser().resolve(strict=False))
+
+
+def protected_input_paths(args: argparse.Namespace) -> dict[str, str]:
+    paths = {
+        args.external_trial_json: "--external-trial-json",
+        args.external_trial_root: "--external-trial-root",
+        args.external_evidence_package_dir: "--external-evidence-package-dir",
+        args.external_evidence_package_dir / "handoff_trial.json": "packaged handoff_trial.json",
+        args.external_evidence_package_dir / "external_evidence.json": "packaged external_evidence.json",
+        args.external_evidence_package_dir / "rendered_manifest.json": "packaged rendered_manifest.json",
+        args.external_evidence_package_dir / "artifact_manifest.json": "packaged artifact_manifest.json",
+        args.external_evidence_package_dir.parent / f"{args.external_evidence_package_dir.name}.zip": "evidence package zip",
+        args.external_evidence_package_dir.parent / f"{args.external_evidence_package_dir.name}.zip.sha256": (
+            "evidence package checksum"
+        ),
+    }
+    for path, label in [
+        (args.external_trial_verification_report, "--external-trial-verification-report"),
+        (
+            args.external_evidence_package_verification_report,
+            "--external-evidence-package-verification-report",
+        ),
+        (args.github_release_verification_report, "--github-release-verification-report"),
+    ]:
+        if path is not None:
+            paths[path] = label
+    return {normalized_path_key(path): label for path, label in paths.items()}
+
+
+def validate_report_output_paths(args: argparse.Namespace, outputs: list[tuple[str, Path]]) -> None:
+    protected = protected_input_paths(args)
+    output_keys: dict[str, str] = {}
+    failures = []
+    for label, path in outputs:
+        key = normalized_path_key(path)
+        if key in output_keys:
+            failures.append(f"{label} must not use the same path as {output_keys[key]}")
+        else:
+            output_keys[key] = label
+        protected_label = protected.get(key)
+        if protected_label:
+            failures.append(f"{label} must not overwrite {protected_label}: {path}")
+    if failures:
+        raise ProductionGateError("; ".join(failures))
+
+
 def build_release_gate_command(args: argparse.Namespace) -> list[str]:
     validate_stable_tag(args.github_release_tag)
     command = [
@@ -502,6 +550,13 @@ def write_local_evidence_preflight_report(
 
 
 def run_local_evidence_preflight(args: argparse.Namespace) -> int:
+    validate_report_output_paths(
+        args,
+        [
+            ("--local-evidence-preflight-json", args.local_evidence_preflight_json),
+            ("--local-evidence-preflight-md", args.local_evidence_preflight_md),
+        ],
+    )
     gates = [
         release_gate.validate_external_trial_report(args.external_trial_json, args.external_trial_root),
         release_gate.validate_external_evidence_package(args.external_evidence_package_dir, args.external_trial_json),
@@ -575,6 +630,22 @@ def main(argv: list[str] | None = None) -> int:
             )
         require_final_gate_args(args)
         command = build_release_gate_command(args)
+        if args.local_evidence_preflight_only:
+            validate_report_output_paths(
+                args,
+                [
+                    ("--local-evidence-preflight-json", args.local_evidence_preflight_json),
+                    ("--local-evidence-preflight-md", args.local_evidence_preflight_md),
+                ],
+            )
+        else:
+            validate_report_output_paths(
+                args,
+                [
+                    ("--out-json", args.out_json),
+                    ("--out-md", args.out_md),
+                ],
+            )
         if not args.dry_run:
             validate_existing_inputs(args)
     except ProductionGateError as exc:

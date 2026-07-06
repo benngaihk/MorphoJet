@@ -329,6 +329,70 @@ class RunProductionGateTest(unittest.TestCase):
 
         self.assertEqual(0, status)
 
+    def test_final_report_outputs_must_not_overlap(self) -> None:
+        args = self.parse("--out-json", "reports/production.json", "--out-md", "./reports/production.json")
+
+        with self.assertRaisesRegex(run_production_gate.ProductionGateError, "--out-md must not use the same path"):
+            run_production_gate.validate_report_output_paths(
+                args,
+                [
+                    ("--out-json", args.out_json),
+                    ("--out-md", args.out_md),
+                ],
+            )
+
+    def test_final_report_output_must_not_overwrite_external_trial_json(self) -> None:
+        args = self.parse("--out-json", "external/handoff_trial.json")
+
+        with self.assertRaisesRegex(run_production_gate.ProductionGateError, "--out-json must not overwrite"):
+            run_production_gate.validate_report_output_paths(
+                args,
+                [
+                    ("--out-json", args.out_json),
+                    ("--out-md", args.out_md),
+                ],
+            )
+
+    def test_local_preflight_output_must_not_overwrite_package_checksum(self) -> None:
+        args = self.parse(
+            "--local-evidence-preflight-json",
+            "evidence/external-l4-trial.zip.sha256",
+            "--local-evidence-preflight-only",
+        )
+
+        with self.assertRaisesRegex(
+            run_production_gate.ProductionGateError,
+            "--local-evidence-preflight-json must not overwrite evidence package checksum",
+        ):
+            run_production_gate.validate_report_output_paths(
+                args,
+                [
+                    ("--local-evidence-preflight-json", args.local_evidence_preflight_json),
+                    ("--local-evidence-preflight-md", args.local_evidence_preflight_md),
+                ],
+            )
+
+    def test_dry_run_rejects_report_output_over_external_input(self) -> None:
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            status = run_production_gate.main(
+                [
+                    "--external-trial-json",
+                    "external/handoff_trial.json",
+                    "--external-trial-root",
+                    "external",
+                    "--external-evidence-package-dir",
+                    "evidence/external-l4-trial",
+                    "--github-release-tag",
+                    "v0.1.0",
+                    "--out-json",
+                    "external/handoff_trial.json",
+                    "--dry-run",
+                ]
+            )
+
+        self.assertEqual(2, status)
+        self.assertIn("--out-json must not overwrite --external-trial-json", stderr.getvalue())
+
     def test_local_evidence_preflight_passes_valid_trial_package(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
