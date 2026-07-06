@@ -268,6 +268,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             "repo": "benngaihk/MorphoJet",
             "url": "https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0",
             "out_dir": str(out_dir),
+            "is_draft": False,
             "is_prerelease": False,
             "expected_release_kind": "stable",
             "expected_commit": self.FULL_COMMIT,
@@ -339,12 +340,24 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             payload["schema_version"] = 2
             payload["verifier"] = "other.py"
             payload["generated_at_utc"] = "not-a-date"
+            payload["is_draft"] = "no"
 
             failures = verify_github_release.validate_verification_report_payload(payload)
 
         self.assertIn("schema_version=2", failures)
         self.assertIn("verifier=other.py", failures)
         self.assertIn("generated_at_utc is invalid: not-a-date", failures)
+        self.assertIn("is_draft must be a boolean", failures)
+
+    def test_saved_release_report_rejects_passing_draft_release(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["is_draft"] = True
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn("passing github release verification report must have is_draft=false", failures)
 
     def test_saved_release_report_rejects_url_not_bound_to_repo_and_tag(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

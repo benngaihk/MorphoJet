@@ -445,6 +445,11 @@ def validate_verification_report_payload(
         failures.extend(release_report_url_issues(repo, tag, url))
     if not isinstance(payload.get("is_prerelease"), bool):
         failures.append("is_prerelease must be a boolean")
+    is_draft = payload.get("is_draft")
+    if not isinstance(is_draft, bool):
+        failures.append("is_draft must be a boolean")
+    elif status == "PASS" and is_draft:
+        failures.append("passing github release verification report must have is_draft=false")
     expected_kind = payload.get("expected_release_kind")
     if expected_kind not in {"stable", "prerelease", None}:
         failures.append(f"expected_release_kind={expected_kind}")
@@ -723,6 +728,7 @@ def main() -> int:
         "repo": args.repo,
         "url": release.get("url"),
         "out_dir": str(out_dir),
+        "is_draft": release.get("isDraft"),
         "is_prerelease": release.get("isPrerelease"),
         "expected_release_kind": "stable" if args.expect_stable else "prerelease" if args.expect_prerelease else None,
         "expected_commit": expected_commit,

@@ -70,6 +70,7 @@ class RunProductionGateTest(unittest.TestCase):
                     "repo": "benngaihk/MorphoJet",
                     "url": "https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0",
                     "out_dir": str(out_dir),
+                    "is_draft": False,
                     "is_prerelease": False,
                     "expected_release_kind": "stable",
                     "expected_commit": self.FULL_COMMIT,
