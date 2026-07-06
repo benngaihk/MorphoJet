@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shlex
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +39,14 @@ def write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def slugify(value: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-")
     return slug or "external-l4-trial"
@@ -44,6 +54,17 @@ def slugify(value: str) -> str:
 
 def command_line(command: list[str]) -> str:
     return " ".join(shlex.quote(part) for part in command)
+
+
+def generator_argv(template_path: Path, workspace: Path, package_name: str | None, overwrite: bool) -> list[str]:
+    argv = [GENERATOR, "--workspace", str(workspace)]
+    if template_path != DEFAULT_TEMPLATE:
+        argv.extend(["--template", str(template_path)])
+    if package_name is not None:
+        argv.extend(["--package-name", package_name])
+    if overwrite:
+        argv.append("--overwrite")
+    return argv
 
 
 def validate_template(template: dict[str, Any]) -> None:
@@ -268,7 +289,11 @@ def prepare_workspace(
     plan = {
         "schema_version": 1,
         "generator": GENERATOR,
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "argv": generator_argv(template_path, workspace, package_name, overwrite),
         "template": str(template_path),
+        "template_size_bytes": template_path.stat().st_size,
+        "template_sha256": sha256(template_path),
         "workspace": str(workspace),
         "manifest": str(manifest_path),
         "package_name": package_slug,

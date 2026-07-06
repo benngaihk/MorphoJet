@@ -7,6 +7,7 @@ import json
 import sys
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 
@@ -27,6 +28,20 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             plan = prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
 
             self.assertEqual("NOT_PRODUCTION_CLAIM", plan["claim_status"])
+            generated_at = datetime.fromisoformat(plan["generated_at_utc"])
+            self.assertIsNotNone(generated_at.tzinfo)
+            self.assertEqual(
+                [
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--workspace",
+                    str(workspace),
+                    "--template",
+                    str(TEMPLATE),
+                ],
+                plan["argv"],
+            )
+            self.assertEqual(TEMPLATE.stat().st_size, plan["template_size_bytes"])
+            self.assertEqual(prepare_external_l4_trial.sha256(TEMPLATE), plan["template_sha256"])
             self.assertTrue((workspace / "external_manifest.json").is_file())
             self.assertTrue((workspace / "trial_plan.json").is_file())
             self.assertTrue((workspace / "README.md").is_file())
@@ -53,6 +68,29 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("--local-evidence-preflight-only", plan["commands"]["local_evidence_preflight"])
             readme = (workspace / "README.md").read_text(encoding="utf-8")
             self.assertLess(readme.index("## verify_readiness"), readme.index("## run_trial"))
+
+    def test_prepare_workspace_records_custom_generator_argv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+
+            plan = prepare_external_l4_trial.prepare_workspace(
+                TEMPLATE,
+                workspace,
+                package_name="external review package",
+            )
+
+            self.assertEqual(
+                [
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--workspace",
+                    str(workspace),
+                    "--template",
+                    str(TEMPLATE),
+                    "--package-name",
+                    "external review package",
+                ],
+                plan["argv"],
+            )
 
     def test_prepare_workspace_binds_custom_package_name_into_readiness(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
