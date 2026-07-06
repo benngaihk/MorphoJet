@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 
@@ -110,6 +111,56 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             self.assertEqual("READY", payload["status"])
             self.assertEqual([], payload["issues"])
             self.assertTrue(all(check["status"] == "PASS" for check in payload["checks"]))
+            generated_at = datetime.fromisoformat(payload["generated_at_utc"])
+            self.assertIsNotNone(generated_at.tzinfo)
+            self.assertEqual(
+                ["benchmark/check_external_l4_readiness.py", "--workspace", str(workspace)],
+                payload["argv"],
+            )
+
+    def test_cli_report_records_auditable_timestamp_and_argv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace, package_name="custom review")
+            manifest_path = workspace / "external_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            fill_external_evidence(manifest)
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            write_valid_inputs(workspace)
+            json_out = workspace / "readiness.json"
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--workspace",
+                    str(workspace),
+                    "--package-name",
+                    "custom-review",
+                    "--json-out",
+                    str(json_out),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            generated_at = datetime.fromisoformat(payload["generated_at_utc"])
+            self.assertIsNotNone(generated_at.tzinfo)
+            self.assertEqual(
+                [
+                    "benchmark/check_external_l4_readiness.py",
+                    "--workspace",
+                    str(workspace),
+                    "--package-name",
+                    "custom-review",
+                    "--json-out",
+                    str(json_out),
+                ],
+                payload["argv"],
+            )
 
     def test_existing_package_output_blocks_default_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

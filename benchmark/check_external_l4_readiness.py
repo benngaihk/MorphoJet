@@ -7,6 +7,7 @@ import argparse
 import csv
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -221,13 +222,34 @@ def unique_issues(issues: list[str]) -> list[str]:
     return deduped
 
 
+def readiness_argv(
+    workspace: Path,
+    manifest_path: Path | None = None,
+    package_name: str | None = None,
+    variables: dict[str, str] | None = None,
+    json_out: Path | None = None,
+) -> list[str]:
+    argv = [CHECKER, "--workspace", str(workspace)]
+    if manifest_path is not None:
+        argv.extend(["--manifest", str(manifest_path)])
+    if package_name is not None:
+        argv.extend(["--package-name", package_name])
+    for key, value in sorted((variables or {}).items()):
+        argv.extend(["--var", f"{key}={value}"])
+    if json_out is not None:
+        argv.extend(["--json-out", str(json_out)])
+    return argv
+
+
 def readiness_report(
     workspace: Path,
     manifest_path: Path | None = None,
     package_name: str | None = None,
     variables: dict[str, str] | None = None,
+    json_out: Path | None = None,
 ) -> dict[str, Any]:
-    variables = {"base_dir": str(workspace), **(variables or {})}
+    explicit_variables = variables or {}
+    variables = {"base_dir": str(workspace), **explicit_variables}
     manifest_path = manifest_path or workspace / MANIFEST_NAME
     issues: list[str] = []
     checks: list[dict[str, Any]] = []
@@ -297,6 +319,14 @@ def readiness_report(
     return {
         "schema_version": 1,
         "checker": CHECKER,
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "argv": readiness_argv(
+            workspace,
+            manifest_path=manifest_path if manifest_path != workspace / MANIFEST_NAME else None,
+            package_name=package_name,
+            variables=explicit_variables,
+            json_out=json_out,
+        ),
         "status": status,
         "claim_status": "NOT_PRODUCTION_CLAIM",
         "workspace": str(workspace),
@@ -323,6 +353,7 @@ def main() -> int:
             manifest_path=args.manifest,
             package_name=args.package_name,
             variables=variables,
+            json_out=args.json_out,
         )
     except Exception as exc:  # noqa: BLE001 - keep CLI report failures explicit.
         print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr)
