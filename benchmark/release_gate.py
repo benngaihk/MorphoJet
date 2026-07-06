@@ -562,7 +562,52 @@ def is_git_commit(value: object) -> bool:
     )
 
 
-def external_trial_metadata_failures(metadata: object) -> list[str]:
+def argv_values(argv: list[str], flag: str) -> list[str | None]:
+    values: list[str | None] = []
+    for index, item in enumerate(argv):
+        if item != flag:
+            continue
+        if index + 1 >= len(argv) or argv[index + 1].startswith("--"):
+            values.append(None)
+        else:
+            values.append(argv[index + 1])
+    return values
+
+
+def external_trial_metadata_argv_failures(metadata: dict, trial: dict) -> list[str]:
+    failures = []
+    argv = metadata.get("argv")
+    if not isinstance(argv, list) or not argv or not all(isinstance(item, str) and item for item in argv):
+        return ["metadata.argv must be a non-empty string list"]
+    if argv[0] != "benchmark/run_handoff_trial.py":
+        failures.append(f"metadata.argv[0]={argv[0]}")
+
+    strict_flag = "--require-external-evidence"
+    if argv.count(strict_flag) != 1:
+        failures.append(
+            "metadata.argv must include exactly one --require-external-evidence "
+            "for external workflow trial reports"
+        )
+
+    manifest = trial.get("manifest")
+    if not isinstance(manifest, str) or not manifest.strip():
+        failures.append("trial manifest must be a non-empty string")
+    elif argv.count(manifest) != 1:
+        failures.append(f"metadata.argv must include trial manifest path exactly once: {manifest}")
+
+    for flag in ["--out-json", "--out-md"]:
+        values = argv_values(argv, flag)
+        if len(values) > 1:
+            failures.append(f"metadata.argv has duplicate {flag}")
+        if not values:
+            failures.append(f"metadata.argv missing {flag}")
+        for value in values:
+            if value is None:
+                failures.append(f"metadata.argv {flag} must include a value")
+    return failures
+
+
+def external_trial_metadata_failures(metadata: object, trial: dict) -> list[str]:
     failures = []
     if not isinstance(metadata, dict):
         return ["metadata must be present for external workflow trial reports"]
@@ -605,13 +650,7 @@ def external_trial_metadata_failures(metadata: object) -> list[str]:
     git_status = metadata.get("git_status")
     if git_status != []:
         failures.append("metadata.git_status must be empty for a clean external trial")
-    argv = metadata.get("argv")
-    if not isinstance(argv, list) or not argv or not all(isinstance(item, str) and item for item in argv):
-        failures.append("metadata.argv must be a non-empty string list")
-    elif argv[0] != "benchmark/run_handoff_trial.py":
-        failures.append(f"metadata.argv[0]={argv[0]}")
-    elif "--require-external-evidence" not in argv:
-        failures.append("metadata.argv must include --require-external-evidence for external workflow trial reports")
+    failures.extend(external_trial_metadata_argv_failures(metadata, trial))
     return failures
 
 
@@ -619,7 +658,7 @@ def external_trial_failures(trial: dict, artifact_root: Path | None = None, arti
     failures = []
     if trial.get("status") != "PASS":
         failures.append(f"trial status is {trial.get('status')}")
-    failures.extend(external_trial_metadata_failures(trial.get("metadata")))
+    failures.extend(external_trial_metadata_failures(trial.get("metadata"), trial))
     rendered_manifest = trial.get("rendered_manifest")
     if not isinstance(rendered_manifest, dict):
         failures.append("rendered_manifest must be present for external workflow trial reports")

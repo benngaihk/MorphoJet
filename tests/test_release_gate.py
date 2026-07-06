@@ -70,9 +70,14 @@ def valid_external_trial() -> dict:
             "argv": [
                 "benchmark/run_handoff_trial.py",
                 "external_manifest.json",
+                "--out-json",
+                "external/handoff_trial.json",
+                "--out-md",
+                "external/handoff_trial.md",
                 "--require-external-evidence",
             ],
         },
+        "manifest": "external_manifest.json",
         "rendered_manifest": manifest,
         "external_evidence": external_evidence,
         "artifacts": release_gate.rendered_manifest_artifacts(manifest),
@@ -448,14 +453,63 @@ class ReleaseGateTest(unittest.TestCase):
             trial = valid_external_trial()
             write_trial_artifacts(trial, root)
             add_artifact_provenance(trial, root)
-            trial["metadata"]["argv"] = ["benchmark/run_handoff_trial.py", "external_manifest.json"]
+            trial["metadata"]["argv"] = [
+                "benchmark/run_handoff_trial.py",
+                "external_manifest.json",
+                "--out-json",
+                "external/handoff_trial.json",
+                "--out-md",
+                "external/handoff_trial.md",
+            ]
 
             failures = release_gate.external_trial_failures(trial, root)
 
         self.assertIn(
-            "metadata.argv must include --require-external-evidence for external workflow trial reports",
+            "metadata.argv must include exactly one --require-external-evidence "
+            "for external workflow trial reports",
             failures,
         )
+
+    def test_external_trial_rejects_metadata_argv_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            trial["metadata"]["argv"] = [
+                "benchmark/run_handoff_trial.py",
+                "other_manifest.json",
+                "--out-json",
+                "--out-md",
+                "external/handoff_trial.md",
+                "--out-md",
+                "external/other.md",
+                "--require-external-evidence",
+                "--require-external-evidence",
+            ]
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("metadata.argv must include trial manifest path exactly once: external_manifest.json", failures)
+        self.assertIn("metadata.argv --out-json must include a value", failures)
+        self.assertIn("metadata.argv has duplicate --out-md", failures)
+        self.assertIn(
+            "metadata.argv must include exactly one --require-external-evidence "
+            "for external workflow trial reports",
+            failures,
+        )
+
+    def test_external_trial_requires_manifest_source_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            del trial["manifest"]
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("trial manifest must be a non-empty string", failures)
 
     def test_external_trial_rejects_unreachable_metadata_commit(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

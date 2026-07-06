@@ -318,7 +318,7 @@ Artifacts:
 - Bridge JSON: `benchmark/results/cellbindb/oracle-full/workflow_bridge.json`
 - Handoff runner: `benchmark/run_handoff_trial.py`
 - Handoff manifest validator: `benchmark/validate_handoff_manifest.py`
-- External evidence gate: `--require-external-evidence` requires clean-git generator metadata for the current or compatible commit, lab/workflow owner, dataset source, downstream workflow, execution environment, acceptance criteria, `manual_csv_editing=false`, a rendered manifest snapshot, a step list, commands, runtimes, and execution details that match the manifest-declared actions, an artifact list that exactly matches the manifest-declared outputs, and one SHA-256/size provenance entry for each listed artifact for real external trials.
+- External evidence gate: `--require-external-evidence` requires clean-git generator metadata for the current or compatible commit, a source manifest path, `metadata.argv` bindings for that manifest plus `--out-json`, `--out-md`, and exactly one strict external-evidence flag, lab/workflow owner, dataset source, downstream workflow, execution environment, acceptance criteria, `manual_csv_editing=false`, a rendered manifest snapshot, a step list, commands, runtimes, and execution details that match the manifest-declared actions, an artifact list that exactly matches the manifest-declared outputs, and one SHA-256/size provenance entry for each listed artifact for real external trials.
 - Materializer: `benchmark/materialize_morphojet_cellprofiler_wide.py`
 - Comparator: `benchmark/compare_cellprofiler_wide_subset.py`
 - Contract checker: `benchmark/check_cellprofiler_wide_contract.py`
