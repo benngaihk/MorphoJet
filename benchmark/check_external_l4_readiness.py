@@ -63,6 +63,18 @@ def trial_output_issues(manifest: dict[str, Any]) -> list[str]:
     return issues
 
 
+def planned_report_output_issues(workspace: Path) -> list[str]:
+    paths = [
+        workspace / "handoff_trial.json",
+        workspace / "handoff_trial.md",
+        workspace / "handoff_trial-verification.json",
+        workspace / "evidence-package-verification.json",
+        workspace / "local-evidence-preflight.json",
+        workspace / "local-evidence-preflight.md",
+    ]
+    return [f"planned report output already exists before run: {path}" for path in paths if path.exists()]
+
+
 def read_csv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
     with path.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
@@ -186,6 +198,7 @@ def readiness_report(
         csv_schema_issues = input_csv_schema_issues(manifest) if not file_issues else []
         trial_output_path_issues = trial_output_issues(manifest)
         report_output_issues = check_report_outputs(manifest_path, manifest, workspace)
+        planned_report_output_path_issues = planned_report_output_issues(workspace)
         trial_id = manifest.get("trial_id")
         package_issues = (
             package_output_issues(workspace, trial_id, package_name)
@@ -210,6 +223,11 @@ def readiness_report(
                     "name": "report_output_paths",
                     "status": "PASS" if not report_output_issues else "FAIL",
                     "issues": report_output_issues,
+                },
+                {
+                    "name": "planned_report_outputs",
+                    "status": "PASS" if not planned_report_output_path_issues else "FAIL",
+                    "issues": planned_report_output_path_issues,
                 },
                 {"name": "package_outputs", "status": "PASS" if not package_issues else "FAIL", "issues": package_issues},
             ]
