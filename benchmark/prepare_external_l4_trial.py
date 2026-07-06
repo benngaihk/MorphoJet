@@ -87,6 +87,8 @@ def plan_commands(
             "benchmark/check_external_l4_readiness.py",
             "--workspace",
             str(workspace),
+            "--package-name",
+            package_name,
             "--json-out",
             str(workspace / "readiness.json"),
         ],

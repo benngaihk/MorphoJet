@@ -42,7 +42,22 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn(f"base_dir={workspace}", run_command)
             self.assertEqual(str(workspace / "handoff_trial.json"), run_command[run_command.index("--out-json") + 1])
             self.assertEqual(str(workspace), plan["commands"]["check_readiness"][3])
+            self.assertEqual(plan["package_name"], plan["commands"]["check_readiness"][5])
             self.assertIn("--local-evidence-preflight-only", plan["commands"]["local_evidence_preflight"])
+
+    def test_prepare_workspace_binds_custom_package_name_into_readiness(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+
+            plan = prepare_external_l4_trial.prepare_workspace(
+                TEMPLATE,
+                workspace,
+                package_name="external review package",
+            )
+
+            self.assertEqual("external-review-package", plan["package_name"])
+            command = plan["commands"]["check_readiness"]
+            self.assertEqual("external-review-package", command[command.index("--package-name") + 1])
 
     def test_prepare_workspace_refuses_to_overwrite_generated_files_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -127,6 +127,23 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             self.assertEqual("NOT_READY", payload["status"])
             self.assertIn(f"package output already exists: {package_dir}", payload["issues"])
 
+    def test_existing_custom_package_output_blocks_readiness(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace, package_name="custom review")
+            manifest_path = workspace / "external_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            fill_external_evidence(manifest)
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            write_valid_inputs(workspace)
+            package_dir = workspace / "evidence-package" / "custom-review"
+            package_dir.mkdir()
+
+            payload = check_external_l4_readiness.readiness_report(workspace, package_name="custom-review")
+
+            self.assertEqual("NOT_READY", payload["status"])
+            self.assertIn(f"package output already exists: {package_dir}", payload["issues"])
+
     def test_existing_trial_output_blocks_readiness(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "external-trial"
