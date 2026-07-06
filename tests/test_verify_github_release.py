@@ -267,9 +267,17 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             "tag": "v0.1.0",
             "repo": "benngaihk/MorphoJet",
             "url": "https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0",
+            "release_id": "RE_release",
+            "release_database_id": 123,
+            "release_api_url": "https://api.github.com/repos/benngaihk/MorphoJet/releases/123",
+            "release_created_at": "2026-07-03T00:00:00Z",
+            "release_published_at": "2026-07-03T00:00:01Z",
+            "release_author_login": "github-actions[bot]",
             "out_dir": str(out_dir),
             "is_draft": False,
+            "is_immutable": False,
             "is_prerelease": False,
+            "target_commitish": "main",
             "expected_release_kind": "stable",
             "expected_commit": self.FULL_COMMIT,
             "expected_doctor_commit": self.DOCTOR_COMMIT,
@@ -348,6 +356,32 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn("verifier=other.py", failures)
         self.assertIn("generated_at_utc is invalid: not-a-date", failures)
         self.assertIn("is_draft must be a boolean", failures)
+
+    def test_saved_release_report_rejects_bad_release_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["release_id"] = ""
+            payload["release_database_id"] = 0
+            payload["release_api_url"] = "https://api.github.com/repos/other/repo/releases/123"
+            payload["release_created_at"] = "2026-07-03T00:00:02Z"
+            payload["release_published_at"] = "2026-07-03T00:00:01Z"
+            payload["release_author_login"] = ""
+            payload["is_immutable"] = "false"
+            payload["target_commitish"] = ""
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn("release_id must be a non-empty string", failures)
+        self.assertIn("release_database_id must be a positive integer", failures)
+        self.assertIn(
+            "release_api_url does not match repo: https://api.github.com/repos/other/repo/releases/123",
+            failures,
+        )
+        self.assertIn("release_published_at must not be earlier than release_created_at", failures)
+        self.assertIn("release_author_login must be a non-empty string", failures)
+        self.assertIn("is_immutable must be a boolean", failures)
+        self.assertIn("target_commitish must be a non-empty string", failures)
 
     def test_saved_release_report_rejects_passing_draft_release(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

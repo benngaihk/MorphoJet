@@ -25,6 +25,7 @@ STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 FULL_COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
 SHORT_COMMIT_PATTERN = re.compile(r"[0-9a-f]{12}")
 ASSET_DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
+GITHUB_API_RELEASE_URL_PATTERN = re.compile(r"^https://api\.github\.com/repos/[^/]+/[^/]+/releases/\d+$")
 
 
 def run(command: list[str]) -> str:
@@ -80,7 +81,25 @@ def archive_members(path: Path) -> set[str]:
 
 
 def release_json(repo: str, tag: str) -> dict:
-    return json.loads(run(["gh", "release", "view", tag, "--repo", repo, "--json", "tagName,name,url,isDraft,isPrerelease,assets"]))
+    fields = ",".join(
+        [
+            "apiUrl",
+            "assets",
+            "author",
+            "createdAt",
+            "databaseId",
+            "id",
+            "isDraft",
+            "isImmutable",
+            "isPrerelease",
+            "name",
+            "publishedAt",
+            "tagName",
+            "targetCommitish",
+            "url",
+        ]
+    )
+    return json.loads(run(["gh", "release", "view", tag, "--repo", repo, "--json", fields]))
 
 
 def download_release(repo: str, tag: str, out_dir: Path) -> None:
@@ -129,6 +148,10 @@ def release_identity_issues(tag: str, release: dict) -> list[str]:
 
 def expected_release_url(repo: str, tag: str) -> str:
     return f"https://github.com/{repo}/releases/tag/{tag}"
+
+
+def expected_release_api_url_prefix(repo: str) -> str:
+    return f"https://api.github.com/repos/{repo}/releases/"
 
 
 def expected_asset_url(repo: str, tag: str, name: str) -> str:
@@ -354,6 +377,42 @@ def release_report_url_issues(repo: Any, tag: Any, url: Any) -> list[str]:
     return []
 
 
+def release_metadata_issues(payload: dict[str, Any], status: Any, repo: Any) -> list[str]:
+    failures = []
+    release_id = payload.get("release_id")
+    if not isinstance(release_id, str) or not release_id.strip():
+        failures.append("release_id must be a non-empty string")
+    database_id = payload.get("release_database_id")
+    if not isinstance(database_id, int) or database_id <= 0:
+        failures.append("release_database_id must be a positive integer")
+    api_url = payload.get("release_api_url")
+    if not isinstance(api_url, str) or not api_url.strip():
+        failures.append("release_api_url must be a non-empty string")
+    else:
+        if not GITHUB_API_RELEASE_URL_PATTERN.fullmatch(api_url):
+            failures.append(f"release_api_url must be a GitHub release API URL: {api_url}")
+        if isinstance(repo, str) and repo.strip() and not api_url.startswith(expected_release_api_url_prefix(repo)):
+            failures.append(f"release_api_url does not match repo: {api_url}")
+    is_immutable = payload.get("is_immutable")
+    if not isinstance(is_immutable, bool):
+        failures.append("is_immutable must be a boolean")
+    target_commitish = payload.get("target_commitish")
+    if not isinstance(target_commitish, str) or not target_commitish.strip():
+        failures.append("target_commitish must be a non-empty string")
+    author_login = payload.get("release_author_login")
+    if not isinstance(author_login, str) or not author_login.strip():
+        failures.append("release_author_login must be a non-empty string")
+    created_at = payload.get("release_created_at")
+    published_at = payload.get("release_published_at")
+    parsed_created_at = parse_asset_timestamp(created_at, "release_created_at", "release", failures)
+    parsed_published_at = parse_asset_timestamp(published_at, "release_published_at", "release", failures)
+    if parsed_created_at is not None and parsed_published_at is not None and parsed_published_at < parsed_created_at:
+        failures.append("release_published_at must not be earlier than release_created_at")
+    if status == "PASS" and parsed_published_at is None:
+        failures.append("passing github release verification report must have release_published_at")
+    return failures
+
+
 def doctor_run_issues(archive_summaries: list[dict]) -> list[str]:
     if any(summary.get("doctor") is not None for summary in archive_summaries):
         return []
@@ -443,6 +502,7 @@ def validate_verification_report_payload(
         failures.append("url must be a non-empty string")
     else:
         failures.extend(release_report_url_issues(repo, tag, url))
+    failures.extend(release_metadata_issues(payload, status, repo))
     if not isinstance(payload.get("is_prerelease"), bool):
         failures.append("is_prerelease must be a boolean")
     is_draft = payload.get("is_draft")
@@ -727,9 +787,17 @@ def main() -> int:
         "tag": args.tag,
         "repo": args.repo,
         "url": release.get("url"),
+        "release_id": release.get("id"),
+        "release_database_id": release.get("databaseId"),
+        "release_api_url": release.get("apiUrl"),
+        "release_created_at": release.get("createdAt"),
+        "release_published_at": release.get("publishedAt"),
+        "release_author_login": (release.get("author") or {}).get("login") if isinstance(release.get("author"), dict) else None,
         "out_dir": str(out_dir),
         "is_draft": release.get("isDraft"),
+        "is_immutable": release.get("isImmutable"),
         "is_prerelease": release.get("isPrerelease"),
+        "target_commitish": release.get("targetCommitish"),
         "expected_release_kind": "stable" if args.expect_stable else "prerelease" if args.expect_prerelease else None,
         "expected_commit": expected_commit,
         "expected_doctor_commit": expected_doctor_commit,
