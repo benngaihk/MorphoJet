@@ -26,6 +26,27 @@ PACKAGE_REVIEW_FILES = {
 }
 
 
+def argv_values(argv: list[str], flag: str) -> list[str | None]:
+    values: list[str | None] = []
+    for index, item in enumerate(argv):
+        if item != flag:
+            continue
+        if index + 1 >= len(argv) or argv[index + 1].startswith("--"):
+            values.append(None)
+        else:
+            values.append(argv[index + 1])
+    return values
+
+
+def verifier_argv(package_dir: Path, trial_json: Path | None, json_out: Path | None) -> list[str]:
+    argv = [VERIFIER, str(package_dir)]
+    if trial_json is not None:
+        argv.extend(["--trial-json", str(trial_json)])
+    if json_out is not None:
+        argv.extend(["--json-out", str(json_out)])
+    return argv
+
+
 def file_summary(path: Path) -> dict[str, Any]:
     summary: dict[str, Any] = {"path": str(path), "exists": path.is_file()}
     if path.is_file():
@@ -189,6 +210,7 @@ def verify_external_evidence_package(
         "verifier": VERIFIER,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "status": gate.status,
+        "argv": verifier_argv(package_dir, trial_json, json_out),
         "package_dir": str(package_dir),
         "trial_json": str(trial_json) if trial_json else None,
         "input_files": package_input_files(package_dir, trial_json),
@@ -243,6 +265,17 @@ def validate_verification_report_payload(
         failures.append("trial_json must be null or a non-empty string")
     if require_trial_json and (not isinstance(trial_json, str) or not trial_json.strip()):
         failures.append("trial_json is required for production package reviewer reports")
+    argv = payload.get("argv")
+    if not isinstance(argv, list) or not argv or not all(isinstance(item, str) and item for item in argv):
+        failures.append("argv must be a non-empty string list")
+    elif isinstance(package_dir, str) and package_dir.strip():
+        failures.extend(
+            verification_report_argv_issues(
+                argv,
+                package_dir,
+                trial_json if isinstance(trial_json, str) and trial_json.strip() else None,
+            )
+        )
     input_files = payload.get("input_files")
     failures.extend(input_files_issues(input_files, status, require_trial_json))
     if isinstance(input_files, dict) and isinstance(package_dir, str) and package_dir.strip():
@@ -271,6 +304,39 @@ def validate_verification_report_payload(
     elapsed = gate.get("elapsed_seconds")
     if not isinstance(elapsed, (int, float)) or elapsed < 0:
         failures.append(f"gate.elapsed_seconds={elapsed}")
+    return failures
+
+
+def verification_report_argv_issues(
+    argv: list[str],
+    package_dir: str,
+    trial_json: str | None,
+) -> list[str]:
+    failures = []
+    if argv[0] != VERIFIER:
+        failures.append(f"argv[0]={argv[0]}")
+    if "--verify-report" in argv:
+        failures.append("argv must not include --verify-report for a generated verifier report")
+    if argv.count(package_dir) != 1:
+        failures.append(f"argv must include package_dir exactly once: {package_dir}")
+    trial_json_values = argv_values(argv, "--trial-json")
+    if len(trial_json_values) > 1:
+        failures.append("argv has duplicate --trial-json")
+    if trial_json is not None and not trial_json_values:
+        failures.append(f"argv missing --trial-json {trial_json}")
+    if trial_json is None and trial_json_values:
+        failures.append("argv must not include --trial-json when trial_json is null")
+    for value in trial_json_values:
+        if value is None:
+            failures.append("argv --trial-json must include a value")
+        elif trial_json != value:
+            failures.append(f"trial_json must match argv --trial-json {value}")
+    json_out_values = argv_values(argv, "--json-out")
+    if len(json_out_values) > 1:
+        failures.append("argv has duplicate --json-out")
+    for value in json_out_values:
+        if value is None:
+            failures.append("argv --json-out must include a value")
     return failures
 
 
