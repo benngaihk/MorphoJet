@@ -996,6 +996,44 @@ def external_package_review_file_failures(package_dir: Path, artifact_manifest: 
     return failures
 
 
+def package_artifact_manifest_argv_failures(
+    artifact_manifest: dict,
+    package_dir: Path,
+    trial_json: Path | None,
+) -> list[str]:
+    failures = []
+    argv = artifact_manifest.get("argv")
+    if not isinstance(argv, list) or not argv or not all(isinstance(item, str) and item for item in argv):
+        return ["package artifact_manifest.argv must be a non-empty string list"]
+    if argv[0] != "benchmark/package_external_trial.py":
+        failures.append(f"package artifact_manifest.argv[0]={argv[0]}")
+    if argv.count("--overwrite") > 1:
+        failures.append("package artifact_manifest.argv has duplicate --overwrite")
+    expected_values = [
+        ("--trial-json", artifact_manifest.get("trial_json")),
+        ("--trial-root", artifact_manifest.get("trial_root")),
+        ("--out-dir", str(package_dir.parent)),
+        ("--package-name", package_dir.name),
+    ]
+    if trial_json is not None:
+        expected_values[0] = ("--trial-json", str(trial_json.resolve()))
+    for flag, expected in expected_values:
+        values = argv_values(argv, flag)
+        if len(values) > 1:
+            failures.append(f"package artifact_manifest.argv has duplicate {flag}")
+        if not values:
+            failures.append(f"package artifact_manifest.argv missing {flag}")
+        for value in values:
+            if value is None:
+                failures.append(f"package artifact_manifest.argv {flag} must include a value")
+            elif flag in {"--trial-json", "--trial-root", "--out-dir"}:
+                if not isinstance(expected, str) or normalized_path_key(Path(value)) != normalized_path_key(Path(expected)):
+                    failures.append(f"package artifact_manifest.argv {flag} must match artifact_manifest")
+            elif value != expected:
+                failures.append(f"package artifact_manifest.argv {flag} must match package name")
+    return failures
+
+
 def validate_external_evidence_package(package_dir: Path, trial_json: Path | None) -> Gate:
     started = time.perf_counter()
     try:
@@ -1032,6 +1070,7 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
             failures.append(f"package artifact_manifest.schema_version={artifact_manifest.get('schema_version')}")
         if artifact_manifest.get("generator") != "benchmark/package_external_trial.py":
             failures.append(f"package artifact_manifest.generator={artifact_manifest.get('generator')}")
+        failures.extend(package_artifact_manifest_argv_failures(artifact_manifest, package_dir, trial_json))
         packaged_at = artifact_manifest.get("packaged_at_utc")
         if not isinstance(packaged_at, str) or not packaged_at.strip():
             failures.append("package artifact_manifest.packaged_at_utc must be a non-empty string")

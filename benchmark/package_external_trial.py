@@ -17,6 +17,7 @@ import release_gate
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PACKAGER = "benchmark/package_external_trial.py"
 
 
 class PackageError(Exception):
@@ -46,6 +47,29 @@ def file_manifest_entry(path: Path, package_dir: Path) -> dict[str, Any]:
 def slugify(value: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-")
     return slug or "external-l4-trial"
+
+
+def packager_argv(
+    trial_json: Path,
+    trial_root: Path,
+    out_dir: Path,
+    package_name: str,
+    overwrite: bool,
+) -> list[str]:
+    argv = [
+        PACKAGER,
+        "--trial-json",
+        str(trial_json),
+        "--trial-root",
+        str(trial_root),
+        "--out-dir",
+        str(out_dir),
+        "--package-name",
+        package_name,
+    ]
+    if overwrite:
+        argv.append("--overwrite")
+    return argv
 
 
 def packaged_artifact_path(artifact: str) -> Path:
@@ -204,8 +228,9 @@ def create_package(
 
     artifact_manifest = {
         "schema_version": 1,
-        "generator": "benchmark/package_external_trial.py",
+        "generator": PACKAGER,
         "packaged_at_utc": datetime.now(timezone.utc).isoformat(),
+        "argv": packager_argv(trial_json, trial_root, out_dir, name, overwrite),
         "trial_id": trial["trial_id"],
         "trial_json": str(trial_json),
         "trial_json_size_bytes": trial_json.stat().st_size,
