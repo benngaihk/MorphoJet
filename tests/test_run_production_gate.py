@@ -453,6 +453,35 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("saved external trial report trial_json does not match --external-trial-json", gates[0].detail)
         self.assertIn("saved external trial report trial_root does not match --external-trial-root", gates[0].detail)
 
+    def test_malformed_saved_trial_report_returns_failed_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            trial_report = root / "bad-trial-verification.json"
+            trial_report.write_text("{not-json\n", encoding="utf-8")
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--external-trial-verification-report",
+                str(trial_report),
+            )
+
+            gates = run_production_gate.saved_reviewer_report_gates(args)
+
+        self.assertEqual(1, len(gates))
+        self.assertEqual("FAIL", gates[0].status)
+        self.assertIn("ERROR: JSONDecodeError", gates[0].detail)
+
     def test_saved_package_report_must_match_current_package_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

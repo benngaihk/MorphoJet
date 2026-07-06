@@ -324,7 +324,9 @@ def saved_reviewer_report_gates(
         gates.append(
             gate_with_binding_failures(
                 gate,
-                external_trial_report_binding_failures(args.external_trial_verification_report, args),
+                external_trial_report_binding_failures(args.external_trial_verification_report, args)
+                if gate.status == "PASS"
+                else [],
             )
         )
     if args.external_evidence_package_verification_report:
@@ -350,7 +352,9 @@ def saved_reviewer_report_gates(
         gates.append(
             gate_with_binding_failures(
                 gate,
-                external_package_report_binding_failures(args.external_evidence_package_verification_report, args),
+                external_package_report_binding_failures(args.external_evidence_package_verification_report, args)
+                if gate.status == "PASS"
+                else [],
             )
         )
     if include_github_release and args.github_release_verification_report:
