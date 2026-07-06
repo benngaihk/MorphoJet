@@ -55,6 +55,7 @@ LOCAL_PREFLIGHT_OPTIONAL_GATE_NAMES = {
     "Verify saved external L4 trial report",
     "Verify saved external L4 evidence package report",
 }
+GITHUB_RELEASE_REPO = "benngaihk/MorphoJet"
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 
 
@@ -302,6 +303,18 @@ def external_package_report_binding_failures(report: Path, args: argparse.Namesp
     return failures
 
 
+def github_release_report_binding_failures(report: Path, args: argparse.Namespace) -> list[str]:
+    payload = load_saved_reviewer_payload(report)
+    failures = []
+    if payload.get("repo") != GITHUB_RELEASE_REPO:
+        failures.append(
+            f"saved GitHub release report repo does not match production repo: {payload.get('repo')} != {GITHUB_RELEASE_REPO}"
+        )
+    if payload.get("tag") != args.github_release_tag:
+        failures.append("saved GitHub release report tag does not match --github-release-tag")
+    return failures
+
+
 def saved_reviewer_report_gates(
     args: argparse.Namespace,
     include_github_release: bool = False,
@@ -358,30 +371,36 @@ def saved_reviewer_report_gates(
             )
         )
     if include_github_release and args.github_release_verification_report:
+        gate = saved_verifier_gate(
+            "Verify saved stable GitHub release report",
+            [
+                sys.executable,
+                "benchmark/verify_github_release.py",
+                "--verify-report",
+                str(args.github_release_verification_report),
+                "--verify-report-files",
+                "--require-report-pass",
+                "--require-stable-report",
+                "--verify-git-commit",
+                "--expect-tag",
+                args.github_release_tag,
+            ],
+            verify_github_release.verify_saved_github_release_report,
+            args.github_release_verification_report,
+            verifier_kwargs={
+                "require_report_pass": True,
+                "require_stable_report": True,
+                "verify_files": True,
+                "expect_tag": args.github_release_tag,
+                "verify_git_commit": True,
+            },
+        )
         gates.append(
-            saved_verifier_gate(
-                "Verify saved stable GitHub release report",
-                [
-                    sys.executable,
-                    "benchmark/verify_github_release.py",
-                    "--verify-report",
-                    str(args.github_release_verification_report),
-                    "--verify-report-files",
-                    "--require-report-pass",
-                    "--require-stable-report",
-                    "--verify-git-commit",
-                    "--expect-tag",
-                    args.github_release_tag,
-                ],
-                verify_github_release.verify_saved_github_release_report,
-                args.github_release_verification_report,
-                verifier_kwargs={
-                    "require_report_pass": True,
-                    "require_stable_report": True,
-                    "verify_files": True,
-                    "expect_tag": args.github_release_tag,
-                    "verify_git_commit": True,
-                },
+            gate_with_binding_failures(
+                gate,
+                github_release_report_binding_failures(args.github_release_verification_report, args)
+                if gate.status == "PASS"
+                else [],
             )
         )
     return gates

@@ -582,6 +582,33 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual("FAIL", gates[0].status)
         self.assertIn("tag does not match expected tag", gates[0].detail)
 
+    def test_final_wrapper_rejects_saved_github_release_report_for_different_repo(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            github_report = self.write_valid_github_release_report(root)
+            payload = json.loads(github_report.read_text(encoding="utf-8"))
+            payload["repo"] = "other/repo"
+            payload["url"] = "https://github.com/other/repo/releases/tag/v0.1.0"
+            payload["release_api_url"] = "https://api.github.com/repos/other/repo/releases/123"
+            for record in payload["asset_metadata"]:
+                record["url"] = f"https://github.com/other/repo/releases/download/v0.1.0/{record['name']}"
+                record["api_url"] = record["api_url"].replace(
+                    "https://api.github.com/repos/benngaihk/MorphoJet/",
+                    "https://api.github.com/repos/other/repo/",
+                )
+            github_report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+            args = self.parse("--github-release-verification-report", str(github_report))
+
+            with patch.object(verify_github_release, "git_commit", return_value=self.FULL_COMMIT):
+                gates = run_production_gate.saved_reviewer_report_gates(args, include_github_release=True)
+
+        self.assertEqual(1, len(gates))
+        self.assertEqual("FAIL", gates[0].status)
+        self.assertIn(
+            "saved GitHub release report repo does not match production repo: other/repo != benngaihk/MorphoJet",
+            gates[0].detail,
+        )
+
     def test_local_evidence_preflight_fails_tampered_saved_package_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
