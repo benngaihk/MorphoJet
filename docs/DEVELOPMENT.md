@@ -237,7 +237,7 @@ For a scheduler-ready entrypoint that performs the fetch/verify step, verifies a
 benchmark/run_cellbindb_l3_validation.sh
 ```
 
-The release gate also validates handoff manifests:
+The release gate also validates handoff manifests. The validator rejects duplicate output artifact paths and output paths that would overwrite declared input CSVs, so real external L4 trials fail before a run can clobber `Objects.csv` or expected CellProfiler CSV inputs:
 
 ```bash
 python3 benchmark/validate_handoff_manifest.py benchmark/handoff/cellbindb_supported_columns.json \

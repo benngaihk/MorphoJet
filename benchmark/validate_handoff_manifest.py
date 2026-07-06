@@ -139,6 +139,7 @@ def validate_schema(
             allow_placeholders=allow_external_evidence_placeholders,
         )
 
+    issues.extend(validate_path_contract(data))
     return issues
 
 
@@ -149,6 +150,35 @@ def collect_paths(data: dict[str, Any]) -> list[str]:
         if "expected_cellprofiler_csv" in export:
             paths.append(export["expected_cellprofiler_csv"])
     return paths
+
+
+def collect_output_paths(data: dict[str, Any]) -> list[str]:
+    paths = []
+    for export in data.get("exports", []):
+        if not isinstance(export, dict):
+            continue
+        for key in ["out_csv", "comparison_report", "comparison_json"]:
+            value = export.get(key)
+            if isinstance(value, str):
+                paths.append(value)
+    for check in data.get("downstream_checks", []):
+        if not isinstance(check, dict):
+            continue
+        artifacts = check.get("artifacts", [])
+        if isinstance(artifacts, list):
+            paths.extend(artifact for artifact in artifacts if isinstance(artifact, str))
+    return paths
+
+
+def validate_path_contract(data: dict[str, Any]) -> list[str]:
+    issues = []
+    inputs = [path for path in collect_paths(data) if isinstance(path, str)]
+    outputs = collect_output_paths(data)
+    for output in sorted(path for path in set(outputs) if outputs.count(path) > 1):
+        issues.append(f"output path is duplicated: {output}")
+    for output in sorted(set(outputs) & set(inputs)):
+        issues.append(f"output path must not overwrite an input file: {output}")
+    return issues
 
 
 def validate_files(data: dict[str, Any], root: Path) -> list[str]:

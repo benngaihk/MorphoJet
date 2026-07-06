@@ -165,6 +165,30 @@ class HandoffManifestValidationTest(unittest.TestCase):
 
         self.assertEqual([], issues)
 
+    def test_output_paths_must_not_be_duplicated(self) -> None:
+        manifest = copy.deepcopy(valid_manifest())
+        manifest["downstream_checks"][0]["artifacts"] = ["workflow_bridge.json"]
+
+        issues = validate_handoff_manifest.validate_schema(
+            manifest,
+            require_downstream_check=True,
+            require_external_evidence=True,
+        )
+
+        self.assertIn("output path is duplicated: workflow_bridge.json", issues)
+
+    def test_output_paths_must_not_overwrite_inputs(self) -> None:
+        manifest = copy.deepcopy(valid_manifest())
+        manifest["exports"][0]["out_csv"] = "cellprofiler/Cells.csv"
+
+        issues = validate_handoff_manifest.validate_schema(
+            manifest,
+            require_downstream_check=True,
+            require_external_evidence=True,
+        )
+
+        self.assertIn("output path must not overwrite an input file: cellprofiler/Cells.csv", issues)
+
 
 if __name__ == "__main__":
     unittest.main()
