@@ -326,6 +326,7 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("docs/PRODUCTION_READINESS.md"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("tests/test_release_gate.py"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/release_gate.py"))
+        self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/build_release_archive.py"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/handoff/external_lab_template.json"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/package_external_trial.py"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/run_production_gate.py"))
