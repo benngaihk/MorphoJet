@@ -666,6 +666,21 @@ class VerifyGithubReleaseTest(unittest.TestCase):
 
         self.assertIn(f"archive sha256 does not match asset metadata digest: {archive['archive']}", failures)
 
+    def test_saved_release_report_rejects_pass_with_failed_archive_checksum_match(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            archive = payload["archives"][0]
+            archive["checksum_match"] = False
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn(
+            "passing github release verification report archive checksum_match must be true: "
+            f"{archive['archive']}",
+            failures,
+        )
+
     def test_saved_release_report_can_require_expected_tag(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = self.valid_report(Path(tmp))

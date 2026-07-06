@@ -713,6 +713,11 @@ def validate_verification_report_payload(
                 failures.append(f"archive sha256 invalid: {archive.get('archive')}")
             if not isinstance(archive.get("checksum_match"), bool):
                 failures.append(f"archive checksum_match must be boolean: {archive.get('archive')}")
+            elif status == "PASS" and archive.get("checksum_match") is not True:
+                failures.append(
+                    f"passing github release verification report archive checksum_match must be true: "
+                    f"{archive.get('archive')}"
+                )
             doctor = archive.get("doctor")
             if doctor is not None:
                 if not isinstance(doctor, dict):
