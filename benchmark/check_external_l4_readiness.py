@@ -241,6 +241,211 @@ def readiness_argv(
     return argv
 
 
+def argv_values(argv: list[str], flag: str) -> list[str | None]:
+    values: list[str | None] = []
+    for index, item in enumerate(argv):
+        if item != flag:
+            continue
+        if index + 1 >= len(argv) or argv[index + 1].startswith("--"):
+            values.append(None)
+        else:
+            values.append(argv[index + 1])
+    return values
+
+
+def parse_argv_vars(argv: list[str]) -> dict[str, str]:
+    variables = {}
+    for value in argv_values(argv, "--var"):
+        if value is None or "=" not in value:
+            continue
+        key, item = value.split("=", 1)
+        variables[key] = item
+    return variables
+
+
+def readiness_report_argv_issues(
+    argv: list[str],
+    workspace: str,
+    manifest: str,
+    variables: dict[str, str],
+    report_path: Path | None = None,
+) -> list[str]:
+    failures = []
+    if argv[0] != CHECKER:
+        failures.append(f"argv[0]={argv[0]}")
+    if "--verify-report" in argv:
+        failures.append("argv must not include --verify-report for a generated readiness report")
+    workspace_values = argv_values(argv, "--workspace")
+    if len(workspace_values) > 1:
+        failures.append("argv has duplicate --workspace")
+    if not workspace_values:
+        failures.append("argv missing --workspace")
+    for value in workspace_values:
+        if value is None:
+            failures.append("argv --workspace must include a value")
+        elif value != workspace:
+            failures.append(f"workspace must match argv --workspace {value}")
+    manifest_values = argv_values(argv, "--manifest")
+    if len(manifest_values) > 1:
+        failures.append("argv has duplicate --manifest")
+    expected_default_manifest = str(Path(workspace) / MANIFEST_NAME)
+    if not manifest_values and manifest != expected_default_manifest:
+        failures.append("argv missing --manifest for non-default manifest")
+    for value in manifest_values:
+        if value is None:
+            failures.append("argv --manifest must include a value")
+        elif value != manifest:
+            failures.append(f"manifest must match argv --manifest {value}")
+    package_name_values = argv_values(argv, "--package-name")
+    if len(package_name_values) > 1:
+        failures.append("argv has duplicate --package-name")
+    for value in package_name_values:
+        if value is None:
+            failures.append("argv --package-name must include a value")
+    var_values = argv_values(argv, "--var")
+    if any(value is None or "=" not in value for value in var_values):
+        failures.append("argv --var values must use key=value")
+    expected_variables = {"base_dir": workspace, **parse_argv_vars(argv)}
+    if variables != expected_variables:
+        failures.append("variables must match argv --var values plus default base_dir")
+    json_out_values = argv_values(argv, "--json-out")
+    if len(json_out_values) > 1:
+        failures.append("argv has duplicate --json-out")
+    if report_path is not None and not json_out_values:
+        failures.append("argv missing --json-out for saved readiness report")
+    for value in json_out_values:
+        if value is None:
+            failures.append("argv --json-out must include a value")
+        elif report_path is not None and normalized_path_key(Path(value)) != normalized_path_key(report_path):
+            failures.append("argv --json-out must match saved readiness report path")
+    return failures
+
+
+def validate_readiness_report_payload(
+    payload: Any,
+    report_path: Path | None = None,
+    require_ready: bool = False,
+) -> list[str]:
+    failures: list[str] = []
+    if not isinstance(payload, dict):
+        return ["readiness report must be a JSON object"]
+    if payload.get("schema_version") != 1:
+        failures.append(f"schema_version={payload.get('schema_version')}")
+    if payload.get("checker") != CHECKER:
+        failures.append(f"checker={payload.get('checker')}")
+    generated_at = payload.get("generated_at_utc")
+    if not isinstance(generated_at, str) or not generated_at.strip():
+        failures.append("generated_at_utc must be a non-empty string")
+    else:
+        try:
+            parsed_generated_at = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+            if parsed_generated_at.tzinfo is None:
+                failures.append("generated_at_utc must include timezone")
+        except ValueError:
+            failures.append(f"generated_at_utc is invalid: {generated_at}")
+    status = payload.get("status")
+    if status not in {"READY", "NOT_READY"}:
+        failures.append(f"status={status}")
+    if require_ready and status != "READY":
+        failures.append(f"readiness report status is not READY: {status}")
+    if payload.get("claim_status") != "NOT_PRODUCTION_CLAIM":
+        failures.append(f"claim_status={payload.get('claim_status')}")
+    workspace = payload.get("workspace")
+    if not isinstance(workspace, str) or not workspace.strip():
+        failures.append("workspace must be a non-empty string")
+    manifest = payload.get("manifest")
+    if not isinstance(manifest, str) or not manifest.strip():
+        failures.append("manifest must be a non-empty string")
+    variables = payload.get("variables")
+    if not isinstance(variables, dict) or not all(
+        isinstance(key, str) and isinstance(value, str) for key, value in variables.items()
+    ):
+        failures.append("variables must be a string map")
+        variables = {}
+    checks = payload.get("checks")
+    collected_issues: list[str] = []
+    if not isinstance(checks, list):
+        failures.append("checks must be a list")
+    else:
+        check_names = []
+        for check in checks:
+            if not isinstance(check, dict):
+                failures.append("check entries must be objects")
+                continue
+            name = check.get("name")
+            if not isinstance(name, str) or not name.strip():
+                failures.append("check.name must be a non-empty string")
+            else:
+                check_names.append(name)
+            if check.get("status") not in {"PASS", "FAIL"}:
+                failures.append(f"check.status invalid: {name}")
+            check_issues = check.get("issues")
+            if not isinstance(check_issues, list) or not all(isinstance(issue, str) for issue in check_issues):
+                failures.append(f"check.issues must be a string list: {name}")
+            else:
+                collected_issues.extend(check_issues)
+        duplicated_names = sorted(name for name in set(check_names) if check_names.count(name) > 1)
+        for name in duplicated_names:
+            failures.append(f"check name is duplicated: {name}")
+    issues = payload.get("issues")
+    if not isinstance(issues, list) or not all(isinstance(issue, str) for issue in issues):
+        failures.append("issues must be a string list")
+        issues = []
+    else:
+        expected_status = "READY" if not issues else "NOT_READY"
+        if status in {"READY", "NOT_READY"} and status != expected_status:
+            failures.append("status does not match issues")
+        missing_check_issues = [issue for issue in unique_issues(collected_issues) if issue not in issues]
+        if isinstance(checks, list) and missing_check_issues:
+            failures.append("issues must include flattened check issues")
+    argv = payload.get("argv")
+    if not isinstance(argv, list) or not argv or not all(isinstance(item, str) and item for item in argv):
+        failures.append("argv must be a non-empty string list")
+    elif (
+        isinstance(workspace, str)
+        and workspace.strip()
+        and isinstance(manifest, str)
+        and manifest.strip()
+        and isinstance(variables, dict)
+    ):
+        failures.extend(readiness_report_argv_issues(argv, workspace, manifest, variables, report_path=report_path))
+    return failures
+
+
+def verify_saved_readiness_report(
+    report: Path,
+    require_ready: bool = False,
+    verify_files: bool = False,
+) -> int:
+    try:
+        payload = json.loads(report.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001 - exact report verification failure.
+        print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
+    failures = validate_readiness_report_payload(payload, report_path=report, require_ready=require_ready)
+    if not failures and verify_files:
+        argv = payload["argv"]
+        package_name_values = argv_values(argv, "--package-name")
+        package_name = package_name_values[0] if package_name_values else None
+        fresh = readiness_report(
+            Path(payload["workspace"]),
+            manifest_path=Path(payload["manifest"]),
+            package_name=package_name,
+            variables=parse_argv_vars(argv),
+            json_out=report,
+        )
+        for key in ["status", "workspace", "manifest", "variables", "checks", "issues"]:
+            if payload.get(key) != fresh.get(key):
+                failures.append(f"saved readiness report {key} changed after report was written")
+    if failures:
+        for failure in failures:
+            print(f"FAIL: {failure}", file=sys.stderr)
+        return 1
+    print(f"readiness report ok: {report}")
+    print(f"status={payload['status']}")
+    return 0
+
+
 def readiness_report(
     workspace: Path,
     manifest_path: Path | None = None,
@@ -339,12 +544,23 @@ def readiness_report(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--workspace", type=Path, required=True)
+    parser.add_argument("--workspace", type=Path)
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--package-name")
     parser.add_argument("--var", action="append", default=[], help="Additional template variable key=value")
     parser.add_argument("--json-out", type=Path)
+    parser.add_argument("--verify-report", type=Path, help="Validate a saved readiness JSON report")
+    parser.add_argument("--verify-report-files", action="store_true", help="Recompute readiness checks from saved report paths")
+    parser.add_argument("--require-ready", action="store_true", help="Reject saved readiness reports that are not READY")
     args = parser.parse_args()
+    if args.verify_report:
+        return verify_saved_readiness_report(
+            args.verify_report,
+            require_ready=args.require_ready,
+            verify_files=args.verify_report_files,
+        )
+    if args.workspace is None:
+        parser.error("--workspace is required unless --verify-report is used")
 
     try:
         variables = run_handoff_trial.parse_vars(args.var)

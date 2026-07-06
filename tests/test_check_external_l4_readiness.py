@@ -162,6 +162,171 @@ class ExternalL4ReadinessTest(unittest.TestCase):
                 payload["argv"],
             )
 
+    def test_saved_readiness_report_can_be_verified_with_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace, package_name="custom review")
+            manifest_path = workspace / "external_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            fill_external_evidence(manifest)
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            write_valid_inputs(workspace)
+            report = workspace / "readiness.json"
+            subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--workspace",
+                    str(workspace),
+                    "--package-name",
+                    "custom-review",
+                    "--json-out",
+                    str(report),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--verify-report",
+                    str(report),
+                    "--verify-report-files",
+                    "--require-ready",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            self.assertIn("status=READY", completed.stdout)
+
+    def test_saved_not_ready_report_can_be_verified_without_require_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            report = workspace / "readiness.json"
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--workspace",
+                    str(workspace),
+                    "--json-out",
+                    str(report),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+            self.assertNotEqual(0, completed.returncode)
+
+            verified = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--verify-report",
+                    str(report),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(0, verified.returncode, verified.stderr)
+            self.assertIn("status=NOT_READY", verified.stdout)
+
+    def test_saved_readiness_report_rejects_argv_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            manifest_path = workspace / "external_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            fill_external_evidence(manifest)
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            write_valid_inputs(workspace)
+            report = workspace / "readiness.json"
+            subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--workspace",
+                    str(workspace),
+                    "--json-out",
+                    str(report),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["argv"][payload["argv"].index("--workspace") + 1] = str(workspace.parent / "other")
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--verify-report",
+                    str(report),
+                    "--require-ready",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("workspace must match argv --workspace", completed.stderr)
+
+    def test_saved_readiness_report_file_recheck_detects_changed_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            manifest_path = workspace / "external_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            fill_external_evidence(manifest)
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            write_valid_inputs(workspace)
+            report = workspace / "readiness.json"
+            subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--workspace",
+                    str(workspace),
+                    "--json-out",
+                    str(report),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            (workspace / "morphojet" / "Objects.csv").write_text("ImageNumber,ObjectNumber\n1,1\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--verify-report",
+                    str(report),
+                    "--verify-report-files",
+                    "--require-ready",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("saved readiness report status changed after report was written", completed.stderr)
+
     def test_existing_package_output_blocks_default_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "external-trial"
