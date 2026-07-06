@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -91,6 +92,80 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 ],
                 plan["argv"],
             )
+
+    def test_saved_trial_plan_can_be_verified_with_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                    "--verify-plan-files",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            self.assertIn("claim_status=NOT_PRODUCTION_CLAIM", completed.stdout)
+
+    def test_saved_trial_plan_rejects_command_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+            payload = json.loads(plan_path.read_text(encoding="utf-8"))
+            payload["commands"]["run_trial"].remove("--require-external-evidence")
+            plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                    "--verify-plan-files",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("commands changed after plan was written", completed.stderr)
+
+    def test_saved_trial_plan_rejects_template_hash_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            template = Path(tmp) / "template.json"
+            template.write_text(TEMPLATE.read_text(encoding="utf-8"), encoding="utf-8")
+            prepare_external_l4_trial.prepare_workspace(template, workspace)
+            plan_path = workspace / "trial_plan.json"
+            payload = json.loads(template.read_text(encoding="utf-8"))
+            payload["trial_id"] = "external-lab-supported-columns-handoff-v2"
+            template.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                    "--verify-plan-files",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("template_sha256 changed after plan was written", completed.stderr)
 
     def test_prepare_workspace_binds_custom_package_name_into_readiness(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

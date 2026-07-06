@@ -67,6 +67,161 @@ def generator_argv(template_path: Path, workspace: Path, package_name: str | Non
     return argv
 
 
+def argv_values(argv: list[str], flag: str) -> list[str | None]:
+    values: list[str | None] = []
+    for index, item in enumerate(argv):
+        if item != flag:
+            continue
+        if index + 1 >= len(argv) or argv[index + 1].startswith("--"):
+            values.append(None)
+        else:
+            values.append(argv[index + 1])
+    return values
+
+
+def validate_generator_argv(payload: dict[str, Any], argv: list[str]) -> list[str]:
+    failures = []
+    if argv[0] != GENERATOR:
+        failures.append(f"argv[0]={argv[0]}")
+    if "--verify-plan" in argv:
+        failures.append("argv must not include --verify-plan for a generated trial plan")
+    workspace = payload.get("workspace")
+    template = payload.get("template")
+    package_name = payload.get("package_name")
+    workspace_values = argv_values(argv, "--workspace")
+    if len(workspace_values) > 1:
+        failures.append("argv has duplicate --workspace")
+    if not workspace_values:
+        failures.append("argv missing --workspace")
+    for value in workspace_values:
+        if value is None:
+            failures.append("argv --workspace must include a value")
+        elif isinstance(workspace, str) and value != workspace:
+            failures.append(f"workspace must match argv --workspace {value}")
+    template_values = argv_values(argv, "--template")
+    if len(template_values) > 1:
+        failures.append("argv has duplicate --template")
+    if not template_values and template != str(DEFAULT_TEMPLATE):
+        failures.append("argv missing --template for non-default template")
+    for value in template_values:
+        if value is None:
+            failures.append("argv --template must include a value")
+        elif isinstance(template, str) and value != template:
+            failures.append(f"template must match argv --template {value}")
+    package_values = argv_values(argv, "--package-name")
+    if len(package_values) > 1:
+        failures.append("argv has duplicate --package-name")
+    for value in package_values:
+        if value is None:
+            failures.append("argv --package-name must include a value")
+        elif isinstance(package_name, str) and slugify(value) != package_name:
+            failures.append(f"package_name must match argv --package-name {value}")
+    if argv.count("--overwrite") > 1:
+        failures.append("argv has duplicate --overwrite")
+    return failures
+
+
+def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]:
+    failures: list[str] = []
+    if not isinstance(payload, dict):
+        return ["trial plan must be a JSON object"]
+    if payload.get("schema_version") != 1:
+        failures.append(f"schema_version={payload.get('schema_version')}")
+    if payload.get("generator") != GENERATOR:
+        failures.append(f"generator={payload.get('generator')}")
+    generated_at = payload.get("generated_at_utc")
+    if not isinstance(generated_at, str) or not generated_at.strip():
+        failures.append("generated_at_utc must be a non-empty string")
+    else:
+        try:
+            parsed = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                failures.append("generated_at_utc must include timezone")
+        except ValueError:
+            failures.append(f"generated_at_utc is invalid: {generated_at}")
+    argv = payload.get("argv")
+    if not isinstance(argv, list) or not argv or not all(isinstance(item, str) and item for item in argv):
+        failures.append("argv must be a non-empty string list")
+    else:
+        failures.extend(validate_generator_argv(payload, argv))
+    for key in ["template", "workspace", "manifest", "package_name"]:
+        value = payload.get(key)
+        if not isinstance(value, str) or not value.strip():
+            failures.append(f"{key} must be a non-empty string")
+    template_size = payload.get("template_size_bytes")
+    if not isinstance(template_size, int) or template_size <= 0:
+        failures.append(f"template_size_bytes={template_size}")
+    template_sha = payload.get("template_sha256")
+    if not isinstance(template_sha, str) or not re.fullmatch(r"[0-9a-f]{64}", template_sha):
+        failures.append(f"template_sha256={template_sha}")
+    if payload.get("claim_status") != "NOT_PRODUCTION_CLAIM":
+        failures.append(f"claim_status={payload.get('claim_status')}")
+    commands = payload.get("commands")
+    expected_command_names = [
+        "validate_manifest",
+        "check_readiness",
+        "verify_readiness",
+        "run_trial",
+        "verify_trial",
+        "package_evidence",
+        "verify_package",
+        "local_evidence_preflight",
+    ]
+    if not isinstance(commands, dict):
+        failures.append("commands must be an object")
+    else:
+        if sorted(commands) != sorted(expected_command_names):
+            failures.append("commands must contain exactly the expected external L4 plan steps")
+        for name in expected_command_names:
+            command = commands.get(name)
+            if not isinstance(command, list) or not command or not all(isinstance(item, str) and item for item in command):
+                failures.append(f"commands.{name} must be a non-empty string list")
+    if verify_files:
+        failures.extend(validate_plan_files(payload))
+    return failures
+
+
+def validate_plan_files(payload: dict[str, Any]) -> list[str]:
+    failures = []
+    if not all(isinstance(payload.get(key), str) and payload.get(key).strip() for key in ["template", "workspace", "manifest", "package_name"]):
+        return failures
+    template_path = Path(payload["template"])
+    workspace = Path(payload["workspace"])
+    manifest_path = Path(payload["manifest"])
+    if not template_path.is_file():
+        failures.append(f"template file does not exist: {template_path}")
+    else:
+        if payload.get("template_size_bytes") != template_path.stat().st_size:
+            failures.append("template_size_bytes changed after plan was written")
+        if payload.get("template_sha256") != sha256(template_path):
+            failures.append("template_sha256 changed after plan was written")
+    if not manifest_path.is_file():
+        failures.append(f"manifest file does not exist: {manifest_path}")
+    if not (workspace / README_NAME).is_file():
+        failures.append(f"README file does not exist: {workspace / README_NAME}")
+    package_name = payload["package_name"]
+    expected_commands = plan_commands(manifest_path, workspace, package_name)
+    if isinstance(payload.get("commands"), dict) and payload["commands"] != expected_commands:
+        failures.append("commands changed after plan was written")
+    return failures
+
+
+def verify_saved_plan(plan_path: Path, verify_files: bool = False) -> int:
+    try:
+        payload = json.loads(plan_path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001 - exact plan verification failure.
+        print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
+    failures = validate_plan_payload(payload, verify_files=verify_files)
+    if failures:
+        for failure in failures:
+            print(f"FAIL: {failure}", file=sys.stderr)
+        return 1
+    print(f"trial plan ok: {plan_path}")
+    print(f"claim_status={payload['claim_status']}")
+    return 0
+
+
 def validate_template(template: dict[str, Any]) -> None:
     issues = validate_handoff_manifest.validate_schema(
         template,
@@ -307,11 +462,17 @@ def prepare_workspace(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--workspace", type=Path, required=True)
+    parser.add_argument("--workspace", type=Path)
     parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
     parser.add_argument("--package-name")
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("--verify-plan", type=Path, help="Validate a saved external L4 trial_plan.json")
+    parser.add_argument("--verify-plan-files", action="store_true", help="Recompute template and command data for a saved trial plan")
     args = parser.parse_args()
+    if args.verify_plan:
+        return verify_saved_plan(args.verify_plan, verify_files=args.verify_plan_files)
+    if args.workspace is None:
+        parser.error("--workspace is required unless --verify-plan is used")
 
     try:
         plan = prepare_workspace(
