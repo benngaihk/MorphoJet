@@ -214,6 +214,27 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
         self.assertIn("argv --trial-root must include a value", stderr.getvalue())
         self.assertIn("argv must not include --verify-report", stderr.getvalue())
 
+    def test_saved_verification_report_rejects_json_out_path_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["argv"][payload["argv"].index("--json-out") + 1] = str(root / "other-verification.json")
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_trial_report.verify_saved_external_trial_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn("argv --json-out must match saved verifier report path", stderr.getvalue())
+
     def test_saved_verification_report_recomputes_trial_validation(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

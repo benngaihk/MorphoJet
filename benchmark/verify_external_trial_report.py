@@ -210,7 +210,11 @@ def verify_external_trial_report(
     return 1 if require_pass else 0
 
 
-def validate_verification_report_payload(payload: Any, require_report_pass: bool = False) -> list[str]:
+def validate_verification_report_payload(
+    payload: Any,
+    require_report_pass: bool = False,
+    report_path: Path | None = None,
+) -> list[str]:
     failures: list[str] = []
     if not isinstance(payload, dict):
         return ["external trial verification report must be a JSON object"]
@@ -243,7 +247,7 @@ def validate_verification_report_payload(payload: Any, require_report_pass: bool
     if not isinstance(argv, list) or not argv or not all(isinstance(item, str) and item for item in argv):
         failures.append("argv must be a non-empty string list")
     elif isinstance(trial_json, str) and trial_json.strip() and isinstance(trial_root, str) and trial_root.strip():
-        failures.extend(verification_report_argv_issues(argv, trial_json, trial_root))
+        failures.extend(verification_report_argv_issues(argv, trial_json, trial_root, report_path))
     input_files = payload.get("input_files")
     failures.extend(input_files_issues(input_files, status))
     if (
@@ -275,7 +279,12 @@ def validate_verification_report_payload(payload: Any, require_report_pass: bool
     return failures
 
 
-def verification_report_argv_issues(argv: list[str], trial_json: str, trial_root: str) -> list[str]:
+def verification_report_argv_issues(
+    argv: list[str],
+    trial_json: str,
+    trial_root: str,
+    report_path: Path | None = None,
+) -> list[str]:
     failures = []
     if argv[0] != VERIFIER:
         failures.append(f"argv[0]={argv[0]}")
@@ -299,6 +308,8 @@ def verification_report_argv_issues(argv: list[str], trial_json: str, trial_root
     for value in json_out_values:
         if value is None:
             failures.append("argv --json-out must include a value")
+        elif report_path is not None and normalized_path_key(Path(value)) != normalized_path_key(report_path):
+            failures.append("argv --json-out must match saved verifier report path")
     return failures
 
 
@@ -312,7 +323,11 @@ def verify_saved_external_trial_report(
     except Exception as exc:  # noqa: BLE001 - exact report verification failure.
         print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
-    failures = validate_verification_report_payload(payload, require_report_pass=require_report_pass)
+    failures = validate_verification_report_payload(
+        payload,
+        require_report_pass=require_report_pass,
+        report_path=report,
+    )
     if not failures and verify_files:
         trial_json = Path(payload["trial_json"])
         trial_root = Path(payload["trial_root"])

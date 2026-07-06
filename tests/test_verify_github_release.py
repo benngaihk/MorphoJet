@@ -452,6 +452,19 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn("argv must not include --expect-prerelease unless expected_release_kind is prerelease", failures)
         self.assertIn("argv must not include --verify-report for a generated verifier report", failures)
 
+    def test_saved_release_report_rejects_json_out_path_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["argv"][payload["argv"].index("--json-out") + 1] = str(Path(tmp) / "other-release-verification.json")
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                status = verify_github_release.verify_saved_github_release_report(report)
+
+        self.assertEqual(1, status)
+        self.assertIn("argv --json-out must match saved verifier report path", stderr.getvalue())
+
     def test_saved_release_report_rejects_bad_release_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = self.valid_report(Path(tmp))

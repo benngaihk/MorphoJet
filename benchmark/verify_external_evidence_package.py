@@ -234,6 +234,7 @@ def validate_verification_report_payload(
     payload: Any,
     require_report_pass: bool = False,
     require_trial_json: bool = False,
+    report_path: Path | None = None,
 ) -> list[str]:
     failures: list[str] = []
     if not isinstance(payload, dict):
@@ -274,6 +275,7 @@ def validate_verification_report_payload(
                 argv,
                 package_dir,
                 trial_json if isinstance(trial_json, str) and trial_json.strip() else None,
+                report_path,
             )
         )
     input_files = payload.get("input_files")
@@ -311,6 +313,7 @@ def verification_report_argv_issues(
     argv: list[str],
     package_dir: str,
     trial_json: str | None,
+    report_path: Path | None = None,
 ) -> list[str]:
     failures = []
     if argv[0] != VERIFIER:
@@ -337,6 +340,8 @@ def verification_report_argv_issues(
     for value in json_out_values:
         if value is None:
             failures.append("argv --json-out must include a value")
+        elif report_path is not None and normalized_path_key(Path(value)) != normalized_path_key(report_path):
+            failures.append("argv --json-out must match saved verifier report path")
     return failures
 
 
@@ -355,6 +360,7 @@ def verify_saved_external_evidence_package_report(
         payload,
         require_report_pass=require_report_pass,
         require_trial_json=require_trial_json,
+        report_path=report,
     )
     if not failures and verify_files:
         package_dir = Path(payload["package_dir"])
