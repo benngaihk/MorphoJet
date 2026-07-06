@@ -4,11 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import sys
 from pathlib import Path
 from typing import Any
 
+import check_cellprofiler_wide_contract
+import materialize_morphojet_cellprofiler_wide
 import prepare_external_l4_trial
 import run_handoff_trial
 import validate_handoff_manifest
@@ -51,6 +54,86 @@ def package_output_issues(workspace: Path, trial_id: str, package_name: str | No
     return [f"package output already exists: {path}" for path in paths if path.exists()]
 
 
+def read_csv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
+    with path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        return reader.fieldnames or [], list(reader)
+
+
+def required_morphojet_objects_columns() -> list[str]:
+    columns = [
+        "ImageNumber",
+        "ObjectNumber",
+        "Channel",
+        "ObjectSet",
+        "Location_Center_Z",
+        *materialize_morphojet_cellprofiler_wide.SHAPE_COLUMNS,
+        *materialize_morphojet_cellprofiler_wide.INTENSITY_COLUMNS,
+    ]
+    return list(dict.fromkeys(columns))
+
+
+def resolve_manifest_path(path: str) -> Path:
+    return Path(path)
+
+
+def morphojet_objects_csv_issues(path: str, object_set: str, channels: list[str]) -> list[str]:
+    csv_path = resolve_manifest_path(path)
+    if not csv_path.is_file():
+        return []
+    columns, rows = read_csv(csv_path)
+    issues = []
+    missing_columns = [column for column in required_morphojet_objects_columns() if column not in columns]
+    if missing_columns:
+        issues.append(f"MorphoJet objects CSV missing columns for {path}: {','.join(missing_columns)}")
+    matching_rows = [row for row in rows if row.get("ObjectSet") == object_set]
+    if not matching_rows:
+        issues.append(f"MorphoJet objects CSV has no rows for ObjectSet={object_set}: {path}")
+    missing_channels = sorted(set(channels) - {row.get("Channel", "") for row in matching_rows})
+    if missing_channels:
+        issues.append(
+            f"MorphoJet objects CSV missing channel rows for ObjectSet={object_set} in {path}: "
+            f"{','.join(missing_channels)}"
+        )
+    return issues
+
+
+def expected_cellprofiler_csv_issues(path: str, channels: list[str]) -> list[str]:
+    csv_path = resolve_manifest_path(path)
+    if not csv_path.is_file():
+        return []
+    columns, rows = read_csv(csv_path)
+    issues = []
+    required_columns = check_cellprofiler_wide_contract.required_columns(channels)
+    missing_columns = [column for column in required_columns if column not in columns]
+    if missing_columns:
+        issues.append(f"expected CellProfiler CSV missing columns for {path}: {','.join(missing_columns)}")
+    if not rows:
+        issues.append(f"expected CellProfiler CSV has no data rows: {path}")
+    return issues
+
+
+def input_csv_schema_issues(manifest: dict[str, Any]) -> list[str]:
+    issues = []
+    top_level_objects = manifest.get("morphojet_objects_csv")
+    for export in manifest.get("exports", []):
+        if not isinstance(export, dict):
+            continue
+        object_set = export.get("object_set")
+        channels = export.get("channels")
+        if not isinstance(object_set, str) or not isinstance(channels, list):
+            continue
+        if not all(isinstance(channel, str) and channel for channel in channels):
+            continue
+        objects_csv = export.get("objects_csv", top_level_objects)
+        if isinstance(objects_csv, str):
+            issues.extend(morphojet_objects_csv_issues(objects_csv, object_set, channels))
+        expected = export.get("expected_cellprofiler_csv")
+        if isinstance(expected, str):
+            issues.extend(expected_cellprofiler_csv_issues(expected, channels))
+    return unique_issues(issues)
+
+
 def unique_issues(issues: list[str]) -> list[str]:
     observed = set()
     deduped = []
@@ -91,6 +174,7 @@ def readiness_report(
             require_external_evidence=True,
         )
         file_issues = validate_handoff_manifest.validate_files(manifest, Path.cwd())
+        csv_schema_issues = input_csv_schema_issues(manifest) if not file_issues else []
         report_output_issues = check_report_outputs(manifest_path, manifest, workspace)
         trial_id = manifest.get("trial_id")
         package_issues = (
@@ -102,6 +186,11 @@ def readiness_report(
             [
                 {"name": "manifest_schema", "status": "PASS" if not schema_issues else "FAIL", "issues": schema_issues},
                 {"name": "input_files", "status": "PASS" if not file_issues else "FAIL", "issues": file_issues},
+                {
+                    "name": "input_csv_schema",
+                    "status": "PASS" if not csv_schema_issues else "FAIL",
+                    "issues": csv_schema_issues,
+                },
                 {
                     "name": "report_output_paths",
                     "status": "PASS" if not report_output_issues else "FAIL",
