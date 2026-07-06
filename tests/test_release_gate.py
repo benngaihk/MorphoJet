@@ -486,6 +486,12 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertFalse(release_gate.is_external_trial_compatible_path("benchmark/run_handoff_trial.py"))
         self.assertFalse(release_gate.is_external_trial_compatible_path("crates/morphojet/src/main.rs"))
 
+    def test_github_release_verification_report_path_is_outside_download_dir(self) -> None:
+        path = release_gate.github_release_verification_report_path("v0.1.0")
+
+        self.assertEqual(Path("benchmark/results/github-release-verification/v0.1.0.json"), path)
+        self.assertNotIn("benchmark/results/github-release/v0.1.0", str(path))
+
     def test_external_trial_rejects_rendered_manifest_evidence_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -286,6 +286,10 @@ def resolve_artifact_path(artifact: str, artifact_root: Path) -> Path:
     return artifact_root / path
 
 
+def github_release_verification_report_path(tag: str) -> Path:
+    return Path("benchmark/results/github-release-verification") / f"{tag}.json"
+
+
 def rendered_manifest_artifacts(manifest: dict) -> list[str]:
     artifacts = []
     for export in manifest.get("exports", []):
@@ -1397,7 +1401,7 @@ def main() -> int:
                     args.verify_github_release,
                     release_kind_flag,
                     "--json-out",
-                    f"benchmark/results/github-release/{args.verify_github_release}/verification.json",
+                    str(github_release_verification_report_path(args.verify_github_release)),
                 ],
             )
         )

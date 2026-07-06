@@ -102,6 +102,50 @@ def release_json(repo: str, tag: str) -> dict:
     return json.loads(run(["gh", "release", "view", tag, "--repo", repo, "--json", fields]))
 
 
+def normalized_path_key(path: Path) -> str:
+    return str(path.expanduser().resolve(strict=False))
+
+
+def path_contains(container: Path, path: Path) -> bool:
+    try:
+        path.resolve(strict=False).relative_to(container.resolve(strict=False))
+        return True
+    except ValueError:
+        return False
+
+
+def release_output_safety_issues(tag: str, out_dir: Path, json_out: Path | None = None) -> list[str]:
+    issues = []
+    expected_assets = expected_asset_names(tag)
+    if out_dir.exists() and not out_dir.is_dir():
+        issues.append(f"--out-dir exists but is not a directory: {out_dir}")
+        return issues
+    if out_dir.is_dir():
+        unexpected_entries = []
+        for path in sorted(out_dir.iterdir()):
+            if not path.is_file() or path.name not in expected_assets:
+                unexpected_entries.append(path.name)
+        if unexpected_entries:
+            issues.append(
+                "--out-dir contains files not owned by this release download: "
+                + ",".join(unexpected_entries)
+            )
+    if json_out is not None:
+        json_key = normalized_path_key(json_out)
+        for asset_name in expected_assets:
+            if json_key == normalized_path_key(out_dir / asset_name):
+                issues.append(f"--json-out must not overwrite release asset: {asset_name}")
+        if path_contains(out_dir, json_out):
+            issues.append("--json-out must not be inside --out-dir")
+    return issues
+
+
+def validate_release_output_paths(tag: str, out_dir: Path, json_out: Path | None = None) -> None:
+    issues = release_output_safety_issues(tag, out_dir, json_out=json_out)
+    if issues:
+        raise SystemExit("\n".join(f"ERROR: {issue}" for issue in issues))
+
+
 def download_release(repo: str, tag: str, out_dir: Path) -> None:
     if out_dir.exists():
         shutil.rmtree(out_dir)
@@ -731,6 +775,7 @@ def main() -> int:
         parser.error("tag is required unless --verify-report is used")
 
     out_dir = args.out_dir or Path("benchmark/results/github-release") / args.tag
+    validate_release_output_paths(args.tag, out_dir, json_out=args.json_out)
     expected_commit = git_commit(args.expect_commit) if args.expect_commit else git_tag_commit(args.tag)
     expected_doctor_commit = doctor_commit_for(expected_commit)
     release = release_json(args.repo, args.tag)

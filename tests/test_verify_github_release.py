@@ -203,6 +203,60 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertEqual(1, summary["release_metadata_count"])
         self.assertEqual(2, summary["downloaded_count"])
 
+    def test_release_output_safety_accepts_existing_expected_assets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            for name in verify_github_release.expected_asset_names("v0.1.0"):
+                (out_dir / name).write_text("asset\n", encoding="utf-8")
+
+            self.assertEqual([], verify_github_release.release_output_safety_issues("v0.1.0", out_dir))
+
+    def test_release_output_safety_rejects_mixed_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            (out_dir / "notes.txt").write_text("not release asset\n", encoding="utf-8")
+            (out_dir / "nested").mkdir()
+
+            issues = verify_github_release.release_output_safety_issues("v0.1.0", out_dir)
+
+        self.assertIn("--out-dir contains files not owned by this release download: nested,notes.txt", issues)
+
+    def test_release_output_safety_rejects_json_out_inside_download_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+
+            issues = verify_github_release.release_output_safety_issues(
+                "v0.1.0",
+                out_dir,
+                json_out=out_dir / "verification.json",
+            )
+
+        self.assertIn("--json-out must not be inside --out-dir", issues)
+
+    def test_release_output_safety_rejects_json_out_over_release_asset(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            asset_name = "morphojet-v0.1.0-linux-x86_64.tar.gz"
+
+            issues = verify_github_release.release_output_safety_issues(
+                "v0.1.0",
+                out_dir,
+                json_out=out_dir / asset_name,
+            )
+
+        self.assertIn(f"--json-out must not overwrite release asset: {asset_name}", issues)
+        self.assertIn("--json-out must not be inside --out-dir", issues)
+
+    def test_validate_release_output_paths_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            (out_dir / "notes.txt").write_text("not release asset\n", encoding="utf-8")
+
+            with self.assertRaises(SystemExit) as context:
+                verify_github_release.validate_release_output_paths("v0.1.0", out_dir)
+
+        self.assertIn("--out-dir contains files not owned by this release download", str(context.exception))
+
     def test_asset_file_metadata_issues_accepts_matching_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             out_dir = Path(tmp)
