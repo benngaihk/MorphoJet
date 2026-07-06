@@ -839,11 +839,21 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
                 failures.append("gate entries must be objects")
                 continue
             name = gate.get("name")
-            if isinstance(name, str):
+            if not isinstance(name, str) or not name:
+                failures.append("gate name must be a non-empty string")
+            else:
                 if name in gate_names:
                     failures.append(f"duplicate gate name: {name}")
                 else:
                     gate_names.add(name)
+            command = gate.get("command")
+            if command is not None and (
+                not isinstance(command, list) or not all(isinstance(item, str) for item in command)
+            ):
+                failures.append(f"gate command must be null or a string list: {name}")
+            elapsed = gate.get("elapsed_seconds")
+            if not isinstance(elapsed, (int, float)) or elapsed < 0:
+                failures.append(f"gate elapsed_seconds must be non-negative: {name}")
             if gate.get("status") not in {"PASS", "FAIL"}:
                 failures.append(f"gate status invalid for {gate.get('name')}: {gate.get('status')}")
             elif gate.get("status") == "FAIL" and isinstance(gate.get("name"), str):
