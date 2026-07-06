@@ -1131,6 +1131,50 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(1, status)
         self.assertIn("gate.detail changed", stderr.getvalue())
 
+    def test_verify_local_evidence_preflight_report_rejects_status_gate_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            out_json = root / "reports" / "preflight.json"
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(root / "reports" / "preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                run_production_gate.run_local_evidence_preflight(args)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            payload["gates"][0]["status"] = "FAIL"
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(1, status)
+        self.assertIn(
+            "local evidence preflight status does not match gate statuses: PASS != FAIL",
+            stderr.getvalue(),
+        )
+
     def test_verify_local_evidence_preflight_report_rejects_changed_trial_gate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
