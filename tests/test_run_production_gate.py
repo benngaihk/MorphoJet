@@ -1519,6 +1519,54 @@ class RunProductionGateTest(unittest.TestCase):
             stderr.getvalue(),
         )
 
+    def test_verify_local_evidence_preflight_report_rejects_duplicate_input_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            out_json = root / "reports" / "preflight.json"
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(root / "reports" / "preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                run_production_gate.run_local_evidence_preflight(args)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            package_trial_path = str(Path(package["package_dir"]) / "handoff_trial.json")
+            payload["metadata"]["external_trial_json"] = package_trial_path
+            for artifact in payload["input_artifacts"]:
+                if artifact["name"] == "external_trial_json":
+                    artifact["path"] = package_trial_path
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(1, status)
+        self.assertIn(
+            "duplicate input artifact path: external_trial_json and package_handoff_trial_json",
+            stderr.getvalue(),
+        )
+
     def test_verify_local_evidence_preflight_report_rejects_unreachable_commit(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

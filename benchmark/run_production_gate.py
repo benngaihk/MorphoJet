@@ -810,6 +810,7 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
     else:
         names = {artifact.get("name") for artifact in artifacts if isinstance(artifact, dict)}
         artifact_paths: dict[str, str] = {}
+        artifact_path_keys: dict[str, str] = {}
         allowed_names = LOCAL_PREFLIGHT_INPUT_NAMES | LOCAL_PREFLIGHT_OPTIONAL_INPUT_NAMES
         if not LOCAL_PREFLIGHT_INPUT_NAMES.issubset(names) or names - allowed_names:
             failures.append(f"input_artifacts names={sorted(str(name) for name in names)}")
@@ -828,6 +829,12 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
                     failures.append(f"duplicate input artifact name: {name}")
                 else:
                     artifact_paths[name] = path_value
+                path_key = normalized_path_key(Path(path_value))
+                previous_name = artifact_path_keys.get(path_key)
+                if previous_name is not None:
+                    failures.append(f"duplicate input artifact path: {previous_name} and {name}")
+                else:
+                    artifact_path_keys[path_key] = name
             exists = artifact.get("exists")
             if not isinstance(exists, bool):
                 failures.append(f"input artifact exists must be boolean: {name}")
