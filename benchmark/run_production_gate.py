@@ -793,6 +793,7 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
         failures.append("input_artifacts must be a list")
     else:
         names = {artifact.get("name") for artifact in artifacts if isinstance(artifact, dict)}
+        artifact_paths: dict[str, str] = {}
         allowed_names = LOCAL_PREFLIGHT_INPUT_NAMES | LOCAL_PREFLIGHT_OPTIONAL_INPUT_NAMES
         if not LOCAL_PREFLIGHT_INPUT_NAMES.issubset(names) or names - allowed_names:
             failures.append(f"input_artifacts names={sorted(str(name) for name in names)}")
@@ -803,8 +804,14 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
             name = artifact.get("name")
             if not isinstance(name, str) or not name:
                 failures.append("input artifact name must be a non-empty string")
-            if not isinstance(artifact.get("path"), str) or not artifact.get("path"):
+            path_value = artifact.get("path")
+            if not isinstance(path_value, str) or not path_value:
                 failures.append(f"input artifact path must be a non-empty string: {name}")
+            elif isinstance(name, str) and name:
+                if name in artifact_paths:
+                    failures.append(f"duplicate input artifact name: {name}")
+                else:
+                    artifact_paths[name] = path_value
             exists = artifact.get("exists")
             if not isinstance(exists, bool):
                 failures.append(f"input artifact exists must be boolean: {name}")
@@ -817,6 +824,8 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
                     failures.append(f"input artifact sha256 must be a lowercase SHA-256 digest: {name}")
             elif artifact.get("size_bytes") is not None or artifact.get("sha256") is not None:
                 failures.append(f"missing input artifact must not carry size/hash: {name}")
+        if isinstance(metadata, dict):
+            failures.extend(validate_local_evidence_preflight_path_bindings(metadata, artifact_paths))
 
     gates = payload.get("gates")
     if not isinstance(gates, list):
@@ -910,6 +919,47 @@ def validate_local_evidence_preflight_gates(payload: dict) -> list[str]:
             failures.append(f"gate.detail changed for {recomputed.name}")
         if recorded.get("command") != recomputed.command:
             failures.append(f"gate.command changed for {recomputed.name}")
+    return failures
+
+
+def artifact_path_matches(artifact_paths: dict[str, str], name: str, expected: Path) -> bool:
+    recorded = artifact_paths.get(name)
+    return recorded is not None and paths_match(recorded, expected)
+
+
+def validate_local_evidence_preflight_path_bindings(
+    metadata: dict,
+    artifact_paths: dict[str, str],
+) -> list[str]:
+    failures = []
+    external_trial_json = metadata.get("external_trial_json")
+    if isinstance(external_trial_json, str) and external_trial_json.strip():
+        if not artifact_path_matches(artifact_paths, "external_trial_json", Path(external_trial_json)):
+            failures.append("input_artifacts.external_trial_json.path does not match metadata.external_trial_json")
+
+    package_dir_value = metadata.get("external_evidence_package_dir")
+    if isinstance(package_dir_value, str) and package_dir_value.strip():
+        package_dir = Path(package_dir_value)
+        expected_package_paths = {
+            "package_handoff_trial_json": package_dir / "handoff_trial.json",
+            "package_zip": package_dir.parent / f"{package_dir.name}.zip",
+            "package_zip_sha256": package_dir.parent / f"{package_dir.name}.zip.sha256",
+        }
+        for name, expected in expected_package_paths.items():
+            if not artifact_path_matches(artifact_paths, name, expected):
+                failures.append(f"input_artifacts.{name}.path does not match metadata.external_evidence_package_dir")
+
+    optional_metadata_artifacts = {
+        "external_trial_verification_report": "external_trial_verification_report",
+        "external_evidence_package_verification_report": "external_evidence_package_verification_report",
+    }
+    for metadata_key, artifact_name in optional_metadata_artifacts.items():
+        value = metadata.get(metadata_key)
+        if isinstance(value, str) and value.strip():
+            if not artifact_path_matches(artifact_paths, artifact_name, Path(value)):
+                failures.append(f"input_artifacts.{artifact_name}.path does not match metadata.{metadata_key}")
+        elif artifact_name in artifact_paths:
+            failures.append(f"input_artifacts.{artifact_name} is present but metadata.{metadata_key} is empty")
     return failures
 
 
