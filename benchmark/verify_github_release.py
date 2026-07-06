@@ -616,6 +616,15 @@ def validate_verification_report_payload(
         ):
             failures.append("passing github release verification report assets.downloaded must match assets.expected")
         if (
+            isinstance(tag, str)
+            and tag.strip()
+            and isinstance(expected_assets_payload, list)
+            and all(isinstance(item, str) for item in expected_assets_payload)
+        ):
+            expected_assets_for_tag = sorted(expected_asset_names(tag))
+            if expected_assets_payload != expected_assets_for_tag:
+                failures.append("assets.expected does not match required release assets for tag")
+        if (
             isinstance(asset_count, int)
             and isinstance(downloaded_assets_payload, list)
             and asset_count != len(downloaded_assets_payload)

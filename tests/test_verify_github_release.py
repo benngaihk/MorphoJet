@@ -517,6 +517,26 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn("passing github release verification report assets.downloaded must match assets.expected", failures)
         self.assertIn("archives must match downloaded .tar.gz assets", failures)
 
+    def test_saved_release_report_rejects_expected_assets_not_bound_to_tag(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            omitted = "morphojet-v0.1.0-linux-x86_64.tar.gz.sha256"
+            payload["assets"]["expected"].remove(omitted)
+            payload["assets"]["release_metadata"].remove(omitted)
+            payload["assets"]["downloaded"].remove(omitted)
+            payload["assets"]["expected_count"] -= 1
+            payload["assets"]["release_metadata_count"] -= 1
+            payload["assets"]["downloaded_count"] -= 1
+            payload["asset_count"] -= 1
+            payload["asset_metadata"] = [
+                record for record in payload["asset_metadata"] if record["name"] != omitted
+            ]
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn("assets.expected does not match required release assets for tag", failures)
+
     def test_saved_release_report_rejects_archive_digest_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = self.valid_report(Path(tmp))
