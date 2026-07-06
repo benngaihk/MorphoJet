@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -15,6 +16,95 @@ import release_gate
 
 SCHEMA_VERSION = 1
 VERIFIER = "benchmark/verify_external_evidence_package.py"
+SHA256_RE = re.compile(r"[0-9a-f]{64}")
+PACKAGE_REVIEW_FILES = {
+    "package_handoff_trial": "handoff_trial.json",
+    "package_rendered_manifest": "rendered_manifest.json",
+    "package_external_evidence": "external_evidence.json",
+    "package_artifact_manifest": "artifact_manifest.json",
+    "package_readme": "README.md",
+}
+
+
+def file_summary(path: Path) -> dict[str, Any]:
+    summary: dict[str, Any] = {"path": str(path), "exists": path.is_file()}
+    if path.is_file():
+        summary["size_bytes"] = path.stat().st_size
+        summary["sha256"] = release_gate.sha256_file(path)
+    else:
+        summary["size_bytes"] = None
+        summary["sha256"] = None
+    return summary
+
+
+def package_input_files(package_dir: Path, trial_json: Path | None = None) -> dict[str, dict[str, Any]]:
+    files = {key: file_summary(package_dir / filename) for key, filename in PACKAGE_REVIEW_FILES.items()}
+    files["package_zip"] = file_summary(package_dir.parent / f"{package_dir.name}.zip")
+    files["package_zip_sha256"] = file_summary(package_dir.parent / f"{package_dir.name}.zip.sha256")
+    if trial_json is not None:
+        files["source_trial_json"] = file_summary(trial_json)
+    return files
+
+
+def input_file_summary_issues(name: str, summary: Any, require_exists: bool) -> list[str]:
+    failures = []
+    if not isinstance(summary, dict):
+        return [f"input_files.{name} must be an object"]
+    path = summary.get("path")
+    if not isinstance(path, str) or not path.strip():
+        failures.append(f"input_files.{name}.path must be a non-empty string")
+    exists = summary.get("exists")
+    if not isinstance(exists, bool):
+        failures.append(f"input_files.{name}.exists must be a boolean")
+    elif require_exists and not exists:
+        failures.append(f"input_files.{name}.exists must be true")
+    size = summary.get("size_bytes")
+    digest = summary.get("sha256")
+    if exists is True:
+        if not isinstance(size, int) or size <= 0:
+            failures.append(f"input_files.{name}.size_bytes must be a positive integer")
+        if not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
+            failures.append(f"input_files.{name}.sha256 must be a SHA-256 digest")
+    else:
+        if size is not None:
+            failures.append(f"input_files.{name}.size_bytes must be null when missing")
+        if digest is not None:
+            failures.append(f"input_files.{name}.sha256 must be null when missing")
+    return failures
+
+
+def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) -> list[str]:
+    failures = []
+    if not isinstance(input_files, dict):
+        return ["input_files must be an object"]
+    required_keys = set(PACKAGE_REVIEW_FILES) | {"package_zip", "package_zip_sha256"}
+    if require_trial_json:
+        required_keys.add("source_trial_json")
+    for missing in sorted(required_keys - set(input_files)):
+        failures.append(f"input_files missing required entry: {missing}")
+    for name, summary in input_files.items():
+        if not isinstance(name, str) or not name.strip():
+            failures.append("input_files keys must be non-empty strings")
+            continue
+        require_exists = status == "PASS" and (name in required_keys or name == "source_trial_json")
+        failures.extend(input_file_summary_issues(name, summary, require_exists=require_exists))
+    return failures
+
+
+def recomputed_input_file_issues(recorded: dict[str, Any], package_dir: Path, trial_json: Path | None) -> list[str]:
+    failures = []
+    current = package_input_files(package_dir, trial_json)
+    for name, current_summary in current.items():
+        recorded_summary = recorded.get(name)
+        if not isinstance(recorded_summary, dict):
+            failures.append(f"input_files.{name} missing from saved report")
+            continue
+        for field in ["path", "exists", "size_bytes", "sha256"]:
+            if recorded_summary.get(field) != current_summary.get(field):
+                failures.append(f"input_files.{name}.{field} changed after recomputing evidence package validation")
+    for name in sorted(set(recorded) - set(current)):
+        failures.append(f"input_files has unexpected saved entry: {name}")
+    return failures
 
 
 def verify_external_evidence_package(
@@ -31,6 +121,7 @@ def verify_external_evidence_package(
         "status": gate.status,
         "package_dir": str(package_dir),
         "trial_json": str(trial_json) if trial_json else None,
+        "input_files": package_input_files(package_dir, trial_json),
         "gate": asdict(gate),
     }
     if json_out:
@@ -82,6 +173,8 @@ def validate_verification_report_payload(
         failures.append("trial_json must be null or a non-empty string")
     if require_trial_json and (not isinstance(trial_json, str) or not trial_json.strip()):
         failures.append("trial_json is required for production package reviewer reports")
+    input_files = payload.get("input_files")
+    failures.extend(input_files_issues(input_files, status, require_trial_json))
     gate = payload.get("gate")
     if not isinstance(gate, dict):
         failures.append("gate must be an object")
@@ -135,6 +228,7 @@ def verify_saved_external_evidence_package_report(
                 "status changed after recomputing evidence package validation: "
                 f"{payload.get('status')} != {gate.status}"
             )
+        failures.extend(recomputed_input_file_issues(payload["input_files"], package_dir, trial_json))
     if failures:
         for failure in failures:
             print(f"FAIL: {failure}", file=sys.stderr)

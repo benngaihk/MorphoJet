@@ -105,6 +105,9 @@ class PackageExternalTrialTest(unittest.TestCase):
                     json_out=json_out,
                 )
             payload = json.loads(json_out.read_text(encoding="utf-8"))
+            expected_trial_sha = release_gate.sha256_file(trial_json)
+            expected_zip_sha = release_gate.sha256_file(Path(result["zip"]))
+            expected_manifest_sha = release_gate.sha256_file(Path(result["package_dir"]) / "artifact_manifest.json")
 
         self.assertEqual(0, code)
         self.assertEqual(1, payload["schema_version"])
@@ -113,6 +116,9 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual("PASS", payload["status"])
         self.assertEqual("Validate external L4 evidence package", payload["gate"]["name"])
         self.assertIn("External L4 evidence package PASS", payload["gate"]["detail"])
+        self.assertEqual(expected_trial_sha, payload["input_files"]["source_trial_json"]["sha256"])
+        self.assertEqual(expected_zip_sha, payload["input_files"]["package_zip"]["sha256"])
+        self.assertEqual(expected_manifest_sha, payload["input_files"]["package_artifact_manifest"]["sha256"])
 
     def test_standalone_verifier_rejects_invalid_package(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -269,6 +275,39 @@ class PackageExternalTrialTest(unittest.TestCase):
                 )
 
         self.assertEqual(1, code)
+
+    def test_saved_package_verification_report_recomputes_input_file_summaries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["input_files"]["package_readme"]["sha256"] = "0" * 64
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(
+                    json_out,
+                    verify_files=True,
+                )
+
+        self.assertEqual(1, code)
+        self.assertIn(
+            "input_files.package_readme.sha256 changed after recomputing evidence package validation",
+            stderr.getvalue(),
+        )
 
     def test_saved_package_verification_report_can_require_pass(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
