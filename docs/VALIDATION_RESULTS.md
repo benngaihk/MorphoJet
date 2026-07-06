@@ -2,22 +2,22 @@
 
 Updated: 2026-07-06
 
-## Release-Gate Snapshot for `32df20d`
+## Release-Gate Snapshot for `976e188`
 
-This snapshot records the clean `main` verification for the code commit that bound local evidence preflight reports to canonical wrapper argv metadata. It is not a production claim; it confirms that the committed release-gate evidence still passes L3 while exposing the exact final blockers.
+This snapshot records the clean `main` verification for the code commit that bound external workflow trial reports to stricter runner argv metadata. It is not a production claim; it confirms that the committed release-gate evidence still passes L3 while exposing the exact final blockers.
 
 Environment:
 
 - Branch: `main`
-- Verified code commit: `32df20d`
-- Release-gate command: `PATH="$HOME/.cargo/bin:$PATH" python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-32df20d.json --out-md /tmp/morphojet-l3-release-report-main-32df20d.md`
-- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-32df20d.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,stable_github_release`
+- Verified code commit: `976e188`
+- Release-gate command: `PATH="$HOME/.cargo/bin:$PATH" python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-976e188.json --out-md /tmp/morphojet-l3-release-report-main-976e188.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-976e188.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,stable_github_release`
 
 Result:
 
 | Gate | Result |
 |---|---:|
-| Full Python unit test suite | PASS, 262 tests |
+| Full Python unit test suite | PASS, 264 tests |
 | Source claim-language guard | PASS |
 | Whitespace diff check | PASS |
 | Clean L3 release gate | PASS |
@@ -25,7 +25,7 @@ Result:
 | `production_claim_status` | `INCOMPLETE` |
 | Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `stable_github_release` |
 
-The saved release-gate verifier checks production metadata and `metadata.argv` both ways: final metadata values must appear in the recorded command line, and key production command-line arguments must be reflected back into metadata without duplicate critical flags or missing flag values. The local evidence preflight verifier now applies the same binding discipline to its own canonical wrapper argv. This prevents stale or hand-edited reports from silently appearing stronger than the command that produced them.
+The saved release-gate verifier checks production metadata and `metadata.argv` both ways: final metadata values must appear in the recorded command line, and key production command-line arguments must be reflected back into metadata without duplicate critical flags or missing flag values. The local evidence preflight verifier applies the same binding discipline to its own canonical wrapper argv, and external trial reports now bind their source manifest plus `--out-json`, `--out-md`, and strict external-evidence flag usage. This prevents stale or hand-edited reports from silently appearing stronger than the command that produced them.
 
 ## Production Gate Wrapper Milestone
 
