@@ -106,6 +106,9 @@ def validate_metadata(metadata: Any) -> list[str]:
     github_release_kind = metadata.get("github_release_kind")
     if github_release_kind not in {"prerelease", "stable", None}:
         failures.append(f"metadata.github_release_kind={github_release_kind}")
+    elif github_release_kind == "stable":
+        if not isinstance(verify_github_release, str) or not STABLE_TAG_PATTERN.fullmatch(verify_github_release):
+            failures.append("metadata.github_release_kind=stable requires a stable metadata.verify_github_release tag")
     failures.extend(validate_metadata_argv(metadata))
     return failures
 

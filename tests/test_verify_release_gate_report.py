@@ -365,6 +365,37 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
         )
         self.assertIn("production PASS metadata.github_release_kind must be stable: prerelease", failures)
 
+    def test_rejects_stable_release_kind_without_stable_tag_even_before_production_pass(self) -> None:
+        payload = self.valid_payload()
+        payload["metadata"]["github_release_kind"] = "stable"
+        payload["metadata"]["verify_github_release"] = None
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "metadata.github_release_kind=stable requires a stable metadata.verify_github_release tag",
+            failures,
+        )
+
+    def test_rejects_stable_release_kind_with_prerelease_tag(self) -> None:
+        payload = self.valid_payload()
+        payload["metadata"]["github_release_kind"] = "stable"
+        payload["metadata"]["verify_github_release"] = "v0.1.0-rc.1"
+        payload["metadata"]["argv"] = [
+            "benchmark/release_gate.py",
+            "--verify-github-release",
+            "v0.1.0-rc.1",
+            "--github-release-kind",
+            "stable",
+        ]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "metadata.github_release_kind=stable requires a stable metadata.verify_github_release tag",
+            failures,
+        )
+
     def test_rejects_metadata_argv_that_omits_recorded_flags_and_inputs(self) -> None:
         payload = self.complete_production_claim_payload()
         payload["metadata"]["argv"] = ["other.py", "--require-clean-git"]
