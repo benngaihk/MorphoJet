@@ -26,6 +26,10 @@ def write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def normalized_path_key(path: Path) -> str:
+    return str(path.expanduser().resolve(strict=False))
+
+
 def check_report_outputs(manifest_path: Path, manifest: dict[str, Any], workspace: Path) -> list[str]:
     try:
         run_handoff_trial.validate_report_outputs(
@@ -44,14 +48,21 @@ def check_report_outputs(manifest_path: Path, manifest: dict[str, Any], workspac
 
 
 def package_output_issues(workspace: Path, trial_id: str, package_name: str | None) -> list[str]:
+    return [
+        f"package output already exists: {path}"
+        for path in package_output_paths(workspace, trial_id, package_name)
+        if path.exists()
+    ]
+
+
+def package_output_paths(workspace: Path, trial_id: str, package_name: str | None) -> list[Path]:
     package_slug = prepare_external_l4_trial.slugify(package_name or f"external-l4-{trial_id}")
     out_dir = workspace / "evidence-package"
-    paths = [
+    return [
         out_dir / package_slug,
         out_dir / f"{package_slug}.zip",
         out_dir / f"{package_slug}.zip.sha256",
     ]
-    return [f"package output already exists: {path}" for path in paths if path.exists()]
 
 
 def trial_output_issues(manifest: dict[str, Any]) -> list[str]:
@@ -64,7 +75,11 @@ def trial_output_issues(manifest: dict[str, Any]) -> list[str]:
 
 
 def planned_report_output_issues(workspace: Path) -> list[str]:
-    paths = [
+    return [f"planned report output already exists before run: {path}" for path in planned_report_output_paths(workspace) if path.exists()]
+
+
+def planned_report_output_paths(workspace: Path) -> list[Path]:
+    return [
         workspace / "handoff_trial.json",
         workspace / "handoff_trial.md",
         workspace / "handoff_trial-verification.json",
@@ -72,7 +87,33 @@ def planned_report_output_issues(workspace: Path) -> list[str]:
         workspace / "local-evidence-preflight.json",
         workspace / "local-evidence-preflight.md",
     ]
-    return [f"planned report output already exists before run: {path}" for path in paths if path.exists()]
+
+
+def readiness_json_out_issues(
+    json_out: Path,
+    workspace: Path,
+    manifest_path: Path,
+    manifest: dict[str, Any] | None,
+    package_name: str | None,
+) -> list[str]:
+    protected = {
+        normalized_path_key(manifest_path): f"manifest file: {manifest_path}",
+    }
+    for path in planned_report_output_paths(workspace):
+        protected.setdefault(normalized_path_key(path), f"planned report output: {path}")
+    if manifest is not None:
+        for path in validate_handoff_manifest.collect_paths(manifest):
+            protected.setdefault(normalized_path_key(Path(path)), f"manifest input: {path}")
+        for path in validate_handoff_manifest.collect_output_paths(manifest):
+            protected.setdefault(normalized_path_key(Path(path)), f"manifest trial output: {path}")
+        trial_id = manifest.get("trial_id")
+        if isinstance(trial_id, str) and trial_id.strip():
+            for path in package_output_paths(workspace, trial_id, package_name):
+                protected.setdefault(normalized_path_key(path), f"package output: {path}")
+    protected_path = protected.get(normalized_path_key(json_out))
+    if protected_path:
+        return [f"--json-out must not overwrite {protected_path}"]
+    return []
 
 
 def read_csv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
@@ -272,6 +313,24 @@ def main() -> int:
         print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
     if args.json_out:
+        manifest = None
+        manifest_path = args.manifest or args.workspace / MANIFEST_NAME
+        if manifest_path.is_file():
+            raw_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            rendered = run_handoff_trial.render(raw_manifest, payload["variables"])
+            if isinstance(rendered, dict):
+                manifest = rendered
+        json_out_issues = readiness_json_out_issues(
+            args.json_out,
+            args.workspace,
+            manifest_path,
+            manifest,
+            args.package_name,
+        )
+        if json_out_issues:
+            for issue in json_out_issues:
+                print(f"ERROR: {issue}", file=sys.stderr)
+            return 1
         write_json(args.json_out, payload)
         print(f"wrote {args.json_out}")
     print(f"status={payload['status']}")
