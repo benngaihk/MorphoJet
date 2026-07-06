@@ -457,6 +457,26 @@ def release_metadata_issues(payload: dict[str, Any], status: Any, repo: Any) -> 
     return failures
 
 
+def live_release_metadata_issues(repo: str, tag: str, release: dict[str, Any]) -> list[str]:
+    payload = {
+        "release_id": release.get("id"),
+        "release_database_id": release.get("databaseId"),
+        "release_api_url": release.get("apiUrl"),
+        "release_created_at": release.get("createdAt"),
+        "release_published_at": release.get("publishedAt"),
+        "release_author_login": (release.get("author") or {}).get("login")
+        if isinstance(release.get("author"), dict)
+        else None,
+        "is_immutable": release.get("isImmutable"),
+        "target_commitish": release.get("targetCommitish"),
+    }
+    return [
+        *release_identity_issues(tag, release),
+        *release_report_url_issues(repo, tag, release.get("url")),
+        *release_metadata_issues(payload, "PASS", repo),
+    ]
+
+
 def doctor_run_issues(archive_summaries: list[dict]) -> list[str]:
     if any(summary.get("doctor") is not None for summary in archive_summaries):
         return []
@@ -795,7 +815,7 @@ def main() -> int:
         issues.append("release is draft")
     if args.expect_prerelease and args.expect_stable:
         issues.append("--expect-prerelease and --expect-stable are mutually exclusive")
-    issues.extend(release_identity_issues(args.tag, release))
+    issues.extend(live_release_metadata_issues(args.repo, args.tag, release))
     issues.extend(release_type_issues(args.tag, release, args.expect_prerelease, args.expect_stable))
 
     expected_assets = expected_asset_names(args.tag)

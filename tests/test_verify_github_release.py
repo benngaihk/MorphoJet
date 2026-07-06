@@ -437,6 +437,41 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn("is_immutable must be a boolean", failures)
         self.assertIn("target_commitish must be a non-empty string", failures)
 
+    def test_live_release_metadata_issues_match_saved_report_identity_checks(self) -> None:
+        issues = verify_github_release.live_release_metadata_issues(
+            "benngaihk/MorphoJet",
+            "v0.1.0",
+            {
+                "tagName": "v0.1.0",
+                "url": "https://github.com/other/repo/releases/tag/v0.1.0",
+                "id": "",
+                "databaseId": 0,
+                "apiUrl": "https://api.github.com/repos/other/repo/releases/123",
+                "createdAt": "2026-07-03T00:00:02Z",
+                "publishedAt": "2026-07-03T00:00:01Z",
+                "author": {},
+                "isImmutable": "false",
+                "targetCommitish": "",
+            },
+        )
+
+        self.assertIn(
+            "url does not match repo/tag: "
+            "https://github.com/other/repo/releases/tag/v0.1.0 != "
+            "https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0",
+            issues,
+        )
+        self.assertIn("release_id must be a non-empty string", issues)
+        self.assertIn("release_database_id must be a positive integer", issues)
+        self.assertIn(
+            "release_api_url does not match repo: https://api.github.com/repos/other/repo/releases/123",
+            issues,
+        )
+        self.assertIn("release_published_at must not be earlier than release_created_at", issues)
+        self.assertIn("release_author_login must be a non-empty string", issues)
+        self.assertIn("is_immutable must be a boolean", issues)
+        self.assertIn("target_commitish must be a non-empty string", issues)
+
     def test_saved_release_report_rejects_passing_draft_release(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = self.valid_report(Path(tmp))
