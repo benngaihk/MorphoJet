@@ -493,6 +493,24 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertEqual(Path("benchmark/results/github-release-verification/v0.1.0.json"), path)
         self.assertNotIn("benchmark/results/github-release/v0.1.0", str(path))
 
+    def test_saved_github_release_report_command_verifies_git_commit_and_expected_tag(self) -> None:
+        command = release_gate.saved_github_release_report_command(
+            Path("github-release/verification.json"),
+            expected_tag="v0.1.0",
+        )
+
+        self.assertIn("--verify-report-files", command)
+        self.assertIn("--require-report-pass", command)
+        self.assertIn("--require-stable-report", command)
+        self.assertIn("--verify-git-commit", command)
+        self.assertEqual("v0.1.0", command[command.index("--expect-tag") + 1])
+
+    def test_saved_github_release_report_command_verifies_git_commit_without_expected_tag(self) -> None:
+        command = release_gate.saved_github_release_report_command(Path("github-release/verification.json"))
+
+        self.assertIn("--verify-git-commit", command)
+        self.assertNotIn("--expect-tag", command)
+
     def test_external_trial_rejects_rendered_manifest_evidence_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

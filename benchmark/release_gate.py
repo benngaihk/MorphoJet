@@ -290,6 +290,22 @@ def github_release_verification_report_path(tag: str) -> Path:
     return Path("benchmark/results/github-release-verification") / f"{tag}.json"
 
 
+def saved_github_release_report_command(report: Path, expected_tag: str | None = None) -> list[str]:
+    command = [
+        "python3",
+        "benchmark/verify_github_release.py",
+        "--verify-report",
+        str(report),
+        "--verify-report-files",
+        "--require-report-pass",
+        "--require-stable-report",
+        "--verify-git-commit",
+    ]
+    if expected_tag:
+        command.extend(["--expect-tag", expected_tag])
+    return command
+
+
 def rendered_manifest_artifacts(manifest: dict) -> list[str]:
     artifacts = []
     for export in manifest.get("exports", []):
@@ -1445,17 +1461,10 @@ def main() -> int:
             )
         )
     if args.github_release_verification_report:
-        command = [
-            "python3",
-            "benchmark/verify_github_release.py",
-            "--verify-report",
-            str(args.github_release_verification_report),
-            "--verify-report-files",
-            "--require-report-pass",
-            "--require-stable-report",
-        ]
-        if args.verify_github_release:
-            command.extend(["--expect-tag", args.verify_github_release])
+        command = saved_github_release_report_command(
+            args.github_release_verification_report,
+            expected_tag=args.verify_github_release,
+        )
         gates.append(
             run_command(
                 "Verify saved stable GitHub release report",
