@@ -62,6 +62,22 @@ def safe_extract(archive: Path, destination: Path) -> None:
         handle.extractall(destination)
 
 
+def normalized_path_key(path: Path) -> str:
+    return str(path.expanduser().resolve(strict=False))
+
+
+def validate_json_out_path(json_out: Path | None, archive: Path, checksum: Path) -> None:
+    if json_out is None:
+        return
+    protected = {
+        normalized_path_key(archive): f"archive: {archive}",
+        normalized_path_key(checksum): f"checksum: {checksum}",
+    }
+    protected_label = protected.get(normalized_path_key(json_out))
+    if protected_label:
+        raise SystemExit(f"--json-out must not overwrite {protected_label}")
+
+
 def verify(archive: Path, checksum: Path, expect_commit: str | None) -> dict[str, object]:
     actual = sha256(archive)
     expected = expected_sha(checksum)
@@ -124,6 +140,7 @@ def main() -> int:
         raise SystemExit(f"archive not found: {args.archive}")
     if not checksum.is_file():
         raise SystemExit(f"checksum not found: {checksum}")
+    validate_json_out_path(args.json_out, args.archive, checksum)
 
     summary = verify(args.archive, checksum, args.expect_commit)
     if args.json_out:

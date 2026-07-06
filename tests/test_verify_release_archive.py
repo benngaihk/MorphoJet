@@ -66,6 +66,24 @@ class VerifyReleaseArchiveTest(unittest.TestCase):
 
             self.assertEqual("ok\n", (out / "package" / "README.md").read_text())
 
+    def test_json_out_must_not_overwrite_archive(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "archive.tar.gz"
+            checksum = root / "archive.tar.gz.sha256"
+
+            with self.assertRaisesRegex(SystemExit, "--json-out must not overwrite archive"):
+                verify_release_archive.validate_json_out_path(archive, archive, checksum)
+
+    def test_json_out_must_not_overwrite_checksum(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "archive.tar.gz"
+            checksum = root / "archive.tar.gz.sha256"
+
+            with self.assertRaisesRegex(SystemExit, "--json-out must not overwrite checksum"):
+                verify_release_archive.validate_json_out_path(checksum, archive, checksum)
+
     def test_safe_extract_accepts_directories(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

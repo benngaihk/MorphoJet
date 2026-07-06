@@ -81,7 +81,7 @@ python3 benchmark/verify_release_archive.py \
   --json-out benchmark/results/release-artifacts/verification.json
 ```
 
-The local archive verifier checks the checksum digest, checksum target filename, traversal-safe extraction, package contents, and `morphojet doctor` output.
+The local archive verifier checks the checksum digest, checksum target filename, traversal-safe extraction, package contents, and `morphojet doctor` output, and rejects `--json-out` paths that would overwrite the archive or checksum file.
 The local archive builder rejects version strings with path separators or spaces, keeps package/archive/checksum outputs inside `--out-dir`, and refuses to delete an existing package directory unless it contains only the expected release package files.
 
 Before cutting a release candidate, run:
