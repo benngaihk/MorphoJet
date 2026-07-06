@@ -80,14 +80,40 @@ def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) 
     required_keys = set(PACKAGE_REVIEW_FILES) | {"package_zip", "package_zip_sha256"}
     if require_trial_json:
         required_keys.add("source_trial_json")
+    allowed_keys = set(required_keys)
+    allowed_keys.add("source_trial_json")
     for missing in sorted(required_keys - set(input_files)):
         failures.append(f"input_files missing required entry: {missing}")
+    for extra in sorted(set(input_files) - allowed_keys):
+        failures.append(f"input_files has unexpected entry: {extra}")
     for name, summary in input_files.items():
         if not isinstance(name, str) or not name.strip():
             failures.append("input_files keys must be non-empty strings")
             continue
         require_exists = status == "PASS" and (name in required_keys or name == "source_trial_json")
         failures.extend(input_file_summary_issues(name, summary, require_exists=require_exists))
+    return failures
+
+
+def input_file_path_binding_issues(
+    input_files: dict[str, Any],
+    package_dir: str,
+    trial_json: str | None,
+) -> list[str]:
+    failures = []
+    root = Path(package_dir)
+    expected_paths = {
+        key: str(root / filename)
+        for key, filename in PACKAGE_REVIEW_FILES.items()
+    }
+    expected_paths["package_zip"] = str(root.parent / f"{root.name}.zip")
+    expected_paths["package_zip_sha256"] = str(root.parent / f"{root.name}.zip.sha256")
+    if trial_json is not None:
+        expected_paths["source_trial_json"] = trial_json
+    for name, expected_path in expected_paths.items():
+        summary = input_files.get(name)
+        if isinstance(summary, dict) and summary.get("path") != expected_path:
+            failures.append(f"input_files.{name}.path must match report inputs")
     return failures
 
 
@@ -219,6 +245,14 @@ def validate_verification_report_payload(
         failures.append("trial_json is required for production package reviewer reports")
     input_files = payload.get("input_files")
     failures.extend(input_files_issues(input_files, status, require_trial_json))
+    if isinstance(input_files, dict) and isinstance(package_dir, str) and package_dir.strip():
+        failures.extend(
+            input_file_path_binding_issues(
+                input_files,
+                package_dir,
+                trial_json if isinstance(trial_json, str) else None,
+            )
+        )
     gate = payload.get("gate")
     if not isinstance(gate, dict):
         failures.append("gate must be an object")

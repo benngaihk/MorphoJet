@@ -107,6 +107,27 @@ def input_files_issues(input_files: Any, status: Any) -> list[str]:
     return failures
 
 
+def input_file_path_binding_issues(input_files: dict[str, Any], trial_json: str, trial_root: str) -> list[str]:
+    failures = []
+    trial_summary = input_files.get("trial_json")
+    if isinstance(trial_summary, dict) and trial_summary.get("path") != trial_json:
+        failures.append("input_files.trial_json.path must match trial_json")
+    artifact_files = input_files.get("artifact_files")
+    if not isinstance(artifact_files, list):
+        return failures
+    root = Path(trial_root)
+    for index, artifact in enumerate(artifact_files):
+        if not isinstance(artifact, dict):
+            continue
+        source_path = artifact.get("source_path")
+        if not isinstance(source_path, str) or not source_path.strip():
+            continue
+        expected_path = str(release_gate.resolve_artifact_path(source_path, root))
+        if artifact.get("path") != expected_path:
+            failures.append(f"input_files.artifact_files[{index}].path must match resolved source_path")
+    return failures
+
+
 def recomputed_input_file_issues(recorded: dict[str, Any], trial_json: Path, trial_root: Path) -> list[str]:
     failures = []
     current = trial_input_files(trial_json, trial_root)
@@ -200,6 +221,14 @@ def validate_verification_report_payload(payload: Any, require_report_pass: bool
         failures.append("trial_root must be a non-empty string")
     input_files = payload.get("input_files")
     failures.extend(input_files_issues(input_files, status))
+    if (
+        isinstance(input_files, dict)
+        and isinstance(trial_json, str)
+        and trial_json.strip()
+        and isinstance(trial_root, str)
+        and trial_root.strip()
+    ):
+        failures.extend(input_file_path_binding_issues(input_files, trial_json, trial_root))
     gate = payload.get("gate")
     if not isinstance(gate, dict):
         failures.append("gate must be an object")
