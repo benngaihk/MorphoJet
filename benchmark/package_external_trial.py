@@ -122,6 +122,31 @@ def zip_directory(source_dir: Path, zip_path: Path) -> None:
                 archive.write(path, path.relative_to(source_dir.parent))
 
 
+def path_contains(container: Path, path: Path) -> bool:
+    try:
+        path.relative_to(container)
+        return True
+    except ValueError:
+        return False
+
+
+def validate_package_outputs_do_not_cover_sources(
+    package_dir: Path,
+    zip_path: Path,
+    sha_path: Path,
+    source_paths: list[tuple[str, Path]],
+) -> None:
+    failures = []
+    for label, source_path in source_paths:
+        if path_contains(package_dir, source_path):
+            failures.append(f"package directory must not contain source {label}: {source_path}")
+        for output_label, output_path in [("package zip", zip_path), ("package checksum", sha_path)]:
+            if output_path == source_path:
+                failures.append(f"{output_label} must not overwrite source {label}: {source_path}")
+    if failures:
+        raise PackageError("; ".join(failures))
+
+
 def create_package(
     trial_json: Path,
     trial_root: Path,
@@ -140,6 +165,10 @@ def create_package(
     package_dir = out_dir / name
     zip_path = out_dir / f"{name}.zip"
     sha_path = out_dir / f"{name}.zip.sha256"
+    source_paths = [("trial JSON", trial_json)]
+    for artifact in trial["artifacts"]:
+        source_paths.append((f"trial artifact {artifact}", release_gate.resolve_artifact_path(artifact, trial_root)))
+    validate_package_outputs_do_not_cover_sources(package_dir, zip_path, sha_path, source_paths)
     if package_dir.exists() or zip_path.exists() or sha_path.exists():
         if not overwrite:
             raise PackageError(f"package outputs already exist for {name}; pass --overwrite to replace them")

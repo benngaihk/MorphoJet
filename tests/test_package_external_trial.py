@@ -70,6 +70,45 @@ class PackageExternalTrialTest(unittest.TestCase):
                 self.assertIn("external-l4-demo/README.md", archive.namelist())
                 self.assertIn("external-l4-demo/artifacts/external/handoff_contract.json", archive.namelist())
 
+    def test_package_rejects_output_directory_covering_source_trial_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+
+            with self.assertRaisesRegex(
+                package_external_trial.PackageError,
+                "package directory must not contain source trial JSON",
+            ):
+                package_external_trial.create_package(
+                    trial_json,
+                    root,
+                    root,
+                    package_name="external",
+                    overwrite=True,
+                )
+
+            self.assertTrue(trial_json.is_file())
+            self.assertTrue((root / "external" / "handoff_contract.json").is_file())
+
+    def test_package_rejects_output_directory_equal_to_source_trial_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+
+            with self.assertRaisesRegex(
+                package_external_trial.PackageError,
+                "package directory must not contain source trial JSON",
+            ):
+                package_external_trial.create_package(
+                    trial_json,
+                    root,
+                    trial_json.parent,
+                    package_name=trial_json.name,
+                    overwrite=True,
+                )
+
+            self.assertTrue(trial_json.is_file())
+
     def test_release_gate_accepts_valid_package(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
