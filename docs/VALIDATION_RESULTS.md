@@ -2,14 +2,14 @@
 
 Updated: 2026-07-06
 
-## Current Main Release-Gate Snapshot
+## Release-Gate Snapshot for `caea9b0`
 
-This snapshot records the latest clean `main` verification after saved release-gate report hardening. It is not a production claim; it confirms that the current committed release-gate evidence still passes L3 while exposing the exact final blockers.
+This snapshot records the clean `main` verification for the code commit that hardened saved release-gate report checks. It is not a production claim; it confirms that the committed release-gate evidence still passes L3 while exposing the exact final blockers.
 
 Environment:
 
 - Branch: `main`
-- Commit: `caea9b0`
+- Verified code commit: `caea9b0`
 - Release-gate command: `PATH="$HOME/.cargo/bin:$PATH" python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-caea9b0.json --out-md /tmp/morphojet-l3-release-report-main-caea9b0.md`
 - Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-caea9b0.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,stable_github_release`
 
