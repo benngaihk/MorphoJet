@@ -2,22 +2,22 @@
 
 Updated: 2026-07-06
 
-## Release-Gate Snapshot for `cf508cc`
+## Release-Gate Snapshot for `74c2544`
 
-This snapshot records the clean `main` verification for the code commit that bound saved verifier `--json-out` metadata to the saved report path under review. It is not a production claim; it confirms that the committed release-gate evidence still passes L3 while exposing the exact final blockers.
+This snapshot records the clean `main` verification for the code commit that made saved verifier reports require a `--json-out` binding to the saved report path under review. It is not a production claim; it confirms that the committed release-gate evidence still passes L3 while exposing the exact final blockers.
 
 Environment:
 
 - Branch: `main`
-- Verified code commit: `cf508cc`
-- Release-gate command: `PATH="$HOME/.cargo/bin:$PATH" python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-cf508cc.json --out-md /tmp/morphojet-l3-release-report-main-cf508cc.md`
-- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-cf508cc.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,stable_github_release`
+- Verified code commit: `74c2544`
+- Release-gate command: `PATH="$HOME/.cargo/bin:$PATH" python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-74c2544.json --out-md /tmp/morphojet-l3-release-report-main-74c2544.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-74c2544.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,stable_github_release`
 
 Result:
 
 | Gate | Result |
 |---|---:|
-| Full Python unit test suite | PASS, 270 tests |
+| Full Python unit test suite | PASS, 273 tests |
 | Source claim-language guard | PASS |
 | Whitespace diff check | PASS |
 | Clean L3 release gate | PASS |
