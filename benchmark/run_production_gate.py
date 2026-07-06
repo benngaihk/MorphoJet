@@ -785,6 +785,22 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
                 not isinstance(value, list) or not all(isinstance(item, str) for item in value)
             ):
                 failures.append(f"metadata.{list_key} must be a string list")
+        for path_key in [
+            "external_trial_json",
+            "external_trial_root",
+            "external_evidence_package_dir",
+        ]:
+            value = metadata.get(path_key)
+            if not isinstance(value, str) or not value.strip():
+                failures.append(f"metadata.{path_key} must be a non-empty string")
+        for optional_path_key in [
+            "external_trial_verification_report",
+            "external_evidence_package_verification_report",
+            "github_release_tag",
+        ]:
+            value = metadata.get(optional_path_key)
+            if value is not None and (not isinstance(value, str) or not value.strip()):
+                failures.append(f"metadata.{optional_path_key} must be null or a non-empty string")
         if metadata.get("local_evidence_preflight_only") is not True:
             failures.append("metadata.local_evidence_preflight_only must be true")
 
