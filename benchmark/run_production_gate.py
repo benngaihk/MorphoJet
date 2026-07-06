@@ -285,7 +285,7 @@ def build_local_evidence_preflight_payload(args: argparse.Namespace, gates: list
             "git_commit": release_gate.git_commit(),
             "git_dirty": bool(git_status_lines),
             "git_status": git_status_lines,
-            "argv": ["benchmark/run_production_gate.py", *sys.argv[1:]],
+            "argv": getattr(args, "argv", ["benchmark/run_production_gate.py", *sys.argv[1:]]),
             "external_trial_json": str(args.external_trial_json),
             "external_trial_root": str(args.external_trial_root),
             "external_evidence_package_dir": str(args.external_evidence_package_dir),
@@ -624,6 +624,43 @@ def run_local_evidence_preflight(args: argparse.Namespace) -> int:
     return 0 if payload["status"] == "PASS" else 1
 
 
+def canonical_wrapper_argv(args: argparse.Namespace) -> list[str]:
+    argv = ["benchmark/run_production_gate.py"]
+    value_flags = [
+        ("--external-trial-json", args.external_trial_json),
+        ("--external-trial-root", args.external_trial_root),
+        ("--external-evidence-package-dir", args.external_evidence_package_dir),
+        ("--external-trial-verification-report", args.external_trial_verification_report),
+        (
+            "--external-evidence-package-verification-report",
+            args.external_evidence_package_verification_report,
+        ),
+        ("--github-release-verification-report", args.github_release_verification_report),
+        ("--github-release-tag", args.github_release_tag),
+        ("--out-json", args.out_json),
+        ("--out-md", args.out_md),
+        ("--release-version", args.release_version),
+        ("--local-evidence-preflight-json", args.local_evidence_preflight_json),
+        ("--local-evidence-preflight-md", args.local_evidence_preflight_md),
+        ("--verify-local-evidence-preflight-report", args.verify_local_evidence_preflight_report),
+    ]
+    for flag, value in value_flags:
+        if value is not None:
+            argv.extend([flag, str(value)])
+    for flag, enabled in [
+        ("--run-l3", args.run_l3),
+        ("--build-release-artifact", args.build_release_artifact),
+        ("--dry-run", args.dry_run),
+        ("--local-evidence-preflight-only", args.local_evidence_preflight_only),
+        ("--verify-local-evidence-preflight-files", args.verify_local_evidence_preflight_files),
+        ("--verify-local-evidence-preflight-gates", args.verify_local_evidence_preflight_gates),
+        ("--require-local-evidence-preflight-pass", args.require_local_evidence_preflight_pass),
+    ]:
+        if enabled:
+            argv.append(flag)
+    return argv
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--external-trial-json", type=Path)
@@ -666,7 +703,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="With --verify-local-evidence-preflight-report, fail unless the saved report status is PASS",
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    args.argv = canonical_wrapper_argv(args)
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -682,6 +721,10 @@ def main(argv: list[str] | None = None) -> int:
         require_final_gate_args(args)
         command = build_release_gate_command(args)
         if args.local_evidence_preflight_only:
+            if args.github_release_verification_report:
+                raise ProductionGateError(
+                    "--github-release-verification-report is not used with --local-evidence-preflight-only"
+                )
             validate_report_output_paths(
                 args,
                 [
@@ -785,6 +828,9 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
                 not isinstance(value, list) or not all(isinstance(item, str) for item in value)
             ):
                 failures.append(f"metadata.{list_key} must be a string list")
+        argv = metadata.get("argv")
+        if isinstance(argv, list) and all(isinstance(item, str) for item in argv):
+            failures.extend(validate_local_evidence_preflight_argv(metadata, argv))
         for path_key in [
             "external_trial_json",
             "external_trial_root",
@@ -891,6 +937,64 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
                 "local evidence preflight status does not match gate statuses: "
                 f"{payload.get('status')} != {expected_status}"
             )
+    return failures
+
+
+def argv_values(argv: list[str], flag: str) -> list[str | None]:
+    values: list[str | None] = []
+    for index, item in enumerate(argv):
+        if item != flag:
+            continue
+        if index + 1 >= len(argv) or argv[index + 1].startswith("--"):
+            values.append(None)
+        else:
+            values.append(argv[index + 1])
+    return values
+
+
+def validate_local_evidence_preflight_argv(metadata: dict, argv: list[str]) -> list[str]:
+    failures = []
+    if not argv:
+        return ["metadata.argv must not be empty"]
+    if argv[0] != "benchmark/run_production_gate.py":
+        failures.append(f"metadata.argv[0]={argv[0]}")
+
+    preflight_flag = "--local-evidence-preflight-only"
+    if argv.count(preflight_flag) != 1:
+        failures.append(f"metadata.argv must include exactly one {preflight_flag}")
+    if metadata.get("local_evidence_preflight_only") is not True:
+        failures.append("metadata.local_evidence_preflight_only must be true for metadata.argv validation")
+    if "--dry-run" in argv:
+        failures.append("metadata.argv must not include --dry-run for a saved local evidence preflight report")
+    if "--github-release-verification-report" in argv:
+        failures.append(
+            "metadata.argv must not include --github-release-verification-report for local evidence preflight"
+        )
+
+    required_value_flags = {
+        "external_trial_json": "--external-trial-json",
+        "external_trial_root": "--external-trial-root",
+        "external_evidence_package_dir": "--external-evidence-package-dir",
+        "github_release_tag": "--github-release-tag",
+    }
+    optional_value_flags = {
+        "external_trial_verification_report": "--external-trial-verification-report",
+        "external_evidence_package_verification_report": "--external-evidence-package-verification-report",
+    }
+    for metadata_key, flag in {**required_value_flags, **optional_value_flags}.items():
+        values = argv_values(argv, flag)
+        if len(values) > 1:
+            failures.append(f"metadata.argv has duplicate {flag}")
+        metadata_value = metadata.get(metadata_key)
+        if metadata_key in required_value_flags and not values:
+            failures.append(f"metadata.argv missing {flag} for metadata.{metadata_key}")
+        if isinstance(metadata_value, str) and metadata_value.strip() and not values:
+            failures.append(f"metadata.argv missing {flag} {metadata_value}")
+        for argv_value in values:
+            if argv_value is None:
+                failures.append(f"metadata.argv {flag} must include a value")
+            elif metadata_value != argv_value:
+                failures.append(f"metadata.{metadata_key} must match metadata.argv {flag} {argv_value}")
     return failures
 
 

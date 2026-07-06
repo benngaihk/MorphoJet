@@ -1469,6 +1469,65 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("metadata.git_dirty must be a boolean", stderr.getvalue())
         self.assertIn("metadata.local_evidence_preflight_only must be true", stderr.getvalue())
 
+    def test_verify_local_evidence_preflight_report_rejects_argv_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            out_json = root / "reports" / "preflight.json"
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(root / "reports" / "preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                run_production_gate.run_local_evidence_preflight(args)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            payload["metadata"]["argv"] = [
+                "benchmark/run_production_gate.py",
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                str(root / "other-package"),
+                "--github-release-tag",
+                "v0.1.0",
+            ]
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(1, status)
+        self.assertIn(
+            "metadata.argv must include exactly one --local-evidence-preflight-only",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "metadata.external_evidence_package_dir must match metadata.argv "
+            "--external-evidence-package-dir",
+            stderr.getvalue(),
+        )
+
     def test_verify_local_evidence_preflight_report_rejects_bad_metadata_paths(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1692,6 +1751,46 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(0, status)
         self.assertNotIn("benchmark/release_gate.py", stdout.getvalue())
         self.assertIn("Validate external L4 evidence package: PASS", stdout.getvalue())
+
+    def test_local_evidence_preflight_rejects_github_release_verification_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            github_report = root / "github-release-verification.json"
+            github_report.write_text("{}\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                status = run_production_gate.main(
+                    [
+                        "--external-trial-json",
+                        str(trial_json),
+                        "--external-trial-root",
+                        str(root),
+                        "--external-evidence-package-dir",
+                        package["package_dir"],
+                        "--github-release-tag",
+                        "v0.1.0",
+                        "--github-release-verification-report",
+                        str(github_report),
+                        "--local-evidence-preflight-json",
+                        str(root / "main-preflight.json"),
+                        "--local-evidence-preflight-md",
+                        str(root / "main-preflight.md"),
+                        "--local-evidence-preflight-only",
+                    ]
+                )
+
+        self.assertEqual(2, status)
+        self.assertIn(
+            "--github-release-verification-report is not used with --local-evidence-preflight-only",
+            stderr.getvalue(),
+        )
 
     def test_local_evidence_preflight_fails_package_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
