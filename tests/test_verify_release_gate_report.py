@@ -174,6 +174,21 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
         failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
 
         self.assertIn("passing release-gate report has failed gates: Rust formatting", failures)
+        self.assertIn(
+            "release-gate status does not match gate and production-claim statuses: PASS != FAIL",
+            failures,
+        )
+
+    def test_rejects_passing_report_when_required_production_claim_is_incomplete(self) -> None:
+        payload = self.valid_payload()
+        payload["metadata"]["require_production_claim"] = True
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "release-gate status does not match gate and production-claim statuses: PASS != FAIL",
+            failures,
+        )
 
     def test_can_require_production_claim_pass(self) -> None:
         self.assertIn(

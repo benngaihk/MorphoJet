@@ -263,6 +263,22 @@ def validate_release_gate_report_payload(
                     failed_gate_names.append(gate["name"])
         if payload.get("status") == "PASS" and failed_gate_names:
             failures.append("passing release-gate report has failed gates: " + ",".join(failed_gate_names))
+        if (
+            payload.get("status") in {"PASS", "FAIL"}
+            and isinstance(metadata, dict)
+            and top_level_claim_status in {"PASS", "INCOMPLETE"}
+        ):
+            expected_status = (
+                "PASS"
+                if not failed_gate_names
+                and (top_level_claim_status == "PASS" or metadata.get("require_production_claim") is not True)
+                else "FAIL"
+            )
+            if payload.get("status") != expected_status:
+                failures.append(
+                    "release-gate status does not match gate and production-claim statuses: "
+                    f"{payload.get('status')} != {expected_status}"
+                )
         if top_level_claim_status == "PASS":
             missing_required_gates = sorted(REQUIRED_PRODUCTION_GATE_NAMES - gate_names)
             if missing_required_gates:
