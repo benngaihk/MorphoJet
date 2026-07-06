@@ -196,6 +196,36 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             self.assertIn("--json-out must not overwrite manifest input", completed.stderr)
             self.assertEqual(before, objects_path.read_text(encoding="utf-8"))
 
+    def test_json_out_must_not_create_file_inside_package_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            json_out = (
+                workspace
+                / "evidence-package"
+                / "external-l4-external-lab-supported-columns-handoff"
+                / "readiness.json"
+            )
+            self.assertFalse(json_out.parent.exists())
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--workspace",
+                    str(workspace),
+                    "--json-out",
+                    str(json_out),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("--json-out must not create a file inside package output", completed.stderr)
+            self.assertFalse(json_out.parent.exists())
+
     def test_existing_trial_output_blocks_readiness(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "external-trial"

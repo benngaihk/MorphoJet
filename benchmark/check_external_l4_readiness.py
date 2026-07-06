@@ -30,6 +30,16 @@ def normalized_path_key(path: Path) -> str:
     return str(path.expanduser().resolve(strict=False))
 
 
+def path_matches_or_is_inside(root: Path, path: Path) -> bool:
+    normalized_root = root.expanduser().resolve(strict=False)
+    normalized_path = path.expanduser().resolve(strict=False)
+    try:
+        normalized_path.relative_to(normalized_root)
+        return True
+    except ValueError:
+        return False
+
+
 def check_report_outputs(manifest_path: Path, manifest: dict[str, Any], workspace: Path) -> list[str]:
     try:
         run_handoff_trial.validate_report_outputs(
@@ -96,23 +106,28 @@ def readiness_json_out_issues(
     manifest: dict[str, Any] | None,
     package_name: str | None,
 ) -> list[str]:
-    protected = {
-        normalized_path_key(manifest_path): f"manifest file: {manifest_path}",
-    }
+    protected_paths = [(manifest_path, f"manifest file: {manifest_path}")]
     for path in planned_report_output_paths(workspace):
-        protected.setdefault(normalized_path_key(path), f"planned report output: {path}")
+        protected_paths.append((path, f"planned report output: {path}"))
     if manifest is not None:
         for path in validate_handoff_manifest.collect_paths(manifest):
-            protected.setdefault(normalized_path_key(Path(path)), f"manifest input: {path}")
+            protected_paths.append((Path(path), f"manifest input: {path}"))
         for path in validate_handoff_manifest.collect_output_paths(manifest):
-            protected.setdefault(normalized_path_key(Path(path)), f"manifest trial output: {path}")
+            protected_paths.append((Path(path), f"manifest trial output: {path}"))
         trial_id = manifest.get("trial_id")
         if isinstance(trial_id, str) and trial_id.strip():
             for path in package_output_paths(workspace, trial_id, package_name):
-                protected.setdefault(normalized_path_key(path), f"package output: {path}")
-    protected_path = protected.get(normalized_path_key(json_out))
-    if protected_path:
-        return [f"--json-out must not overwrite {protected_path}"]
+                protected_paths.append((path, f"package output: {path}"))
+    seen = set()
+    for protected_path, label in protected_paths:
+        key = (normalized_path_key(protected_path), label)
+        if key in seen:
+            continue
+        seen.add(key)
+        if normalized_path_key(json_out) == normalized_path_key(protected_path):
+            return [f"--json-out must not overwrite {label}"]
+        if path_matches_or_is_inside(protected_path, json_out):
+            return [f"--json-out must not create a file inside {label}"]
     return []
 
 
