@@ -124,6 +124,18 @@ def argv_has_flag_value(argv: list[str], flag: str, expected: str) -> bool:
     return False
 
 
+def argv_values(argv: list[str], flag: str) -> list[str | None]:
+    values: list[str | None] = []
+    for index, item in enumerate(argv):
+        if item != flag:
+            continue
+        if index + 1 >= len(argv) or argv[index + 1].startswith("--"):
+            values.append(None)
+        else:
+            values.append(argv[index + 1])
+    return values
+
+
 def validate_metadata_argv(metadata: Any) -> list[str]:
     if not isinstance(metadata, dict):
         return []
@@ -143,6 +155,10 @@ def validate_metadata_argv(metadata: Any) -> list[str]:
     for metadata_key, flag in required_bool_flags.items():
         if metadata.get(metadata_key) is True and not argv_has_flag(argv, flag):
             failures.append(f"metadata.argv missing {flag} for metadata.{metadata_key}=true")
+        if argv.count(flag) > 1:
+            failures.append(f"metadata.argv has duplicate {flag}")
+        if argv_has_flag(argv, flag) and metadata.get(metadata_key) is not True:
+            failures.append(f"metadata.{metadata_key} must be true when metadata.argv includes {flag}")
     required_path_flags = {
         "external_trial_json": "--external-trial-json",
         "external_trial_root": "--external-trial-root",
@@ -156,6 +172,14 @@ def validate_metadata_argv(metadata: Any) -> list[str]:
         value = metadata.get(metadata_key)
         if isinstance(value, str) and value.strip() and not argv_has_flag_value(argv, flag, value):
             failures.append(f"metadata.argv missing {flag} {value}")
+        values = argv_values(argv, flag)
+        if len(values) > 1:
+            failures.append(f"metadata.argv has duplicate {flag}")
+        for argv_value in values:
+            if argv_value is None:
+                failures.append(f"metadata.argv {flag} must include a value")
+            elif metadata.get(metadata_key) != argv_value:
+                failures.append(f"metadata.{metadata_key} must match metadata.argv {flag} {argv_value}")
     github_release_kind = metadata.get("github_release_kind")
     if (
         isinstance(github_release_kind, str)
@@ -163,6 +187,14 @@ def validate_metadata_argv(metadata: Any) -> list[str]:
         and not argv_has_flag_value(argv, "--github-release-kind", github_release_kind)
     ):
         failures.append(f"metadata.argv missing --github-release-kind {github_release_kind}")
+    github_release_kind_values = argv_values(argv, "--github-release-kind")
+    if len(github_release_kind_values) > 1:
+        failures.append("metadata.argv has duplicate --github-release-kind")
+    for argv_value in github_release_kind_values:
+        if argv_value is None:
+            failures.append("metadata.argv --github-release-kind must include a value")
+        elif metadata.get("github_release_kind") != argv_value:
+            failures.append(f"metadata.github_release_kind must match metadata.argv --github-release-kind {argv_value}")
     return failures
 
 

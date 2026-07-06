@@ -414,6 +414,56 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
         self.assertIn("metadata.argv missing --verify-github-release v0.1.0", failures)
         self.assertIn("metadata.argv missing --github-release-kind stable", failures)
 
+    def test_rejects_metadata_argv_values_not_reflected_in_metadata(self) -> None:
+        payload = self.valid_payload()
+        payload["metadata"]["argv"] = [
+            "benchmark/release_gate.py",
+            "--require-clean-git",
+            "--external-trial-json",
+            "external/handoff_trial.json",
+            "--verify-github-release",
+            "v0.1.0",
+            "--github-release-kind",
+            "stable",
+        ]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "metadata.require_clean_git must be true when metadata.argv includes --require-clean-git",
+            failures,
+        )
+        self.assertIn(
+            "metadata.external_trial_json must match metadata.argv --external-trial-json external/handoff_trial.json",
+            failures,
+        )
+        self.assertIn(
+            "metadata.verify_github_release must match metadata.argv --verify-github-release v0.1.0",
+            failures,
+        )
+        self.assertIn(
+            "metadata.github_release_kind must match metadata.argv --github-release-kind stable",
+            failures,
+        )
+
+    def test_rejects_duplicate_or_missing_metadata_argv_values(self) -> None:
+        payload = self.valid_payload()
+        payload["metadata"]["argv"] = [
+            "benchmark/release_gate.py",
+            "--verify-github-release",
+            "v0.1.0",
+            "--verify-github-release",
+            "v0.1.1",
+            "--external-trial-json",
+            "--github-release-kind",
+        ]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn("metadata.argv has duplicate --verify-github-release", failures)
+        self.assertIn("metadata.argv --external-trial-json must include a value", failures)
+        self.assertIn("metadata.argv --github-release-kind must include a value", failures)
+
     def test_rejects_bad_metadata_shape(self) -> None:
         payload = self.valid_payload()
         payload["metadata"]["git_commit"] = "abc123"
