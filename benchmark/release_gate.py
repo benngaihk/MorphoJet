@@ -290,6 +290,116 @@ def github_release_verification_report_path(tag: str) -> Path:
     return Path("benchmark/results/github-release-verification") / f"{tag}.json"
 
 
+def normalized_path_key(path: Path) -> str:
+    return str(path.expanduser().resolve(strict=False))
+
+
+def load_json_if_file(path: Path | None) -> object | None:
+    if path is None or not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def add_protected_path(paths: dict[str, str], path: Path | None, label: str) -> None:
+    if path is not None:
+        paths[normalized_path_key(path)] = label
+
+
+def add_external_trial_protected_paths(paths: dict[str, str], args: argparse.Namespace) -> None:
+    external_trial_json = getattr(args, "external_trial_json", None)
+    external_trial_root = getattr(args, "external_trial_root", None)
+    add_protected_path(paths, external_trial_json, "--external-trial-json")
+    trial = load_json_if_file(external_trial_json)
+    if not isinstance(trial, dict) or external_trial_root is None:
+        return
+    artifacts = trial.get("artifacts")
+    if not isinstance(artifacts, list):
+        return
+    for artifact in artifacts:
+        if isinstance(artifact, str) and artifact:
+            add_protected_path(
+                paths,
+                resolve_artifact_path(artifact, external_trial_root),
+                f"external trial artifact: {artifact}",
+            )
+
+
+def add_package_protected_paths(paths: dict[str, str], package_dir: Path | None) -> None:
+    if package_dir is None:
+        return
+    for filename in [
+        "handoff_trial.json",
+        "external_evidence.json",
+        "rendered_manifest.json",
+        "artifact_manifest.json",
+        "README.md",
+    ]:
+        add_protected_path(paths, package_dir / filename, f"evidence package file: {filename}")
+    add_protected_path(paths, package_dir.parent / f"{package_dir.name}.zip", "evidence package zip")
+    add_protected_path(paths, package_dir.parent / f"{package_dir.name}.zip.sha256", "evidence package checksum")
+    manifest = load_json_if_file(package_dir / "artifact_manifest.json")
+    if not isinstance(manifest, dict):
+        return
+    for entry in manifest.get("artifacts", []):
+        if isinstance(entry, dict) and isinstance(entry.get("package_path"), str) and entry["package_path"]:
+            add_protected_path(
+                paths,
+                package_dir / entry["package_path"],
+                f"evidence package artifact: {entry['package_path']}",
+            )
+
+
+def protected_report_input_paths(args: argparse.Namespace) -> dict[str, str]:
+    paths: dict[str, str] = {}
+    add_external_trial_protected_paths(paths, args)
+    add_package_protected_paths(paths, getattr(args, "external_evidence_package_dir", None))
+    add_protected_path(
+        paths,
+        getattr(args, "external_trial_verification_report", None),
+        "--external-trial-verification-report",
+    )
+    add_protected_path(
+        paths,
+        getattr(args, "external_evidence_package_verification_report", None),
+        "--external-evidence-package-verification-report",
+    )
+    add_protected_path(
+        paths,
+        getattr(args, "github_release_verification_report", None),
+        "--github-release-verification-report",
+    )
+    verify_github_release = getattr(args, "verify_github_release", None)
+    if verify_github_release:
+        add_protected_path(
+            paths,
+            github_release_verification_report_path(verify_github_release),
+            "GitHub release verification report",
+        )
+    return paths
+
+
+def validate_report_output_paths(args: argparse.Namespace) -> None:
+    protected = protected_report_input_paths(args)
+    outputs = [("--out-json", args.out_json), ("--out-md", args.out_md)]
+    output_keys: dict[str, str] = {}
+    failures = []
+    for label, path in outputs:
+        key = normalized_path_key(path)
+        previous_label = output_keys.get(key)
+        if previous_label is not None:
+            failures.append(f"{label} must not use the same path as {previous_label}")
+        else:
+            output_keys[key] = label
+        protected_label = protected.get(key)
+        if protected_label:
+            failures.append(f"{label} must not overwrite {protected_label}: {path}")
+    if failures:
+        raise SystemExit("\n".join(f"ERROR: {failure}" for failure in failures))
+
+
 def saved_github_release_report_command(report: Path, expected_tag: str | None = None) -> list[str]:
     command = [
         "python3",
@@ -1373,6 +1483,7 @@ def main() -> int:
         help="Re-check a saved stable GitHub release verifier JSON report",
     )
     args = parser.parse_args()
+    validate_report_output_paths(args)
 
     git_status_lines = git_status_porcelain()
     metadata = build_metadata(args, git_status_lines)
