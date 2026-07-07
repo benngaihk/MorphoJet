@@ -456,6 +456,22 @@ class VerifyGithubReleaseTest(unittest.TestCase):
 
         self.assertIn("out_dir must be an absolute path", failures)
 
+    def test_saved_release_report_rejects_unexpected_repo(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+
+            failures = verify_github_release.validate_verification_report_payload(
+                payload,
+                expect_repo="other/repo",
+            )
+
+        self.assertIn(
+            "github release verification report repo does not match expected repo: "
+            "benngaihk/MorphoJet != other/repo",
+            failures,
+        )
+
     def test_saved_release_report_rejects_argv_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = self.valid_report(Path(tmp))

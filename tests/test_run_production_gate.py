@@ -745,6 +745,8 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("--verify-git-commit", gates[0].command)
         self.assertIn("--expect-tag", gates[0].command)
         self.assertEqual("v0.1.0", gates[0].command[gates[0].command.index("--expect-tag") + 1])
+        self.assertIn("--expect-repo", gates[0].command)
+        self.assertEqual("benngaihk/MorphoJet", gates[0].command[gates[0].command.index("--expect-repo") + 1])
 
     def test_final_wrapper_rejects_non_stable_saved_github_release_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -804,7 +806,7 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(1, len(gates))
         self.assertEqual("FAIL", gates[0].status)
         self.assertIn(
-            "saved GitHub release report repo does not match production repo: other/repo != benngaihk/MorphoJet",
+            "github release verification report repo does not match expected repo: other/repo != benngaihk/MorphoJet",
             gates[0].detail,
         )
 

@@ -112,7 +112,7 @@ python3 benchmark/release_gate.py --verify-github-release v0.1.0-rc.1
 python3 benchmark/release_gate.py --verify-github-release v0.1.0 --github-release-kind stable
 ```
 
-GitHub release verifier 会检查 tag 身份、release URL、GitHub release ID/API 身份、作者、target commit-ish、UTC 时间戳、draft/prerelease/immutable 状态、稳定 semver tag、发布资产集合、下载文件 checksum、archive 内容，并要求当前机器兼容的 archive 能通过 `morphojet doctor` 且 commit 前缀匹配。
+GitHub release verifier 会检查 tag 身份、release URL、GitHub release ID/API 身份、作者、target commit-ish、UTC 时间戳、draft/prerelease/immutable 状态、稳定 semver tag、发布资产集合、下载文件 checksum、archive 内容，并要求当前机器兼容的 archive 能通过 `morphojet doctor` 且 commit 前缀匹配。复核 saved report 时可用 `--expect-repo benngaihk/MorphoJet` 防止其他仓库的 release 报告进入签核链。
 
 ## CellProfiler 风格宽表导出
 
@@ -183,7 +183,7 @@ python3 benchmark/run_production_gate.py \
   --github-release-tag v0.1.0
 ```
 
-这个 wrapper 要求稳定非 RC tag，复核外部 trial/package reviewer 报告，要求 saved GitHub release verifier report 是同一 final tag 和 `benngaihk/MorphoJet` repo 的 stable PASS 报告，并委托 `benchmark/release_gate.py --require-production-claim`。它通过之前，项目不能宣称 production-ready。
+这个 wrapper 要求稳定非 RC tag，复核外部 trial/package reviewer 报告，要求 saved GitHub release verifier report 是同一 final tag 和 `benngaihk/MorphoJet` repo 的 stable PASS 报告，并委托 `benchmark/release_gate.py --require-production-claim`。direct release gate 复核 saved GitHub release report 时也会带上 `--expect-repo benngaihk/MorphoJet`。它通过之前，项目不能宣称 production-ready。
 
 ## 当前里程碑状态
 

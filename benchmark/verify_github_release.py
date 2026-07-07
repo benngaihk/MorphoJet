@@ -562,6 +562,7 @@ def validate_verification_report_payload(
     require_report_pass: bool = False,
     require_stable_report: bool = False,
     expect_tag: str | None = None,
+    expect_repo: str | None = None,
     report_path: Path | None = None,
 ) -> list[str]:
     failures: list[str] = []
@@ -596,6 +597,8 @@ def validate_verification_report_payload(
     repo = payload.get("repo")
     if not isinstance(repo, str) or not repo.strip():
         failures.append("repo must be a non-empty string")
+    elif expect_repo is not None and repo != expect_repo:
+        failures.append(f"github release verification report repo does not match expected repo: {repo} != {expect_repo}")
     url = payload.get("url")
     if not isinstance(url, str) or not url.strip():
         failures.append("url must be a non-empty string")
@@ -839,6 +842,7 @@ def verify_saved_github_release_report(
     require_stable_report: bool = False,
     verify_files: bool = False,
     expect_tag: str | None = None,
+    expect_repo: str | None = None,
     verify_git_commit: bool = False,
 ) -> int:
     try:
@@ -851,6 +855,7 @@ def verify_saved_github_release_report(
         require_report_pass=require_report_pass,
         require_stable_report=require_stable_report,
         expect_tag=expect_tag,
+        expect_repo=expect_repo,
         report_path=report,
     )
     if verify_git_commit:
@@ -913,6 +918,7 @@ def main() -> int:
     parser.add_argument("--require-report-pass", action="store_true", help="Reject saved verifier reports that are not PASS")
     parser.add_argument("--require-stable-report", action="store_true", help="Reject saved verifier reports that are not stable-release reports")
     parser.add_argument("--expect-tag", help="With --verify-report, reject saved verifier reports for a different tag")
+    parser.add_argument("--expect-repo", help="With --verify-report, reject saved verifier reports for a different repo")
     args = parser.parse_args()
     if args.verify_report:
         return verify_saved_github_release_report(
@@ -921,6 +927,7 @@ def main() -> int:
             require_stable_report=args.require_stable_report,
             verify_files=args.verify_report_files,
             expect_tag=args.expect_tag,
+            expect_repo=args.expect_repo,
             verify_git_commit=args.verify_git_commit,
         )
     if args.tag is None:

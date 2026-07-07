@@ -662,11 +662,13 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertIn("--require-stable-report", command)
         self.assertIn("--verify-git-commit", command)
         self.assertEqual("v0.1.0", command[command.index("--expect-tag") + 1])
+        self.assertEqual("benngaihk/MorphoJet", command[command.index("--expect-repo") + 1])
 
     def test_saved_github_release_report_command_verifies_git_commit_without_expected_tag(self) -> None:
         command = release_gate.saved_github_release_report_command(Path("github-release/verification.json"))
 
         self.assertIn("--verify-git-commit", command)
+        self.assertEqual("benngaihk/MorphoJet", command[command.index("--expect-repo") + 1])
         self.assertNotIn("--expect-tag", command)
 
     def test_live_github_release_report_command_uses_absolute_report_path(self) -> None:

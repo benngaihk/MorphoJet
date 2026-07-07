@@ -227,6 +227,8 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                         "--require-report-pass",
                         "--require-stable-report",
                         "--verify-git-commit",
+                        "--expect-repo",
+                        "benngaihk/MorphoJet",
                         "--expect-tag",
                         "v0.1.0",
                     ],

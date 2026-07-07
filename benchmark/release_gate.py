@@ -19,6 +19,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+GITHUB_RELEASE_REPO = "benngaihk/MorphoJet"
 
 
 def is_utc_datetime(value: datetime) -> bool:
@@ -451,6 +452,8 @@ def saved_github_release_report_command(report: Path, expected_tag: str | None =
         "--require-report-pass",
         "--require-stable-report",
         "--verify-git-commit",
+        "--expect-repo",
+        GITHUB_RELEASE_REPO,
     ]
     if expected_tag:
         command.extend(["--expect-tag", expected_tag])

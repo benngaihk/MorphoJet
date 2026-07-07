@@ -532,6 +532,8 @@ def saved_reviewer_report_gates(
                 "--verify-git-commit",
                 "--expect-tag",
                 args.github_release_tag,
+                "--expect-repo",
+                GITHUB_RELEASE_REPO,
             ],
             verify_github_release.verify_saved_github_release_report,
             args.github_release_verification_report,
@@ -540,6 +542,7 @@ def saved_reviewer_report_gates(
                 "require_stable_report": True,
                 "verify_files": True,
                 "expect_tag": args.github_release_tag,
+                "expect_repo": GITHUB_RELEASE_REPO,
                 "verify_git_commit": True,
             },
         )
