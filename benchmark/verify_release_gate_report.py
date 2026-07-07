@@ -305,6 +305,41 @@ def saved_github_release_report_command(report: str, expected_tag: str | None = 
     return command
 
 
+def github_release_verification_report_path(tag: str) -> str:
+    return str((ROOT / "benchmark" / "results" / "github-release-verification" / f"{tag}.json").resolve(strict=False))
+
+
+def live_github_release_gate_command(tag: str, kind: str) -> list[str]:
+    release_kind_flag = "--expect-stable" if kind == "stable" else "--expect-prerelease"
+    return [
+        "python3",
+        "benchmark/verify_github_release.py",
+        tag,
+        release_kind_flag,
+        "--json-out",
+        github_release_verification_report_path(tag),
+    ]
+
+
+def validate_live_github_release_gate_command(gate: dict, metadata: Any) -> list[str]:
+    if gate.get("name") != "Verify GitHub release assets":
+        return []
+    if not isinstance(metadata, dict):
+        return []
+    command = gate.get("command")
+    tag = metadata.get("verify_github_release")
+    kind = metadata.get("github_release_kind")
+    if not isinstance(tag, str) or not tag.strip():
+        return ["gate command for Verify GitHub release assets requires metadata.verify_github_release"]
+    if kind not in {"prerelease", "stable"}:
+        return ["gate command for Verify GitHub release assets requires metadata.github_release_kind"]
+    if not isinstance(command, list) or not all(isinstance(item, str) for item in command):
+        return ["gate command for Verify GitHub release assets must be a string list"]
+    if command != live_github_release_gate_command(tag, kind):
+        return ["gate command for Verify GitHub release assets must match live release verifier command"]
+    return []
+
+
 def validate_saved_reviewer_gate_command(gate: dict, metadata: Any) -> list[str]:
     name = gate.get("name")
     command = gate.get("command")
@@ -363,6 +398,15 @@ SAVED_REVIEWER_METADATA_TO_GATE = {
     "external_evidence_package_verification_report": "Verify saved external L4 evidence package report",
     "github_release_verification_report": "Verify saved stable GitHub release report",
 }
+
+
+def validate_live_github_release_gate_presence(metadata: Any, gate_names: set[str]) -> list[str]:
+    if not isinstance(metadata, dict):
+        return []
+    tag = metadata.get("verify_github_release")
+    if isinstance(tag, str) and tag.strip() and "Verify GitHub release assets" not in gate_names:
+        return ["metadata.verify_github_release requires gate: Verify GitHub release assets"]
+    return []
 
 
 def validate_saved_reviewer_gate_presence(metadata: Any, gate_names: set[str]) -> list[str]:
@@ -485,6 +529,7 @@ def validate_release_gate_report_payload(
         for gate in gates:
             failures.extend(validate_gate_entry(gate))
             if isinstance(gate, dict) and isinstance(gate.get("name"), str):
+                failures.extend(validate_live_github_release_gate_command(gate, metadata))
                 failures.extend(validate_saved_reviewer_gate_command(gate, metadata))
                 if gate["name"] in gate_names:
                     failures.append(f"duplicate gate name: {gate['name']}")
@@ -492,6 +537,7 @@ def validate_release_gate_report_payload(
                     gate_names.add(gate["name"])
                 if gate.get("status") == "FAIL":
                     failed_gate_names.append(gate["name"])
+        failures.extend(validate_live_github_release_gate_presence(metadata, gate_names))
         failures.extend(validate_saved_reviewer_gate_presence(metadata, gate_names))
         if payload.get("status") == "PASS" and failed_gate_names:
             failures.append("passing release-gate report has failed gates: " + ",".join(failed_gate_names))

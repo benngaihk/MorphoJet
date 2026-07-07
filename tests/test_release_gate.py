@@ -613,6 +613,15 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertIn("--verify-git-commit", command)
         self.assertNotIn("--expect-tag", command)
 
+    def test_live_github_release_report_command_uses_absolute_report_path(self) -> None:
+        command = release_gate.live_github_release_report_command("v0.1.0", "stable")
+
+        self.assertEqual("--expect-stable", command[3])
+        self.assertEqual(
+            str(release_gate.github_release_verification_report_path("v0.1.0").resolve(strict=False)),
+            command[command.index("--json-out") + 1],
+        )
+
     def test_saved_external_trial_report_binding_failures_reject_mismatched_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

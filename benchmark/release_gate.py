@@ -451,6 +451,18 @@ def saved_github_release_report_command(report: Path, expected_tag: str | None =
     return command
 
 
+def live_github_release_report_command(tag: str, kind: str) -> list[str]:
+    release_kind_flag = "--expect-stable" if kind == "stable" else "--expect-prerelease"
+    return [
+        "python3",
+        "benchmark/verify_github_release.py",
+        tag,
+        release_kind_flag,
+        "--json-out",
+        normalized_path_key(github_release_verification_report_path(tag)),
+    ]
+
+
 def paths_match(recorded: object, expected: Path | None) -> bool:
     if expected is None or not isinstance(recorded, str) or not recorded.strip():
         return False
@@ -1827,18 +1839,10 @@ def main() -> int:
     if args.run_l3:
         gates.append(run_command("Run CellBinDB L3 benchmark", ["python3", "benchmark/run_cellbindb_oracle.py", "--threads", "8"]))
     if args.verify_github_release:
-        release_kind_flag = "--expect-stable" if args.github_release_kind == "stable" else "--expect-prerelease"
         gates.append(
             run_command(
                 "Verify GitHub release assets",
-                [
-                    "python3",
-                    "benchmark/verify_github_release.py",
-                    args.verify_github_release,
-                    release_kind_flag,
-                    "--json-out",
-                    str(github_release_verification_report_path(args.verify_github_release)),
-                ],
+                live_github_release_report_command(args.verify_github_release, args.github_release_kind),
             )
         )
     gates.append(validate_l3_artifacts())

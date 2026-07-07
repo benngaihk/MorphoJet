@@ -108,6 +108,9 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            for gate in gates:
+                if gate.name == "Verify GitHub release assets":
+                    gate.command = verify_release_gate_report.live_github_release_gate_command("v0.1.0", "stable")
             trial_json = root / "external" / "handoff_trial.json"
             trial_root = root / "external"
             package_dir = root / "evidence" / "external-l4-trial"
@@ -227,6 +230,13 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                         "--expect-tag",
                         "v0.1.0",
                     ],
+                    "status": "PASS",
+                    "elapsed_seconds": 0.0,
+                    "detail": "ok",
+                },
+                {
+                    "name": "Verify GitHub release assets",
+                    "command": verify_release_gate_report.live_github_release_gate_command("v0.1.0", "stable"),
                     "status": "PASS",
                     "elapsed_seconds": 0.0,
                     "detail": "ok",
@@ -416,6 +426,39 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
         failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
 
         self.assertIn("passing production claim missing gates: Verify GitHub release assets", failures)
+        self.assertIn("metadata.verify_github_release requires gate: Verify GitHub release assets", failures)
+
+    def test_rejects_verify_github_release_metadata_without_live_gate(self) -> None:
+        payload = self.valid_payload()
+        payload["metadata"]["argv"] = [
+            "benchmark/release_gate.py",
+            "--verify-github-release",
+            "v0.1.0-rc.1",
+        ]
+        payload["metadata"]["verify_github_release"] = "v0.1.0-rc.1"
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn("metadata.verify_github_release requires gate: Verify GitHub release assets", failures)
+
+    def test_rejects_live_github_release_gate_command_tampering(self) -> None:
+        payload = self.complete_production_claim_payload()
+        for gate in payload["gates"]:
+            if gate["name"] == "Verify GitHub release assets":
+                gate["command"] = [
+                    "python3",
+                    "benchmark/verify_github_release.py",
+                    "v0.1.0",
+                    "--json-out",
+                    verify_release_gate_report.github_release_verification_report_path("v0.1.0"),
+                ]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "gate command for Verify GitHub release assets must match live release verifier command",
+            failures,
+        )
 
     def test_rejects_passing_production_claim_without_final_metadata_flags(self) -> None:
         payload = self.complete_production_claim_payload()
@@ -616,13 +659,15 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
 
     def test_rejects_saved_reviewer_gate_command_tampering(self) -> None:
         payload = self.payload_with_saved_reviewer_gate_commands()
-        payload["gates"][-1]["command"] = [
-            "python3",
-            "benchmark/verify_github_release.py",
-            "--verify-report",
-            payload["metadata"]["github_release_verification_report"],
-            "--require-report-pass",
-        ]
+        for gate in payload["gates"]:
+            if gate["name"] == "Verify saved stable GitHub release report":
+                gate["command"] = [
+                    "python3",
+                    "benchmark/verify_github_release.py",
+                    "--verify-report",
+                    payload["metadata"]["github_release_verification_report"],
+                    "--require-report-pass",
+                ]
 
         failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
 
@@ -633,7 +678,9 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
 
     def test_rejects_saved_package_reviewer_gate_without_trial_json_requirement(self) -> None:
         payload = self.payload_with_saved_reviewer_gate_commands()
-        payload["gates"][-2]["command"] = payload["gates"][-2]["command"][:-1]
+        for gate in payload["gates"]:
+            if gate["name"] == "Verify saved external L4 evidence package report":
+                gate["command"] = gate["command"][:-1]
 
         failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
 
