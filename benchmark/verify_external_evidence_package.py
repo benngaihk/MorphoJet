@@ -26,6 +26,10 @@ PACKAGE_REVIEW_FILES = {
 }
 
 
+def is_utc_datetime(value: datetime) -> bool:
+    return value.utcoffset() == timezone.utc.utcoffset(value)
+
+
 def argv_values(argv: list[str], flag: str) -> list[str | None]:
     values: list[str | None] = []
     for index, item in enumerate(argv):
@@ -269,6 +273,8 @@ def validate_verification_report_payload(
             parsed_generated_at = datetime.fromisoformat(generated_at)
             if parsed_generated_at.tzinfo is None:
                 failures.append("generated_at_utc must include timezone")
+            elif not is_utc_datetime(parsed_generated_at):
+                failures.append("generated_at_utc must be UTC")
         except ValueError:
             failures.append(f"generated_at_utc is invalid: {generated_at}")
     else:

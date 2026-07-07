@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
 
@@ -51,7 +52,8 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
         self.assertEqual(0, code)
         self.assertEqual(1, payload["schema_version"])
         self.assertEqual("benchmark/verify_external_trial_report.py", payload["verifier"])
-        self.assertIn("+00:00", payload["generated_at_utc"])
+        generated_at = datetime.fromisoformat(payload["generated_at_utc"])
+        self.assertEqual(timezone.utc.utcoffset(generated_at), generated_at.utcoffset())
         self.assertEqual("PASS", payload["status"])
         self.assertEqual("Validate external L4 workflow trial report", payload["gate"]["name"])
         self.assertIn("External workflow trial PASS", payload["gate"]["detail"])
@@ -200,6 +202,28 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
                 code = verify_external_trial_report.verify_saved_external_trial_report(json_out)
 
         self.assertEqual(1, code)
+
+    def test_saved_verification_report_rejects_non_utc_generated_at(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["generated_at_utc"] = "2026-07-07T12:00:00+08:00"
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            stderr = StringIO()
+            with redirect_stdout(StringIO()), redirect_stderr(stderr):
+                code = verify_external_trial_report.verify_saved_external_trial_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn("generated_at_utc must be UTC", stderr.getvalue())
 
     def test_saved_verification_report_rejects_argv_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
