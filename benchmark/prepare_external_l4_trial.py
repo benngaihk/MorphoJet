@@ -177,6 +177,13 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
             command = commands.get(name)
             if not isinstance(command, list) or not command or not all(isinstance(item, str) and item for item in command):
                 failures.append(f"commands.{name} must be a non-empty string list")
+        manifest = payload.get("manifest")
+        workspace = payload.get("workspace")
+        package_name = payload.get("package_name")
+        if all(isinstance(value, str) and value.strip() for value in [manifest, workspace, package_name]):
+            expected_commands = plan_commands(Path(manifest), Path(workspace), package_name)
+            if commands != expected_commands:
+                failures.append("commands changed after plan was written")
     if verify_files:
         failures.extend(validate_plan_files(payload))
     return failures
@@ -203,10 +210,6 @@ def validate_plan_files(payload: dict[str, Any]) -> list[str]:
         failures.append(f"README file does not exist: {readme_path}")
     elif readme_path.read_text(encoding="utf-8") != render_readme(payload):
         failures.append("README changed after plan was written")
-    package_name = payload["package_name"]
-    expected_commands = plan_commands(manifest_path, workspace, package_name)
-    if isinstance(payload.get("commands"), dict) and payload["commands"] != expected_commands:
-        failures.append("commands changed after plan was written")
     return failures
 
 

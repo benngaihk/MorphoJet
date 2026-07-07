@@ -152,6 +152,30 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertNotEqual(0, completed.returncode)
             self.assertIn("commands changed after plan was written", completed.stderr)
 
+    def test_saved_trial_plan_rejects_command_tampering_without_file_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+            payload = json.loads(plan_path.read_text(encoding="utf-8"))
+            payload["commands"]["validate_manifest"].remove("--check-files")
+            plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("commands changed after plan was written", completed.stderr)
+
     def test_saved_trial_plan_rejects_template_hash_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "external-trial"
