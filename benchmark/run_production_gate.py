@@ -59,6 +59,10 @@ GITHUB_RELEASE_REPO = "benngaihk/MorphoJet"
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 
 
+def is_utc_datetime(value: datetime) -> bool:
+    return value.utcoffset() == timezone.utc.utcoffset(value)
+
+
 class ProductionGateError(Exception):
     """Raised when the final production gate cannot be assembled safely."""
 
@@ -842,6 +846,8 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
                 parsed_generated_at = datetime.fromisoformat(generated_at)
                 if parsed_generated_at.tzinfo is None:
                     failures.append("metadata.generated_at_utc must include timezone")
+                elif not is_utc_datetime(parsed_generated_at):
+                    failures.append("metadata.generated_at_utc must be UTC")
             except ValueError:
                 failures.append(f"metadata.generated_at_utc is invalid: {generated_at}")
         elif "generated_at_utc" in metadata:

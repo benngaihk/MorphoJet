@@ -183,6 +183,14 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             verify_release_gate_report.validate_release_gate_report_payload(payload, require_report_pass=True),
         )
 
+    def test_rejects_non_utc_metadata_timestamp(self) -> None:
+        payload = self.valid_payload()
+        payload["metadata"]["generated_at_utc"] = "2026-07-07T12:00:00+08:00"
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn("metadata.generated_at_utc must be UTC", failures)
+
     def test_rejects_passing_report_with_failed_gate(self) -> None:
         payload = self.valid_payload()
         payload["gates"][0]["status"] = "FAIL"

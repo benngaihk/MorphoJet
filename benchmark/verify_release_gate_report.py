@@ -8,7 +8,7 @@ import json
 import re
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +23,11 @@ REQUIRED_AUDIT_CHECKS = [
     "external_l4_evidence_package",
     "stable_github_release",
 ]
+
+
+def is_utc_datetime(value: datetime) -> bool:
+    return value.utcoffset() == timezone.utc.utcoffset(value)
+
 
 REQUIRED_PRODUCTION_GATE_NAMES = {
     "Require clean git worktree",
@@ -81,6 +86,8 @@ def validate_metadata(metadata: Any) -> list[str]:
             parsed_generated_at = datetime.fromisoformat(generated_at)
             if parsed_generated_at.tzinfo is None:
                 failures.append("metadata.generated_at_utc must include timezone")
+            elif not is_utc_datetime(parsed_generated_at):
+                failures.append("metadata.generated_at_utc must be UTC")
         except ValueError:
             failures.append(f"metadata.generated_at_utc is invalid: {generated_at}")
     elif "generated_at_utc" in metadata:

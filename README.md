@@ -106,7 +106,7 @@ python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/r
 python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/production-claim.json --require-report-pass --require-clean-git-metadata --verify-git-commit --require-production-claim-pass
 ```
 
-The saved release-gate verifier checks top-level summary fields against `production_claim_audit`, validates metadata and gate-entry schemas, requires the expected production-audit check list, can verify the recorded git commit is reachable, can require clean-git metadata, rejects `github_release_kind=stable` metadata unless it is paired with a stable release tag, and rejects production PASS reports that omit required clean-git, L3 provenance, external L4, or stable GitHub release gates. Production PASS reports must also carry metadata and `metadata.argv` proving the final flags, external L4 paths, and stable release tag/kind were used; the verifier checks this both ways so recorded metadata must appear in `argv` and key production arguments in `argv` must be reflected back into metadata.
+The saved release-gate verifier checks top-level summary fields against `production_claim_audit`, validates metadata and gate-entry schemas, requires `metadata.generated_at_utc` to be UTC, requires the expected production-audit check list, can verify the recorded git commit is reachable, can require clean-git metadata, rejects `github_release_kind=stable` metadata unless it is paired with a stable release tag, and rejects production PASS reports that omit required clean-git, L3 provenance, external L4, or stable GitHub release gates. Production PASS reports must also carry metadata and `metadata.argv` proving the final flags, external L4 paths, and stable release tag/kind were used; the verifier checks this both ways so recorded metadata must appear in `argv` and key production arguments in `argv` must be reflected back into metadata.
 
 For the final production claim, use the wrapper that assembles the required checks into one command:
 
@@ -148,7 +148,7 @@ python3 benchmark/run_production_gate.py \
   --require-local-evidence-preflight-pass
 ```
 
-The verifier also confirms that the report's `metadata.git_commit` is a reachable commit in the current checkout and checks `metadata.argv` against the recorded preflight inputs so path, stable-tag, local-preflight flag, duplicate critical flags, and missing flag values cannot be tampered independently from metadata. With `--verify-local-evidence-preflight-gates`, it reruns the recorded external L4 trial, package, and saved reviewer-report gates from the report metadata and rejects stale gate status/detail/command data.
+The verifier also confirms that the report's `metadata.generated_at_utc` is UTC, `metadata.git_commit` is a reachable commit in the current checkout, and `metadata.argv` matches the recorded preflight inputs so path, stable-tag, local-preflight flag, duplicate critical flags, and missing flag values cannot be tampered independently from metadata. With `--verify-local-evidence-preflight-gates`, it reruns the recorded external L4 trial, package, and saved reviewer-report gates from the report metadata and rejects stale gate status/detail/command data.
 
 ## CellProfiler-Style Wide Export
 
