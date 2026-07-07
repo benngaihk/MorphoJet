@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,6 +23,16 @@ import prepare_external_l4_trial  # noqa: E402
 
 
 TEMPLATE = ROOT / "benchmark/handoff/external_lab_template.json"
+
+
+@contextmanager
+def temporary_cwd(path: Path):
+    previous = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(previous)
 
 
 def fill_external_evidence(manifest: dict) -> None:
@@ -92,7 +104,7 @@ class ExternalL4ReadinessTest(unittest.TestCase):
                 payload["issues"],
             )
             self.assertIn(
-                f"required input file does not exist: {workspace}/morphojet/Objects.csv",
+                f"required input file does not exist: {workspace.resolve()}/morphojet/Objects.csv",
                 payload["issues"],
             )
 
@@ -115,7 +127,7 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             self.assertIsNotNone(generated_at.tzinfo)
             self.assertEqual(timezone.utc.utcoffset(generated_at), generated_at.utcoffset())
             self.assertEqual(
-                ["benchmark/check_external_l4_readiness.py", "--workspace", str(workspace)],
+                ["benchmark/check_external_l4_readiness.py", "--workspace", str(workspace.resolve())],
                 payload["argv"],
             )
 
@@ -155,14 +167,48 @@ class ExternalL4ReadinessTest(unittest.TestCase):
                 [
                     "benchmark/check_external_l4_readiness.py",
                     "--workspace",
-                    str(workspace),
+                    str(workspace.resolve()),
                     "--package-name",
                     "custom-review",
                     "--json-out",
-                    str(json_out),
+                    str(json_out.resolve()),
                 ],
                 payload["argv"],
             )
+
+    def test_cli_report_records_absolute_paths_for_relative_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workspace = root / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            manifest_path = workspace / "external_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            fill_external_evidence(manifest)
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            write_valid_inputs(workspace)
+            json_out = workspace / "readiness.json"
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "benchmark/check_external_l4_readiness.py"),
+                    "--workspace",
+                    "external-trial",
+                    "--json-out",
+                    "external-trial/readiness.json",
+                ],
+                cwd=root,
+                text=True,
+                capture_output=True,
+            )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertEqual(str(workspace.resolve()), payload["workspace"])
+        self.assertEqual(str(manifest_path.resolve()), payload["manifest"])
+        self.assertEqual({"base_dir": str(workspace.resolve())}, payload["variables"])
+        self.assertIn(str(workspace.resolve()), payload["argv"])
+        self.assertIn(str(json_out.resolve()), payload["argv"])
 
     def test_saved_readiness_report_can_be_verified_with_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -231,6 +277,32 @@ class ExternalL4ReadinessTest(unittest.TestCase):
 
             self.assertNotEqual(0, completed.returncode)
             self.assertIn("generated_at_utc must be UTC", completed.stderr)
+
+    def test_saved_readiness_report_rejects_relative_top_level_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            report = check_external_l4_readiness.readiness_report(workspace)
+            report["workspace"] = "external-trial"
+            report["manifest"] = "external-trial/external_manifest.json"
+            report_path = workspace / "readiness.json"
+            report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--verify-report",
+                    str(report_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("workspace must be an absolute path", completed.stderr)
+        self.assertIn("manifest must be an absolute path", completed.stderr)
 
     def test_saved_not_ready_report_can_be_verified_without_require_ready(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -310,6 +382,49 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             self.assertNotEqual(0, completed.returncode)
             self.assertIn("workspace must match argv --workspace", completed.stderr)
 
+    def test_saved_readiness_report_rejects_relative_json_out_argv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            manifest_path = workspace / "external_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            fill_external_evidence(manifest)
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            write_valid_inputs(workspace)
+            report = workspace / "readiness.json"
+            subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--workspace",
+                    str(workspace),
+                    "--json-out",
+                    str(report),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["argv"][payload["argv"].index("--json-out") + 1] = report.name
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with temporary_cwd(workspace):
+                completed = subprocess.run(
+                    [
+                        sys.executable,
+                        str(ROOT / "benchmark/check_external_l4_readiness.py"),
+                        "--verify-report",
+                        str(report),
+                    ],
+                    text=True,
+                    capture_output=True,
+                )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("argv --json-out must be an absolute path", completed.stderr)
+
     def test_saved_readiness_report_file_recheck_detects_changed_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "external-trial"
@@ -368,7 +483,7 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             payload = check_external_l4_readiness.readiness_report(workspace)
 
             self.assertEqual("NOT_READY", payload["status"])
-            self.assertIn(f"package output already exists: {package_dir}", payload["issues"])
+            self.assertIn(f"package output already exists: {package_dir.resolve()}", payload["issues"])
 
     def test_existing_custom_package_output_blocks_readiness(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -385,7 +500,7 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             payload = check_external_l4_readiness.readiness_report(workspace, package_name="custom-review")
 
             self.assertEqual("NOT_READY", payload["status"])
-            self.assertIn(f"package output already exists: {package_dir}", payload["issues"])
+            self.assertIn(f"package output already exists: {package_dir.resolve()}", payload["issues"])
 
     def test_json_out_must_not_overwrite_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -483,7 +598,7 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             payload = check_external_l4_readiness.readiness_report(workspace)
 
             self.assertEqual("NOT_READY", payload["status"])
-            self.assertIn(f"trial output already exists before run: {existing_output}", payload["issues"])
+            self.assertIn(f"trial output already exists before run: {existing_output.resolve()}", payload["issues"])
 
     def test_existing_planned_report_output_blocks_readiness(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -500,7 +615,7 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             payload = check_external_l4_readiness.readiness_report(workspace)
 
             self.assertEqual("NOT_READY", payload["status"])
-            self.assertIn(f"planned report output already exists before run: {stale_report}", payload["issues"])
+            self.assertIn(f"planned report output already exists before run: {stale_report.resolve()}", payload["issues"])
 
     def test_invalid_input_csv_schema_is_not_ready(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

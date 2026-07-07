@@ -320,6 +320,8 @@ def readiness_report_argv_issues(
     for value in json_out_values:
         if value is None:
             failures.append("argv --json-out must include a value")
+        elif not Path(value).is_absolute():
+            failures.append("argv --json-out must be an absolute path")
         elif report_path is not None and normalized_path_key(Path(value)) != normalized_path_key(report_path):
             failures.append("argv --json-out must match saved readiness report path")
     return failures
@@ -359,9 +361,13 @@ def validate_readiness_report_payload(
     workspace = payload.get("workspace")
     if not isinstance(workspace, str) or not workspace.strip():
         failures.append("workspace must be a non-empty string")
+    elif not Path(workspace).is_absolute():
+        failures.append("workspace must be an absolute path")
     manifest = payload.get("manifest")
     if not isinstance(manifest, str) or not manifest.strip():
         failures.append("manifest must be a non-empty string")
+    elif not Path(manifest).is_absolute():
+        failures.append("manifest must be an absolute path")
     variables = payload.get("variables")
     if not isinstance(variables, dict) or not all(
         isinstance(key, str) and isinstance(value, str) for key, value in variables.items()
@@ -459,6 +465,11 @@ def readiness_report(
     variables: dict[str, str] | None = None,
     json_out: Path | None = None,
 ) -> dict[str, Any]:
+    workspace = workspace.resolve()
+    if manifest_path is not None:
+        manifest_path = manifest_path.resolve()
+    if json_out is not None:
+        json_out = json_out.resolve()
     explicit_variables = variables or {}
     variables = {"base_dir": str(workspace), **explicit_variables}
     manifest_path = manifest_path or workspace / MANIFEST_NAME
@@ -569,28 +580,31 @@ def main() -> int:
         parser.error("--workspace is required unless --verify-report is used")
 
     try:
+        workspace = args.workspace.resolve()
+        manifest_arg = args.manifest.resolve() if args.manifest is not None else None
+        json_out_arg = args.json_out.resolve() if args.json_out is not None else None
         variables = run_handoff_trial.parse_vars(args.var)
         payload = readiness_report(
-            args.workspace,
-            manifest_path=args.manifest,
+            workspace,
+            manifest_path=manifest_arg,
             package_name=args.package_name,
             variables=variables,
-            json_out=args.json_out,
+            json_out=json_out_arg,
         )
     except Exception as exc:  # noqa: BLE001 - keep CLI report failures explicit.
         print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
-    if args.json_out:
+    if json_out_arg:
         manifest = None
-        manifest_path = args.manifest or args.workspace / MANIFEST_NAME
+        manifest_path = manifest_arg or workspace / MANIFEST_NAME
         if manifest_path.is_file():
             raw_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             rendered = run_handoff_trial.render(raw_manifest, payload["variables"])
             if isinstance(rendered, dict):
                 manifest = rendered
         json_out_issues = readiness_json_out_issues(
-            args.json_out,
-            args.workspace,
+            json_out_arg,
+            workspace,
             manifest_path,
             manifest,
             args.package_name,
@@ -599,8 +613,8 @@ def main() -> int:
             for issue in json_out_issues:
                 print(f"ERROR: {issue}", file=sys.stderr)
             return 1
-        write_json(args.json_out, payload)
-        print(f"wrote {args.json_out}")
+        write_json(json_out_arg, payload)
+        print(f"wrote {json_out_arg}")
     print(f"status={payload['status']}")
     for issue in payload["issues"]:
         print(f"ERROR: {issue}")
