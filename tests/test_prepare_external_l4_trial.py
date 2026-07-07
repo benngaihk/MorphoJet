@@ -107,12 +107,52 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("--verify-local-evidence-preflight-files", verify_preflight)
             self.assertIn("--verify-local-evidence-preflight-gates", verify_preflight)
             self.assertIn("--require-local-evidence-preflight-pass", verify_preflight)
+            stable_release = plan["commands"]["verify_stable_release"]
+            self.assertEqual("v0.1.0", stable_release[2])
+            self.assertEqual("benngaihk/MorphoJet", stable_release[stable_release.index("--repo") + 1])
+            self.assertEqual(
+                str((workspace / "github-release").resolve()),
+                stable_release[stable_release.index("--out-dir") + 1],
+            )
+            self.assertIn("--expect-stable", stable_release)
+            self.assertEqual(
+                str((workspace / "github-release-verification.json").resolve()),
+                stable_release[stable_release.index("--json-out") + 1],
+            )
+            final_gate = plan["commands"]["final_production_gate"]
+            self.assertEqual(
+                str((workspace / "handoff_trial.json").resolve()),
+                final_gate[final_gate.index("--external-trial-json") + 1],
+            )
+            self.assertEqual(
+                str(
+                    (
+                        workspace
+                        / "evidence-package"
+                        / "external-l4-external-lab-supported-columns-handoff"
+                    ).resolve()
+                ),
+                final_gate[final_gate.index("--external-evidence-package-dir") + 1],
+            )
+            self.assertEqual(
+                str((workspace / "github-release-verification.json").resolve()),
+                final_gate[final_gate.index("--github-release-verification-report") + 1],
+            )
+            self.assertEqual("v0.1.0", final_gate[final_gate.index("--github-release-tag") + 1])
+            self.assertEqual(
+                str((workspace / "production-claim.json").resolve()),
+                final_gate[final_gate.index("--out-json") + 1],
+            )
             readme = (workspace / "README.md").read_text(encoding="utf-8")
             self.assertLess(readme.index("## verify_plan"), readme.index("## validate_manifest"))
             self.assertLess(readme.index("## verify_readiness"), readme.index("## run_trial"))
             self.assertLess(
                 readme.index("## local_evidence_preflight"),
                 readme.index("## verify_local_evidence_preflight"),
+            )
+            self.assertLess(
+                readme.index("## verify_stable_release"),
+                readme.index("## final_production_gate"),
             )
 
     def test_prepare_workspace_records_custom_generator_argv(self) -> None:
@@ -423,6 +463,18 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 "stale external L4 execution outputs already exist",
             ):
                 prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace, overwrite=True)
+
+    def test_prepare_workspace_refuses_stale_final_production_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            workspace.mkdir()
+            (workspace / "github-release-verification.json").write_text("{}\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                prepare_external_l4_trial.PrepareError,
+                "stale external L4 execution outputs already exist",
+            ):
+                prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
 
 
 if __name__ == "__main__":

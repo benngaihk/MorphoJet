@@ -181,6 +181,8 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
         "verify_package",
         "local_evidence_preflight",
         "verify_local_evidence_preflight",
+        "verify_stable_release",
+        "final_production_gate",
     ]
     if not isinstance(commands, dict):
         failures.append("commands must be an object")
@@ -268,6 +270,10 @@ def plan_commands(
     package_verification = workspace / "evidence-package-verification.json"
     preflight_json = workspace / "local-evidence-preflight.json"
     preflight_md = workspace / "local-evidence-preflight.md"
+    github_release_dir = workspace / "github-release"
+    github_release_verification = workspace / "github-release-verification.json"
+    production_claim_json = workspace / "production-claim.json"
+    production_claim_md = workspace / "production-claim.md"
     readiness_json = workspace / "readiness.json"
     base_var = f"base_dir={workspace}"
     return {
@@ -380,6 +386,40 @@ def plan_commands(
             "--verify-local-evidence-preflight-gates",
             "--require-local-evidence-preflight-pass",
         ],
+        "verify_stable_release": [
+            "python3",
+            "benchmark/verify_github_release.py",
+            "v0.1.0",
+            "--repo",
+            "benngaihk/MorphoJet",
+            "--out-dir",
+            str(github_release_dir),
+            "--expect-stable",
+            "--json-out",
+            str(github_release_verification),
+        ],
+        "final_production_gate": [
+            "python3",
+            "benchmark/run_production_gate.py",
+            "--external-trial-json",
+            str(trial_json),
+            "--external-trial-root",
+            str(workspace),
+            "--external-evidence-package-dir",
+            str(package_dir),
+            "--external-trial-verification-report",
+            str(trial_verification),
+            "--external-evidence-package-verification-report",
+            str(package_verification),
+            "--github-release-verification-report",
+            str(github_release_verification),
+            "--github-release-tag",
+            "v0.1.0",
+            "--out-json",
+            str(production_claim_json),
+            "--out-md",
+            str(production_claim_md),
+        ],
     }
 
 
@@ -410,6 +450,8 @@ def render_readme(plan: dict[str, Any]) -> str:
         "verify_package",
         "local_evidence_preflight",
         "verify_local_evidence_preflight",
+        "verify_stable_release",
+        "final_production_gate",
     ]:
         lines.extend(
             [
@@ -448,6 +490,10 @@ def planned_execution_outputs(workspace: Path, package_slug: str) -> list[Path]:
         workspace / "evidence-package-verification.json",
         workspace / "local-evidence-preflight.json",
         workspace / "local-evidence-preflight.md",
+        workspace / "github-release-verification.json",
+        workspace / "github-release",
+        workspace / "production-claim.json",
+        workspace / "production-claim.md",
         package_out / package_slug,
         package_out / f"{package_slug}.zip",
         package_out / f"{package_slug}.zip.sha256",
