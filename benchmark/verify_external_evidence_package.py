@@ -75,8 +75,33 @@ def readiness_package_name(path: Path) -> str | None:
     return package_name if isinstance(package_name, str) and package_name.strip() else None
 
 
+def artifact_manifest_claim_scope(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 - missing/malformed package files are reported elsewhere.
+        return {
+            "claim_status": None,
+            "evidence_scope": None,
+            "final_production_signoff": None,
+        }
+    if not isinstance(payload, dict):
+        return {
+            "claim_status": None,
+            "evidence_scope": None,
+            "final_production_signoff": None,
+        }
+    return {
+        "claim_status": payload.get("claim_status"),
+        "evidence_scope": payload.get("evidence_scope"),
+        "final_production_signoff": payload.get("final_production_signoff"),
+    }
+
+
 def package_input_files(package_dir: Path, trial_json: Path | None = None) -> dict[str, dict[str, Any]]:
     files = {key: file_summary(package_dir / filename) for key, filename in PACKAGE_REVIEW_FILES.items()}
+    files["package_artifact_manifest"].update(
+        artifact_manifest_claim_scope(package_dir / "artifact_manifest.json")
+    )
     files["package_readiness"]["package_name"] = readiness_package_name(package_dir / "readiness.json")
     files["package_zip"] = file_summary(package_dir.parent / f"{package_dir.name}.zip")
     files["package_zip_sha256"] = file_summary(package_dir.parent / f"{package_dir.name}.zip.sha256")
@@ -141,6 +166,23 @@ def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) 
                         failures.append("input_files.package_readiness.package_name must be null or a non-empty string")
                     elif release_gate.slugify(package_name) != package_name:
                         failures.append("input_files.package_readiness.package_name must be a canonical slug")
+        if name == "package_artifact_manifest" and isinstance(summary, dict):
+            for field in ["claim_status", "evidence_scope", "final_production_signoff"]:
+                if field not in summary:
+                    failures.append(f"input_files.package_artifact_manifest.{field} must be present")
+            if status == "PASS":
+                if summary.get("claim_status") != "NOT_PRODUCTION_CLAIM":
+                    failures.append(
+                        f"input_files.package_artifact_manifest.claim_status={summary.get('claim_status')}"
+                    )
+                if summary.get("evidence_scope") != "EXTERNAL_L4_EVIDENCE_PACKAGE":
+                    failures.append(
+                        f"input_files.package_artifact_manifest.evidence_scope={summary.get('evidence_scope')}"
+                    )
+                if summary.get("final_production_signoff") is not False:
+                    failures.append(
+                        "input_files.package_artifact_manifest.final_production_signoff must be false"
+                    )
     return failures
 
 
@@ -179,7 +221,16 @@ def recomputed_input_file_issues(recorded: dict[str, Any], package_dir: Path, tr
         if not isinstance(recorded_summary, dict):
             failures.append(f"input_files.{name} missing from saved report")
             continue
-        for field in ["path", "exists", "size_bytes", "sha256", "package_name"]:
+        for field in [
+            "path",
+            "exists",
+            "size_bytes",
+            "sha256",
+            "package_name",
+            "claim_status",
+            "evidence_scope",
+            "final_production_signoff",
+        ]:
             if recorded_summary.get(field) != current_summary.get(field):
                 failures.append(f"input_files.{name}.{field} changed after recomputing evidence package validation")
     for name in sorted(set(recorded) - set(current)):

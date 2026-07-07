@@ -232,6 +232,15 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual(expected_trial_sha, payload["input_files"]["source_trial_json"]["sha256"])
         self.assertEqual(expected_zip_sha, payload["input_files"]["package_zip"]["sha256"])
         self.assertEqual(expected_manifest_sha, payload["input_files"]["package_artifact_manifest"]["sha256"])
+        self.assertEqual(
+            "NOT_PRODUCTION_CLAIM",
+            payload["input_files"]["package_artifact_manifest"]["claim_status"],
+        )
+        self.assertEqual(
+            "EXTERNAL_L4_EVIDENCE_PACKAGE",
+            payload["input_files"]["package_artifact_manifest"]["evidence_scope"],
+        )
+        self.assertFalse(payload["input_files"]["package_artifact_manifest"]["final_production_signoff"])
         self.assertEqual(expected_readiness_sha, payload["input_files"]["package_readiness"]["sha256"])
         self.assertEqual(expected_readme_zh_sha, payload["input_files"]["package_readme_zh"]["sha256"])
         self.assertEqual("external-l4-demo", payload["input_files"]["package_readiness"]["package_name"])
@@ -804,6 +813,51 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual(1, code)
         self.assertIn(
             "input_files.package_readiness.sha256 changed after recomputing evidence package validation",
+            stderr.getvalue(),
+        )
+
+    def test_saved_package_verification_report_recomputes_package_claim_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+            package_dir = Path(result["package_dir"])
+            manifest_path = package_dir / "artifact_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["claim_status"] = "PASS"
+            manifest["evidence_scope"] = "FINAL_PRODUCTION_CLAIM"
+            manifest["final_production_signoff"] = True
+            manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(
+                    json_out,
+                    verify_files=True,
+                )
+
+        self.assertEqual(1, code)
+        self.assertIn(
+            "input_files.package_artifact_manifest.claim_status changed after recomputing evidence package validation",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_files.package_artifact_manifest.evidence_scope changed after recomputing evidence package validation",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_files.package_artifact_manifest.final_production_signoff changed after recomputing evidence package validation",
             stderr.getvalue(),
         )
 
