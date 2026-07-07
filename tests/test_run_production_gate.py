@@ -187,6 +187,20 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("benchmark/results/release-gate/production-claim.json", command)
         self.assertIn("benchmark/results/release-gate/production-claim.md", command)
 
+    def test_builds_final_report_verification_command(self) -> None:
+        args = self.parse("--out-json", "reports/final-production.json")
+
+        command = run_production_gate.build_final_report_verification_command(args)
+
+        self.assertEqual(sys.executable, command[0])
+        self.assertEqual("benchmark/verify_release_gate_report.py", command[1])
+        self.assertEqual("reports/final-production.json", command[2])
+        self.assertIn("--require-report-pass", command)
+        self.assertIn("--require-clean-git-metadata", command)
+        self.assertIn("--verify-git-commit", command)
+        self.assertIn("--require-production-claim-pass", command)
+        self.assertEqual("none", command[command.index("--expect-missing-checks") + 1])
+
     def test_rejects_release_candidate_tag(self) -> None:
         args = self.parse("--github-release-tag", "v0.1.0-rc.1")
 
@@ -326,7 +340,7 @@ class RunProductionGateTest(unittest.TestCase):
                 run_production_gate.validate_existing_inputs(args)
 
     def test_dry_run_does_not_require_existing_paths(self) -> None:
-        with contextlib.redirect_stdout(io.StringIO()):
+        with contextlib.redirect_stdout(io.StringIO()) as stdout:
             status = run_production_gate.main(
                 [
                     "--external-trial-json",
@@ -342,6 +356,137 @@ class RunProductionGateTest(unittest.TestCase):
             )
 
         self.assertEqual(0, status)
+        self.assertIn("benchmark/release_gate.py", stdout.getvalue())
+        self.assertIn("benchmark/verify_release_gate_report.py", stdout.getvalue())
+
+    def test_main_verifies_final_report_after_successful_release_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_root = root / "external"
+            package_dir = root / "evidence" / "external-l4-trial"
+            trial_root.mkdir()
+            package_dir.mkdir(parents=True)
+            trial_json = trial_root / "handoff_trial.json"
+            trial_json.write_text("{}\n", encoding="utf-8")
+            out_json = root / "reports" / "production-claim.json"
+            out_md = root / "reports" / "production-claim.md"
+            with (
+                patch.object(
+                    run_production_gate.subprocess,
+                    "run",
+                    return_value=run_production_gate.subprocess.CompletedProcess(["release-gate"], 0),
+                ) as run_mock,
+                patch.object(
+                    run_production_gate.verify_release_gate_report,
+                    "verify_release_gate_report",
+                    return_value=0,
+                ) as verify_mock,
+                contextlib.redirect_stdout(io.StringIO()) as stdout,
+            ):
+                status = run_production_gate.main(
+                    [
+                        "--external-trial-json",
+                        str(trial_json),
+                        "--external-trial-root",
+                        str(trial_root),
+                        "--external-evidence-package-dir",
+                        str(package_dir),
+                        "--github-release-tag",
+                        "v0.1.0",
+                        "--out-json",
+                        str(out_json),
+                        "--out-md",
+                        str(out_md),
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        run_mock.assert_called_once()
+        verify_mock.assert_called_once_with(
+            out_json,
+            require_report_pass=True,
+            require_production_claim_pass=True,
+            expected_missing_checks=[],
+            require_clean_git_metadata=True,
+            verify_git_commit=True,
+        )
+        self.assertIn("benchmark/verify_release_gate_report.py", stdout.getvalue())
+
+    def test_main_fails_when_final_report_verification_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_root = root / "external"
+            package_dir = root / "evidence" / "external-l4-trial"
+            trial_root.mkdir()
+            package_dir.mkdir(parents=True)
+            trial_json = trial_root / "handoff_trial.json"
+            trial_json.write_text("{}\n", encoding="utf-8")
+            with (
+                patch.object(
+                    run_production_gate.subprocess,
+                    "run",
+                    return_value=run_production_gate.subprocess.CompletedProcess(["release-gate"], 0),
+                ),
+                patch.object(
+                    run_production_gate.verify_release_gate_report,
+                    "verify_release_gate_report",
+                    return_value=1,
+                ) as verify_mock,
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                status = run_production_gate.main(
+                    [
+                        "--external-trial-json",
+                        str(trial_json),
+                        "--external-trial-root",
+                        str(trial_root),
+                        "--external-evidence-package-dir",
+                        str(package_dir),
+                        "--github-release-tag",
+                        "v0.1.0",
+                    ]
+                )
+
+        self.assertEqual(1, status)
+        verify_mock.assert_called_once()
+
+    def test_main_does_not_verify_final_report_when_release_gate_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_root = root / "external"
+            package_dir = root / "evidence" / "external-l4-trial"
+            trial_root.mkdir()
+            package_dir.mkdir(parents=True)
+            trial_json = trial_root / "handoff_trial.json"
+            trial_json.write_text("{}\n", encoding="utf-8")
+            with (
+                patch.object(
+                    run_production_gate.subprocess,
+                    "run",
+                    return_value=run_production_gate.subprocess.CompletedProcess(["release-gate"], 7),
+                ),
+                patch.object(
+                    run_production_gate.verify_release_gate_report,
+                    "verify_release_gate_report",
+                    return_value=0,
+                ) as verify_mock,
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                status = run_production_gate.main(
+                    [
+                        "--external-trial-json",
+                        str(trial_json),
+                        "--external-trial-root",
+                        str(trial_root),
+                        "--external-evidence-package-dir",
+                        str(package_dir),
+                        "--github-release-tag",
+                        "v0.1.0",
+                    ]
+                )
+
+        self.assertEqual(7, status)
+        verify_mock.assert_not_called()
 
     def test_final_report_outputs_must_not_overlap(self) -> None:
         args = self.parse("--out-json", "reports/production.json", "--out-md", "./reports/production.json")

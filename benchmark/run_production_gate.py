@@ -19,6 +19,7 @@ import release_gate
 import verify_external_evidence_package
 import verify_external_trial_report
 import verify_github_release
+import verify_release_gate_report
 
 
 DEFAULT_OUT_JSON = Path("benchmark/results/release-gate/production-claim.json")
@@ -311,6 +312,31 @@ def build_release_gate_command(args: argparse.Namespace) -> list[str]:
             ]
         )
     return command
+
+
+def build_final_report_verification_command(args: argparse.Namespace) -> list[str]:
+    return [
+        sys.executable,
+        "benchmark/verify_release_gate_report.py",
+        str(args.out_json),
+        "--require-report-pass",
+        "--require-clean-git-metadata",
+        "--verify-git-commit",
+        "--require-production-claim-pass",
+        "--expect-missing-checks",
+        "none",
+    ]
+
+
+def verify_final_production_report(args: argparse.Namespace) -> int:
+    return verify_release_gate_report.verify_release_gate_report(
+        args.out_json,
+        require_report_pass=True,
+        require_production_claim_pass=True,
+        expected_missing_checks=[],
+        require_clean_git_metadata=True,
+        verify_git_commit=True,
+    )
 
 
 def build_local_evidence_preflight_payload(args: argparse.Namespace, gates: list[release_gate.Gate]) -> dict:
@@ -815,6 +841,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         print(shlex.join(command))
+        print(shlex.join(build_final_report_verification_command(args)))
         return 0
     if args.local_evidence_preflight_only:
         return run_local_evidence_preflight(args)
@@ -827,7 +854,11 @@ def main(argv: list[str] | None = None) -> int:
         if not all(gate.status == "PASS" for gate in reviewer_gates):
             return 1
     print(shlex.join(command))
-    return subprocess.run(command).returncode
+    release_gate_status = subprocess.run(command).returncode
+    if release_gate_status != 0:
+        return release_gate_status
+    print(shlex.join(build_final_report_verification_command(args)))
+    return verify_final_production_report(args)
 
 
 def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
