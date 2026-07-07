@@ -185,7 +185,7 @@ python3 benchmark/run_production_gate.py \
   --github-release-tag v0.1.0
 ```
 
-这个 wrapper 要求稳定非 RC tag，复核外部 trial/package reviewer 报告，要求 saved GitHub release verifier report 是同一 final tag 和 `benngaihk/MorphoJet` repo 的 stable PASS 报告，并委托 `benchmark/release_gate.py --require-production-claim`。如果 final release gate 通过，wrapper 会立刻复核 `production-claim.json`，要求 `--require-production-claim-pass` 和 `--expect-missing-checks none`；生成的 trial plan 也保留同一条 final report verification 作为独立签核步骤。最终生产声明现在会把 saved trial/package reviewer reports 和 saved stable-release verifier report 作为独立审计项；direct release gate 复核 saved GitHub release report 时也会带上 `--expect-repo benngaihk/MorphoJet`。它通过之前，项目不能宣称 production-ready。
+这个 wrapper 要求稳定非 RC tag，复核外部 trial/package reviewer 报告，拒绝 final output 覆盖 package review files（包括 `README.md` 和 `README.zh-CN.md`），要求 saved GitHub release verifier report 是同一 final tag 和 `benngaihk/MorphoJet` repo 的 stable PASS 报告，并委托 `benchmark/release_gate.py --require-production-claim`。如果 final release gate 通过，wrapper 会立刻复核 `production-claim.json`，要求 `--require-production-claim-pass` 和 `--expect-missing-checks none`；生成的 trial plan 也保留同一条 final report verification 作为独立签核步骤。最终生产声明现在会把 saved trial/package reviewer reports 和 saved stable-release verifier report 作为独立审计项；direct release gate 复核 saved GitHub release report 时也会带上 `--expect-repo benngaihk/MorphoJet`。它通过之前，项目不能宣称 production-ready。
 
 ## 当前里程碑状态
 

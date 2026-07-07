@@ -527,6 +527,40 @@ class RunProductionGateTest(unittest.TestCase):
                 ],
             )
 
+    def test_final_report_output_must_not_overwrite_package_chinese_readme(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(package["package_dir"])
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                str(package_dir),
+                "--out-json",
+                str(package_dir / "README.zh-CN.md"),
+            )
+
+            with self.assertRaisesRegex(
+                run_production_gate.ProductionGateError,
+                "--out-json must not overwrite evidence package review file: README.zh-CN.md",
+            ):
+                run_production_gate.validate_report_output_paths(
+                    args,
+                    [
+                        ("--out-json", args.out_json),
+                        ("--out-md", args.out_md),
+                    ],
+                )
+
     def test_final_report_output_must_not_create_file_inside_declared_trial_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -663,6 +697,41 @@ class RunProductionGateTest(unittest.TestCase):
                 run_production_gate.ProductionGateError,
                 "--local-evidence-preflight-json must not overwrite evidence package artifact: "
                 "artifacts/external/handoff_contract.json",
+            ):
+                run_production_gate.validate_report_output_paths(
+                    args,
+                    [
+                        ("--local-evidence-preflight-json", args.local_evidence_preflight_json),
+                        ("--local-evidence-preflight-md", args.local_evidence_preflight_md),
+                    ],
+                )
+
+    def test_local_preflight_output_must_not_overwrite_package_chinese_readme(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(package["package_dir"])
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                str(package_dir),
+                "--local-evidence-preflight-json",
+                str(package_dir / "README.zh-CN.md"),
+                "--local-evidence-preflight-only",
+            )
+
+            with self.assertRaisesRegex(
+                run_production_gate.ProductionGateError,
+                "--local-evidence-preflight-json must not overwrite evidence package review file: README.zh-CN.md",
             ):
                 run_production_gate.validate_report_output_paths(
                     args,
