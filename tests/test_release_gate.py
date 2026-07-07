@@ -133,6 +133,8 @@ def write_trial_artifacts(trial: dict, root: Path, empty_paths: set[str] | None 
             "checks": [],
             "issues": [],
         }
+        if readiness_summary.get("package_name") is not None:
+            readiness_payload["argv"].extend(["--package-name", readiness_summary["package_name"]])
         readiness_path.write_text(json.dumps(readiness_payload, indent=2) + "\n", encoding="utf-8")
         readiness_summary.update(
             {

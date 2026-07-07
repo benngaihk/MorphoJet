@@ -350,10 +350,12 @@ def build_local_evidence_preflight_payload(args: argparse.Namespace, gates: list
 
 def local_evidence_input_artifacts(args: argparse.Namespace) -> list[dict]:
     package_dir = args.external_evidence_package_dir
+    package_readiness = file_summary("package_readiness_json", package_dir / "readiness.json")
+    package_readiness["package_name"] = readiness_package_name(package_dir / "readiness.json")
     return [
         file_summary("external_trial_json", args.external_trial_json),
         file_summary("package_handoff_trial_json", package_dir / "handoff_trial.json"),
-        file_summary("package_readiness_json", package_dir / "readiness.json"),
+        package_readiness,
         file_summary("package_zip", package_dir.parent / f"{package_dir.name}.zip"),
         file_summary("package_zip_sha256", package_dir.parent / f"{package_dir.name}.zip.sha256"),
         *optional_file_summaries(
@@ -567,6 +569,17 @@ def file_summary(name: str, path: Path) -> dict:
     return summary
 
 
+def readiness_package_name(path: Path) -> str | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 - missing/malformed evidence is reported by the package gate.
+        return None
+    if not isinstance(payload, dict):
+        return None
+    package_name = payload.get("package_name")
+    return package_name if isinstance(package_name, str) and package_name.strip() else None
+
+
 def git_commit_is_reachable(commit: str) -> bool:
     completed = subprocess.run(
         ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
@@ -610,8 +623,8 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
             "",
             "## Input Artifacts",
             "",
-            "| Name | Exists | Size Bytes | SHA-256 | Path |",
-            "|---|---:|---:|---|---|",
+            "| Name | Exists | Size Bytes | SHA-256 | Package Name | Path |",
+            "|---|---:|---:|---|---|---|",
         ]
     )
     for artifact in payload["input_artifacts"]:
@@ -621,6 +634,7 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
             f"{artifact['exists']} | "
             f"{artifact['size_bytes'] if artifact['size_bytes'] is not None else ''} | "
             f"{artifact['sha256'] or ''} | "
+            f"{artifact.get('package_name') or ''} | "
             f"{artifact['path']} |"
         )
     lines.extend(
@@ -917,6 +931,7 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
         names = {artifact.get("name") for artifact in artifacts if isinstance(artifact, dict)}
         artifact_paths: dict[str, str] = {}
         artifact_path_keys: dict[str, str] = {}
+        artifact_summaries: dict[str, dict] = {}
         allowed_names = LOCAL_PREFLIGHT_INPUT_NAMES | LOCAL_PREFLIGHT_OPTIONAL_INPUT_NAMES
         if not LOCAL_PREFLIGHT_INPUT_NAMES.issubset(names) or names - allowed_names:
             failures.append(f"input_artifacts names={sorted(str(name) for name in names)}")
@@ -937,6 +952,7 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
                     failures.append(f"duplicate input artifact name: {name}")
                 else:
                     artifact_paths[name] = path_value
+                    artifact_summaries[name] = artifact
                 path_key = normalized_path_key(Path(path_value))
                 previous_name = artifact_path_keys.get(path_key)
                 if previous_name is not None:
@@ -955,8 +971,11 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
                     failures.append(f"input artifact sha256 must be a lowercase SHA-256 digest: {name}")
             elif artifact.get("size_bytes") is not None or artifact.get("sha256") is not None:
                 failures.append(f"missing input artifact must not carry size/hash: {name}")
+            if name == "package_readiness_json":
+                failures.extend(package_readiness_artifact_package_name_issues(artifact))
         if isinstance(metadata, dict):
             failures.extend(validate_local_evidence_preflight_path_bindings(metadata, artifact_paths))
+            failures.extend(validate_local_evidence_preflight_package_name_binding(metadata, artifact_summaries))
 
     gates = payload.get("gates")
     if not isinstance(gates, list):
@@ -1000,6 +1019,19 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
                 f"{payload.get('status')} != {expected_status}"
             )
     return failures
+
+
+def package_readiness_artifact_package_name_issues(artifact: dict) -> list[str]:
+    if "package_name" not in artifact:
+        return ["input_artifacts.package_readiness_json.package_name must be present"]
+    package_name = artifact.get("package_name")
+    if package_name is None:
+        return []
+    if not isinstance(package_name, str) or not package_name.strip():
+        return ["input_artifacts.package_readiness_json.package_name must be null or a non-empty string"]
+    if release_gate.slugify(package_name) != package_name:
+        return ["input_artifacts.package_readiness_json.package_name must be a canonical slug"]
+    return []
 
 
 def argv_values(argv: list[str], flag: str) -> list[str | None]:
@@ -1085,6 +1117,10 @@ def validate_local_evidence_preflight_files(payload: dict) -> list[str]:
         actual_hash = release_gate.sha256_file(path)
         if actual_hash != artifact.get("sha256"):
             failures.append(f"input artifact sha256 mismatch: {name}")
+        if name == "package_readiness_json":
+            actual_package_name = readiness_package_name(path)
+            if actual_package_name != artifact.get("package_name"):
+                failures.append("input artifact package_name mismatch: package_readiness_json")
     return failures
 
 
@@ -1179,6 +1215,24 @@ def validate_local_evidence_preflight_path_bindings(
                 failures.append(f"input_artifacts.{artifact_name}.path does not match metadata.{metadata_key}")
         elif artifact_name in artifact_paths:
             failures.append(f"input_artifacts.{artifact_name} is present but metadata.{metadata_key} is empty")
+    return failures
+
+
+def validate_local_evidence_preflight_package_name_binding(
+    metadata: dict,
+    artifact_summaries: dict[str, dict],
+) -> list[str]:
+    failures = []
+    package_dir_value = metadata.get("external_evidence_package_dir")
+    readiness_summary = artifact_summaries.get("package_readiness_json")
+    if not isinstance(package_dir_value, str) or not package_dir_value.strip() or readiness_summary is None:
+        return failures
+    readiness_path = Path(package_dir_value) / "readiness.json"
+    if not readiness_path.is_file():
+        return failures
+    expected_package_name = readiness_package_name(readiness_path)
+    if readiness_summary.get("package_name") != expected_package_name:
+        failures.append("input_artifacts.package_readiness_json.package_name must match package readiness report")
     return failures
 
 
