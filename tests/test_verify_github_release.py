@@ -446,6 +446,16 @@ class VerifyGithubReleaseTest(unittest.TestCase):
 
         self.assertIn("generated_at_utc must be UTC", failures)
 
+    def test_saved_release_report_rejects_relative_out_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["out_dir"] = "release"
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn("out_dir must be an absolute path", failures)
+
     def test_saved_release_report_rejects_argv_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = self.valid_report(Path(tmp))
@@ -473,6 +483,16 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn("argv has duplicate --expect-stable", failures)
         self.assertIn("argv must not include --expect-prerelease unless expected_release_kind is prerelease", failures)
         self.assertIn("argv must not include --verify-report for a generated verifier report", failures)
+
+    def test_saved_release_report_rejects_relative_out_dir_argv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["argv"][payload["argv"].index("--out-dir") + 1] = "release"
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn("argv --out-dir must be an absolute path: release", failures)
 
     def test_saved_release_report_rejects_json_out_path_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

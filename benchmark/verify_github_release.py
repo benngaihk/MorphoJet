@@ -625,6 +625,8 @@ def validate_verification_report_payload(
     out_dir = payload.get("out_dir")
     if out_dir is not None and (not isinstance(out_dir, str) or not out_dir.strip()):
         failures.append("out_dir must be null or a non-empty string")
+    elif isinstance(out_dir, str) and out_dir.strip() and not Path(out_dir).is_absolute():
+        failures.append("out_dir must be an absolute path")
     if report_path is not None and isinstance(tag, str) and tag.strip() and isinstance(out_dir, str) and out_dir.strip():
         failures.extend(release_output_safety_issues(tag, Path(out_dir), json_out=report_path))
     argv = payload.get("argv")
@@ -792,6 +794,8 @@ def verification_report_argv_issues(
         for value in values:
             if value is None:
                 failures.append(f"argv {flag} must include a value")
+            elif flag == "--out-dir" and not Path(value).is_absolute():
+                failures.append(f"argv --out-dir must be an absolute path: {value}")
             elif value != expected:
                 failures.append(f"{flag[2:].replace('-', '_')} must match argv {flag} {value}")
     expect_commit_values = argv_values(argv, "--expect-commit")
