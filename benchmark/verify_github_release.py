@@ -28,6 +28,10 @@ ASSET_DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
 GITHUB_API_RELEASE_URL_PATTERN = re.compile(r"^https://api\.github\.com/repos/[^/]+/[^/]+/releases/\d+$")
 
 
+def is_utc_datetime(value: datetime) -> bool:
+    return value.utcoffset() == timezone.utc.utcoffset(value)
+
+
 def run(command: list[str]) -> str:
     completed = subprocess.run(command, text=True, capture_output=True, check=True)
     return completed.stdout
@@ -389,6 +393,9 @@ def parse_asset_timestamp(value: Any, field: str, asset_name: str, failures: lis
     if parsed.tzinfo is None:
         failures.append(f"{field} must include timezone: {asset_name}")
         return None
+    if not is_utc_datetime(parsed):
+        failures.append(f"{field} must be UTC: {asset_name}")
+        return None
     return parsed
 
 
@@ -572,6 +579,8 @@ def validate_verification_report_payload(
             parsed_generated_at = datetime.fromisoformat(generated_at)
             if parsed_generated_at.tzinfo is None:
                 failures.append("generated_at_utc must include timezone")
+            elif not is_utc_datetime(parsed_generated_at):
+                failures.append("generated_at_utc must be UTC")
         except ValueError:
             failures.append(f"generated_at_utc is invalid: {generated_at}")
     status = payload.get("status")

@@ -424,6 +424,16 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn("is_draft must be a boolean", failures)
         self.assertIn("argv must be a non-empty string list", failures)
 
+    def test_saved_release_report_rejects_non_utc_generated_at(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["generated_at_utc"] = "2026-07-07T12:00:00+08:00"
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn("generated_at_utc must be UTC", failures)
+
     def test_saved_release_report_rejects_argv_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = self.valid_report(Path(tmp))
@@ -518,6 +528,18 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn("release_author_login must be a non-empty string", failures)
         self.assertIn("is_immutable must be a boolean", failures)
         self.assertIn("target_commitish must be a non-empty string", failures)
+
+    def test_saved_release_report_rejects_non_utc_release_timestamps(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["release_created_at"] = "2026-07-07T12:00:00+08:00"
+            payload["release_published_at"] = "2026-07-07T12:00:01+08:00"
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn("release_created_at must be UTC: release", failures)
+        self.assertIn("release_published_at must be UTC: release", failures)
 
     def test_live_release_metadata_issues_match_saved_report_identity_checks(self) -> None:
         issues = verify_github_release.live_release_metadata_issues(
@@ -813,6 +835,19 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             failures = verify_github_release.validate_verification_report_payload(payload)
 
         self.assertIn(f"asset_metadata.updated_at must not be earlier than created_at: {first['name']}", failures)
+
+    def test_saved_release_report_rejects_non_utc_asset_timestamps(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            first = payload["asset_metadata"][0]
+            first["created_at"] = "2026-07-07T12:00:00+08:00"
+            first["updated_at"] = "2026-07-07T12:00:01+08:00"
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn(f"asset_metadata.created_at must be UTC: {first['name']}", failures)
+        self.assertIn(f"asset_metadata.updated_at must be UTC: {first['name']}", failures)
 
     def test_saved_release_report_recomputes_asset_list(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
