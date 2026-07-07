@@ -1791,6 +1791,71 @@ def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], me
     }
 
 
+PRODUCTION_CHECKLIST_GUIDANCE = {
+    "clean_git_worktree": {
+        "evidence": "Release-gate report generated with --require-clean-git and git_dirty=false.",
+        "next_action": "Commit or remove local changes, then rerun the final gate with --require-clean-git.",
+    },
+    "standard_code_and_artifact_gates": {
+        "evidence": "Rust, Python, manifest, L3 artifact, workflow bridge, and handoff gates are PASS.",
+        "next_action": "Fix the failing standard gate detail, then regenerate the release-gate report.",
+    },
+    "l3_provenance_hashes": {
+        "evidence": "CellBinDB L3 provenance exists, was not generated with --skip-cellprofiler, and hashes match.",
+        "next_action": "Rerun with --require-l3-provenance after refreshing L3 artifacts when measurement code changed.",
+    },
+    "external_l4_workflow_trial": {
+        "evidence": "A real external handoff_trial.json PASS report with no manual CSV edits and signed L4 evidence.",
+        "next_action": (
+            "Prepare the workspace, run readiness, then run benchmark/run_handoff_trial.py "
+            "with --require-external-evidence and --readiness-report."
+        ),
+    },
+    "external_l4_evidence_package": {
+        "evidence": "A package_external_trial.py evidence package bound to the external trial report.",
+        "next_action": "Package the accepted external trial and supply --external-evidence-package-dir.",
+    },
+    "external_l4_saved_reviewer_reports": {
+        "evidence": "Saved external trial and evidence-package verifier reports rechecked with file hashing.",
+        "next_action": (
+            "Run verify_external_trial_report.py and verify_external_evidence_package.py, then recheck "
+            "both saved reports with --verify-report-files --require-report-pass."
+        ),
+    },
+    "stable_github_release": {
+        "evidence": "A live non-prerelease GitHub release for the final tag verified from benngaihk/MorphoJet.",
+        "next_action": "After L4 evidence is accepted, publish the stable tag and verify it with --github-release-kind stable.",
+    },
+    "stable_github_release_saved_report": {
+        "evidence": "A saved stable GitHub release verifier report bound to the final tag, repo, commit, and assets.",
+        "next_action": (
+            "Save verify_github_release.py output outside the download dir, then recheck it with "
+            "--verify-report-files --require-stable-report --expect-repo benngaihk/MorphoJet."
+        ),
+    },
+}
+
+
+def markdown_cell(value: str) -> str:
+    return value.replace("|", "\\|").replace("\n", " ")
+
+
+def production_checklist_rows(audit: dict) -> list[dict[str, str]]:
+    rows = []
+    for check in audit["checks"]:
+        guidance = PRODUCTION_CHECKLIST_GUIDANCE[check["name"]]
+        next_action = "No action needed for this check." if check["status"] == "PASS" else guidance["next_action"]
+        rows.append(
+            {
+                "check": check["name"],
+                "status": check["status"],
+                "evidence": guidance["evidence"],
+                "next_action": next_action,
+            }
+        )
+    return rows
+
+
 def render_markdown(payload: dict, out_json: Path) -> str:
     metadata = payload["metadata"]
     audit = payload["production_claim_audit"]
@@ -1822,6 +1887,23 @@ def render_markdown(payload: dict, out_json: Path) -> str:
     )
     for check in audit["checks"]:
         lines.append(f"| {check['name']} | {check['status']} | {check['detail']} |")
+    lines.extend(
+        [
+            "",
+            "## Production Claim Checklist",
+            "",
+            "| Check | Status | Required evidence | Next action |",
+            "|---|---:|---|---|",
+        ]
+    )
+    for row in production_checklist_rows(audit):
+        lines.append(
+            "| "
+            f"{markdown_cell(row['check'])} | "
+            f"{markdown_cell(row['status'])} | "
+            f"{markdown_cell(row['evidence'])} | "
+            f"{markdown_cell(row['next_action'])} |"
+        )
     lines.extend(["", "## Details", ""])
     for gate in payload["gates"]:
         lines.append(f"### {gate.name}")

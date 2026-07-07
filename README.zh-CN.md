@@ -80,7 +80,7 @@ python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --
 python3 benchmark/release_gate.py
 ```
 
-Release-gate JSON 和 Markdown 报告会记录运行时间、git commit、工作区是否 dirty、调用参数、顶层 `production_claim_status` 和 `missing_or_failed_checks`。在真实外部 L4 workflow trial、匹配 evidence package、外部 trial/package saved reviewer reports、稳定 GitHub release、以及 saved stable-release verifier report 都进入同一份生产声明门禁之前，`production_claim_status` 应保持 `INCOMPLETE`。
+Release-gate JSON 和 Markdown 报告会记录运行时间、git commit、工作区是否 dirty、调用参数、顶层 `production_claim_status` 和 `missing_or_failed_checks`；Markdown 报告还会生成 Production Claim Checklist，把每个 audit check 对应到必须提交的 evidence 和 reviewer 下一步动作。在真实外部 L4 workflow trial、匹配 evidence package、外部 trial/package saved reviewer reports、稳定 GitHub release、以及 saved stable-release verifier report 都进入同一份生产声明门禁之前，`production_claim_status` 应保持 `INCOMPLETE`。
 
 审查已保存的 release-gate JSON：
 
