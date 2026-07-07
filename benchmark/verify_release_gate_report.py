@@ -289,6 +289,75 @@ def validate_gate_entry(gate: Any) -> list[str]:
     return failures
 
 
+def saved_github_release_report_command(report: str, expected_tag: str | None = None) -> list[str]:
+    command = [
+        "python3",
+        "benchmark/verify_github_release.py",
+        "--verify-report",
+        report,
+        "--verify-report-files",
+        "--require-report-pass",
+        "--require-stable-report",
+        "--verify-git-commit",
+    ]
+    if expected_tag:
+        command.extend(["--expect-tag", expected_tag])
+    return command
+
+
+def validate_saved_reviewer_gate_command(gate: dict, metadata: Any) -> list[str]:
+    name = gate.get("name")
+    command = gate.get("command")
+    if not isinstance(name, str):
+        return []
+    if not isinstance(command, list) or not all(isinstance(item, str) for item in command):
+        return []
+    if not isinstance(metadata, dict):
+        return []
+    failures: list[str] = []
+    expected: list[str] | None = None
+    metadata_key: str | None = None
+    if name == "Verify saved external L4 trial report":
+        metadata_key = "external_trial_verification_report"
+        report = metadata.get(metadata_key)
+        if isinstance(report, str) and report.strip():
+            expected = [
+                "python3",
+                "benchmark/verify_external_trial_report.py",
+                "--verify-report",
+                report,
+                "--verify-report-files",
+                "--require-report-pass",
+            ]
+    elif name == "Verify saved external L4 evidence package report":
+        metadata_key = "external_evidence_package_verification_report"
+        report = metadata.get(metadata_key)
+        if isinstance(report, str) and report.strip():
+            expected = [
+                "python3",
+                "benchmark/verify_external_evidence_package.py",
+                "--verify-report",
+                report,
+                "--verify-report-files",
+                "--require-report-pass",
+                "--require-trial-json",
+            ]
+    elif name == "Verify saved stable GitHub release report":
+        metadata_key = "github_release_verification_report"
+        report = metadata.get(metadata_key)
+        expected_tag = metadata.get("verify_github_release")
+        if isinstance(report, str) and report.strip():
+            expected = saved_github_release_report_command(
+                report,
+                expected_tag if isinstance(expected_tag, str) and expected_tag.strip() else None,
+            )
+    if metadata_key is not None and expected is None:
+        failures.append(f"gate command for {name} requires metadata.{metadata_key}")
+    elif expected is not None and command != expected:
+        failures.append(f"gate command for {name} must match saved verifier command")
+    return failures
+
+
 def validate_audit_checks(audit: dict, top_level_missing: Any) -> list[str]:
     failures: list[str] = []
     checks = audit.get("checks")
@@ -398,6 +467,7 @@ def validate_release_gate_report_payload(
         for gate in gates:
             failures.extend(validate_gate_entry(gate))
             if isinstance(gate, dict) and isinstance(gate.get("name"), str):
+                failures.extend(validate_saved_reviewer_gate_command(gate, metadata))
                 if gate["name"] in gate_names:
                     failures.append(f"duplicate gate name: {gate['name']}")
                 else:

@@ -594,11 +594,13 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertNotIn("benchmark/results/github-release/v0.1.0", str(path))
 
     def test_saved_github_release_report_command_verifies_git_commit_and_expected_tag(self) -> None:
+        report = Path("github-release/verification.json")
         command = release_gate.saved_github_release_report_command(
-            Path("github-release/verification.json"),
+            report,
             expected_tag="v0.1.0",
         )
 
+        self.assertEqual(str(report.resolve(strict=False)), command[command.index("--verify-report") + 1])
         self.assertIn("--verify-report-files", command)
         self.assertIn("--require-report-pass", command)
         self.assertIn("--require-stable-report", command)

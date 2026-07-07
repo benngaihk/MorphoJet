@@ -154,6 +154,87 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                 },
             )
 
+    def payload_with_saved_reviewer_gate_commands(self) -> dict:
+        payload = self.valid_payload()
+        root = ROOT / "tmp" / "saved-reviewer-gates"
+        trial_report = root / "trial-verification.json"
+        package_report = root / "package-verification.json"
+        github_report = root / "github-release-verification.json"
+        payload["metadata"].update(
+            {
+                "argv": [
+                    "benchmark/release_gate.py",
+                    "--external-trial-verification-report",
+                    str(trial_report),
+                    "--external-evidence-package-verification-report",
+                    str(package_report),
+                    "--github-release-verification-report",
+                    str(github_report),
+                    "--verify-github-release",
+                    "v0.1.0",
+                    "--github-release-kind",
+                    "stable",
+                ],
+                "external_trial_verification_report": str(trial_report),
+                "external_evidence_package_verification_report": str(package_report),
+                "github_release_verification_report": str(github_report),
+                "verify_github_release": "v0.1.0",
+                "github_release_kind": "stable",
+            }
+        )
+        payload["gates"].extend(
+            [
+                {
+                    "name": "Verify saved external L4 trial report",
+                    "command": [
+                        "python3",
+                        "benchmark/verify_external_trial_report.py",
+                        "--verify-report",
+                        str(trial_report),
+                        "--verify-report-files",
+                        "--require-report-pass",
+                    ],
+                    "status": "PASS",
+                    "elapsed_seconds": 0.0,
+                    "detail": "ok",
+                },
+                {
+                    "name": "Verify saved external L4 evidence package report",
+                    "command": [
+                        "python3",
+                        "benchmark/verify_external_evidence_package.py",
+                        "--verify-report",
+                        str(package_report),
+                        "--verify-report-files",
+                        "--require-report-pass",
+                        "--require-trial-json",
+                    ],
+                    "status": "PASS",
+                    "elapsed_seconds": 0.0,
+                    "detail": "ok",
+                },
+                {
+                    "name": "Verify saved stable GitHub release report",
+                    "command": [
+                        "python3",
+                        "benchmark/verify_github_release.py",
+                        "--verify-report",
+                        str(github_report),
+                        "--verify-report-files",
+                        "--require-report-pass",
+                        "--require-stable-report",
+                        "--verify-git-commit",
+                        "--expect-tag",
+                        "v0.1.0",
+                    ],
+                    "status": "PASS",
+                    "elapsed_seconds": 0.0,
+                    "detail": "ok",
+                },
+            ]
+        )
+        return payload
+
     def test_accepts_release_gate_report_with_matching_top_level_summary(self) -> None:
         self.assertEqual([], verify_release_gate_report.validate_release_gate_report_payload(self.valid_payload()))
 
@@ -522,6 +603,42 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
 
         self.assertIn(
             f"metadata.argv --out-json must match verified report path: {root / 'other-release-gate.json'}",
+            failures,
+        )
+
+    def test_accepts_saved_reviewer_gate_commands_bound_to_metadata(self) -> None:
+        self.assertEqual(
+            [],
+            verify_release_gate_report.validate_release_gate_report_payload(
+                self.payload_with_saved_reviewer_gate_commands()
+            ),
+        )
+
+    def test_rejects_saved_reviewer_gate_command_tampering(self) -> None:
+        payload = self.payload_with_saved_reviewer_gate_commands()
+        payload["gates"][-1]["command"] = [
+            "python3",
+            "benchmark/verify_github_release.py",
+            "--verify-report",
+            payload["metadata"]["github_release_verification_report"],
+            "--require-report-pass",
+        ]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "gate command for Verify saved stable GitHub release report must match saved verifier command",
+            failures,
+        )
+
+    def test_rejects_saved_package_reviewer_gate_without_trial_json_requirement(self) -> None:
+        payload = self.payload_with_saved_reviewer_gate_commands()
+        payload["gates"][-2]["command"] = payload["gates"][-2]["command"][:-1]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "gate command for Verify saved external L4 evidence package report must match saved verifier command",
             failures,
         )
 
