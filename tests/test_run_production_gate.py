@@ -921,6 +921,7 @@ class RunProductionGateTest(unittest.TestCase):
             {
                 "external_trial_json",
                 "package_handoff_trial_json",
+                "package_readiness_json",
                 "package_zip",
                 "package_zip_sha256",
             },
@@ -1162,6 +1163,53 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(1, status)
         self.assertIn(
             "input_artifacts.package_handoff_trial_json.path does not match "
+            "metadata.external_evidence_package_dir",
+            stderr.getvalue(),
+        )
+
+    def test_verify_local_evidence_preflight_report_rejects_package_readiness_path_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            out_json = root / "reports" / "preflight.json"
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(root / "reports" / "preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                run_production_gate.run_local_evidence_preflight(args)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            for artifact in payload["input_artifacts"]:
+                if artifact["name"] == "package_readiness_json":
+                    artifact["path"] = str(root / "other-readiness.json")
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(1, status)
+        self.assertIn(
+            "input_artifacts.package_readiness_json.path does not match "
             "metadata.external_evidence_package_dir",
             stderr.getvalue(),
         )

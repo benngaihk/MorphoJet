@@ -40,6 +40,7 @@ LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS = [
 LOCAL_PREFLIGHT_INPUT_NAMES = {
     "external_trial_json",
     "package_handoff_trial_json",
+    "package_readiness_json",
     "package_zip",
     "package_zip_sha256",
 }
@@ -351,6 +352,7 @@ def local_evidence_input_artifacts(args: argparse.Namespace) -> list[dict]:
     return [
         file_summary("external_trial_json", args.external_trial_json),
         file_summary("package_handoff_trial_json", package_dir / "handoff_trial.json"),
+        file_summary("package_readiness_json", package_dir / "readiness.json"),
         file_summary("package_zip", package_dir.parent / f"{package_dir.name}.zip"),
         file_summary("package_zip_sha256", package_dir.parent / f"{package_dir.name}.zip.sha256"),
         *optional_file_summaries(
@@ -1157,6 +1159,7 @@ def validate_local_evidence_preflight_path_bindings(
         package_dir = Path(package_dir_value)
         expected_package_paths = {
             "package_handoff_trial_json": package_dir / "handoff_trial.json",
+            "package_readiness_json": package_dir / "readiness.json",
             "package_zip": package_dir.parent / f"{package_dir.name}.zip",
             "package_zip_sha256": package_dir.parent / f"{package_dir.name}.zip.sha256",
         }
