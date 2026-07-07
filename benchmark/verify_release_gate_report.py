@@ -399,14 +399,22 @@ SAVED_REVIEWER_METADATA_TO_GATE = {
     "github_release_verification_report": "Verify saved stable GitHub release report",
 }
 
+EVIDENCE_METADATA_TO_GATE = {
+    "external_trial_json": "Validate external L4 workflow trial report",
+    "external_evidence_package_dir": "Validate external L4 evidence package",
+    "verify_github_release": "Verify GitHub release assets",
+}
+
 
 def validate_live_github_release_gate_presence(metadata: Any, gate_names: set[str]) -> list[str]:
     if not isinstance(metadata, dict):
         return []
-    tag = metadata.get("verify_github_release")
-    if isinstance(tag, str) and tag.strip() and "Verify GitHub release assets" not in gate_names:
-        return ["metadata.verify_github_release requires gate: Verify GitHub release assets"]
-    return []
+    failures: list[str] = []
+    for metadata_key, gate_name in EVIDENCE_METADATA_TO_GATE.items():
+        value = metadata.get(metadata_key)
+        if isinstance(value, str) and value.strip() and gate_name not in gate_names:
+            failures.append(f"metadata.{metadata_key} requires gate: {gate_name}")
+    return failures
 
 
 def validate_saved_reviewer_gate_presence(metadata: Any, gate_names: set[str]) -> list[str]:

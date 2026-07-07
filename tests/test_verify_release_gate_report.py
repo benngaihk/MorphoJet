@@ -441,6 +441,32 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
 
         self.assertIn("metadata.verify_github_release requires gate: Verify GitHub release assets", failures)
 
+    def test_rejects_external_trial_metadata_without_validation_gate(self) -> None:
+        payload = self.complete_production_claim_payload()
+        payload["gates"] = [
+            gate for gate in payload["gates"] if gate["name"] != "Validate external L4 workflow trial report"
+        ]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "metadata.external_trial_json requires gate: Validate external L4 workflow trial report",
+            failures,
+        )
+
+    def test_rejects_external_package_metadata_without_validation_gate(self) -> None:
+        payload = self.complete_production_claim_payload()
+        payload["gates"] = [
+            gate for gate in payload["gates"] if gate["name"] != "Validate external L4 evidence package"
+        ]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "metadata.external_evidence_package_dir requires gate: Validate external L4 evidence package",
+            failures,
+        )
+
     def test_rejects_live_github_release_gate_command_tampering(self) -> None:
         payload = self.complete_production_claim_payload()
         for gate in payload["gates"]:
