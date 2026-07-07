@@ -198,8 +198,11 @@ def validate_plan_files(payload: dict[str, Any]) -> list[str]:
             failures.append("template_sha256 changed after plan was written")
     if not manifest_path.is_file():
         failures.append(f"manifest file does not exist: {manifest_path}")
-    if not (workspace / README_NAME).is_file():
-        failures.append(f"README file does not exist: {workspace / README_NAME}")
+    readme_path = workspace / README_NAME
+    if not readme_path.is_file():
+        failures.append(f"README file does not exist: {readme_path}")
+    elif readme_path.read_text(encoding="utf-8") != render_readme(payload):
+        failures.append("README changed after plan was written")
     package_name = payload["package_name"]
     expected_commands = plan_commands(manifest_path, workspace, package_name)
     if isinstance(payload.get("commands"), dict) and payload["commands"] != expected_commands:

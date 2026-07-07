@@ -179,6 +179,33 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertNotEqual(0, completed.returncode)
             self.assertIn("template_sha256 changed after plan was written", completed.stderr)
 
+    def test_saved_trial_plan_rejects_readme_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+            readme_path = workspace / "README.md"
+            readme_path.write_text(
+                readme_path.read_text(encoding="utf-8").replace("--verify-plan-files", "--tampered"),
+                encoding="utf-8",
+            )
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                    "--verify-plan-files",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("README changed after plan was written", completed.stderr)
+
     def test_prepare_workspace_binds_custom_package_name_into_readiness(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "external-trial"
