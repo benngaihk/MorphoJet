@@ -165,8 +165,31 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("--verify-git-commit", final_report)
             self.assertIn("--require-production-claim-pass", final_report)
             self.assertEqual("none", final_report[final_report.index("--expect-missing-checks") + 1])
+            requirements = plan["final_signoff_requirements"]
+            requirement_by_name = {requirement["name"]: requirement for requirement in requirements}
+            self.assertEqual(
+                str((workspace / "handoff_trial.json").resolve()),
+                requirement_by_name["external_l4_workflow_trial"]["planned_path"],
+            )
+            self.assertEqual("verify_trial", requirement_by_name["external_l4_workflow_trial"]["verification_step"])
+            self.assertEqual(
+                str(
+                    (
+                        workspace
+                        / "evidence-package"
+                        / "external-l4-external-lab-supported-columns-handoff"
+                    ).resolve()
+                ),
+                requirement_by_name["external_l4_evidence_package"]["planned_path"],
+            )
+            self.assertEqual(
+                "verify_final_production_report",
+                requirement_by_name["final_production_claim_report"]["verification_step"],
+            )
             readme = (workspace / "README.md").read_text(encoding="utf-8")
             self.assertIn("Language: English | [简体中文](README.zh-CN.md)", readme)
+            self.assertIn("## final_signoff_requirements", readme)
+            self.assertIn("external_l4_workflow_trial", readme)
             self.assertLess(readme.index("## verify_plan"), readme.index("## validate_manifest"))
             self.assertLess(readme.index("## verify_readiness"), readme.index("## run_trial"))
             self.assertLess(
@@ -188,6 +211,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             readme_zh = (workspace / "README.zh-CN.md").read_text(encoding="utf-8")
             self.assertIn("Language: [English](README.md) | 简体中文", readme_zh)
             self.assertIn("这个工作区只是准备脚手架，不是外部 L4 证据。", readme_zh)
+            self.assertIn("## final_signoff_requirements", readme_zh)
             self.assertLess(readme_zh.index("## verify_plan"), readme_zh.index("## validate_manifest"))
             self.assertLess(readme_zh.index("## verify_readiness"), readme_zh.index("## run_trial"))
             self.assertLess(
@@ -388,8 +412,32 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 capture_output=True,
             )
 
-            self.assertNotEqual(0, completed.returncode)
-            self.assertIn("commands changed after plan was written", completed.stderr)
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("commands changed after plan was written", completed.stderr)
+
+    def test_saved_trial_plan_rejects_final_signoff_requirement_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+            payload = json.loads(plan_path.read_text(encoding="utf-8"))
+            payload["final_signoff_requirements"][0]["status"] = "COMPLETE"
+            plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("final_signoff_requirements changed after plan was written", completed.stderr)
 
     def test_saved_trial_plan_rejects_template_hash_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

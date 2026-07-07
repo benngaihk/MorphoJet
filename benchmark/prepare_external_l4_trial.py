@@ -203,6 +203,9 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
             expected_commands = plan_commands(Path(manifest), Path(workspace), package_name)
             if commands != expected_commands:
                 failures.append("commands changed after plan was written")
+            expected_requirements = final_signoff_requirements(Path(workspace), package_name)
+            if payload.get("final_signoff_requirements") != expected_requirements:
+                failures.append("final_signoff_requirements changed after plan was written")
     if verify_files:
         failures.extend(validate_plan_files(payload))
     return failures
@@ -456,6 +459,54 @@ def plan_commands(
     }
 
 
+def final_signoff_requirements(workspace: Path, package_name: str) -> list[dict[str, str]]:
+    package_dir = workspace / "evidence-package" / package_name
+    return [
+        {
+            "name": "external_l4_workflow_trial",
+            "status": "PENDING_EXTERNAL_EVIDENCE",
+            "planned_path": str(workspace / "handoff_trial.json"),
+            "verification_step": "verify_trial",
+            "required_for": "final_production_gate",
+        },
+        {
+            "name": "external_l4_evidence_package",
+            "status": "PENDING_EXTERNAL_EVIDENCE",
+            "planned_path": str(package_dir),
+            "verification_step": "verify_package",
+            "required_for": "final_production_gate",
+        },
+        {
+            "name": "external_l4_trial_saved_reviewer_report",
+            "status": "PENDING_EXTERNAL_REVIEW",
+            "planned_path": str(workspace / "handoff_trial-verification.json"),
+            "verification_step": "verify_trial",
+            "required_for": "final_production_gate",
+        },
+        {
+            "name": "external_l4_package_saved_reviewer_report",
+            "status": "PENDING_EXTERNAL_REVIEW",
+            "planned_path": str(workspace / "evidence-package-verification.json"),
+            "verification_step": "verify_package",
+            "required_for": "final_production_gate",
+        },
+        {
+            "name": "stable_github_release_saved_report",
+            "status": "PENDING_STABLE_RELEASE",
+            "planned_path": str(workspace / "github-release-verification.json"),
+            "verification_step": "verify_stable_release_report",
+            "required_for": "final_production_gate",
+        },
+        {
+            "name": "final_production_claim_report",
+            "status": "PENDING_FINAL_GATE",
+            "planned_path": str(workspace / "production-claim.json"),
+            "verification_step": "verify_final_production_report",
+            "required_for": "production_signoff",
+        },
+    ]
+
+
 def render_readme(plan: dict[str, Any]) -> str:
     commands = plan["commands"]
     lines = [
@@ -502,6 +553,23 @@ def render_readme(plan: dict[str, Any]) -> str:
         )
     lines.extend(
         [
+            "## final_signoff_requirements",
+            "",
+            "| Requirement | Status | Planned Path | Verification Step |",
+            "|---|---:|---|---|",
+        ]
+    )
+    for requirement in plan["final_signoff_requirements"]:
+        lines.append(
+            "| "
+            f"{requirement['name']} | "
+            f"{requirement['status']} | "
+            f"{requirement['planned_path']} | "
+            f"{requirement['verification_step']} |"
+        )
+    lines.extend(
+        [
+            "",
             "The final production gate still requires the completed external trial, evidence package, saved reviewer reports, a live stable release verification, and a saved stable release verifier report in one passing report.",
             "The final verification command re-checks that saved production-claim report before signoff.",
             "",
@@ -556,6 +624,23 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
         )
     lines.extend(
         [
+            "## final_signoff_requirements",
+            "",
+            "| Requirement | Status | Planned Path | Verification Step |",
+            "|---|---:|---|---|",
+        ]
+    )
+    for requirement in plan["final_signoff_requirements"]:
+        lines.append(
+            "| "
+            f"{requirement['name']} | "
+            f"{requirement['status']} | "
+            f"{requirement['planned_path']} | "
+            f"{requirement['verification_step']} |"
+        )
+    lines.extend(
+        [
+            "",
             "最终生产门禁仍然要求同一份通过报告里同时包含已完成的外部 trial、evidence package、saved reviewer reports、live stable release verification，以及 saved stable release verifier report。",
             "最终报告复核命令会在签核前重新检查保存的 production-claim report。",
             "",
@@ -637,6 +722,7 @@ def prepare_workspace(
         "package_name": package_slug,
         "claim_status": "NOT_PRODUCTION_CLAIM",
         "commands": commands,
+        "final_signoff_requirements": final_signoff_requirements(workspace, package_slug),
     }
     write_json(workspace / PLAN_NAME, plan)
     (workspace / README_NAME).write_text(render_readme(plan), encoding="utf-8")
