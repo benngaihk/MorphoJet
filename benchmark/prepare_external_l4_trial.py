@@ -182,6 +182,7 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
         "local_evidence_preflight",
         "verify_local_evidence_preflight",
         "verify_stable_release",
+        "verify_stable_release_report",
         "final_production_gate",
     ]
     if not isinstance(commands, dict):
@@ -398,6 +399,18 @@ def plan_commands(
             "--json-out",
             str(github_release_verification),
         ],
+        "verify_stable_release_report": [
+            "python3",
+            "benchmark/verify_github_release.py",
+            "--verify-report",
+            str(github_release_verification),
+            "--verify-report-files",
+            "--require-report-pass",
+            "--require-stable-report",
+            "--verify-git-commit",
+            "--expect-tag",
+            "v0.1.0",
+        ],
         "final_production_gate": [
             "python3",
             "benchmark/run_production_gate.py",
@@ -451,6 +464,7 @@ def render_readme(plan: dict[str, Any]) -> str:
         "local_evidence_preflight",
         "verify_local_evidence_preflight",
         "verify_stable_release",
+        "verify_stable_release_report",
         "final_production_gate",
     ]:
         lines.extend(

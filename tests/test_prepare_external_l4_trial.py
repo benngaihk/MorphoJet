@@ -119,6 +119,16 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 str((workspace / "github-release-verification.json").resolve()),
                 stable_release[stable_release.index("--json-out") + 1],
             )
+            stable_report = plan["commands"]["verify_stable_release_report"]
+            self.assertEqual(
+                str((workspace / "github-release-verification.json").resolve()),
+                stable_report[stable_report.index("--verify-report") + 1],
+            )
+            self.assertIn("--verify-report-files", stable_report)
+            self.assertIn("--require-report-pass", stable_report)
+            self.assertIn("--require-stable-report", stable_report)
+            self.assertIn("--verify-git-commit", stable_report)
+            self.assertEqual("v0.1.0", stable_report[stable_report.index("--expect-tag") + 1])
             final_gate = plan["commands"]["final_production_gate"]
             self.assertEqual(
                 str((workspace / "handoff_trial.json").resolve()),
@@ -152,6 +162,10 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             )
             self.assertLess(
                 readme.index("## verify_stable_release"),
+                readme.index("## verify_stable_release_report"),
+            )
+            self.assertLess(
+                readme.index("## verify_stable_release_report"),
                 readme.index("## final_production_gate"),
             )
 
