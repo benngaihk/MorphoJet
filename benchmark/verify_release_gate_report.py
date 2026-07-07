@@ -81,7 +81,11 @@ def git_commit_is_reachable(commit: str) -> bool:
     return completed.returncode == 0
 
 
-def validate_metadata(metadata: Any) -> list[str]:
+def normalized_path(path: Path) -> Path:
+    return path.expanduser().resolve(strict=False)
+
+
+def validate_metadata(metadata: Any, report_path: Path | None = None) -> list[str]:
     failures: list[str] = []
     if not isinstance(metadata, dict):
         return ["metadata must be an object"]
@@ -140,7 +144,7 @@ def validate_metadata(metadata: Any) -> list[str]:
         value = metadata.get(key)
         if isinstance(value, str) and value.strip() and not Path(value).is_absolute():
             failures.append(f"metadata.{key} must be an absolute path: {value}")
-    failures.extend(validate_metadata_argv(metadata))
+    failures.extend(validate_metadata_argv(metadata, report_path=report_path))
     return failures
 
 
@@ -167,7 +171,7 @@ def argv_values(argv: list[str], flag: str) -> list[str | None]:
     return values
 
 
-def validate_metadata_argv(metadata: Any) -> list[str]:
+def validate_metadata_argv(metadata: Any, report_path: Path | None = None) -> list[str]:
     if not isinstance(metadata, dict):
         return []
     argv = metadata.get("argv")
@@ -223,6 +227,9 @@ def validate_metadata_argv(metadata: Any) -> list[str]:
                 failures.append(f"metadata.argv {flag} must include a value")
             elif not Path(argv_value).is_absolute():
                 failures.append(f"metadata.argv {flag} must use an absolute path: {argv_value}")
+            elif flag == "--out-json" and report_path is not None:
+                if normalized_path(Path(argv_value)) != normalized_path(report_path):
+                    failures.append(f"metadata.argv --out-json must match verified report path: {argv_value}")
     github_release_kind = metadata.get("github_release_kind")
     if (
         isinstance(github_release_kind, str)
@@ -319,6 +326,7 @@ def validate_release_gate_report_payload(
     expected_missing_checks: list[str] | None = None,
     require_clean_git_metadata: bool = False,
     verify_git_commit: bool = False,
+    report_path: Path | None = None,
 ) -> list[str]:
     failures: list[str] = []
     if not isinstance(payload, dict):
@@ -366,7 +374,7 @@ def validate_release_gate_report_payload(
         failures.extend(validate_audit_checks(audit, top_level_missing))
 
     metadata = payload.get("metadata")
-    failures.extend(validate_metadata(metadata))
+    failures.extend(validate_metadata(metadata, report_path=report_path))
     if isinstance(metadata, dict):
         if require_clean_git_metadata:
             if metadata.get("git_dirty") is not False:
@@ -441,6 +449,7 @@ def verify_release_gate_report(
         expected_missing_checks=expected_missing_checks,
         require_clean_git_metadata=require_clean_git_metadata,
         verify_git_commit=verify_git_commit,
+        report_path=path,
     )
     if failures:
         for failure in failures:

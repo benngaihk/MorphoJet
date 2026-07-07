@@ -487,6 +487,44 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
         self.assertIn(str((ROOT / "reports/final.json").resolve(strict=False)), canonical)
         self.assertIn("v0.1.0", canonical)
 
+    def test_accepts_metadata_argv_out_json_bound_to_verified_report(self) -> None:
+        payload = self.valid_payload()
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "release-gate.json"
+            payload["metadata"]["argv"] = [
+                "benchmark/release_gate.py",
+                "--out-json",
+                str(report),
+            ]
+
+            self.assertEqual(
+                [],
+                verify_release_gate_report.validate_release_gate_report_payload(
+                    payload,
+                    report_path=report,
+                ),
+            )
+
+    def test_rejects_metadata_argv_out_json_for_another_report(self) -> None:
+        payload = self.valid_payload()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            payload["metadata"]["argv"] = [
+                "benchmark/release_gate.py",
+                "--out-json",
+                str(root / "other-release-gate.json"),
+            ]
+
+            failures = verify_release_gate_report.validate_release_gate_report_payload(
+                payload,
+                report_path=root / "release-gate.json",
+            )
+
+        self.assertIn(
+            f"metadata.argv --out-json must match verified report path: {root / 'other-release-gate.json'}",
+            failures,
+        )
+
     def test_rejects_metadata_argv_values_not_reflected_in_metadata(self) -> None:
         payload = self.valid_payload()
         payload["metadata"]["argv"] = [
