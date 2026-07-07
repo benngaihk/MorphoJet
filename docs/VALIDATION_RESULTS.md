@@ -2,22 +2,22 @@
 
 Updated: 2026-07-07
 
-## Release-Gate Snapshot for `e6e4893`
+## Release-Gate Snapshot for `7a6b67d`
 
 This snapshot records the clean `main` verification for the code commit that protects external L4 workspaces from stale execution outputs before preparation, keeps readiness, reviewer, release-gate, local-preflight, and final wrapper report outputs from overwriting or creating files inside protected evidence paths, records and re-checks audit metadata on external L4 readiness reports and trial plans, generates plan-verification and readiness-verification steps before trial execution, rejects saved trial-plan command tampering without requiring local file access, requires saved trial plan, readiness, trial-reviewer, package-reviewer, stable GitHub release verifier, saved release-gate, local evidence-preflight metadata timestamps, external trial generation timestamps, package artifact manifest timestamps, and external reviewer signoff timestamps to be UTC, binds generated README contents to saved trial plans, requires saved plan/readiness/reviewer/local-preflight/release reports to preserve absolute evidence/output paths plus absolute path-valued argv entries where those reports bind saved inputs, including trial reviewer `argv` trial/root paths, package reviewer `argv` package/source-trial paths, and GitHub release verifier `out_dir`, and rejects saved stable-release PASS reports whose archive summaries record a failed checksum match. It is not a production claim; it confirms that the committed release-gate evidence still passes L3 while exposing the exact final blockers.
 
 Environment:
 
 - Branch: `main`
-- Verified code commit: `e6e4893`
-- Release-gate command: `PATH="$HOME/.cargo/bin:$PATH" python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-e6e4893.json --out-md /tmp/morphojet-l3-release-report-main-e6e4893.md`
-- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-e6e4893.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,stable_github_release`
+- Verified code commit: `7a6b67d`
+- Release-gate command: `PATH="$HOME/.cargo/bin:$PATH" python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-7a6b67d.json --out-md /tmp/morphojet-l3-release-report-main-7a6b67d.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-7a6b67d.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,stable_github_release`
 
 Result:
 
 | Gate | Result |
 |---|---:|
-| Full Python unit test suite | PASS, 348 tests |
+| Full Python unit test suite | PASS, 350 tests |
 | Source claim-language guard | PASS |
 | Whitespace diff check | PASS |
 | Clean L3 release gate | PASS |
