@@ -111,6 +111,8 @@ def canonical_argv(args: argparse.Namespace, variables: dict[str, str]) -> list[
     argv = ["benchmark/run_handoff_trial.py", str(args.manifest)]
     for key in sorted(variables):
         argv.extend(["--var", f"{key}={variables[key]}"])
+    if args.readiness_report:
+        argv.extend(["--readiness-report", str(args.readiness_report)])
     argv.extend(["--out-json", str(args.out_json), "--out-md", str(args.out_md)])
     if args.require_external_evidence:
         argv.append("--require-external-evidence")
@@ -145,6 +147,36 @@ def artifact_provenance(artifacts: list[str]) -> list[dict[str, Any]]:
                 }
             )
     return provenance
+
+
+def validate_readiness_report(report: Path) -> dict[str, Any]:
+    completed = subprocess.run(
+        [
+            "python3",
+            "benchmark/check_external_l4_readiness.py",
+            "--verify-report",
+            str(report),
+            "--verify-report-files",
+            "--require-ready",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    if completed.returncode != 0:
+        detail = (completed.stdout + "\n" + completed.stderr).strip()
+        raise SystemExit(f"ERROR: readiness report failed verification: {detail}")
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    return {
+        "path": normalized_path_key(report),
+        "size_bytes": report.stat().st_size,
+        "sha256": sha256_file(report),
+        "status": payload.get("status"),
+        "claim_status": payload.get("claim_status"),
+        "generated_at_utc": payload.get("generated_at_utc"),
+        "workspace": payload.get("workspace"),
+        "manifest": payload.get("manifest"),
+    }
 
 
 def validate_manifest(manifest: dict[str, Any], require_external_evidence: bool = False) -> None:
@@ -313,6 +345,11 @@ def main() -> int:
         action="store_true",
         help="Require filled external L4 evidence fields before executing the trial",
     )
+    parser.add_argument(
+        "--readiness-report",
+        type=Path,
+        help="Verify and bind a saved READY external L4 readiness report before executing the trial",
+    )
     args = parser.parse_args()
 
     variables = parse_vars(args.var)
@@ -322,6 +359,7 @@ def main() -> int:
         raise SystemExit("manifest root must be an object")
     validate_manifest(manifest, require_external_evidence=args.require_external_evidence)
     validate_report_outputs(args.manifest, manifest, args.out_json, args.out_md)
+    readiness_report = validate_readiness_report(args.readiness_report) if args.readiness_report else None
     steps, artifacts = run_trial(manifest)
     payload = {
         "trial_id": require(manifest, "trial_id"),
@@ -336,6 +374,8 @@ def main() -> int:
         "artifact_provenance": artifact_provenance(artifacts),
         "steps": [asdict(step) for step in steps],
     }
+    if readiness_report is not None:
+        payload["readiness_report"] = readiness_report
     args.out_json.parent.mkdir(parents=True, exist_ok=True)
     args.out_json.write_text(json.dumps(payload, indent=2) + "\n")
     args.out_md.parent.mkdir(parents=True, exist_ok=True)

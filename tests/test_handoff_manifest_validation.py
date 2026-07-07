@@ -105,6 +105,7 @@ class HandoffManifestValidationTest(unittest.TestCase):
             manifest=Path("manifest.json"),
             out_json=Path("reports/handoff_trial.json"),
             out_md=Path("reports/handoff_trial.md"),
+            readiness_report=Path("reports/readiness.json"),
             require_external_evidence=True,
         )
 
@@ -118,6 +119,8 @@ class HandoffManifestValidationTest(unittest.TestCase):
                 "a=first",
                 "--var",
                 "z=last",
+                "--readiness-report",
+                "reports/readiness.json",
                 "--out-json",
                 "reports/handoff_trial.json",
                 "--out-md",

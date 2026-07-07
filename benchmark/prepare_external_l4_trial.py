@@ -311,6 +311,8 @@ def plan_commands(
             str(manifest_path),
             "--var",
             base_var,
+            "--readiness-report",
+            str(readiness_json),
             "--out-json",
             str(trial_json),
             "--out-md",

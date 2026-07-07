@@ -646,7 +646,8 @@ def external_trial_metadata_argv_failures(
     elif argv.count(manifest) != 1:
         failures.append(f"metadata.argv must include trial manifest path exactly once: {manifest}")
 
-    for flag in ["--out-json", "--out-md"]:
+    readiness_report = trial.get("readiness_report")
+    for flag in ["--readiness-report", "--out-json", "--out-md"]:
         values = argv_values(argv, flag)
         if len(values) > 1:
             failures.append(f"metadata.argv has duplicate {flag}")
@@ -661,6 +662,12 @@ def external_trial_metadata_argv_failures(
                 and normalized_path_key(Path(value)) != normalized_path_key(report_path)
             ):
                 failures.append("metadata.argv --out-json must match external trial report path")
+            elif (
+                flag == "--readiness-report"
+                and isinstance(readiness_report, dict)
+                and normalized_path_key(Path(value)) != normalized_path_key(Path(readiness_report.get("path", "")))
+            ):
+                failures.append("metadata.argv --readiness-report must match readiness_report.path")
     failures.extend(canonical_external_trial_argv_failures(argv, trial, report_path))
     return failures
 
@@ -673,13 +680,16 @@ def canonical_external_trial_argv_failures(
     manifest = trial.get("manifest")
     out_json_values = argv_values(argv, "--out-json")
     out_md_values = argv_values(argv, "--out-md")
+    readiness_values = argv_values(argv, "--readiness-report")
     if (
         not isinstance(manifest, str)
         or not manifest.strip()
         or len(out_json_values) != 1
         or len(out_md_values) != 1
+        or len(readiness_values) != 1
         or out_json_values[0] is None
         or out_md_values[0] is None
+        or readiness_values[0] is None
         or argv.count("--require-external-evidence") != 1
     ):
         return []
@@ -694,6 +704,7 @@ def canonical_external_trial_argv_failures(
     canonical = ["benchmark/run_handoff_trial.py", manifest]
     for key in sorted(variables):
         canonical.extend(["--var", f"{key}={variables[key]}"])
+    canonical.extend(["--readiness-report", normalized_path_key(Path(readiness_values[0]))])
     canonical.extend(
         [
             "--out-json",
@@ -710,7 +721,7 @@ def canonical_external_trial_argv_failures(
 
 def normalize_external_trial_metadata_argv(argv: list[str]) -> list[str]:
     normalized = []
-    path_flags = {"--out-json", "--out-md"}
+    path_flags = {"--readiness-report", "--out-json", "--out-md"}
     index = 0
     while index < len(argv):
         item = argv[index]
@@ -776,16 +787,104 @@ def external_trial_metadata_failures(
     return failures
 
 
+def readiness_report_summary_failures(
+    summary: object,
+    trial_generated_at: object,
+    readiness_report_file: Path | None = None,
+) -> list[str]:
+    failures = []
+    if not isinstance(summary, dict):
+        return ["readiness_report must be present for external workflow trial reports"]
+    path = summary.get("path")
+    if not isinstance(path, str) or not path.strip():
+        failures.append("readiness_report.path must be a non-empty string")
+    elif not Path(path).is_absolute():
+        failures.append("readiness_report.path must be an absolute path")
+    size_bytes = summary.get("size_bytes")
+    if not isinstance(size_bytes, int) or size_bytes <= 0:
+        failures.append("readiness_report.size_bytes must be a positive integer")
+    sha256 = summary.get("sha256")
+    if not isinstance(sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", sha256):
+        failures.append("readiness_report.sha256 must be a SHA-256 digest")
+    if summary.get("status") != "READY":
+        failures.append(f"readiness_report.status={summary.get('status')}")
+    if summary.get("claim_status") != "NOT_PRODUCTION_CLAIM":
+        failures.append(f"readiness_report.claim_status={summary.get('claim_status')}")
+    generated_at = summary.get("generated_at_utc")
+    parsed_readiness_at = None
+    if not isinstance(generated_at, str) or not generated_at.strip():
+        failures.append("readiness_report.generated_at_utc must be a non-empty string")
+    else:
+        try:
+            parsed_readiness_at = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+            if parsed_readiness_at.tzinfo is None:
+                failures.append("readiness_report.generated_at_utc must include timezone")
+            elif not is_utc_datetime(parsed_readiness_at):
+                failures.append("readiness_report.generated_at_utc must be UTC")
+        except ValueError:
+            failures.append(f"readiness_report.generated_at_utc is invalid: {generated_at}")
+    if parsed_readiness_at is not None and isinstance(trial_generated_at, str):
+        try:
+            parsed_trial_at = datetime.fromisoformat(trial_generated_at.replace("Z", "+00:00"))
+            if (
+                parsed_trial_at.tzinfo is not None
+                and parsed_readiness_at.tzinfo is not None
+                and parsed_readiness_at > parsed_trial_at
+            ):
+                failures.append("readiness_report.generated_at_utc must be at or before metadata.generated_at_utc")
+        except ValueError:
+            pass
+    for key in ["workspace", "manifest"]:
+        value = summary.get(key)
+        if not isinstance(value, str) or not value.strip():
+            failures.append(f"readiness_report.{key} must be a non-empty string")
+        elif not Path(value).is_absolute():
+            failures.append(f"readiness_report.{key} must be an absolute path")
+    if readiness_report_file is not None:
+        if not readiness_report_file.is_file():
+            failures.append(f"readiness report file does not exist: {readiness_report_file}")
+        else:
+            if isinstance(size_bytes, int) and size_bytes != readiness_report_file.stat().st_size:
+                failures.append("readiness_report.size_bytes must match readiness report file")
+            if isinstance(sha256, str) and re.fullmatch(r"[0-9a-f]{64}", sha256):
+                if sha256 != sha256_file(readiness_report_file):
+                    failures.append("readiness_report.sha256 must match readiness report file")
+            try:
+                payload = load_json(readiness_report_file)
+            except Exception as exc:  # noqa: BLE001 - report exact saved readiness failure.
+                failures.append(f"cannot read readiness report file: {type(exc).__name__}: {exc}")
+            else:
+                expected_fields = {
+                    "status": "status",
+                    "claim_status": "claim_status",
+                    "generated_at_utc": "generated_at_utc",
+                    "workspace": "workspace",
+                    "manifest": "manifest",
+                }
+                for summary_key, payload_key in expected_fields.items():
+                    if summary.get(summary_key) != payload.get(payload_key):
+                        failures.append(f"readiness_report.{summary_key} must match readiness report file")
+    return failures
+
+
 def external_trial_failures(
     trial: dict,
     artifact_root: Path | None = None,
     artifact_resolver=None,
     report_path: Path | None = None,
+    readiness_report_file: Path | None = None,
 ) -> list[str]:
     failures = []
     if trial.get("status") != "PASS":
         failures.append(f"trial status is {trial.get('status')}")
     failures.extend(external_trial_metadata_failures(trial.get("metadata"), trial, report_path))
+    failures.extend(
+        readiness_report_summary_failures(
+            trial.get("readiness_report"),
+            trial.get("metadata", {}).get("generated_at_utc") if isinstance(trial.get("metadata"), dict) else None,
+            readiness_report_file=readiness_report_file,
+        )
+    )
     rendered_manifest = trial.get("rendered_manifest")
     if not isinstance(rendered_manifest, dict):
         failures.append("rendered_manifest must be present for external workflow trial reports")
@@ -995,7 +1094,18 @@ def validate_external_trial_report(path: Path, artifact_root: Path | None) -> Ga
     started = time.perf_counter()
     try:
         trial = load_json(path)
-        failures = external_trial_failures(trial, artifact_root, report_path=path)
+        readiness_report = trial.get("readiness_report")
+        readiness_report_file = (
+            Path(readiness_report["path"])
+            if isinstance(readiness_report, dict) and isinstance(readiness_report.get("path"), str)
+            else None
+        )
+        failures = external_trial_failures(
+            trial,
+            artifact_root,
+            report_path=path,
+            readiness_report_file=readiness_report_file,
+        )
         status = "FAIL" if failures else "PASS"
         detail = "; ".join(failures) if failures else external_trial_pass_detail(trial)
     except Exception as exc:  # noqa: BLE001 - report exact release gate failure.
@@ -1050,6 +1160,11 @@ def external_package_readme_failures(readme: str, trial: dict, artifact_manifest
         "manual_csv_editing": f"- manual_csv_editing: `{evidence.get('manual_csv_editing')}`",
         "trial_git_commit": f"- trial_git_commit: `{metadata.get('git_commit')}`",
         "trial_generated_at_utc": f"- trial_generated_at_utc: `{metadata.get('generated_at_utc')}`",
+        "readiness_status": f"- readiness_status: `{trial.get('readiness_report', {}).get('status')}`",
+        "readiness_generated_at_utc": (
+            f"- readiness_generated_at_utc: `{trial.get('readiness_report', {}).get('generated_at_utc')}`"
+        ),
+        "readiness_sha256": f"- readiness_sha256: `{trial.get('readiness_report', {}).get('sha256')}`",
         "packaged_at_utc": f"- packaged_at_utc: `{artifact_manifest.get('packaged_at_utc')}`",
         "validation_detail": "This package was created only after the external trial report passed",
         "validation_detail_text": str(artifact_manifest.get("validation_detail")),
@@ -1071,6 +1186,7 @@ def external_package_review_file_failures(package_dir: Path, artifact_manifest: 
     failures = []
     expected_review_files = {
         "handoff_trial.json",
+        "readiness.json",
         "rendered_manifest.json",
         "external_evidence.json",
         "README.md",
@@ -1183,12 +1299,14 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
             failures.append(f"external evidence package dir does not exist: {package_dir}")
             raise ValueError("; ".join(failures))
         trial_path = package_dir / "handoff_trial.json"
+        readiness_path = package_dir / "readiness.json"
         rendered_manifest_path = package_dir / "rendered_manifest.json"
         external_evidence_path = package_dir / "external_evidence.json"
         artifact_manifest_path = package_dir / "artifact_manifest.json"
         readme_path = package_dir / "README.md"
         for required_path in [
             trial_path,
+            readiness_path,
             rendered_manifest_path,
             external_evidence_path,
             artifact_manifest_path,
@@ -1225,6 +1343,8 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
                 failures.append(f"package artifact_manifest.packaged_at_utc is invalid: {packaged_at}")
         if artifact_manifest.get("trial_id") != trial.get("trial_id"):
             failures.append("package artifact_manifest.trial_id must match trial_id")
+        if artifact_manifest.get("readiness_report") != trial.get("readiness_report"):
+            failures.append("package artifact_manifest.readiness_report must match trial readiness_report")
         validation_detail = artifact_manifest.get("validation_detail")
         if not isinstance(validation_detail, str) or not validation_detail.strip():
             failures.append("package artifact_manifest.validation_detail must be a non-empty string")
@@ -1320,7 +1440,13 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
                 return package_dir / "__missing_artifact__"
             return package_dir / entry["package_path"]
 
-        failures.extend(external_trial_failures(trial, artifact_resolver=resolve_packaged_artifact))
+        failures.extend(
+            external_trial_failures(
+                trial,
+                artifact_resolver=resolve_packaged_artifact,
+                readiness_report_file=readiness_path,
+            )
+        )
         trial_artifacts = trial.get("artifacts") if isinstance(trial.get("artifacts"), list) else []
         for missing_source in sorted(set(trial_artifacts) - set(entries_by_source)):
             failures.append(f"package artifact_manifest missing trial artifact: {missing_source}")
@@ -1343,12 +1469,13 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
                     zip_names = archive.namelist()
                     names = set(zip_names)
                 required_zip_entries = {
-                    f"{package_dir.name}/README.md",
-                    f"{package_dir.name}/handoff_trial.json",
-                    f"{package_dir.name}/rendered_manifest.json",
-                    f"{package_dir.name}/external_evidence.json",
                     f"{package_dir.name}/artifact_manifest.json",
                 }
+                review_files = artifact_manifest.get("review_files")
+                if isinstance(review_files, list):
+                    for entry in review_files:
+                        if isinstance(entry, dict) and package_path_is_safe(entry.get("path")):
+                            required_zip_entries.add(f"{package_dir.name}/{entry['path']}")
                 for entry in manifest_artifacts:
                     if isinstance(entry, dict) and package_path_is_safe(entry.get("package_path")):
                         required_zip_entries.add(f"{package_dir.name}/{entry['package_path']}")
@@ -1443,6 +1570,7 @@ def is_l3_provenance_compatible_path(path: str) -> bool:
         or path == "benchmark/handoff/external_lab_template.json"
         or path == "benchmark/package_external_trial.py"
         or path == "benchmark/prepare_external_l4_trial.py"
+        or path == "benchmark/run_handoff_trial.py"
         or path == "benchmark/run_production_gate.py"
         or path == "benchmark/validate_claim_language.py"
         or path == "benchmark/validate_handoff_manifest.py"

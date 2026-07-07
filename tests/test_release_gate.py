@@ -70,6 +70,8 @@ def valid_external_trial() -> dict:
             "argv": [
                 "benchmark/run_handoff_trial.py",
                 "external_manifest.json",
+                "--readiness-report",
+                "external/readiness.json",
                 "--out-json",
                 "external/handoff_trial.json",
                 "--out-md",
@@ -80,6 +82,16 @@ def valid_external_trial() -> dict:
         "manifest": "external_manifest.json",
         "rendered_manifest": manifest,
         "external_evidence": external_evidence,
+        "readiness_report": {
+            "path": "external/readiness.json",
+            "size_bytes": 1,
+            "sha256": "0" * 64,
+            "status": "READY",
+            "claim_status": "NOT_PRODUCTION_CLAIM",
+            "generated_at_utc": "2026-07-02T23:59:59+00:00",
+            "workspace": "/external",
+            "manifest": "/external/external_manifest.json",
+        },
         "artifacts": release_gate.rendered_manifest_artifacts(manifest),
         "steps": [
             {
@@ -96,6 +108,41 @@ def valid_external_trial() -> dict:
 
 def write_trial_artifacts(trial: dict, root: Path, empty_paths: set[str] | None = None) -> None:
     empty_paths = empty_paths or set()
+    readiness_summary = trial.get("readiness_report")
+    if isinstance(readiness_summary, dict):
+        readiness_path = root / "external" / "readiness.json"
+        readiness_path.parent.mkdir(parents=True, exist_ok=True)
+        readiness_payload = {
+            "schema_version": 1,
+            "checker": "benchmark/check_external_l4_readiness.py",
+            "generated_at_utc": readiness_summary["generated_at_utc"],
+            "argv": [
+                "benchmark/check_external_l4_readiness.py",
+                "--workspace",
+                str((root / "external").resolve()),
+                "--json-out",
+                str(readiness_path.resolve()),
+            ],
+            "status": "READY",
+            "claim_status": "NOT_PRODUCTION_CLAIM",
+            "workspace": str((root / "external").resolve()),
+            "manifest": str((root / "external" / "external_manifest.json").resolve()),
+            "variables": {"base_dir": str((root / "external").resolve())},
+            "checks": [],
+            "issues": [],
+        }
+        readiness_path.write_text(json.dumps(readiness_payload, indent=2) + "\n", encoding="utf-8")
+        readiness_summary.update(
+            {
+                "path": str(readiness_path.resolve()),
+                "size_bytes": readiness_path.stat().st_size,
+                "sha256": release_gate.sha256_file(readiness_path),
+                "workspace": str((root / "external").resolve()),
+                "manifest": str((root / "external" / "external_manifest.json").resolve()),
+            }
+        )
+        argv = trial["metadata"]["argv"]
+        argv[argv.index("--readiness-report") + 1] = str(readiness_path.resolve())
     for artifact in trial["artifacts"]:
         path = root / artifact
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -336,6 +383,7 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/handoff/external_lab_template.json"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/package_external_trial.py"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/prepare_external_l4_trial.py"))
+        self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/run_handoff_trial.py"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/run_production_gate.py"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/validate_claim_language.py"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/validate_handoff_manifest.py"))
@@ -834,6 +882,35 @@ class ReleaseGateTest(unittest.TestCase):
             failures = release_gate.external_trial_failures(trial, root)
 
         self.assertIn("trial artifact sha256 mismatch: external/handoff_contract.json", failures)
+
+    def test_external_trial_requires_readiness_report_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            del trial["readiness_report"]
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("readiness_report must be present for external workflow trial reports", failures)
+
+    def test_external_trial_rejects_readiness_report_hash_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            readiness_path = Path(trial["readiness_report"]["path"])
+            readiness_path.write_text("{}\n", encoding="utf-8")
+
+            failures = release_gate.external_trial_failures(
+                trial,
+                root,
+                readiness_report_file=readiness_path,
+            )
+
+        self.assertIn("readiness_report.sha256 must match readiness report file", failures)
 
     def test_external_trial_rejects_duplicate_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

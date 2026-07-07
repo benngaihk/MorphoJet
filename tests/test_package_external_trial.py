@@ -67,12 +67,17 @@ class PackageExternalTrialTest(unittest.TestCase):
             manifest = json.loads((package_dir / "artifact_manifest.json").read_text())
 
             self.assertTrue((package_dir / "handoff_trial.json").is_file())
+            self.assertTrue((package_dir / "readiness.json").is_file())
             self.assertTrue((package_dir / "rendered_manifest.json").is_file())
             self.assertTrue((package_dir / "external_evidence.json").is_file())
             self.assertTrue((package_dir / "README.md").is_file())
             self.assertTrue((package_dir / "artifacts/external/handoff_contract.json").is_file())
             self.assertEqual(4, result["artifact_count"])
             self.assertEqual(4, len(manifest["artifacts"]))
+            self.assertEqual(
+                json.loads(trial_json.read_text(encoding="utf-8"))["readiness_report"],
+                manifest["readiness_report"],
+            )
             self.assertEqual(trial_json.stat().st_size, manifest["trial_json_size_bytes"])
             self.assertEqual(release_gate.sha256_file(trial_json), manifest["trial_json_sha256"])
             self.assertEqual(
@@ -90,7 +95,7 @@ class PackageExternalTrialTest(unittest.TestCase):
                 manifest["argv"],
             )
             self.assertEqual(
-                ["README.md", "external_evidence.json", "handoff_trial.json", "rendered_manifest.json"],
+                ["README.md", "external_evidence.json", "handoff_trial.json", "readiness.json", "rendered_manifest.json"],
                 sorted(entry["path"] for entry in manifest["review_files"]),
             )
             self.assertEqual(release_gate.sha256_file(zip_path), sha_path.read_text().split()[0])

@@ -80,6 +80,10 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             )
             run_command = plan["commands"]["run_trial"]
             self.assertIn("--require-external-evidence", run_command)
+            self.assertEqual(
+                str((workspace / "readiness.json").resolve()),
+                run_command[run_command.index("--readiness-report") + 1],
+            )
             self.assertIn(f"base_dir={workspace.resolve()}", run_command)
             self.assertEqual(
                 str((workspace / "handoff_trial.json").resolve()),

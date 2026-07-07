@@ -85,6 +85,7 @@ def packaged_artifact_path(artifact: str) -> Path:
 def render_readme(trial: dict[str, Any], validation_detail: str, artifact_manifest: dict[str, Any]) -> str:
     evidence = trial["external_evidence"]
     metadata = trial["metadata"]
+    readiness = trial["readiness_report"]
     lines = [
         "# External L4 Trial Evidence Package",
         "",
@@ -102,6 +103,9 @@ def render_readme(trial: dict[str, Any], validation_detail: str, artifact_manife
         f"- manual_csv_editing: `{evidence['manual_csv_editing']}`",
         f"- trial_git_commit: `{metadata['git_commit']}`",
         f"- trial_generated_at_utc: `{metadata['generated_at_utc']}`",
+        f"- readiness_status: `{readiness['status']}`",
+        f"- readiness_generated_at_utc: `{readiness['generated_at_utc']}`",
+        f"- readiness_sha256: `{readiness['sha256']}`",
         f"- packaged_at_utc: `{artifact_manifest['packaged_at_utc']}`",
         "",
         "## Validation",
@@ -117,6 +121,7 @@ def render_readme(trial: dict[str, Any], validation_detail: str, artifact_manife
         "- `handoff_trial.json`: original trial report.",
         "- `rendered_manifest.json`: rendered manifest snapshot captured by the trial report.",
         "- `external_evidence.json`: external evidence block used by release gate.",
+        "- `readiness.json`: pre-execution READY report bound by the trial report.",
         "- `artifact_manifest.json`: copied artifact paths, package paths, sizes, and SHA-256 hashes.",
         "- `artifacts/`: copied trial artifacts for review.",
         "",
@@ -189,7 +194,7 @@ def create_package(
     package_dir = out_dir / name
     zip_path = out_dir / f"{name}.zip"
     sha_path = out_dir / f"{name}.zip.sha256"
-    source_paths = [("trial JSON", trial_json)]
+    source_paths = [("trial JSON", trial_json), ("readiness report", Path(trial["readiness_report"]["path"]))]
     for artifact in trial["artifacts"]:
         source_paths.append((f"trial artifact {artifact}", release_gate.resolve_artifact_path(artifact, trial_root)))
     validate_package_outputs_do_not_cover_sources(package_dir, zip_path, sha_path, source_paths)
@@ -205,6 +210,8 @@ def create_package(
     package_dir.mkdir(parents=True)
 
     shutil.copy2(trial_json, package_dir / "handoff_trial.json")
+    readiness_path = Path(trial["readiness_report"]["path"])
+    shutil.copy2(readiness_path, package_dir / "readiness.json")
     write_json(package_dir / "rendered_manifest.json", trial["rendered_manifest"])
     write_json(package_dir / "external_evidence.json", trial["external_evidence"])
 
@@ -235,6 +242,7 @@ def create_package(
         "trial_json": str(trial_json),
         "trial_json_size_bytes": trial_json.stat().st_size,
         "trial_json_sha256": release_gate.sha256_file(trial_json),
+        "readiness_report": trial["readiness_report"],
         "trial_root": str(trial_root),
         "validation_detail": release_gate.external_trial_pass_detail(trial),
         "artifacts": artifact_entries,
@@ -246,6 +254,7 @@ def create_package(
     )
     artifact_manifest["review_files"] = [
         file_manifest_entry(package_dir / "handoff_trial.json", package_dir),
+        file_manifest_entry(package_dir / "readiness.json", package_dir),
         file_manifest_entry(package_dir / "rendered_manifest.json", package_dir),
         file_manifest_entry(package_dir / "external_evidence.json", package_dir),
         file_manifest_entry(readme_path, package_dir),
