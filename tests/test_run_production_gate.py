@@ -6,6 +6,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -939,6 +940,64 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("Validate external L4 evidence package", markdown)
         self.assertIn("does not satisfy the stable GitHub release", markdown)
 
+    def test_local_evidence_preflight_records_absolute_paths_for_relative_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            resolved_root = root.resolve()
+            package_dir = Path(package["package_dir"]).resolve()
+            out_json = root / "reports" / "preflight.json"
+            old_cwd = Path.cwd()
+            try:
+                os.chdir(root)
+                args = self.parse(
+                    "--external-trial-json",
+                    str(trial_json.resolve().relative_to(resolved_root)),
+                    "--external-trial-root",
+                    ".",
+                    "--external-evidence-package-dir",
+                    str(package_dir.relative_to(resolved_root)),
+                    "--local-evidence-preflight-json",
+                    "reports/preflight.json",
+                    "--local-evidence-preflight-md",
+                    "reports/preflight.md",
+                    "--local-evidence-preflight-only",
+                )
+                with contextlib.redirect_stdout(io.StringIO()):
+                    status = run_production_gate.run_local_evidence_preflight(args)
+            finally:
+                os.chdir(old_cwd)
+
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+
+        self.assertEqual(0, status)
+        metadata = payload["metadata"]
+        for key in [
+            "external_trial_json",
+            "external_trial_root",
+            "external_evidence_package_dir",
+        ]:
+            self.assertTrue(Path(metadata[key]).is_absolute(), key)
+        for artifact in payload["input_artifacts"]:
+            self.assertTrue(Path(artifact["path"]).is_absolute(), artifact["name"])
+        for flag in [
+            "--external-trial-json",
+            "--external-trial-root",
+            "--external-evidence-package-dir",
+            "--local-evidence-preflight-json",
+            "--local-evidence-preflight-md",
+        ]:
+            values = run_production_gate.argv_values(metadata["argv"], flag)
+            self.assertEqual(1, len(values), flag)
+            self.assertIsNotNone(values[0], flag)
+            self.assertTrue(Path(values[0]).is_absolute(), flag)
+
     def test_verify_local_evidence_preflight_report_passes_without_evidence_args(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1673,6 +1732,135 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("metadata.external_evidence_package_dir must be a non-empty string", stderr.getvalue())
         self.assertIn(
             "metadata.external_trial_verification_report must be null or a non-empty string",
+            stderr.getvalue(),
+        )
+
+    def test_verify_local_evidence_preflight_report_rejects_relative_metadata_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            out_json = root / "reports" / "preflight.json"
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(root / "reports" / "preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                run_production_gate.run_local_evidence_preflight(args)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            payload["metadata"]["external_trial_json"] = "external/handoff_trial.json"
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(1, status)
+        self.assertIn("metadata.external_trial_json must be an absolute path", stderr.getvalue())
+
+    def test_verify_local_evidence_preflight_report_rejects_relative_input_artifact_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            out_json = root / "reports" / "preflight.json"
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(root / "reports" / "preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                run_production_gate.run_local_evidence_preflight(args)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            for artifact in payload["input_artifacts"]:
+                if artifact["name"] == "external_trial_json":
+                    artifact["path"] = "external/handoff_trial.json"
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(1, status)
+        self.assertIn("input artifact path must be absolute: external_trial_json", stderr.getvalue())
+
+    def test_verify_local_evidence_preflight_report_rejects_relative_argv_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            out_json = root / "reports" / "preflight.json"
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(root / "reports" / "preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                run_production_gate.run_local_evidence_preflight(args)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            argv = payload["metadata"]["argv"]
+            argv[argv.index("--external-trial-json") + 1] = "external/handoff_trial.json"
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(1, status)
+        self.assertIn(
+            "metadata.argv --external-trial-json must use an absolute path",
             stderr.getvalue(),
         )
 

@@ -121,6 +121,10 @@ def normalized_path_key(path: Path) -> str:
     return str(path.expanduser().resolve(strict=False))
 
 
+def absolute_path_text(path: Path) -> str:
+    return normalized_path_key(path)
+
+
 def path_matches_or_is_inside(root: Path, path: Path) -> bool:
     normalized_root = root.expanduser().resolve(strict=False)
     normalized_path = path.expanduser().resolve(strict=False)
@@ -323,14 +327,16 @@ def build_local_evidence_preflight_payload(args: argparse.Namespace, gates: list
             "git_commit": release_gate.git_commit(),
             "git_dirty": bool(git_status_lines),
             "git_status": git_status_lines,
-            "argv": getattr(args, "argv", ["benchmark/run_production_gate.py", *sys.argv[1:]]),
-            "external_trial_json": str(args.external_trial_json),
-            "external_trial_root": str(args.external_trial_root),
-            "external_evidence_package_dir": str(args.external_evidence_package_dir),
-            "external_trial_verification_report": str(args.external_trial_verification_report)
+            "argv": canonical_wrapper_argv(args, resolve_paths=True),
+            "external_trial_json": absolute_path_text(args.external_trial_json),
+            "external_trial_root": absolute_path_text(args.external_trial_root),
+            "external_evidence_package_dir": absolute_path_text(args.external_evidence_package_dir),
+            "external_trial_verification_report": absolute_path_text(args.external_trial_verification_report)
             if args.external_trial_verification_report
             else None,
-            "external_evidence_package_verification_report": str(args.external_evidence_package_verification_report)
+            "external_evidence_package_verification_report": absolute_path_text(
+                args.external_evidence_package_verification_report
+            )
             if args.external_evidence_package_verification_report
             else None,
             "github_release_tag": args.github_release_tag,
@@ -544,16 +550,17 @@ def saved_reviewer_report_gates(
 
 
 def file_summary(name: str, path: Path) -> dict:
+    report_path = Path(absolute_path_text(path))
     summary = {
         "name": name,
-        "path": str(path),
-        "exists": path.is_file(),
+        "path": str(report_path),
+        "exists": report_path.is_file(),
         "size_bytes": None,
         "sha256": None,
     }
-    if path.is_file():
-        summary["size_bytes"] = path.stat().st_size
-        summary["sha256"] = release_gate.sha256_file(path)
+    if report_path.is_file():
+        summary["size_bytes"] = report_path.stat().st_size
+        summary["sha256"] = release_gate.sha256_file(report_path)
     return summary
 
 
@@ -662,7 +669,7 @@ def run_local_evidence_preflight(args: argparse.Namespace) -> int:
     return 0 if payload["status"] == "PASS" else 1
 
 
-def canonical_wrapper_argv(args: argparse.Namespace) -> list[str]:
+def canonical_wrapper_argv(args: argparse.Namespace, resolve_paths: bool = False) -> list[str]:
     argv = ["benchmark/run_production_gate.py"]
     value_flags = [
         ("--external-trial-json", args.external_trial_json),
@@ -684,6 +691,8 @@ def canonical_wrapper_argv(args: argparse.Namespace) -> list[str]:
     ]
     for flag, value in value_flags:
         if value is not None:
+            if resolve_paths and isinstance(value, Path):
+                value = Path(absolute_path_text(value))
             argv.extend([flag, str(value)])
     for flag, enabled in [
         ("--run-l3", args.run_l3),
@@ -879,14 +888,22 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
             value = metadata.get(path_key)
             if not isinstance(value, str) or not value.strip():
                 failures.append(f"metadata.{path_key} must be a non-empty string")
+            elif not Path(value).is_absolute():
+                failures.append(f"metadata.{path_key} must be an absolute path")
         for optional_path_key in [
             "external_trial_verification_report",
             "external_evidence_package_verification_report",
-            "github_release_tag",
         ]:
             value = metadata.get(optional_path_key)
             if value is not None and (not isinstance(value, str) or not value.strip()):
                 failures.append(f"metadata.{optional_path_key} must be null or a non-empty string")
+            elif isinstance(value, str) and value.strip() and not Path(value).is_absolute():
+                failures.append(f"metadata.{optional_path_key} must be an absolute path")
+        github_release_tag = metadata.get("github_release_tag")
+        if github_release_tag is not None and (
+            not isinstance(github_release_tag, str) or not github_release_tag.strip()
+        ):
+            failures.append("metadata.github_release_tag must be null or a non-empty string")
         if metadata.get("local_evidence_preflight_only") is not True:
             failures.append("metadata.local_evidence_preflight_only must be true")
 
@@ -910,6 +927,8 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
             path_value = artifact.get("path")
             if not isinstance(path_value, str) or not path_value:
                 failures.append(f"input artifact path must be a non-empty string: {name}")
+            elif not Path(path_value).is_absolute():
+                failures.append(f"input artifact path must be absolute: {name}")
             elif isinstance(name, str) and name:
                 if name in artifact_paths:
                     failures.append(f"duplicate input artifact name: {name}")
@@ -1021,6 +1040,8 @@ def validate_local_evidence_preflight_argv(metadata: dict, argv: list[str]) -> l
         "external_trial_verification_report": "--external-trial-verification-report",
         "external_evidence_package_verification_report": "--external-evidence-package-verification-report",
     }
+    path_value_flags = set(required_value_flags.values()) | set(optional_value_flags.values())
+    path_value_flags.discard("--github-release-tag")
     for metadata_key, flag in {**required_value_flags, **optional_value_flags}.items():
         values = argv_values(argv, flag)
         if len(values) > 1:
@@ -1033,6 +1054,8 @@ def validate_local_evidence_preflight_argv(metadata: dict, argv: list[str]) -> l
         for argv_value in values:
             if argv_value is None:
                 failures.append(f"metadata.argv {flag} must include a value")
+            elif flag in path_value_flags and not Path(argv_value).is_absolute():
+                failures.append(f"metadata.argv {flag} must use an absolute path: {argv_value}")
             elif metadata_value != argv_value:
                 failures.append(f"metadata.{metadata_key} must match metadata.argv {flag} {argv_value}")
     return failures

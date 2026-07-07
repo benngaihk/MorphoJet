@@ -136,7 +136,7 @@ python3 benchmark/run_production_gate.py \
   --local-evidence-preflight-only
 ```
 
-This preflight writes `benchmark/results/release-gate/local-evidence-preflight.json` and `.md` by default, records `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`, lists the final production checks it intentionally skips, records a canonical `metadata.argv` for the effective wrapper inputs, and records size/SHA-256 summaries for the trial JSON, packaged trial JSON, package zip, zip checksum file, and any supplied external L4 saved reviewer verification reports. It only checks the external L4 trial report, evidence package, and supplied external L4 reviewer reports before the final stable-release gate is available; `--github-release-verification-report` is rejected in local preflight mode because stable release verification is intentionally out of scope.
+This preflight writes `benchmark/results/release-gate/local-evidence-preflight.json` and `.md` by default, records `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`, lists the final production checks it intentionally skips, records a canonical `metadata.argv` for the effective wrapper inputs with absolute evidence/report paths, and records size/SHA-256 summaries for the trial JSON, packaged trial JSON, package zip, zip checksum file, and any supplied external L4 saved reviewer verification reports using absolute paths. It only checks the external L4 trial report, evidence package, and supplied external L4 reviewer reports before the final stable-release gate is available; `--github-release-verification-report` is rejected in local preflight mode because stable release verification is intentionally out of scope.
 
 Re-check a saved local evidence preflight report without the original evidence paths:
 
@@ -148,7 +148,7 @@ python3 benchmark/run_production_gate.py \
   --require-local-evidence-preflight-pass
 ```
 
-The verifier also confirms that the report's `metadata.generated_at_utc` is UTC, `metadata.git_commit` is a reachable commit in the current checkout, and `metadata.argv` matches the recorded preflight inputs so path, stable-tag, local-preflight flag, duplicate critical flags, and missing flag values cannot be tampered independently from metadata. With `--verify-local-evidence-preflight-gates`, it reruns the recorded external L4 trial, package, and saved reviewer-report gates from the report metadata and rejects stale gate status/detail/command data.
+The verifier also confirms that the report's `metadata.generated_at_utc` is UTC, `metadata.git_commit` is a reachable commit in the current checkout, metadata evidence paths, input artifact paths, and path-valued `metadata.argv` entries are absolute, and `metadata.argv` matches the recorded preflight inputs so path, stable-tag, local-preflight flag, duplicate critical flags, and missing flag values cannot be tampered independently from metadata. With `--verify-local-evidence-preflight-gates`, it reruns the recorded external L4 trial, package, and saved reviewer-report gates from the report metadata and rejects stale gate status/detail/command data.
 
 ## CellProfiler-Style Wide Export
 
