@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import unittest
 import warnings
 import zipfile
+from contextlib import contextmanager
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
 from io import StringIO
@@ -23,6 +25,16 @@ import package_external_trial  # noqa: E402
 import release_gate  # noqa: E402
 import verify_external_evidence_package  # noqa: E402
 from test_release_gate import add_artifact_provenance, valid_external_trial, write_trial_artifacts  # noqa: E402
+
+
+@contextmanager
+def temporary_cwd(path: Path):
+    previous = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(previous)
 
 
 class PackageExternalTrialTest(unittest.TestCase):
@@ -175,6 +187,39 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual(expected_trial_sha, payload["input_files"]["source_trial_json"]["sha256"])
         self.assertEqual(expected_zip_sha, payload["input_files"]["package_zip"]["sha256"])
         self.assertEqual(expected_manifest_sha, payload["input_files"]["package_artifact_manifest"]["sha256"])
+
+    def test_standalone_verifier_records_absolute_paths_for_relative_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+            json_out = root / "review" / "external-package-verification.json"
+
+            with temporary_cwd(root), redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = verify_external_evidence_package.verify_external_evidence_package(
+                    Path("package-out/external-l4-demo"),
+                    trial_json=Path("external/handoff_trial.json"),
+                    json_out=Path("review/external-package-verification.json"),
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+
+        self.assertEqual(0, code)
+        self.assertEqual(str(package_dir.resolve()), payload["package_dir"])
+        self.assertEqual(str(trial_json.resolve()), payload["trial_json"])
+        self.assertEqual(
+            str((package_dir / "artifact_manifest.json").resolve()),
+            payload["input_files"]["package_artifact_manifest"]["path"],
+        )
+        self.assertEqual(str(trial_json.resolve()), payload["input_files"]["source_trial_json"]["path"])
+        self.assertIn(str(package_dir.resolve()), payload["argv"])
+        self.assertIn(str(trial_json.resolve()), payload["argv"])
+        self.assertIn(str(json_out.resolve()), payload["argv"])
 
     def test_package_verifier_json_out_must_not_overwrite_source_trial_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -419,6 +464,36 @@ class PackageExternalTrialTest(unittest.TestCase):
 
         self.assertEqual(1, code)
         self.assertIn("generated_at_utc must be UTC", stderr.getvalue())
+
+    def test_saved_package_verification_report_rejects_relative_top_level_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["package_dir"] = "package-out/external-l4-demo"
+            payload["trial_json"] = "external/handoff_trial.json"
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            stderr = StringIO()
+            with redirect_stdout(StringIO()), redirect_stderr(stderr):
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn("package_dir must be an absolute path", stderr.getvalue())
+        self.assertIn("trial_json must be an absolute path", stderr.getvalue())
 
     def test_saved_package_verification_report_rejects_argv_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

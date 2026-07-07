@@ -222,6 +222,11 @@ def verify_external_evidence_package(
     json_out: Path | None = None,
     require_pass: bool = True,
 ) -> int:
+    package_dir = package_dir.resolve()
+    if trial_json is not None:
+        trial_json = trial_json.resolve()
+    if json_out is not None:
+        json_out = json_out.resolve()
     validate_json_out_path(json_out, package_dir, trial_json)
     gate = release_gate.validate_external_evidence_package(package_dir, trial_json)
     payload = {
@@ -282,9 +287,13 @@ def validate_verification_report_payload(
     package_dir = payload.get("package_dir")
     if not isinstance(package_dir, str) or not package_dir.strip():
         failures.append("package_dir must be a non-empty string")
+    elif not Path(package_dir).is_absolute():
+        failures.append("package_dir must be an absolute path")
     trial_json = payload.get("trial_json")
     if trial_json is not None and (not isinstance(trial_json, str) or not trial_json.strip()):
         failures.append("trial_json must be null or a non-empty string")
+    elif isinstance(trial_json, str) and trial_json.strip() and not Path(trial_json).is_absolute():
+        failures.append("trial_json must be an absolute path")
     if require_trial_json and (not isinstance(trial_json, str) or not trial_json.strip()):
         failures.append("trial_json is required for production package reviewer reports")
     argv = payload.get("argv")

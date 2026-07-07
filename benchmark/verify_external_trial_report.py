@@ -204,6 +204,10 @@ def verify_external_trial_report(
     json_out: Path | None = None,
     require_pass: bool = True,
 ) -> int:
+    trial_json = trial_json.resolve()
+    trial_root = trial_root.resolve()
+    if json_out is not None:
+        json_out = json_out.resolve()
     validate_json_out_path(json_out, trial_json, trial_root)
     gate = release_gate.validate_external_trial_report(trial_json, trial_root)
     payload = {
@@ -263,9 +267,13 @@ def validate_verification_report_payload(
     trial_json = payload.get("trial_json")
     if not isinstance(trial_json, str) or not trial_json.strip():
         failures.append("trial_json must be a non-empty string")
+    elif not Path(trial_json).is_absolute():
+        failures.append("trial_json must be an absolute path")
     trial_root = payload.get("trial_root")
     if not isinstance(trial_root, str) or not trial_root.strip():
         failures.append("trial_root must be a non-empty string")
+    elif not Path(trial_root).is_absolute():
+        failures.append("trial_root must be an absolute path")
     argv = payload.get("argv")
     if not isinstance(argv, list) or not argv or not all(isinstance(item, str) and item for item in argv):
         failures.append("argv must be a non-empty string list")

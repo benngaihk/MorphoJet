@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import unittest
+from contextlib import contextmanager
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
 from io import StringIO
@@ -20,6 +22,16 @@ sys.path.insert(0, str(ROOT / "tests"))
 import verify_external_trial_report  # noqa: E402
 import release_gate  # noqa: E402
 from test_release_gate import add_artifact_provenance, valid_external_trial, write_trial_artifacts  # noqa: E402
+
+
+@contextmanager
+def temporary_cwd(path: Path):
+    previous = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(previous)
 
 
 class VerifyExternalTrialReportTest(unittest.TestCase):
@@ -47,7 +59,10 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
                 )
             payload = json.loads(json_out.read_text(encoding="utf-8"))
             expected_trial_sha = release_gate.sha256_file(trial_json)
-            expected_artifact_files = verify_external_trial_report.trial_input_files(trial_json, root)["artifact_files"]
+            expected_artifact_files = verify_external_trial_report.trial_input_files(
+                trial_json.resolve(),
+                root.resolve(),
+            )["artifact_files"]
 
         self.assertEqual(0, code)
         self.assertEqual(1, payload["schema_version"])
@@ -59,6 +74,27 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
         self.assertIn("External workflow trial PASS", payload["gate"]["detail"])
         self.assertEqual(expected_trial_sha, payload["input_files"]["trial_json"]["sha256"])
         self.assertEqual(expected_artifact_files, payload["input_files"]["artifact_files"])
+
+    def test_verifier_records_absolute_paths_for_relative_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "review" / "external-trial-verification.json"
+            with temporary_cwd(root), redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = verify_external_trial_report.verify_external_trial_report(
+                    Path("external/handoff_trial.json"),
+                    Path("."),
+                    json_out=Path("review/external-trial-verification.json"),
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+
+        self.assertEqual(0, code)
+        self.assertEqual(str(trial_json.resolve()), payload["trial_json"])
+        self.assertEqual(str(root.resolve()), payload["trial_root"])
+        self.assertEqual(str(trial_json.resolve()), payload["input_files"]["trial_json"]["path"])
+        self.assertIn(str(trial_json.resolve()), payload["argv"])
+        self.assertIn(str(root.resolve()), payload["argv"])
+        self.assertIn(str(json_out.resolve()), payload["argv"])
 
     def test_verifier_json_out_must_not_overwrite_trial_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -224,6 +260,30 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
 
         self.assertEqual(1, code)
         self.assertIn("generated_at_utc must be UTC", stderr.getvalue())
+
+    def test_saved_verification_report_rejects_relative_top_level_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["trial_json"] = "external/handoff_trial.json"
+            payload["trial_root"] = "."
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            stderr = StringIO()
+            with redirect_stdout(StringIO()), redirect_stderr(stderr):
+                code = verify_external_trial_report.verify_saved_external_trial_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn("trial_json must be an absolute path", stderr.getvalue())
+        self.assertIn("trial_root must be an absolute path", stderr.getvalue())
 
     def test_saved_verification_report_rejects_argv_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
