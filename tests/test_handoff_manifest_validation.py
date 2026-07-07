@@ -4,10 +4,13 @@
 from __future__ import annotations
 
 import copy
+import json
 import sys
+import tempfile
 import unittest
 from argparse import Namespace
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -129,6 +132,33 @@ class HandoffManifestValidationTest(unittest.TestCase):
             ],
             argv,
         )
+
+    def test_handoff_runner_readiness_summary_preserves_package_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "readiness.json"
+            report.write_text(
+                json.dumps(
+                    {
+                        "status": "READY",
+                        "claim_status": "NOT_PRODUCTION_CLAIM",
+                        "generated_at_utc": "2026-07-07T01:02:03+00:00",
+                        "workspace": str(Path(tmp).resolve()),
+                        "manifest": str((Path(tmp) / "external_manifest.json").resolve()),
+                        "package_name": "external-l4-demo",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with patch("run_handoff_trial.subprocess.run") as run:
+                run.return_value.returncode = 0
+                run.return_value.stdout = "readiness report ok\n"
+                run.return_value.stderr = ""
+                summary = run_handoff_trial.validate_readiness_report(report)
+
+        self.assertEqual("external-l4-demo", summary["package_name"])
 
     def test_handoff_runner_rejects_report_output_over_manifest_input(self) -> None:
         with self.assertRaises(SystemExit) as context:

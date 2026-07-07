@@ -176,6 +176,7 @@ def validate_readiness_report(report: Path) -> dict[str, Any]:
         "generated_at_utc": payload.get("generated_at_utc"),
         "workspace": payload.get("workspace"),
         "manifest": payload.get("manifest"),
+        "package_name": payload.get("package_name"),
     }
 
 

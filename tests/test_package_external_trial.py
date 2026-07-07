@@ -40,6 +40,7 @@ def temporary_cwd(path: Path):
 class PackageExternalTrialTest(unittest.TestCase):
     def write_valid_trial(self, root: Path) -> Path:
         trial = valid_external_trial()
+        trial["readiness_report"]["package_name"] = "external-l4-demo"
         write_trial_artifacts(trial, root)
         add_artifact_provenance(trial, root)
         trial_json = root / "external" / "handoff_trial.json"
@@ -77,6 +78,11 @@ class PackageExternalTrialTest(unittest.TestCase):
             self.assertEqual(
                 json.loads(trial_json.read_text(encoding="utf-8"))["readiness_report"],
                 manifest["readiness_report"],
+            )
+            self.assertEqual("external-l4-demo", manifest["readiness_report"]["package_name"])
+            self.assertIn(
+                "- readiness_package_name: `external-l4-demo`",
+                (package_dir / "README.md").read_text(encoding="utf-8"),
             )
             self.assertEqual(trial_json.stat().st_size, manifest["trial_json_size_bytes"])
             self.assertEqual(release_gate.sha256_file(trial_json), manifest["trial_json_sha256"])

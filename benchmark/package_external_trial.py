@@ -106,6 +106,7 @@ def render_readme(trial: dict[str, Any], validation_detail: str, artifact_manife
         f"- readiness_status: `{readiness['status']}`",
         f"- readiness_generated_at_utc: `{readiness['generated_at_utc']}`",
         f"- readiness_sha256: `{readiness['sha256']}`",
+        f"- readiness_package_name: `{readiness.get('package_name')}`",
         f"- packaged_at_utc: `{artifact_manifest['packaged_at_utc']}`",
         "",
         "## Validation",

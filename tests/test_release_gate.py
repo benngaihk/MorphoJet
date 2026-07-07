@@ -91,6 +91,7 @@ def valid_external_trial() -> dict:
             "generated_at_utc": "2026-07-02T23:59:59+00:00",
             "workspace": "/external",
             "manifest": "/external/external_manifest.json",
+            "package_name": None,
         },
         "artifacts": release_gate.rendered_manifest_artifacts(manifest),
         "steps": [
@@ -127,6 +128,7 @@ def write_trial_artifacts(trial: dict, root: Path, empty_paths: set[str] | None 
             "claim_status": "NOT_PRODUCTION_CLAIM",
             "workspace": str((root / "external").resolve()),
             "manifest": str((root / "external" / "external_manifest.json").resolve()),
+            "package_name": readiness_summary.get("package_name"),
             "variables": {"base_dir": str((root / "external").resolve())},
             "checks": [],
             "issues": [],
@@ -929,6 +931,36 @@ class ReleaseGateTest(unittest.TestCase):
             )
 
         self.assertIn("readiness_report.sha256 must match readiness report file", failures)
+
+    def test_external_trial_requires_readiness_report_package_name_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            del trial["readiness_report"]["package_name"]
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("readiness_report.package_name must be present", failures)
+
+    def test_external_trial_rejects_readiness_report_package_name_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            trial["readiness_report"]["package_name"] = "external-l4-demo"
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            trial["readiness_report"]["package_name"] = "other-demo"
+            readiness_path = Path(trial["readiness_report"]["path"])
+
+            failures = release_gate.external_trial_failures(
+                trial,
+                root,
+                readiness_report_file=readiness_path,
+            )
+
+        self.assertIn("readiness_report.package_name must match readiness report file", failures)
 
     def test_external_trial_rejects_duplicate_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

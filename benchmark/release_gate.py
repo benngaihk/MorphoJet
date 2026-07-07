@@ -25,6 +25,11 @@ def is_utc_datetime(value: datetime) -> bool:
     return value.utcoffset() == timezone.utc.utcoffset(value)
 
 
+def slugify(value: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-")
+    return slug or "external-l4-trial"
+
+
 @dataclass
 class Gate:
     name: str
@@ -841,6 +846,14 @@ def readiness_report_summary_failures(
             failures.append(f"readiness_report.{key} must be a non-empty string")
         elif not Path(value).is_absolute():
             failures.append(f"readiness_report.{key} must be an absolute path")
+    package_name = summary.get("package_name")
+    if "package_name" not in summary:
+        failures.append("readiness_report.package_name must be present")
+    elif package_name is not None:
+        if not isinstance(package_name, str) or not package_name.strip():
+            failures.append("readiness_report.package_name must be null or a non-empty string")
+        elif slugify(package_name) != package_name:
+            failures.append("readiness_report.package_name must be a canonical slug")
     if readiness_report_file is not None:
         if not readiness_report_file.is_file():
             failures.append(f"readiness report file does not exist: {readiness_report_file}")
@@ -861,6 +874,7 @@ def readiness_report_summary_failures(
                     "generated_at_utc": "generated_at_utc",
                     "workspace": "workspace",
                     "manifest": "manifest",
+                    "package_name": "package_name",
                 }
                 for summary_key, payload_key in expected_fields.items():
                     if summary.get(summary_key) != payload.get(payload_key):
