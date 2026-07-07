@@ -47,6 +47,10 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def is_utc_datetime(value: datetime) -> bool:
+    return value.utcoffset() == timezone.utc.utcoffset(value)
+
+
 def slugify(value: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-")
     return slug or "external-l4-trial"
@@ -137,6 +141,8 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
             parsed = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
             if parsed.tzinfo is None:
                 failures.append("generated_at_utc must include timezone")
+            elif not is_utc_datetime(parsed):
+                failures.append("generated_at_utc must be UTC")
         except ValueError:
             failures.append(f"generated_at_utc is invalid: {generated_at}")
     argv = payload.get("argv")

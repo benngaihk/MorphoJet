@@ -22,6 +22,10 @@ CHECKER = "benchmark/check_external_l4_readiness.py"
 MANIFEST_NAME = "external_manifest.json"
 
 
+def is_utc_datetime(value: datetime) -> bool:
+    return value.utcoffset() == timezone.utc.utcoffset(value)
+
+
 def write_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -341,6 +345,8 @@ def validate_readiness_report_payload(
             parsed_generated_at = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
             if parsed_generated_at.tzinfo is None:
                 failures.append("generated_at_utc must include timezone")
+            elif not is_utc_datetime(parsed_generated_at):
+                failures.append("generated_at_utc must be UTC")
         except ValueError:
             failures.append(f"generated_at_utc is invalid: {generated_at}")
     status = payload.get("status")

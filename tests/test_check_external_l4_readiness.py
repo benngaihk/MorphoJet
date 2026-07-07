@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -113,6 +113,7 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             self.assertTrue(all(check["status"] == "PASS" for check in payload["checks"]))
             generated_at = datetime.fromisoformat(payload["generated_at_utc"])
             self.assertIsNotNone(generated_at.tzinfo)
+            self.assertEqual(timezone.utc.utcoffset(generated_at), generated_at.utcoffset())
             self.assertEqual(
                 ["benchmark/check_external_l4_readiness.py", "--workspace", str(workspace)],
                 payload["argv"],
@@ -149,6 +150,7 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             payload = json.loads(json_out.read_text(encoding="utf-8"))
             generated_at = datetime.fromisoformat(payload["generated_at_utc"])
             self.assertIsNotNone(generated_at.tzinfo)
+            self.assertEqual(timezone.utc.utcoffset(generated_at), generated_at.utcoffset())
             self.assertEqual(
                 [
                     "benchmark/check_external_l4_readiness.py",
@@ -205,6 +207,30 @@ class ExternalL4ReadinessTest(unittest.TestCase):
 
             self.assertEqual(0, completed.returncode, completed.stderr)
             self.assertIn("status=READY", completed.stdout)
+
+    def test_saved_readiness_report_rejects_non_utc_generated_at(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            report = check_external_l4_readiness.readiness_report(workspace)
+            report["generated_at_utc"] = "2026-07-07T12:00:00+08:00"
+            report_path = workspace / "readiness.json"
+            report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--verify-report",
+                    str(report_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("generated_at_utc must be UTC", completed.stderr)
 
     def test_saved_not_ready_report_can_be_verified_without_require_ready(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

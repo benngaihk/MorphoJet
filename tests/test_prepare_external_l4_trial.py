@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -31,6 +31,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertEqual("NOT_PRODUCTION_CLAIM", plan["claim_status"])
             generated_at = datetime.fromisoformat(plan["generated_at_utc"])
             self.assertIsNotNone(generated_at.tzinfo)
+            self.assertEqual(timezone.utc.utcoffset(generated_at), generated_at.utcoffset())
             self.assertEqual(
                 [
                     "benchmark/prepare_external_l4_trial.py",
@@ -126,6 +127,30 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
 
             self.assertEqual(0, completed.returncode, completed.stderr)
             self.assertIn("claim_status=NOT_PRODUCTION_CLAIM", completed.stdout)
+
+    def test_saved_trial_plan_rejects_non_utc_generated_at(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+            payload = json.loads(plan_path.read_text(encoding="utf-8"))
+            payload["generated_at_utc"] = "2026-07-07T12:00:00+08:00"
+            plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("generated_at_utc must be UTC", completed.stderr)
 
     def test_saved_trial_plan_rejects_command_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
