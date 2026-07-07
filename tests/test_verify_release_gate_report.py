@@ -467,6 +467,29 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             failures,
         )
 
+    def test_rejects_clean_git_metadata_without_gate(self) -> None:
+        payload = self.complete_production_claim_payload()
+        payload["gates"] = [
+            gate for gate in payload["gates"] if gate["name"] != "Require clean git worktree"
+        ]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn("metadata.require_clean_git=true requires gate: Require clean git worktree", failures)
+
+    def test_rejects_l3_provenance_metadata_without_gate(self) -> None:
+        payload = self.complete_production_claim_payload()
+        payload["gates"] = [
+            gate for gate in payload["gates"] if gate["name"] != "Validate CellBinDB L3 provenance"
+        ]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "metadata.require_l3_provenance=true requires gate: Validate CellBinDB L3 provenance",
+            failures,
+        )
+
     def test_rejects_live_github_release_gate_command_tampering(self) -> None:
         payload = self.complete_production_claim_payload()
         for gate in payload["gates"]:

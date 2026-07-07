@@ -405,8 +405,15 @@ EVIDENCE_METADATA_TO_GATE = {
     "verify_github_release": "Verify GitHub release assets",
 }
 
+FLAG_METADATA_TO_GATE = {
+    "require_clean_git": "Require clean git worktree",
+    "require_l3_provenance": "Validate CellBinDB L3 provenance",
+    "run_l3": "Run CellBinDB L3 benchmark",
+    "build_release_artifact": "Build local release archive",
+}
 
-def validate_live_github_release_gate_presence(metadata: Any, gate_names: set[str]) -> list[str]:
+
+def validate_metadata_gate_presence(metadata: Any, gate_names: set[str]) -> list[str]:
     if not isinstance(metadata, dict):
         return []
     failures: list[str] = []
@@ -414,6 +421,9 @@ def validate_live_github_release_gate_presence(metadata: Any, gate_names: set[st
         value = metadata.get(metadata_key)
         if isinstance(value, str) and value.strip() and gate_name not in gate_names:
             failures.append(f"metadata.{metadata_key} requires gate: {gate_name}")
+    for metadata_key, gate_name in FLAG_METADATA_TO_GATE.items():
+        if metadata.get(metadata_key) is True and gate_name not in gate_names:
+            failures.append(f"metadata.{metadata_key}=true requires gate: {gate_name}")
     return failures
 
 
@@ -545,7 +555,7 @@ def validate_release_gate_report_payload(
                     gate_names.add(gate["name"])
                 if gate.get("status") == "FAIL":
                     failed_gate_names.append(gate["name"])
-        failures.extend(validate_live_github_release_gate_presence(metadata, gate_names))
+        failures.extend(validate_metadata_gate_presence(metadata, gate_names))
         failures.extend(validate_saved_reviewer_gate_presence(metadata, gate_names))
         if payload.get("status") == "PASS" and failed_gate_names:
             failures.append("passing release-gate report has failed gates: " + ",".join(failed_gate_names))
