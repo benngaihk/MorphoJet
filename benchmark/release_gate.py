@@ -1180,6 +1180,9 @@ def external_package_readme_failures(readme: str, trial: dict, artifact_manifest
             f"- readiness_generated_at_utc: `{trial.get('readiness_report', {}).get('generated_at_utc')}`"
         ),
         "readiness_sha256": f"- readiness_sha256: `{trial.get('readiness_report', {}).get('sha256')}`",
+        "readiness_package_name": (
+            f"- readiness_package_name: `{trial.get('readiness_report', {}).get('package_name')}`"
+        ),
         "packaged_at_utc": f"- packaged_at_utc: `{artifact_manifest.get('packaged_at_utc')}`",
         "validation_detail": "This package was created only after the external trial report passed",
         "validation_detail_text": str(artifact_manifest.get("validation_detail")),
