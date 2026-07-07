@@ -642,6 +642,32 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             failures,
         )
 
+    def test_rejects_saved_reviewer_metadata_without_matching_gate(self) -> None:
+        payload = self.payload_with_saved_reviewer_gate_commands()
+        payload["gates"] = [
+            gate for gate in payload["gates"] if gate["name"] != "Verify saved external L4 trial report"
+        ]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "metadata.external_trial_verification_report requires gate: Verify saved external L4 trial report",
+            failures,
+        )
+
+    def test_rejects_saved_github_reviewer_metadata_without_matching_gate(self) -> None:
+        payload = self.payload_with_saved_reviewer_gate_commands()
+        payload["gates"] = [
+            gate for gate in payload["gates"] if gate["name"] != "Verify saved stable GitHub release report"
+        ]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "metadata.github_release_verification_report requires gate: Verify saved stable GitHub release report",
+            failures,
+        )
+
     def test_rejects_metadata_argv_values_not_reflected_in_metadata(self) -> None:
         payload = self.valid_payload()
         payload["metadata"]["argv"] = [

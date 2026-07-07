@@ -358,6 +358,24 @@ def validate_saved_reviewer_gate_command(gate: dict, metadata: Any) -> list[str]
     return failures
 
 
+SAVED_REVIEWER_METADATA_TO_GATE = {
+    "external_trial_verification_report": "Verify saved external L4 trial report",
+    "external_evidence_package_verification_report": "Verify saved external L4 evidence package report",
+    "github_release_verification_report": "Verify saved stable GitHub release report",
+}
+
+
+def validate_saved_reviewer_gate_presence(metadata: Any, gate_names: set[str]) -> list[str]:
+    if not isinstance(metadata, dict):
+        return []
+    failures: list[str] = []
+    for metadata_key, gate_name in SAVED_REVIEWER_METADATA_TO_GATE.items():
+        value = metadata.get(metadata_key)
+        if isinstance(value, str) and value.strip() and gate_name not in gate_names:
+            failures.append(f"metadata.{metadata_key} requires gate: {gate_name}")
+    return failures
+
+
 def validate_audit_checks(audit: dict, top_level_missing: Any) -> list[str]:
     failures: list[str] = []
     checks = audit.get("checks")
@@ -474,6 +492,7 @@ def validate_release_gate_report_payload(
                     gate_names.add(gate["name"])
                 if gate.get("status") == "FAIL":
                     failed_gate_names.append(gate["name"])
+        failures.extend(validate_saved_reviewer_gate_presence(metadata, gate_names))
         if payload.get("status") == "PASS" and failed_gate_names:
             failures.append("passing release-gate report has failed gates: " + ",".join(failed_gate_names))
         if (
