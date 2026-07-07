@@ -24,6 +24,7 @@ PACKAGE_REVIEW_FILES = {
     "package_external_evidence": "external_evidence.json",
     "package_artifact_manifest": "artifact_manifest.json",
     "package_readme": "README.md",
+    "package_readme_zh": "README.zh-CN.md",
 }
 
 

@@ -145,6 +145,71 @@ def render_readme(trial: dict[str, Any], validation_detail: str, artifact_manife
     return "\n".join(lines)
 
 
+def render_readme_zh(trial: dict[str, Any], validation_detail: str, artifact_manifest: dict[str, Any]) -> str:
+    evidence = trial["external_evidence"]
+    metadata = trial["metadata"]
+    readiness = trial["readiness_report"]
+    lines = [
+        "# 外部 L4 试验证据包",
+        "",
+        "Language: [English](README.md) | 简体中文",
+        "",
+        f"- trial_id: `{trial['trial_id']}`",
+        f"- trial_status: `{trial['status']}`",
+        f"- lab_or_org: `{evidence['lab_or_org']}`",
+        f"- workflow_owner: `{evidence['workflow_owner']}`",
+        f"- dataset_name: `{evidence['dataset_name']}`",
+        f"- dataset_source: `{evidence['dataset_source']}`",
+        f"- downstream_workflow: `{evidence['downstream_workflow']}`",
+        f"- execution_environment: `{evidence['execution_environment']}`",
+        f"- reviewer_name_or_role: `{evidence['reviewer_name_or_role']}`",
+        f"- reviewed_at_utc: `{evidence['reviewed_at_utc']}`",
+        f"- signoff_statement: `{evidence['signoff_statement']}`",
+        f"- manual_csv_editing: `{evidence['manual_csv_editing']}`",
+        f"- trial_git_commit: `{metadata['git_commit']}`",
+        f"- trial_generated_at_utc: `{metadata['generated_at_utc']}`",
+        f"- readiness_status: `{readiness['status']}`",
+        f"- readiness_generated_at_utc: `{readiness['generated_at_utc']}`",
+        f"- readiness_sha256: `{readiness['sha256']}`",
+        f"- readiness_package_name: `{readiness.get('package_name')}`",
+        f"- packaged_at_utc: `{artifact_manifest['packaged_at_utc']}`",
+        "",
+        "## 验证",
+        "",
+        "这个 evidence package 只在外部 trial report 通过 MorphoJet release-gate external L4 validator 后创建。",
+        "",
+        "```text",
+        validation_detail,
+        "```",
+        "",
+        "## 内容",
+        "",
+        "- `handoff_trial.json`: 原始 trial report。",
+        "- `rendered_manifest.json`: trial report 捕获的 rendered manifest snapshot。",
+        "- `external_evidence.json`: release gate 使用的 external evidence block。",
+        "- `readiness.json`: trial report 绑定的预执行 READY report。",
+        "- `artifact_manifest.json`: copied artifact paths、package paths、size 和 SHA-256。",
+        "- `artifacts/`: 供 review 使用的 copied trial artifacts。",
+        "",
+        "Acceptance criteria:",
+        "",
+    ]
+    for criterion in evidence["acceptance_criteria"]:
+        lines.append(f"- {criterion}")
+    lines.extend(
+        [
+            "",
+            "如需在 packaging 前重新验证 source trial，请运行：",
+            "",
+            "```bash",
+            "python3 benchmark/release_gate.py --external-trial-json path/to/handoff_trial.json --external-trial-root path/to/external",
+            "```",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def zip_directory(source_dir: Path, zip_path: Path) -> None:
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(source_dir.rglob("*")):
@@ -253,12 +318,18 @@ def create_package(
         render_readme(trial, artifact_manifest["validation_detail"], artifact_manifest),
         encoding="utf-8",
     )
+    readme_zh_path = package_dir / "README.zh-CN.md"
+    readme_zh_path.write_text(
+        render_readme_zh(trial, artifact_manifest["validation_detail"], artifact_manifest),
+        encoding="utf-8",
+    )
     artifact_manifest["review_files"] = [
         file_manifest_entry(package_dir / "handoff_trial.json", package_dir),
         file_manifest_entry(package_dir / "readiness.json", package_dir),
         file_manifest_entry(package_dir / "rendered_manifest.json", package_dir),
         file_manifest_entry(package_dir / "external_evidence.json", package_dir),
         file_manifest_entry(readme_path, package_dir),
+        file_manifest_entry(readme_zh_path, package_dir),
     ]
     write_json(package_dir / "artifact_manifest.json", artifact_manifest)
     zip_directory(package_dir, zip_path)

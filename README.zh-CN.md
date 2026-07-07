@@ -170,6 +170,8 @@ python3 benchmark/package_external_trial.py \
   --out-dir path/to/evidence-packages
 ```
 
+Evidence package 会包含 `README.md` 和 `README.zh-CN.md`。两份 README 都会进入 `artifact_manifest.review_files` 和 package zip，release gate 会检查关键 signoff 字段，standalone package verifier 也会记录它们的 path/size/SHA-256，方便中英文 reviewer 复核。
+
 稳定 release 存在后，用 production wrapper 把所有必需证据绑定到同一份最终报告：
 
 ```bash

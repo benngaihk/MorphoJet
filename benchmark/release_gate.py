@@ -357,6 +357,7 @@ def add_package_protected_paths(paths: dict[Path, str], package_dir: Path | None
         "rendered_manifest.json",
         "artifact_manifest.json",
         "README.md",
+        "README.zh-CN.md",
     ]:
         add_protected_path(paths, package_dir / filename, f"evidence package file: {filename}")
     add_protected_path(paths, package_dir.parent / f"{package_dir.name}.zip", "evidence package zip")
@@ -1160,10 +1161,10 @@ def package_zip_sha256_issues(path: Path, zip_name: str) -> tuple[str | None, li
     return digest, issues
 
 
-def external_package_readme_failures(readme: str, trial: dict, artifact_manifest: dict) -> list[str]:
+def external_package_readme_common_required_fields(trial: dict, artifact_manifest: dict) -> dict[str, str]:
     evidence = trial.get("external_evidence") if isinstance(trial.get("external_evidence"), dict) else {}
     metadata = trial.get("metadata") if isinstance(trial.get("metadata"), dict) else {}
-    required_fields = {
+    return {
         "trial_id": f"- trial_id: `{trial.get('trial_id')}`",
         "trial_status": f"- trial_status: `{trial.get('status')}`",
         "lab_or_org": f"- lab_or_org: `{evidence.get('lab_or_org')}`",
@@ -1187,8 +1188,15 @@ def external_package_readme_failures(readme: str, trial: dict, artifact_manifest
             f"- readiness_package_name: `{trial.get('readiness_report', {}).get('package_name')}`"
         ),
         "packaged_at_utc": f"- packaged_at_utc: `{artifact_manifest.get('packaged_at_utc')}`",
-        "validation_detail": "This package was created only after the external trial report passed",
         "validation_detail_text": str(artifact_manifest.get("validation_detail")),
+    }
+
+
+def external_package_readme_failures(readme: str, trial: dict, artifact_manifest: dict) -> list[str]:
+    evidence = trial.get("external_evidence") if isinstance(trial.get("external_evidence"), dict) else {}
+    required_fields = {
+        **external_package_readme_common_required_fields(trial, artifact_manifest),
+        "validation_detail": "This package was created only after the external trial report passed",
         "revalidation_command": "python3 benchmark/release_gate.py --external-trial-json",
     }
     failures = []
@@ -1203,6 +1211,27 @@ def external_package_readme_failures(readme: str, trial: dict, artifact_manifest
     return failures
 
 
+def external_package_chinese_readme_failures(readme: str, trial: dict, artifact_manifest: dict) -> list[str]:
+    evidence = trial.get("external_evidence") if isinstance(trial.get("external_evidence"), dict) else {}
+    required_fields = {
+        **external_package_readme_common_required_fields(trial, artifact_manifest),
+        "title": "# 外部 L4 试验证据包",
+        "language_switch": "Language: [English](README.md) | 简体中文",
+        "validation_detail": "这个 evidence package 只在外部 trial report 通过",
+        "revalidation_command": "python3 benchmark/release_gate.py --external-trial-json",
+    }
+    failures = []
+    for name, snippet in required_fields.items():
+        if snippet not in readme:
+            failures.append(f"package Chinese README missing signoff field: {name}")
+    criteria = evidence.get("acceptance_criteria")
+    if isinstance(criteria, list):
+        for index, criterion in enumerate(criteria):
+            if isinstance(criterion, str) and criterion.strip() and f"- {criterion}" not in readme:
+                failures.append(f"package Chinese README missing acceptance criterion: {index}")
+    return failures
+
+
 def external_package_review_file_failures(package_dir: Path, artifact_manifest: dict) -> list[str]:
     failures = []
     expected_review_files = {
@@ -1211,6 +1240,7 @@ def external_package_review_file_failures(package_dir: Path, artifact_manifest: 
         "rendered_manifest.json",
         "external_evidence.json",
         "README.md",
+        "README.zh-CN.md",
     }
     review_files = artifact_manifest.get("review_files")
     if not isinstance(review_files, list) or not review_files:
@@ -1325,6 +1355,7 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
         external_evidence_path = package_dir / "external_evidence.json"
         artifact_manifest_path = package_dir / "artifact_manifest.json"
         readme_path = package_dir / "README.md"
+        readme_zh_path = package_dir / "README.zh-CN.md"
         for required_path in [
             trial_path,
             readiness_path,
@@ -1332,6 +1363,7 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
             external_evidence_path,
             artifact_manifest_path,
             readme_path,
+            readme_zh_path,
         ]:
             if not required_path.is_file():
                 failures.append(f"package missing file: {required_path.name}")
@@ -1343,6 +1375,7 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
         external_evidence = load_json(external_evidence_path)
         artifact_manifest = load_json(artifact_manifest_path)
         readme = readme_path.read_text(encoding="utf-8")
+        readme_zh = readme_zh_path.read_text(encoding="utf-8")
         if trial_json is not None and sha256_file(trial_path) != sha256_file(trial_json):
             failures.append("package handoff_trial.json does not match --external-trial-json")
         if artifact_manifest.get("schema_version") != 1:
@@ -1415,6 +1448,7 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
             failures.append("package external_evidence.json must match trial external_evidence")
         failures.extend(external_package_review_file_failures(package_dir, artifact_manifest))
         failures.extend(external_package_readme_failures(readme, trial, artifact_manifest))
+        failures.extend(external_package_chinese_readme_failures(readme_zh, trial, artifact_manifest))
         manifest_artifacts = artifact_manifest.get("artifacts")
         if not isinstance(manifest_artifacts, list) or not manifest_artifacts:
             failures.append("package artifact_manifest.artifacts must be a non-empty list")

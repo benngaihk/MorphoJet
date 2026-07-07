@@ -72,6 +72,7 @@ class PackageExternalTrialTest(unittest.TestCase):
             self.assertTrue((package_dir / "rendered_manifest.json").is_file())
             self.assertTrue((package_dir / "external_evidence.json").is_file())
             self.assertTrue((package_dir / "README.md").is_file())
+            self.assertTrue((package_dir / "README.zh-CN.md").is_file())
             self.assertTrue((package_dir / "artifacts/external/handoff_contract.json").is_file())
             self.assertEqual(4, result["artifact_count"])
             self.assertEqual(4, len(manifest["artifacts"]))
@@ -83,6 +84,10 @@ class PackageExternalTrialTest(unittest.TestCase):
             self.assertIn(
                 "- readiness_package_name: `external-l4-demo`",
                 (package_dir / "README.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "- readiness_package_name: `external-l4-demo`",
+                (package_dir / "README.zh-CN.md").read_text(encoding="utf-8"),
             )
             self.assertEqual(trial_json.stat().st_size, manifest["trial_json_size_bytes"])
             self.assertEqual(release_gate.sha256_file(trial_json), manifest["trial_json_sha256"])
@@ -101,12 +106,20 @@ class PackageExternalTrialTest(unittest.TestCase):
                 manifest["argv"],
             )
             self.assertEqual(
-                ["README.md", "external_evidence.json", "handoff_trial.json", "readiness.json", "rendered_manifest.json"],
+                [
+                    "README.md",
+                    "README.zh-CN.md",
+                    "external_evidence.json",
+                    "handoff_trial.json",
+                    "readiness.json",
+                    "rendered_manifest.json",
+                ],
                 sorted(entry["path"] for entry in manifest["review_files"]),
             )
             self.assertEqual(release_gate.sha256_file(zip_path), sha_path.read_text().split()[0])
             with zipfile.ZipFile(zip_path) as archive:
                 self.assertIn("external-l4-demo/README.md", archive.namelist())
+                self.assertIn("external-l4-demo/README.zh-CN.md", archive.namelist())
                 self.assertIn("external-l4-demo/artifacts/external/handoff_contract.json", archive.namelist())
 
     def test_package_rejects_output_directory_covering_source_trial_artifacts(self) -> None:
@@ -187,6 +200,7 @@ class PackageExternalTrialTest(unittest.TestCase):
             expected_zip_sha = release_gate.sha256_file(Path(result["zip"]))
             expected_manifest_sha = release_gate.sha256_file(Path(result["package_dir"]) / "artifact_manifest.json")
             expected_readiness_sha = release_gate.sha256_file(Path(result["package_dir"]) / "readiness.json")
+            expected_readme_zh_sha = release_gate.sha256_file(Path(result["package_dir"]) / "README.zh-CN.md")
 
         self.assertEqual(0, code)
         self.assertEqual(1, payload["schema_version"])
@@ -200,6 +214,7 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual(expected_zip_sha, payload["input_files"]["package_zip"]["sha256"])
         self.assertEqual(expected_manifest_sha, payload["input_files"]["package_artifact_manifest"]["sha256"])
         self.assertEqual(expected_readiness_sha, payload["input_files"]["package_readiness"]["sha256"])
+        self.assertEqual(expected_readme_zh_sha, payload["input_files"]["package_readme_zh"]["sha256"])
         self.assertEqual("external-l4-demo", payload["input_files"]["package_readiness"]["package_name"])
 
     def test_standalone_verifier_records_absolute_paths_for_relative_inputs(self) -> None:
@@ -233,6 +248,10 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual(
             str((package_dir / "readiness.json").resolve()),
             payload["input_files"]["package_readiness"]["path"],
+        )
+        self.assertEqual(
+            str((package_dir / "README.zh-CN.md").resolve()),
+            payload["input_files"]["package_readme_zh"]["path"],
         )
         self.assertEqual(str(trial_json.resolve()), payload["input_files"]["source_trial_json"]["path"])
         self.assertIn(str(package_dir.resolve()), payload["argv"])
@@ -1204,6 +1223,32 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertIn("package README missing signoff field: trial_id", gate.detail)
         self.assertIn("package README missing signoff field: validation_detail", gate.detail)
 
+    def test_release_gate_rejects_package_chinese_readme_missing_signoff_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+            readme_path = package_dir / "README.zh-CN.md"
+            readme_path.write_text("# 外部 L4 试验证据包\n\nplaceholder\n", encoding="utf-8")
+            zip_path = Path(result["zip"])
+            package_external_trial.zip_directory(package_dir, zip_path)
+            Path(result["sha256"]).write_text(
+                f"{release_gate.sha256_file(zip_path)}  external-l4-demo.zip\n",
+                encoding="utf-8",
+            )
+
+            gate = release_gate.validate_external_evidence_package(package_dir, trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("package Chinese README missing signoff field: trial_id", gate.detail)
+        self.assertIn("package Chinese README missing signoff field: validation_detail", gate.detail)
+
     def test_release_gate_rejects_tampered_review_file_digest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1229,6 +1274,32 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual("FAIL", gate.status)
         self.assertIn("package review_file size mismatch: README.md", gate.detail)
         self.assertIn("package review_file sha256 mismatch: README.md", gate.detail)
+
+    def test_release_gate_rejects_tampered_chinese_review_file_digest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+            readme_path = package_dir / "README.zh-CN.md"
+            readme_path.write_text(readme_path.read_text(encoding="utf-8") + "\nTampered.\n", encoding="utf-8")
+            zip_path = Path(result["zip"])
+            package_external_trial.zip_directory(package_dir, zip_path)
+            Path(result["sha256"]).write_text(
+                f"{release_gate.sha256_file(zip_path)}  external-l4-demo.zip\n",
+                encoding="utf-8",
+            )
+
+            gate = release_gate.validate_external_evidence_package(package_dir, trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("package review_file size mismatch: README.zh-CN.md", gate.detail)
+        self.assertIn("package review_file sha256 mismatch: README.zh-CN.md", gate.detail)
 
     def test_release_gate_rejects_package_readme_missing_external_evidence_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
