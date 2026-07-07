@@ -140,7 +140,7 @@ python3 benchmark/compare_cellprofiler_wide_subset.py CellProfiler/Cells.csv mea
 python3 benchmark/prepare_external_l4_trial.py --workspace path/to/external-trial
 ```
 
-生成的 workspace 包含模板 manifest、输入目录和一组按顺序执行的命令：plan 验证、manifest 验证、readiness、readiness 报告复核、trial 运行、evidence package、local preflight、local preflight 报告复核、stable release 验证、saved stable release 报告复核、final production gate、final production report 复核。
+生成的 workspace 包含模板 manifest、输入目录、中英文 README，以及一组按顺序执行的命令：plan 验证、manifest 验证、readiness、readiness 报告复核、trial 运行、evidence package、local preflight、local preflight 报告复核、stable release 验证、saved stable release 报告复核、final production gate、final production report 复核。`--verify-plan-files` 会同时复核英文和中文 README 内容，防止真实 L4 执行说明被改弱或改错。
 
 在真实 trial 前，先运行 readiness：
 

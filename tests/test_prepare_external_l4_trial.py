@@ -60,6 +60,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertTrue((workspace / "external_manifest.json").is_file())
             self.assertTrue((workspace / "trial_plan.json").is_file())
             self.assertTrue((workspace / "README.md").is_file())
+            self.assertTrue((workspace / "README.zh-CN.md").is_file())
             self.assertTrue((workspace / "morphojet").is_dir())
             self.assertTrue((workspace / "cellprofiler").is_dir())
             self.assertTrue((workspace / "evidence-package").is_dir())
@@ -165,6 +166,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("--require-production-claim-pass", final_report)
             self.assertEqual("none", final_report[final_report.index("--expect-missing-checks") + 1])
             readme = (workspace / "README.md").read_text(encoding="utf-8")
+            self.assertIn("Language: English | [简体中文](README.zh-CN.md)", readme)
             self.assertLess(readme.index("## verify_plan"), readme.index("## validate_manifest"))
             self.assertLess(readme.index("## verify_readiness"), readme.index("## run_trial"))
             self.assertLess(
@@ -182,6 +184,15 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertLess(
                 readme.index("## final_production_gate"),
                 readme.index("## verify_final_production_report"),
+            )
+            readme_zh = (workspace / "README.zh-CN.md").read_text(encoding="utf-8")
+            self.assertIn("Language: [English](README.md) | 简体中文", readme_zh)
+            self.assertIn("这个工作区只是准备脚手架，不是外部 L4 证据。", readme_zh)
+            self.assertLess(readme_zh.index("## verify_plan"), readme_zh.index("## validate_manifest"))
+            self.assertLess(readme_zh.index("## verify_readiness"), readme_zh.index("## run_trial"))
+            self.assertLess(
+                readme_zh.index("## final_production_gate"),
+                readme_zh.index("## verify_final_production_report"),
             )
 
     def test_prepare_workspace_records_custom_generator_argv(self) -> None:
@@ -433,6 +444,33 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
 
             self.assertNotEqual(0, completed.returncode)
             self.assertIn("README changed after plan was written", completed.stderr)
+
+    def test_saved_trial_plan_rejects_chinese_readme_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+            readme_path = workspace / "README.zh-CN.md"
+            readme_path.write_text(
+                readme_path.read_text(encoding="utf-8").replace("--verify-plan-files", "--tampered"),
+                encoding="utf-8",
+            )
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                    "--verify-plan-files",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("Chinese README changed after plan was written", completed.stderr)
 
     def test_prepare_workspace_binds_custom_package_name_into_readiness(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

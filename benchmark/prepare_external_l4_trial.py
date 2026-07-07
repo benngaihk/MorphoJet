@@ -23,6 +23,7 @@ DEFAULT_TEMPLATE_ABS = (ROOT / DEFAULT_TEMPLATE).resolve()
 MANIFEST_NAME = "external_manifest.json"
 PLAN_NAME = "trial_plan.json"
 README_NAME = "README.md"
+README_ZH_NAME = "README.zh-CN.md"
 
 
 class PrepareError(Exception):
@@ -228,6 +229,11 @@ def validate_plan_files(payload: dict[str, Any]) -> list[str]:
         failures.append(f"README file does not exist: {readme_path}")
     elif readme_path.read_text(encoding="utf-8") != render_readme(payload):
         failures.append("README changed after plan was written")
+    readme_zh_path = workspace / README_ZH_NAME
+    if not readme_zh_path.is_file():
+        failures.append(f"Chinese README file does not exist: {readme_zh_path}")
+    elif readme_zh_path.read_text(encoding="utf-8") != render_readme_zh(payload):
+        failures.append("Chinese README changed after plan was written")
     return failures
 
 
@@ -455,6 +461,8 @@ def render_readme(plan: dict[str, Any]) -> str:
     lines = [
         "# External L4 Trial Workspace",
         "",
+        "Language: English | [简体中文](README.zh-CN.md)",
+        "",
         "This workspace is a preparation scaffold, not external L4 evidence.",
         "Replace all `REPLACE_WITH` values in the manifest and place the real input files before running the trial.",
         "",
@@ -502,11 +510,66 @@ def render_readme(plan: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_readme_zh(plan: dict[str, Any]) -> str:
+    commands = plan["commands"]
+    lines = [
+        "# 外部 L4 试验工作区",
+        "",
+        "Language: [English](README.md) | 简体中文",
+        "",
+        "这个工作区只是准备脚手架，不是外部 L4 证据。",
+        "运行 trial 前，请替换 manifest 中所有 `REPLACE_WITH` 值，并放入真实输入文件。",
+        "",
+        "预期输入文件：",
+        "",
+        f"- `{plan['workspace']}/morphojet/Objects.csv`",
+        f"- `{plan['workspace']}/cellprofiler/Cells.csv`",
+        "",
+        "请在 MorphoJet 仓库根目录按顺序运行这些命令：",
+        "",
+    ]
+    for name in [
+        "verify_plan",
+        "validate_manifest",
+        "check_readiness",
+        "verify_readiness",
+        "run_trial",
+        "verify_trial",
+        "package_evidence",
+        "verify_package",
+        "local_evidence_preflight",
+        "verify_local_evidence_preflight",
+        "verify_stable_release",
+        "verify_stable_release_report",
+        "final_production_gate",
+        "verify_final_production_report",
+    ]:
+        lines.extend(
+            [
+                f"## {name}",
+                "",
+                "```bash",
+                command_line(commands[name]),
+                "```",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "最终生产门禁仍然要求同一份通过报告里同时包含已完成的外部 trial、evidence package、saved reviewer reports、live stable release verification，以及 saved stable release verifier report。",
+            "最终报告复核命令会在签核前重新检查保存的 production-claim report。",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def generated_paths(workspace: Path) -> list[Path]:
     return [
         workspace / MANIFEST_NAME,
         workspace / PLAN_NAME,
         workspace / README_NAME,
+        workspace / README_ZH_NAME,
     ]
 
 
@@ -577,6 +640,7 @@ def prepare_workspace(
     }
     write_json(workspace / PLAN_NAME, plan)
     (workspace / README_NAME).write_text(render_readme(plan), encoding="utf-8")
+    (workspace / README_ZH_NAME).write_text(render_readme_zh(plan), encoding="utf-8")
     return plan
 
 
