@@ -1607,13 +1607,43 @@ def render_markdown(payload: dict, out_json: Path) -> str:
     return "\n".join(lines)
 
 
+RELEASE_GATE_ARGV_PATH_FLAGS = {
+    "--out-json",
+    "--out-md",
+    "--external-trial-json",
+    "--external-trial-root",
+    "--external-evidence-package-dir",
+    "--external-trial-verification-report",
+    "--external-evidence-package-verification-report",
+    "--github-release-verification-report",
+}
+
+
+def canonical_release_gate_argv(argv: list[str]) -> list[str]:
+    canonical = ["benchmark/release_gate.py"]
+    index = 1
+    while index < len(argv):
+        item = argv[index]
+        canonical.append(item)
+        if item in RELEASE_GATE_ARGV_PATH_FLAGS and index + 1 < len(argv) and not argv[index + 1].startswith("--"):
+            canonical.append(normalized_path_key(Path(argv[index + 1])))
+            index += 2
+            continue
+        index += 1
+    return canonical
+
+
+def optional_absolute_path(path: Path | None) -> str | None:
+    return normalized_path_key(path) if path else None
+
+
 def build_metadata(args: argparse.Namespace, git_status_lines: list[str]) -> dict:
     return {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "git_commit": git_commit(),
         "git_dirty": bool(git_status_lines),
         "git_status": git_status_lines,
-        "argv": ["benchmark/release_gate.py", *sys.argv[1:]],
+        "argv": canonical_release_gate_argv(sys.argv),
         "run_l3": args.run_l3,
         "build_release_artifact": args.build_release_artifact,
         "release_version": args.release_version,
@@ -1622,20 +1652,14 @@ def build_metadata(args: argparse.Namespace, git_status_lines: list[str]) -> dic
         "require_clean_git": args.require_clean_git,
         "require_l3_provenance": args.require_l3_provenance,
         "require_production_claim": args.require_production_claim,
-        "external_trial_json": str(args.external_trial_json) if args.external_trial_json else None,
-        "external_trial_root": str(args.external_trial_root) if args.external_trial_root else None,
-        "external_evidence_package_dir": str(args.external_evidence_package_dir)
-        if args.external_evidence_package_dir
-        else None,
-        "external_trial_verification_report": str(args.external_trial_verification_report)
-        if args.external_trial_verification_report
-        else None,
-        "external_evidence_package_verification_report": str(args.external_evidence_package_verification_report)
-        if args.external_evidence_package_verification_report
-        else None,
-        "github_release_verification_report": str(args.github_release_verification_report)
-        if args.github_release_verification_report
-        else None,
+        "external_trial_json": optional_absolute_path(args.external_trial_json),
+        "external_trial_root": optional_absolute_path(args.external_trial_root),
+        "external_evidence_package_dir": optional_absolute_path(args.external_evidence_package_dir),
+        "external_trial_verification_report": optional_absolute_path(args.external_trial_verification_report),
+        "external_evidence_package_verification_report": optional_absolute_path(
+            args.external_evidence_package_verification_report
+        ),
+        "github_release_verification_report": optional_absolute_path(args.github_release_verification_report),
     }
 
 

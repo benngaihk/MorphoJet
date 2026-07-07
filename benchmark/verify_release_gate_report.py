@@ -50,6 +50,26 @@ REQUIRED_PRODUCTION_GATE_NAMES = {
 
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 
+PRODUCTION_PATH_METADATA_KEYS = {
+    "external_trial_json",
+    "external_trial_root",
+    "external_evidence_package_dir",
+    "external_trial_verification_report",
+    "external_evidence_package_verification_report",
+    "github_release_verification_report",
+}
+
+PRODUCTION_PATH_ARGV_FLAGS = {
+    "--external-trial-json",
+    "--external-trial-root",
+    "--external-evidence-package-dir",
+    "--external-trial-verification-report",
+    "--external-evidence-package-verification-report",
+    "--github-release-verification-report",
+    "--out-json",
+    "--out-md",
+}
+
 
 def git_commit_is_reachable(commit: str) -> bool:
     completed = subprocess.run(
@@ -116,6 +136,10 @@ def validate_metadata(metadata: Any) -> list[str]:
     elif github_release_kind == "stable":
         if not isinstance(verify_github_release, str) or not STABLE_TAG_PATTERN.fullmatch(verify_github_release):
             failures.append("metadata.github_release_kind=stable requires a stable metadata.verify_github_release tag")
+    for key in sorted(PRODUCTION_PATH_METADATA_KEYS):
+        value = metadata.get(key)
+        if isinstance(value, str) and value.strip() and not Path(value).is_absolute():
+            failures.append(f"metadata.{key} must be an absolute path: {value}")
     failures.extend(validate_metadata_argv(metadata))
     return failures
 
@@ -185,8 +209,20 @@ def validate_metadata_argv(metadata: Any) -> list[str]:
         for argv_value in values:
             if argv_value is None:
                 failures.append(f"metadata.argv {flag} must include a value")
-            elif metadata.get(metadata_key) != argv_value:
+                continue
+            if flag in PRODUCTION_PATH_ARGV_FLAGS and not Path(argv_value).is_absolute():
+                failures.append(f"metadata.argv {flag} must use an absolute path: {argv_value}")
+            if metadata.get(metadata_key) != argv_value:
                 failures.append(f"metadata.{metadata_key} must match metadata.argv {flag} {argv_value}")
+    for flag in sorted(PRODUCTION_PATH_ARGV_FLAGS - set(required_path_flags.values())):
+        values = argv_values(argv, flag)
+        if len(values) > 1:
+            failures.append(f"metadata.argv has duplicate {flag}")
+        for argv_value in values:
+            if argv_value is None:
+                failures.append(f"metadata.argv {flag} must include a value")
+            elif not Path(argv_value).is_absolute():
+                failures.append(f"metadata.argv {flag} must use an absolute path: {argv_value}")
     github_release_kind = metadata.get("github_release_kind")
     if (
         isinstance(github_release_kind, str)

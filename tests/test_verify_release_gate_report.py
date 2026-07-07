@@ -108,14 +108,17 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            trial_json = root / "external" / "handoff_trial.json"
+            trial_root = root / "external"
+            package_dir = root / "evidence" / "external-l4-trial"
             return release_gate.write_report(
                 self.production_args(
                     require_clean_git=True,
                     require_l3_provenance=True,
                     require_production_claim=True,
-                    external_trial_json=Path("external/handoff_trial.json"),
-                    external_trial_root=Path("external"),
-                    external_evidence_package_dir=Path("evidence/external-l4-trial"),
+                    external_trial_json=trial_json,
+                    external_trial_root=trial_root,
+                    external_evidence_package_dir=package_dir,
                     verify_github_release="v0.1.0",
                     github_release_kind="stable",
                     out_json=root / "report.json",
@@ -130,11 +133,11 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                         "--require-l3-provenance",
                         "--require-production-claim",
                         "--external-trial-json",
-                        "external/handoff_trial.json",
+                        str(trial_json),
                         "--external-trial-root",
-                        "external",
+                        str(trial_root),
                         "--external-evidence-package-dir",
-                        "evidence/external-l4-trial",
+                        str(package_dir),
                         "--verify-github-release",
                         "v0.1.0",
                         "--github-release-kind",
@@ -145,9 +148,9 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                     "require_clean_git": True,
                     "require_l3_provenance": True,
                     "require_production_claim": True,
-                    "external_trial_json": "external/handoff_trial.json",
-                    "external_trial_root": "external",
-                    "external_evidence_package_dir": "evidence/external-l4-trial",
+                    "external_trial_json": str(trial_json),
+                    "external_trial_root": str(trial_root),
+                    "external_evidence_package_dir": str(package_dir),
                 },
             )
 
@@ -413,14 +416,76 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
         self.assertIn("metadata.argv[0]=other.py", failures)
         self.assertIn("metadata.argv missing --require-l3-provenance for metadata.require_l3_provenance=true", failures)
         self.assertIn("metadata.argv missing --require-production-claim for metadata.require_production_claim=true", failures)
-        self.assertIn("metadata.argv missing --external-trial-json external/handoff_trial.json", failures)
-        self.assertIn("metadata.argv missing --external-trial-root external", failures)
         self.assertIn(
-            "metadata.argv missing --external-evidence-package-dir evidence/external-l4-trial",
+            f"metadata.argv missing --external-trial-json {payload['metadata']['external_trial_json']}",
+            failures,
+        )
+        self.assertIn(
+            f"metadata.argv missing --external-trial-root {payload['metadata']['external_trial_root']}",
+            failures,
+        )
+        self.assertIn(
+            "metadata.argv missing --external-evidence-package-dir "
+            f"{payload['metadata']['external_evidence_package_dir']}",
             failures,
         )
         self.assertIn("metadata.argv missing --verify-github-release v0.1.0", failures)
         self.assertIn("metadata.argv missing --github-release-kind stable", failures)
+
+    def test_rejects_relative_release_gate_metadata_paths(self) -> None:
+        payload = self.complete_production_claim_payload()
+        payload["metadata"]["external_trial_json"] = "external/handoff_trial.json"
+        payload["metadata"]["external_trial_root"] = "external"
+        payload["metadata"]["external_evidence_package_dir"] = "evidence/external-l4-trial"
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "metadata.external_trial_json must be an absolute path: external/handoff_trial.json",
+            failures,
+        )
+        self.assertIn("metadata.external_trial_root must be an absolute path: external", failures)
+        self.assertIn(
+            "metadata.external_evidence_package_dir must be an absolute path: evidence/external-l4-trial",
+            failures,
+        )
+
+    def test_rejects_relative_release_gate_metadata_argv_paths(self) -> None:
+        payload = self.complete_production_claim_payload()
+        payload["metadata"]["external_trial_json"] = "external/handoff_trial.json"
+        payload["metadata"]["argv"] = [
+            "benchmark/release_gate.py",
+            "--external-trial-json",
+            "external/handoff_trial.json",
+            "--out-json",
+            "reports/final.json",
+        ]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "metadata.argv --external-trial-json must use an absolute path: external/handoff_trial.json",
+            failures,
+        )
+        self.assertIn("metadata.argv --out-json must use an absolute path: reports/final.json", failures)
+
+    def test_release_gate_canonicalizes_path_argv_values(self) -> None:
+        canonical = release_gate.canonical_release_gate_argv(
+            [
+                "release_gate.py",
+                "--external-trial-json",
+                "external/handoff_trial.json",
+                "--verify-github-release",
+                "v0.1.0",
+                "--out-json",
+                "reports/final.json",
+            ]
+        )
+
+        self.assertEqual("benchmark/release_gate.py", canonical[0])
+        self.assertIn(str((ROOT / "external/handoff_trial.json").resolve(strict=False)), canonical)
+        self.assertIn(str((ROOT / "reports/final.json").resolve(strict=False)), canonical)
+        self.assertIn("v0.1.0", canonical)
 
     def test_rejects_metadata_argv_values_not_reflected_in_metadata(self) -> None:
         payload = self.valid_payload()
