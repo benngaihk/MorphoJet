@@ -314,6 +314,30 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
         self.assertIn("missing_or_failed_checks does not match production_claim_audit", failures)
         self.assertIn("missing_or_failed_checks does not match audit check statuses", failures)
 
+    def test_rejects_missing_production_claim_checklist(self) -> None:
+        payload = self.valid_payload()
+        del payload["production_claim_checklist"]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn("production_claim_checklist must be a non-empty list", failures)
+
+    def test_rejects_production_claim_checklist_status_drift(self) -> None:
+        payload = self.valid_payload()
+        payload["production_claim_checklist"][3]["status"] = "PASS"
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn("production_claim_checklist row mismatch for external_l4_workflow_trial", failures)
+
+    def test_rejects_production_claim_checklist_next_action_tampering(self) -> None:
+        payload = self.valid_payload()
+        payload["production_claim_checklist"][3]["next_action"] = "No action needed for this check."
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn("production_claim_checklist row mismatch for external_l4_workflow_trial", failures)
+
     def test_can_require_report_pass(self) -> None:
         payload = self.valid_payload()
         payload["status"] = "FAIL"

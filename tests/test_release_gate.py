@@ -339,6 +339,23 @@ class ReleaseGateTest(unittest.TestCase):
         )
         self.assertEqual("INCOMPLETE", written_payload["production_claim_status"])
         self.assertEqual(payload["missing_or_failed_checks"], written_payload["missing_or_failed_checks"])
+        checklist = written_payload["production_claim_checklist"]
+        self.assertEqual(
+            [check["name"] for check in written_payload["production_claim_audit"]["checks"]],
+            [row["check"] for row in checklist],
+        )
+        self.assertIn(
+            {
+                "check": "external_l4_workflow_trial",
+                "status": "MISSING",
+                "evidence": "A real external handoff_trial.json PASS report with no manual CSV edits and signed L4 evidence.",
+                "next_action": (
+                    "Prepare the workspace, run readiness, then run benchmark/run_handoff_trial.py "
+                    "with --require-external-evidence and --readiness-report."
+                ),
+            },
+            checklist,
+        )
 
     def test_markdown_report_includes_production_claim_checklist(self) -> None:
         gates = self.production_gates(
@@ -378,6 +395,35 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertIn("publish the stable tag and verify it with --github-release-kind stable", markdown)
         self.assertIn("| stable_github_release_saved_report | MISSING |", markdown)
         self.assertIn("--verify-report-files --require-stable-report --expect-repo benngaihk/MorphoJet", markdown)
+
+    def test_markdown_report_uses_json_production_claim_checklist(self) -> None:
+        gates = self.production_gates(
+            [
+                "Rust formatting",
+                "Rust tests",
+                "Rust clippy",
+                "Python helper compilation",
+                "Python helper tests",
+                "Validate claim language",
+                "Validate handoff manifests",
+                "Validate external lab handoff template",
+                "Validate existing CellBinDB L3 artifacts",
+                "Validate CellBinDB workflow bridge artifacts",
+                "Validate CellBinDB handoff trial artifacts",
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            payload = release_gate.write_report(
+                self.production_args(out_json=root / "report.json", out_md=root / "report.md"),
+                gates,
+                self.production_metadata(),
+            )
+            payload["production_claim_checklist"][0]["next_action"] = "Injected from JSON checklist."
+            markdown = release_gate.render_markdown({**payload, "gates": gates}, root / "report.json")
+
+        self.assertIn("Injected from JSON checklist.", markdown)
 
     def test_require_production_claim_passes_complete_audit(self) -> None:
         gates = self.production_gates(
@@ -430,6 +476,9 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertEqual("PASS", payload["production_claim_status"])
         self.assertEqual([], payload["missing_or_failed_checks"])
         self.assertEqual("PASS", payload["production_claim_audit"]["status"])
+        self.assertTrue(
+            all(row["next_action"] == "No action needed for this check." for row in payload["production_claim_checklist"])
+        )
         self.assertIn("| external_l4_workflow_trial | PASS |", markdown)
         self.assertIn("No action needed for this check.", markdown)
 

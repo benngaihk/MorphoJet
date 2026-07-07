@@ -27,6 +27,52 @@ REQUIRED_AUDIT_CHECKS = [
     "stable_github_release_saved_report",
 ]
 
+PRODUCTION_CHECKLIST_GUIDANCE = {
+    "clean_git_worktree": {
+        "evidence": "Release-gate report generated with --require-clean-git and git_dirty=false.",
+        "next_action": "Commit or remove local changes, then rerun the final gate with --require-clean-git.",
+    },
+    "standard_code_and_artifact_gates": {
+        "evidence": "Rust, Python, manifest, L3 artifact, workflow bridge, and handoff gates are PASS.",
+        "next_action": "Fix the failing standard gate detail, then regenerate the release-gate report.",
+    },
+    "l3_provenance_hashes": {
+        "evidence": "CellBinDB L3 provenance exists, was not generated with --skip-cellprofiler, and hashes match.",
+        "next_action": "Rerun with --require-l3-provenance after refreshing L3 artifacts when measurement code changed.",
+    },
+    "external_l4_workflow_trial": {
+        "evidence": "A real external handoff_trial.json PASS report with no manual CSV edits and signed L4 evidence.",
+        "next_action": (
+            "Prepare the workspace, run readiness, then run benchmark/run_handoff_trial.py "
+            "with --require-external-evidence and --readiness-report."
+        ),
+    },
+    "external_l4_evidence_package": {
+        "evidence": "A package_external_trial.py evidence package bound to the external trial report.",
+        "next_action": "Package the accepted external trial and supply --external-evidence-package-dir.",
+    },
+    "external_l4_saved_reviewer_reports": {
+        "evidence": "Saved external trial and evidence-package verifier reports rechecked with file hashing.",
+        "next_action": (
+            "Run verify_external_trial_report.py and verify_external_evidence_package.py, then recheck "
+            "both saved reports with --verify-report-files --require-report-pass."
+        ),
+    },
+    "stable_github_release": {
+        "evidence": "A live non-prerelease GitHub release for the final tag verified from benngaihk/MorphoJet.",
+        "next_action": "After L4 evidence is accepted, publish the stable tag and verify it with --github-release-kind stable.",
+    },
+    "stable_github_release_saved_report": {
+        "evidence": "A saved stable GitHub release verifier report bound to the final tag, repo, commit, and assets.",
+        "next_action": (
+            "Save verify_github_release.py output outside the download dir, then recheck it with "
+            "--verify-report-files --require-stable-report --expect-repo benngaihk/MorphoJet."
+        ),
+    },
+}
+
+NO_ACTION_NEEDED = "No action needed for this check."
+
 
 def is_utc_datetime(value: datetime) -> bool:
     return value.utcoffset() == timezone.utc.utcoffset(value)
@@ -484,6 +530,52 @@ def validate_audit_checks(audit: dict, top_level_missing: Any) -> list[str]:
     return failures
 
 
+def expected_checklist_row(check: dict) -> dict[str, str] | None:
+    name = check.get("name")
+    status = check.get("status")
+    if not isinstance(name, str) or name not in PRODUCTION_CHECKLIST_GUIDANCE or not isinstance(status, str):
+        return None
+    guidance = PRODUCTION_CHECKLIST_GUIDANCE[name]
+    return {
+        "check": name,
+        "status": status,
+        "evidence": guidance["evidence"],
+        "next_action": NO_ACTION_NEEDED if status == "PASS" else guidance["next_action"],
+    }
+
+
+def validate_production_claim_checklist(payload: dict) -> list[str]:
+    failures: list[str] = []
+    audit = payload.get("production_claim_audit")
+    checklist = payload.get("production_claim_checklist")
+    if not isinstance(audit, dict):
+        return []
+    checks = audit.get("checks")
+    if not isinstance(checks, list) or not checks:
+        return []
+    if not isinstance(checklist, list) or not checklist:
+        return ["production_claim_checklist must be a non-empty list"]
+    if len(checklist) != len(checks):
+        failures.append("production_claim_checklist length does not match production_claim_audit.checks")
+    expected_rows = [expected_checklist_row(check) for check in checks]
+    for index, expected in enumerate(expected_rows):
+        if expected is None:
+            continue
+        if index >= len(checklist):
+            failures.append(f"production_claim_checklist missing row for {expected['check']}")
+            continue
+        row = checklist[index]
+        if not isinstance(row, dict):
+            failures.append("production_claim_checklist entries must be objects")
+            continue
+        for key in ["check", "status", "evidence", "next_action"]:
+            if not isinstance(row.get(key), str) or not row.get(key):
+                failures.append(f"production_claim_checklist.{expected['check']}.{key} must be a non-empty string")
+        if row != expected:
+            failures.append(f"production_claim_checklist row mismatch for {expected['check']}")
+    return failures
+
+
 def validate_release_gate_report_payload(
     payload: Any,
     require_report_pass: bool = False,
@@ -537,6 +629,7 @@ def validate_release_gate_report_payload(
 
     if isinstance(audit, dict):
         failures.extend(validate_audit_checks(audit, top_level_missing))
+    failures.extend(validate_production_claim_checklist(payload))
 
     metadata = payload.get("metadata")
     failures.extend(validate_metadata(metadata, report_path=report_path))

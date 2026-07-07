@@ -1859,6 +1859,7 @@ def production_checklist_rows(audit: dict) -> list[dict[str, str]]:
 def render_markdown(payload: dict, out_json: Path) -> str:
     metadata = payload["metadata"]
     audit = payload["production_claim_audit"]
+    checklist = payload["production_claim_checklist"]
     lines = [
         "# Release Gate Report",
         "",
@@ -1896,7 +1897,7 @@ def render_markdown(payload: dict, out_json: Path) -> str:
             "|---|---:|---|---|",
         ]
     )
-    for row in production_checklist_rows(audit):
+    for row in checklist:
         lines.append(
             "| "
             f"{markdown_cell(row['check'])} | "
@@ -1985,6 +1986,7 @@ def write_report(args: argparse.Namespace, gates: list[Gate], metadata: dict) ->
         "production_claim_status": audit["status"],
         "missing_or_failed_checks": audit["missing_or_failed_checks"],
         "production_claim_audit": audit,
+        "production_claim_checklist": production_checklist_rows(audit),
         "metadata": metadata,
         "gates": [asdict(gate) for gate in gates],
     }
