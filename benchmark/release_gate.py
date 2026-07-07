@@ -21,6 +21,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def is_utc_datetime(value: datetime) -> bool:
+    return value.utcoffset() == timezone.utc.utcoffset(value)
+
+
 @dataclass
 class Gate:
     name: str
@@ -925,6 +929,8 @@ def external_trial_failures(
             parsed_reviewed_at = datetime.fromisoformat(reviewed_at)
             if parsed_reviewed_at.tzinfo is None:
                 failures.append("external_evidence.reviewed_at_utc must include timezone")
+            elif not is_utc_datetime(parsed_reviewed_at):
+                failures.append("external_evidence.reviewed_at_utc must be UTC")
         except ValueError:
             failures.append(f"external_evidence.reviewed_at_utc is invalid: {reviewed_at}")
     metadata_generated_at = (

@@ -1058,6 +1058,15 @@ class ReleaseGateTest(unittest.TestCase):
             release_gate.external_trial_failures(trial),
         )
 
+    def test_external_trial_rejects_non_utc_reviewed_at(self) -> None:
+        trial = copy.deepcopy(valid_external_trial())
+        trial["external_evidence"]["reviewed_at_utc"] = "2026-07-03T09:02:03+08:00"
+
+        self.assertIn(
+            "external_evidence.reviewed_at_utc must be UTC",
+            release_gate.external_trial_failures(trial),
+        )
+
     def test_external_trial_rejects_review_before_trial_generation(self) -> None:
         trial = copy.deepcopy(valid_external_trial())
         trial["metadata"]["generated_at_utc"] = "2026-07-03T01:02:04+00:00"

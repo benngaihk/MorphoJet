@@ -239,6 +239,18 @@ class HandoffManifestValidationTest(unittest.TestCase):
 
         self.assertIn("external_evidence.reviewed_at_utc is invalid: not-a-date", issues)
 
+    def test_external_reviewed_at_must_be_utc(self) -> None:
+        manifest = copy.deepcopy(valid_manifest())
+        manifest["external_evidence"]["reviewed_at_utc"] = "2026-07-03T09:02:03+08:00"
+
+        issues = validate_handoff_manifest.validate_schema(
+            manifest,
+            require_downstream_check=True,
+            require_external_evidence=True,
+        )
+
+        self.assertIn("external_evidence.reviewed_at_utc must be UTC", issues)
+
     def test_external_evidence_placeholders_are_allowed_for_template_validation(self) -> None:
         manifest = copy.deepcopy(valid_manifest())
         manifest["external_evidence"]["dataset_source"] = "REPLACE_WITH_SOURCE"

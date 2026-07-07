@@ -5,11 +5,15 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from run_handoff_trial import parse_vars, render
+
+
+def is_utc_datetime(value: datetime) -> bool:
+    return value.utcoffset() == timezone.utc.utcoffset(value)
 
 
 def require_string(data: dict[str, Any], key: str, issues: list[str], prefix: str) -> None:
@@ -89,6 +93,8 @@ def validate_external_evidence(evidence: Any, issues: list[str], allow_placehold
             parsed_reviewed_at = datetime.fromisoformat(reviewed_at)
             if parsed_reviewed_at.tzinfo is None:
                 issues.append(f"{prefix}.reviewed_at_utc must include timezone")
+            elif not is_utc_datetime(parsed_reviewed_at):
+                issues.append(f"{prefix}.reviewed_at_utc must be UTC")
         except ValueError:
             issues.append(f"{prefix}.reviewed_at_utc is invalid: {reviewed_at}")
     criteria = evidence.get("acceptance_criteria")
