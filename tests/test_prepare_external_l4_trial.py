@@ -99,9 +99,21 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("--verify-report-files", verify_readiness)
             self.assertIn("--require-ready", verify_readiness)
             self.assertIn("--local-evidence-preflight-only", plan["commands"]["local_evidence_preflight"])
+            verify_preflight = plan["commands"]["verify_local_evidence_preflight"]
+            self.assertEqual(
+                str((workspace / "local-evidence-preflight.json").resolve()),
+                verify_preflight[verify_preflight.index("--verify-local-evidence-preflight-report") + 1],
+            )
+            self.assertIn("--verify-local-evidence-preflight-files", verify_preflight)
+            self.assertIn("--verify-local-evidence-preflight-gates", verify_preflight)
+            self.assertIn("--require-local-evidence-preflight-pass", verify_preflight)
             readme = (workspace / "README.md").read_text(encoding="utf-8")
             self.assertLess(readme.index("## verify_plan"), readme.index("## validate_manifest"))
             self.assertLess(readme.index("## verify_readiness"), readme.index("## run_trial"))
+            self.assertLess(
+                readme.index("## local_evidence_preflight"),
+                readme.index("## verify_local_evidence_preflight"),
+            )
 
     def test_prepare_workspace_records_custom_generator_argv(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

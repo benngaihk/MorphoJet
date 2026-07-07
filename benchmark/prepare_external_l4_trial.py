@@ -180,6 +180,7 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
         "package_evidence",
         "verify_package",
         "local_evidence_preflight",
+        "verify_local_evidence_preflight",
     ]
     if not isinstance(commands, dict):
         failures.append("commands must be an object")
@@ -370,6 +371,15 @@ def plan_commands(
             "--local-evidence-preflight-md",
             str(preflight_md),
         ],
+        "verify_local_evidence_preflight": [
+            "python3",
+            "benchmark/run_production_gate.py",
+            "--verify-local-evidence-preflight-report",
+            str(preflight_json),
+            "--verify-local-evidence-preflight-files",
+            "--verify-local-evidence-preflight-gates",
+            "--require-local-evidence-preflight-pass",
+        ],
     }
 
 
@@ -399,6 +409,7 @@ def render_readme(plan: dict[str, Any]) -> str:
         "package_evidence",
         "verify_package",
         "local_evidence_preflight",
+        "verify_local_evidence_preflight",
     ]:
         lines.extend(
             [
