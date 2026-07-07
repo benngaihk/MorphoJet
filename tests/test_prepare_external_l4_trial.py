@@ -189,7 +189,9 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             readme = (workspace / "README.md").read_text(encoding="utf-8")
             self.assertIn("Language: English | [简体中文](README.zh-CN.md)", readme)
             self.assertIn("## final_signoff_requirements", readme)
+            self.assertIn("| Requirement | Status | Planned Path | Verification Step | Required For |", readme)
             self.assertIn("external_l4_workflow_trial", readme)
+            self.assertIn("final_production_gate", readme)
             self.assertLess(readme.index("## verify_plan"), readme.index("## validate_manifest"))
             self.assertLess(readme.index("## verify_readiness"), readme.index("## run_trial"))
             self.assertLess(
@@ -212,6 +214,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("Language: [English](README.md) | 简体中文", readme_zh)
             self.assertIn("这个工作区只是准备脚手架，不是外部 L4 证据。", readme_zh)
             self.assertIn("## final_signoff_requirements", readme_zh)
+            self.assertIn("| 要求 | 状态 | 计划路径 | 验证步骤 | 用于 |", readme_zh)
+            self.assertIn("production_signoff", readme_zh)
             self.assertLess(readme_zh.index("## verify_plan"), readme_zh.index("## validate_manifest"))
             self.assertLess(readme_zh.index("## verify_readiness"), readme_zh.index("## run_trial"))
             self.assertLess(

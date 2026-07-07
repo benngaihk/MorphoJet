@@ -555,8 +555,8 @@ def render_readme(plan: dict[str, Any]) -> str:
         [
             "## final_signoff_requirements",
             "",
-            "| Requirement | Status | Planned Path | Verification Step |",
-            "|---|---:|---|---|",
+            "| Requirement | Status | Planned Path | Verification Step | Required For |",
+            "|---|---:|---|---|---|",
         ]
     )
     for requirement in plan["final_signoff_requirements"]:
@@ -565,7 +565,8 @@ def render_readme(plan: dict[str, Any]) -> str:
             f"{requirement['name']} | "
             f"{requirement['status']} | "
             f"{requirement['planned_path']} | "
-            f"{requirement['verification_step']} |"
+            f"{requirement['verification_step']} | "
+            f"{requirement['required_for']} |"
         )
     lines.extend(
         [
@@ -626,8 +627,8 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
         [
             "## final_signoff_requirements",
             "",
-            "| Requirement | Status | Planned Path | Verification Step |",
-            "|---|---:|---|---|",
+            "| 要求 | 状态 | 计划路径 | 验证步骤 | 用于 |",
+            "|---|---:|---|---|---|",
         ]
     )
     for requirement in plan["final_signoff_requirements"]:
@@ -636,7 +637,8 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
             f"{requirement['name']} | "
             f"{requirement['status']} | "
             f"{requirement['planned_path']} | "
-            f"{requirement['verification_step']} |"
+            f"{requirement['verification_step']} | "
+            f"{requirement['required_for']} |"
         )
     lines.extend(
         [
