@@ -467,6 +467,18 @@ class ReleaseGateTest(unittest.TestCase):
 
         self.assertIn("metadata.generator=manual_report.py", failures)
 
+    def test_external_trial_rejects_non_utc_metadata_generation_time(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            trial["metadata"]["generated_at_utc"] = "2026-07-03T08:00:00+08:00"
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("metadata.generated_at_utc must be UTC", failures)
+
     def test_external_trial_requires_strict_runner_evidence_flag(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

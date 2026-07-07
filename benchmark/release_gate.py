@@ -731,6 +731,8 @@ def external_trial_metadata_failures(
             parsed_generated_at = datetime.fromisoformat(generated_at)
             if parsed_generated_at.tzinfo is None:
                 failures.append("metadata.generated_at_utc must include timezone")
+            elif not is_utc_datetime(parsed_generated_at):
+                failures.append("metadata.generated_at_utc must be UTC")
         except ValueError:
             failures.append(f"metadata.generated_at_utc is invalid: {generated_at}")
     report_commit = metadata.get("git_commit")
@@ -1205,6 +1207,8 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
                 parsed_packaged_at = datetime.fromisoformat(packaged_at)
                 if parsed_packaged_at.tzinfo is None:
                     failures.append("package artifact_manifest.packaged_at_utc must include timezone")
+                elif not is_utc_datetime(parsed_packaged_at):
+                    failures.append("package artifact_manifest.packaged_at_utc must be UTC")
             except ValueError:
                 failures.append(f"package artifact_manifest.packaged_at_utc is invalid: {packaged_at}")
         if artifact_manifest.get("trial_id") != trial.get("trial_id"):
