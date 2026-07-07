@@ -373,12 +373,15 @@ class ReleaseGateTest(unittest.TestCase):
 
     def test_doc_path_allowlist(self) -> None:
         self.assertTrue(release_gate.is_doc_path("README.md"))
+        self.assertTrue(release_gate.is_doc_path("README.zh-CN.md"))
         self.assertTrue(release_gate.is_doc_path("docs/PRODUCTION_READINESS.md"))
+        self.assertFalse(release_gate.is_doc_path("corpus/README.md"))
         self.assertFalse(release_gate.is_doc_path("benchmark/release_gate.py"))
         self.assertFalse(release_gate.is_doc_path("crates/morphojet/src/main.rs"))
 
     def test_l3_provenance_compatible_path_allowlist(self) -> None:
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("README.md"))
+        self.assertTrue(release_gate.is_l3_provenance_compatible_path("README.zh-CN.md"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("docs/PRODUCTION_READINESS.md"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("tests/test_release_gate.py"))
         self.assertTrue(release_gate.is_l3_provenance_compatible_path("benchmark/check_external_l4_readiness.py"))
@@ -621,6 +624,7 @@ class ReleaseGateTest(unittest.TestCase):
 
     def test_external_trial_path_allowlist(self) -> None:
         self.assertTrue(release_gate.is_external_trial_compatible_path("README.md"))
+        self.assertTrue(release_gate.is_external_trial_compatible_path("README.zh-CN.md"))
         self.assertTrue(release_gate.is_external_trial_compatible_path("docs/PRODUCTION_READINESS.md"))
         self.assertTrue(release_gate.is_external_trial_compatible_path("tests/test_release_gate.py"))
         self.assertTrue(release_gate.is_external_trial_compatible_path("benchmark/check_external_l4_readiness.py"))

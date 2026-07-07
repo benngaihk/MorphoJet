@@ -1575,7 +1575,9 @@ def git_changed_paths(old_commit: str, new_commit: str) -> list[str]:
 
 
 def is_doc_path(path: str) -> bool:
-    return path == "README.md" or path.startswith("docs/")
+    return path == "README.md" or (
+        "/" not in path and path.startswith("README.") and path.endswith(".md")
+    ) or path.startswith("docs/")
 
 
 def is_l3_provenance_compatible_path(path: str) -> bool:
