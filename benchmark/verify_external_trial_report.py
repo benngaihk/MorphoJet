@@ -54,15 +54,29 @@ def file_summary(path: Path) -> dict[str, Any]:
 
 
 def load_trial_artifacts(trial_json: Path) -> list[str]:
-    try:
-        with trial_json.open("r", encoding="utf-8") as handle:
-            trial = json.load(handle)
-    except Exception:  # noqa: BLE001 - malformed reports still need diagnostic summaries.
-        return []
+    trial = load_trial_payload(trial_json)
     artifacts = trial.get("artifacts") if isinstance(trial, dict) else None
     if not isinstance(artifacts, list):
         return []
     return [artifact for artifact in artifacts if isinstance(artifact, str)]
+
+
+def load_trial_payload(trial_json: Path) -> dict[str, Any] | None:
+    try:
+        with trial_json.open("r", encoding="utf-8") as handle:
+            trial = json.load(handle)
+    except Exception:  # noqa: BLE001 - malformed reports still need diagnostic summaries.
+        return None
+    return trial if isinstance(trial, dict) else None
+
+
+def load_trial_readiness_report_path(trial_json: Path) -> Path | None:
+    trial = load_trial_payload(trial_json)
+    readiness = trial.get("readiness_report") if isinstance(trial, dict) else None
+    path = readiness.get("path") if isinstance(readiness, dict) else None
+    if isinstance(path, str) and path.strip():
+        return Path(path)
+    return None
 
 
 def trial_input_files(trial_json: Path, trial_root: Path) -> dict[str, Any]:
@@ -71,10 +85,14 @@ def trial_input_files(trial_json: Path, trial_root: Path) -> dict[str, Any]:
         resolved_path = release_gate.resolve_artifact_path(artifact, trial_root)
         summary = file_summary(resolved_path)
         artifact_files.append({"source_path": artifact, **summary})
-    return {
+    input_files = {
         "trial_json": file_summary(trial_json),
         "artifact_files": sorted(artifact_files, key=lambda entry: entry["source_path"]),
     }
+    readiness_path = load_trial_readiness_report_path(trial_json)
+    if readiness_path is not None:
+        input_files["readiness_report"] = file_summary(readiness_path)
+    return input_files
 
 
 def file_summary_issues(name: str, summary: Any, require_exists: bool) -> list[str]:
@@ -109,6 +127,16 @@ def input_files_issues(input_files: Any, status: Any) -> list[str]:
     if not isinstance(input_files, dict):
         return ["input_files must be an object"]
     failures.extend(file_summary_issues("trial_json", input_files.get("trial_json"), require_exists=status == "PASS"))
+    if status == "PASS" and "readiness_report" not in input_files:
+        failures.append("input_files.readiness_report must be present for PASS reports")
+    if "readiness_report" in input_files:
+        failures.extend(
+            file_summary_issues(
+                "readiness_report",
+                input_files.get("readiness_report"),
+                require_exists=status == "PASS",
+            )
+        )
     artifact_files = input_files.get("artifact_files")
     if not isinstance(artifact_files, list):
         return failures + ["input_files.artifact_files must be a list"]
@@ -135,6 +163,13 @@ def input_file_path_binding_issues(input_files: dict[str, Any], trial_json: str,
     trial_summary = input_files.get("trial_json")
     if isinstance(trial_summary, dict) and trial_summary.get("path") != trial_json:
         failures.append("input_files.trial_json.path must match trial_json")
+    readiness_summary = input_files.get("readiness_report")
+    readiness_path = load_trial_readiness_report_path(Path(trial_json))
+    if isinstance(readiness_summary, dict):
+        if readiness_path is None:
+            failures.append("input_files.readiness_report must match a trial readiness_report path")
+        elif readiness_summary.get("path") != str(readiness_path):
+            failures.append("input_files.readiness_report.path must match trial readiness_report.path")
     artifact_files = input_files.get("artifact_files")
     if not isinstance(artifact_files, list):
         return failures
@@ -157,6 +192,8 @@ def recomputed_input_file_issues(recorded: dict[str, Any], trial_json: Path, tri
     for field in ["path", "exists", "size_bytes", "sha256"]:
         if recorded["trial_json"].get(field) != current["trial_json"].get(field):
             failures.append(f"input_files.trial_json.{field} changed after recomputing trial validation")
+    if recorded.get("readiness_report") != current.get("readiness_report"):
+        failures.append("input_files.readiness_report changed after recomputing trial validation")
     recorded_artifacts = recorded.get("artifact_files")
     if not isinstance(recorded_artifacts, list):
         return failures + ["input_files.artifact_files must be a list"]
@@ -183,6 +220,9 @@ def validate_json_out_path(json_out: Path | None, trial_json: Path, trial_root: 
     if json_out is None:
         return
     protected_paths = [(trial_json, f"trial JSON: {trial_json}")]
+    readiness_path = load_trial_readiness_report_path(trial_json)
+    if readiness_path is not None:
+        protected_paths.append((readiness_path, f"readiness report: {readiness_path}"))
     for artifact in load_trial_artifacts(trial_json):
         artifact_path = release_gate.resolve_artifact_path(artifact, trial_root)
         protected_paths.append((artifact_path, f"trial artifact: {artifact}"))

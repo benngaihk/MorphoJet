@@ -58,7 +58,9 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
                     json_out=json_out,
                 )
             payload = json.loads(json_out.read_text(encoding="utf-8"))
+            trial = json.loads(trial_json.read_text(encoding="utf-8"))
             expected_trial_sha = release_gate.sha256_file(trial_json)
+            expected_readiness_sha = release_gate.sha256_file(Path(trial["readiness_report"]["path"]))
             expected_artifact_files = verify_external_trial_report.trial_input_files(
                 trial_json.resolve(),
                 root.resolve(),
@@ -73,6 +75,7 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
         self.assertEqual("Validate external L4 workflow trial report", payload["gate"]["name"])
         self.assertIn("External workflow trial PASS", payload["gate"]["detail"])
         self.assertEqual(expected_trial_sha, payload["input_files"]["trial_json"]["sha256"])
+        self.assertEqual(expected_readiness_sha, payload["input_files"]["readiness_report"]["sha256"])
         self.assertEqual(expected_artifact_files, payload["input_files"]["artifact_files"])
 
     def test_verifier_records_absolute_paths_for_relative_inputs(self) -> None:
@@ -123,6 +126,22 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
                 )
 
         self.assertIn("--json-out must not overwrite trial artifact: external/handoff_contract.json", str(context.exception))
+
+    def test_verifier_json_out_must_not_overwrite_readiness_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            trial = json.loads(trial_json.read_text(encoding="utf-8"))
+            readiness_path = Path(trial["readiness_report"]["path"])
+
+            with self.assertRaises(SystemExit) as context:
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=readiness_path,
+                )
+
+        self.assertIn("--json-out must not overwrite readiness report", str(context.exception))
 
     def test_verifier_json_out_must_not_create_file_inside_trial_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -469,6 +488,33 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
         self.assertEqual(1, code)
         self.assertIn("input_files.trial_json.sha256 changed after recomputing trial validation", stderr.getvalue())
 
+    def test_saved_verification_report_recomputes_readiness_file_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["input_files"]["readiness_report"]["sha256"] = "0" * 64
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_trial_report.verify_saved_external_trial_report(
+                    json_out,
+                    verify_files=True,
+                )
+
+        self.assertEqual(1, code)
+        self.assertIn(
+            "input_files.readiness_report changed after recomputing trial validation",
+            stderr.getvalue(),
+        )
+
     def test_saved_verification_report_rejects_unbound_trial_json_summary_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -511,6 +557,30 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
         self.assertEqual(1, code)
         self.assertIn(
             "input_files.artifact_files[0].path must match resolved source_path",
+            stderr.getvalue(),
+        )
+
+    def test_saved_verification_report_rejects_unbound_readiness_summary_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["input_files"]["readiness_report"]["path"] = str(root / "other-readiness.json")
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_trial_report.verify_saved_external_trial_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn(
+            "input_files.readiness_report.path must match trial readiness_report.path",
             stderr.getvalue(),
         )
 
