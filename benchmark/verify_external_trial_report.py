@@ -341,6 +341,8 @@ def verification_report_argv_issues(
     for value in json_out_values:
         if value is None:
             failures.append("argv --json-out must include a value")
+        elif not Path(value).is_absolute():
+            failures.append("argv --json-out must be an absolute path")
         elif report_path is not None and normalized_path_key(Path(value)) != normalized_path_key(report_path):
             failures.append("argv --json-out must match saved verifier report path")
     return failures

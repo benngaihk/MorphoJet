@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import unittest
+from contextlib import contextmanager
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
@@ -17,6 +19,16 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "benchmark"))
 
 import verify_github_release  # noqa: E402
+
+
+@contextmanager
+def temporary_cwd(path: Path):
+    previous = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(previous)
 
 
 class VerifyGithubReleaseTest(unittest.TestCase):
@@ -474,6 +486,20 @@ class VerifyGithubReleaseTest(unittest.TestCase):
 
         self.assertEqual(1, status)
         self.assertIn("argv --json-out must match saved verifier report path", stderr.getvalue())
+
+    def test_saved_release_report_rejects_relative_json_out_argv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = self.valid_report(root)
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["argv"][payload["argv"].index("--json-out") + 1] = report.name
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with temporary_cwd(root), redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                status = verify_github_release.verify_saved_github_release_report(report)
+
+        self.assertEqual(1, status)
+        self.assertIn("argv --json-out must be an absolute path", stderr.getvalue())
 
     def test_saved_release_report_requires_json_out_path_binding(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
