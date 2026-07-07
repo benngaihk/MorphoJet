@@ -155,7 +155,7 @@ python3 benchmark/verify_external_trial_report.py \
   --json-out path/to/external/handoff_trial-verification.json
 ```
 
-The standalone verifier uses the same external trial validator as `benchmark/release_gate.py`; `--trial-root` must resolve every declared trial artifact, and `--json-out` writes a machine-readable PASS/FAIL report with `schema_version`, verifier identity, UTC generation timestamp, absolute source trial/root paths, and canonical verifier `argv` binding the source trial JSON, trial root, and absolute saved JSON output. The verifier rejects `--json-out` paths that would overwrite or create files inside the source trial JSON or any declared trial artifact, so reviewer reports should live in a separate review path. Use `--allow-fail-report` only when collecting diagnostic evidence from a known-bad trial report, because normal review should fail closed.
+The standalone verifier uses the same external trial validator as `benchmark/release_gate.py`; `--trial-root` must resolve every declared trial artifact, and `--json-out` writes a machine-readable PASS/FAIL report with `schema_version`, verifier identity, UTC generation timestamp, absolute source trial/root paths, and canonical verifier `argv` binding the source trial JSON, trial root, and absolute saved JSON output. Saved-report review also requires the `argv` trial JSON, `--trial-root`, and `--json-out` path values themselves to be absolute, so the command line cannot be weakened to relative evidence paths while top-level metadata remains absolute. The verifier rejects `--json-out` paths that would overwrite or create files inside the source trial JSON or any declared trial artifact, so reviewer reports should live in a separate review path. Use `--allow-fail-report` only when collecting diagnostic evidence from a known-bad trial report, because normal review should fail closed.
 
 Saved external trial verifier reports can be re-checked during review:
 
@@ -166,7 +166,7 @@ python3 benchmark/verify_external_trial_report.py \
   --require-report-pass
 ```
 
-`--verify-report-files` recomputes the external trial validation from the report's absolute `trial_json` and `trial_root` paths, then checks the report schema/verifier/UTC timestamp, canonical verifier `argv`, the required absolute `--json-out` binding to the saved report path under review, and the recorded gate status and detail against the fresh result. Saved reports also record the source trial JSON size/SHA-256 and every resolved trial artifact size/SHA-256; file recheck recomputes those summaries so a reviewer can catch stale or swapped trial inputs even when the paths still exist.
+`--verify-report-files` recomputes the external trial validation from the report's absolute `trial_json` and `trial_root` paths, then checks the report schema/verifier/UTC timestamp, canonical verifier `argv` with absolute trial/source-root path values, the required absolute `--json-out` binding to the saved report path under review, and the recorded gate status and detail against the fresh result. Saved reports also record the source trial JSON size/SHA-256 and every resolved trial artifact size/SHA-256; file recheck recomputes those summaries so a reviewer can catch stale or swapped trial inputs even when the paths still exist.
 
 After the external trial gate passes, package the evidence for external review and release signoff:
 

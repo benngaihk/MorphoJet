@@ -321,6 +321,13 @@ def verification_report_argv_issues(
         failures.append(f"argv[0]={argv[0]}")
     if "--verify-report" in argv:
         failures.append("argv must not include --verify-report for a generated verifier report")
+    if len(argv) < 2 or argv[1].startswith("--"):
+        failures.append("argv must include trial_json positional argument")
+    else:
+        if not Path(argv[1]).is_absolute():
+            failures.append(f"argv trial_json must be an absolute path: {argv[1]}")
+        if argv[1] != trial_json:
+            failures.append(f"trial_json must match argv trial_json {argv[1]}")
     if argv.count(trial_json) != 1:
         failures.append(f"argv must include trial_json exactly once: {trial_json}")
     trial_root_values = argv_values(argv, "--trial-root")
@@ -331,6 +338,8 @@ def verification_report_argv_issues(
     for value in trial_root_values:
         if value is None:
             failures.append("argv --trial-root must include a value")
+        elif not Path(value).is_absolute():
+            failures.append(f"argv --trial-root must be an absolute path: {value}")
         elif value != trial_root:
             failures.append(f"trial_root must match argv --trial-root {value}")
     json_out_values = argv_values(argv, "--json-out")

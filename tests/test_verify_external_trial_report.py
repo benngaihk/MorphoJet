@@ -285,6 +285,48 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
         self.assertIn("trial_json must be an absolute path", stderr.getvalue())
         self.assertIn("trial_root must be an absolute path", stderr.getvalue())
 
+    def test_saved_verification_report_rejects_relative_trial_json_argv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["argv"][1] = "external/handoff_trial.json"
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_trial_report.verify_saved_external_trial_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn("argv trial_json must be an absolute path", stderr.getvalue())
+
+    def test_saved_verification_report_rejects_relative_trial_root_argv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["argv"][payload["argv"].index("--trial-root") + 1] = "."
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_trial_report.verify_saved_external_trial_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn("argv --trial-root must be an absolute path", stderr.getvalue())
+
     def test_saved_verification_report_rejects_argv_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
