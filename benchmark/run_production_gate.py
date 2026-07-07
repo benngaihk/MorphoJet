@@ -38,6 +38,28 @@ LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS = [
     "stable_github_release",
     "production_claim_enforcement",
 ]
+LOCAL_PREFLIGHT_SKIPPED_FINAL_GUIDANCE = {
+    "clean_git_worktree": {
+        "evidence": "Final production wrapper runs benchmark/release_gate.py with --require-clean-git.",
+        "next_action": "Commit or remove local changes before running the final production wrapper.",
+    },
+    "standard_code_and_artifact_gates": {
+        "evidence": "Final release-gate report reruns or verifies the standard Rust, Python, manifest, and L3 gates.",
+        "next_action": "Run the final production wrapper after code gates and L3 release evidence are current.",
+    },
+    "l3_provenance_hashes": {
+        "evidence": "Final release-gate report includes --require-l3-provenance and matching CellBinDB artifact hashes.",
+        "next_action": "Refresh L3 provenance if measurement code changed, then run the final production wrapper.",
+    },
+    "stable_github_release": {
+        "evidence": "Live GitHub verification passes for the stable non-RC release tag.",
+        "next_action": "After external L4 evidence is accepted, publish the stable tag and verify it with release gate.",
+    },
+    "production_claim_enforcement": {
+        "evidence": "Final report passes --require-production-claim and rechecks with --expect-missing-checks none.",
+        "next_action": "Run benchmark/run_production_gate.py without --local-evidence-preflight-only after stable release evidence exists.",
+    },
+}
 LOCAL_PREFLIGHT_INPUT_NAMES = {
     "external_trial_json",
     "package_handoff_trial_json",
@@ -349,6 +371,7 @@ def build_local_evidence_preflight_payload(args: argparse.Namespace, gates: list
         "final_evidence_acceptable": False,
         "validated_checks": LOCAL_PREFLIGHT_VALIDATED_CHECKS,
         "skipped_final_checks": LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS,
+        "skipped_final_checklist": local_preflight_skipped_final_checklist(),
         "input_artifacts": local_evidence_input_artifacts(args),
         "metadata": {
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -372,6 +395,18 @@ def build_local_evidence_preflight_payload(args: argparse.Namespace, gates: list
         },
         "gates": [asdict(gate) for gate in gates],
     }
+
+
+def local_preflight_skipped_final_checklist() -> list[dict[str, str]]:
+    return [
+        {
+            "check": check,
+            "status": "SKIPPED",
+            "evidence": LOCAL_PREFLIGHT_SKIPPED_FINAL_GUIDANCE[check]["evidence"],
+            "next_action": LOCAL_PREFLIGHT_SKIPPED_FINAL_GUIDANCE[check]["next_action"],
+        }
+        for check in LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS
+    ]
 
 
 def local_evidence_input_artifacts(args: argparse.Namespace) -> list[dict]:
@@ -669,6 +704,23 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
     lines.extend(
         [
             "",
+            "## Skipped Final Checks",
+            "",
+            "| Check | Status | Required Evidence | Next Action |",
+            "|---|---:|---|---|",
+        ]
+    )
+    for row in payload["skipped_final_checklist"]:
+        lines.append(
+            "| "
+            f"{row['check']} | "
+            f"{row['status']} | "
+            f"{row['evidence']} | "
+            f"{row['next_action']} |"
+        )
+    lines.extend(
+        [
+            "",
             "This preflight validates only the external L4 trial report and evidence package. "
             "It does not satisfy the stable GitHub release or final production-claim gates.",
         ]
@@ -879,6 +931,7 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
         failures.append("validated_checks do not match local evidence preflight contract")
     if payload.get("skipped_final_checks") != LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS:
         failures.append("skipped_final_checks do not match local evidence preflight contract")
+    failures.extend(validate_local_evidence_preflight_skipped_checklist(payload))
 
     metadata = payload.get("metadata")
     if not isinstance(metadata, dict):
@@ -1052,6 +1105,30 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
                 "local evidence preflight status does not match gate statuses: "
                 f"{payload.get('status')} != {expected_status}"
             )
+    return failures
+
+
+def validate_local_evidence_preflight_skipped_checklist(payload: dict) -> list[str]:
+    checklist = payload.get("skipped_final_checklist")
+    if not isinstance(checklist, list) or not checklist:
+        return ["skipped_final_checklist must be a non-empty list"]
+    expected = local_preflight_skipped_final_checklist()
+    failures = []
+    if len(checklist) != len(expected):
+        failures.append("skipped_final_checklist length does not match skipped_final_checks")
+    for index, expected_row in enumerate(expected):
+        if index >= len(checklist):
+            failures.append(f"skipped_final_checklist missing row for {expected_row['check']}")
+            continue
+        row = checklist[index]
+        if not isinstance(row, dict):
+            failures.append("skipped_final_checklist entries must be objects")
+            continue
+        for key in ["check", "status", "evidence", "next_action"]:
+            if not isinstance(row.get(key), str) or not row.get(key):
+                failures.append(f"skipped_final_checklist.{expected_row['check']}.{key} must be a non-empty string")
+        if row != expected_row:
+            failures.append(f"skipped_final_checklist row mismatch for {expected_row['check']}")
     return failures
 
 

@@ -1148,6 +1148,16 @@ class RunProductionGateTest(unittest.TestCase):
         )
         self.assertIn("stable_github_release", payload["skipped_final_checks"])
         self.assertIn("production_claim_enforcement", payload["skipped_final_checks"])
+        checklist_by_check = {row["check"]: row for row in payload["skipped_final_checklist"]}
+        self.assertEqual("SKIPPED", checklist_by_check["stable_github_release"]["status"])
+        self.assertIn(
+            "publish the stable tag",
+            checklist_by_check["stable_github_release"]["next_action"],
+        )
+        self.assertIn(
+            "without --local-evidence-preflight-only",
+            checklist_by_check["production_claim_enforcement"]["next_action"],
+        )
         artifact_by_name = {artifact["name"]: artifact for artifact in payload["input_artifacts"]}
         self.assertEqual(
             {
@@ -1170,6 +1180,8 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("evidence_scope: `LOCAL_EXTERNAL_L4_PREFLIGHT`", markdown)
         self.assertIn("final_evidence_acceptable: `False`", markdown)
         self.assertIn("## Input Artifacts", markdown)
+        self.assertIn("## Skipped Final Checks", markdown)
+        self.assertIn("stable_github_release", markdown)
         self.assertIn("package_zip", markdown)
         self.assertIn("Validate external L4 evidence package", markdown)
         self.assertIn("does not satisfy the stable GitHub release", markdown)
@@ -1866,6 +1878,48 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(1, status)
         self.assertIn("evidence_scope=FINAL_PRODUCTION_CLAIM", stderr.getvalue())
         self.assertIn("final_evidence_acceptable=True", stderr.getvalue())
+
+    def test_verify_local_evidence_preflight_report_rejects_skipped_checklist_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            out_json = root / "reports" / "preflight.json"
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(root / "reports" / "preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                run_production_gate.run_local_evidence_preflight(args)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            payload["skipped_final_checklist"][3]["status"] = "PASS"
+            payload["skipped_final_checklist"][3]["next_action"] = "No action needed."
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(1, status)
+        self.assertIn("skipped_final_checklist row mismatch for stable_github_release", stderr.getvalue())
 
     def test_verify_local_evidence_preflight_report_rejects_bad_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -194,7 +194,7 @@ python3 benchmark/run_production_gate.py \
 - L3 public direct-mask benchmark PASS。
 - 已验证的 `v0.1.0-rc.1` prerelease。
 - L4-preflight handoff harness。
-- 外部 L4 trial、evidence package、local evidence preflight、GitHub release saved-report verification、final production gate 和 final report verification 的审计脚手架。
+- 外部 L4 trial、evidence package、local evidence preflight、GitHub release saved-report verification、final production gate 和 final report verification 的审计脚手架；local preflight 也会写入可机器复核的 `skipped_final_checklist`，防止把预检误读成最终生产证据。
 
 仍未完成最终生产声明：
 
