@@ -271,6 +271,7 @@ def readiness_report_argv_issues(
     argv: list[str],
     workspace: str,
     manifest: str,
+    package_name: str | None,
     variables: dict[str, str],
     report_path: Path | None = None,
 ) -> list[str]:
@@ -303,9 +304,15 @@ def readiness_report_argv_issues(
     package_name_values = argv_values(argv, "--package-name")
     if len(package_name_values) > 1:
         failures.append("argv has duplicate --package-name")
+    if package_name is None and package_name_values:
+        failures.append("argv must not include --package-name when package_name is null")
+    elif package_name is not None and not package_name_values:
+        failures.append("argv missing --package-name for package_name")
     for value in package_name_values:
         if value is None:
             failures.append("argv --package-name must include a value")
+        elif package_name is not None and prepare_external_l4_trial.slugify(value) != package_name:
+            failures.append(f"package_name must match argv --package-name {value}")
     var_values = argv_values(argv, "--var")
     if any(value is None or "=" not in value for value in var_values):
         failures.append("argv --var values must use key=value")
@@ -374,6 +381,13 @@ def validate_readiness_report_payload(
     ):
         failures.append("variables must be a string map")
         variables = {}
+    package_name = payload.get("package_name")
+    if package_name is not None:
+        if not isinstance(package_name, str) or not package_name.strip():
+            failures.append("package_name must be null or a non-empty string")
+            package_name = None
+        elif prepare_external_l4_trial.slugify(package_name) != package_name:
+            failures.append("package_name must be a canonical slug")
     checks = payload.get("checks")
     collected_issues: list[str] = []
     if not isinstance(checks, list):
@@ -420,7 +434,16 @@ def validate_readiness_report_payload(
         and manifest.strip()
         and isinstance(variables, dict)
     ):
-        failures.extend(readiness_report_argv_issues(argv, workspace, manifest, variables, report_path=report_path))
+        failures.extend(
+            readiness_report_argv_issues(
+                argv,
+                workspace,
+                manifest,
+                package_name,
+                variables,
+                report_path=report_path,
+            )
+        )
     return failures
 
 
@@ -437,16 +460,14 @@ def verify_saved_readiness_report(
     failures = validate_readiness_report_payload(payload, report_path=report, require_ready=require_ready)
     if not failures and verify_files:
         argv = payload["argv"]
-        package_name_values = argv_values(argv, "--package-name")
-        package_name = package_name_values[0] if package_name_values else None
         fresh = readiness_report(
             Path(payload["workspace"]),
             manifest_path=Path(payload["manifest"]),
-            package_name=package_name,
+            package_name=payload.get("package_name"),
             variables=parse_argv_vars(argv),
             json_out=report,
         )
-        for key in ["status", "workspace", "manifest", "variables", "checks", "issues"]:
+        for key in ["status", "workspace", "manifest", "package_name", "variables", "checks", "issues"]:
             if payload.get(key) != fresh.get(key):
                 failures.append(f"saved readiness report {key} changed after report was written")
     if failures:
@@ -473,6 +494,11 @@ def readiness_report(
     explicit_variables = variables or {}
     variables = {"base_dir": str(workspace), **explicit_variables}
     manifest_path = manifest_path or workspace / MANIFEST_NAME
+    canonical_package_name = (
+        prepare_external_l4_trial.slugify(package_name)
+        if package_name is not None
+        else None
+    )
     issues: list[str] = []
     checks: list[dict[str, Any]] = []
 
@@ -501,7 +527,7 @@ def readiness_report(
         planned_report_output_path_issues = planned_report_output_issues(workspace)
         trial_id = manifest.get("trial_id")
         package_issues = (
-            package_output_issues(workspace, trial_id, package_name)
+            package_output_issues(workspace, trial_id, canonical_package_name)
             if isinstance(trial_id, str) and trial_id.strip()
             else ["manifest.trial_id must be a non-empty string"]
         )
@@ -553,6 +579,7 @@ def readiness_report(
         "claim_status": "NOT_PRODUCTION_CLAIM",
         "workspace": str(workspace),
         "manifest": str(manifest_path),
+        "package_name": canonical_package_name,
         "variables": variables,
         "checks": checks,
         "issues": issues,

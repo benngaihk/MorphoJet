@@ -122,6 +122,7 @@ class ExternalL4ReadinessTest(unittest.TestCase):
 
             self.assertEqual("READY", payload["status"])
             self.assertEqual([], payload["issues"])
+            self.assertIsNone(payload["package_name"])
             self.assertTrue(all(check["status"] == "PASS" for check in payload["checks"]))
             generated_at = datetime.fromisoformat(payload["generated_at_utc"])
             self.assertIsNotNone(generated_at.tzinfo)
@@ -163,6 +164,7 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             generated_at = datetime.fromisoformat(payload["generated_at_utc"])
             self.assertIsNotNone(generated_at.tzinfo)
             self.assertEqual(timezone.utc.utcoffset(generated_at), generated_at.utcoffset())
+            self.assertEqual("custom-review", payload["package_name"])
             self.assertEqual(
                 [
                     "benchmark/check_external_l4_readiness.py",
@@ -382,6 +384,99 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             self.assertNotEqual(0, completed.returncode)
             self.assertIn("workspace must match argv --workspace", completed.stderr)
 
+    def test_saved_readiness_report_rejects_missing_package_name_argv_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace, package_name="custom review")
+            manifest_path = workspace / "external_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            fill_external_evidence(manifest)
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            write_valid_inputs(workspace)
+            report = workspace / "readiness.json"
+            subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--workspace",
+                    str(workspace),
+                    "--package-name",
+                    "custom-review",
+                    "--json-out",
+                    str(report),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            package_flag = payload["argv"].index("--package-name")
+            del payload["argv"][package_flag:package_flag + 2]
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--verify-report",
+                    str(report),
+                    "--require-ready",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("argv missing --package-name for package_name", completed.stderr)
+
+    def test_saved_readiness_report_rejects_package_name_argv_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace, package_name="custom review")
+            manifest_path = workspace / "external_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            fill_external_evidence(manifest)
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            write_valid_inputs(workspace)
+            report = workspace / "readiness.json"
+            subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--workspace",
+                    str(workspace),
+                    "--package-name",
+                    "custom-review",
+                    "--json-out",
+                    str(report),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["argv"][payload["argv"].index("--package-name") + 1] = "other-review"
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--verify-report",
+                    str(report),
+                    "--require-ready",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("package_name must match argv --package-name other-review", completed.stderr)
+
     def test_saved_readiness_report_rejects_relative_json_out_argv(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "external-trial"
@@ -467,6 +562,56 @@ class ExternalL4ReadinessTest(unittest.TestCase):
 
             self.assertNotEqual(0, completed.returncode)
             self.assertIn("saved readiness report status changed after report was written", completed.stderr)
+
+    def test_saved_readiness_report_file_recheck_uses_bound_package_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace, package_name="custom review")
+            manifest_path = workspace / "external_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            fill_external_evidence(manifest)
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            write_valid_inputs(workspace)
+            report = workspace / "readiness.json"
+            subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--workspace",
+                    str(workspace),
+                    "--package-name",
+                    "custom-review",
+                    "--json-out",
+                    str(report),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["argv"][payload["argv"].index("--package-name") + 1] = "custom review"
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+            package_dir = workspace / "evidence-package" / "custom-review"
+            package_dir.mkdir(parents=True)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--verify-report",
+                    str(report),
+                    "--verify-report-files",
+                    "--require-ready",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            self.assertIn("saved readiness report status changed after report was written", completed.stderr)
+            self.assertIn("saved readiness report checks changed after report was written", completed.stderr)
 
     def test_existing_package_output_blocks_default_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
