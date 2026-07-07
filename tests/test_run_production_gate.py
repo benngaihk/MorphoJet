@@ -366,6 +366,21 @@ class RunProductionGateTest(unittest.TestCase):
                 ],
             )
 
+    def test_final_report_output_must_not_overwrite_package_readiness_json(self) -> None:
+        args = self.parse("--out-json", "evidence/external-l4-trial/readiness.json")
+
+        with self.assertRaisesRegex(
+            run_production_gate.ProductionGateError,
+            "--out-json must not overwrite packaged readiness.json",
+        ):
+            run_production_gate.validate_report_output_paths(
+                args,
+                [
+                    ("--out-json", args.out_json),
+                    ("--out-md", args.out_md),
+                ],
+            )
+
     def test_final_report_output_must_not_create_file_inside_declared_trial_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

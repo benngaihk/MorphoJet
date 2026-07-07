@@ -191,6 +191,7 @@ def protected_input_path_entries(args: argparse.Namespace) -> dict[Path, str]:
         args.external_trial_root: "--external-trial-root",
         args.external_evidence_package_dir: "--external-evidence-package-dir",
         args.external_evidence_package_dir / "handoff_trial.json": "packaged handoff_trial.json",
+        args.external_evidence_package_dir / "readiness.json": "packaged readiness.json",
         args.external_evidence_package_dir / "external_evidence.json": "packaged external_evidence.json",
         args.external_evidence_package_dir / "rendered_manifest.json": "packaged rendered_manifest.json",
         args.external_evidence_package_dir / "artifact_manifest.json": "packaged artifact_manifest.json",
