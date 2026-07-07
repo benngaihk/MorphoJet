@@ -759,6 +759,24 @@ class ReleaseGateTest(unittest.TestCase):
             ):
                 release_gate.validate_report_output_paths(args)
 
+    def test_report_output_must_not_overwrite_evidence_package_readiness_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            package_dir = root / "package"
+            package_dir.mkdir()
+            readiness = package_dir / "readiness.json"
+            readiness.write_text("{}\n", encoding="utf-8")
+            args = self.production_args(
+                external_evidence_package_dir=package_dir,
+                out_json=readiness,
+            )
+
+            with self.assertRaisesRegex(
+                SystemExit,
+                "--out-json must not overwrite evidence package file: readiness.json",
+            ):
+                release_gate.validate_report_output_paths(args)
+
     def test_report_output_must_not_create_file_inside_external_trial_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

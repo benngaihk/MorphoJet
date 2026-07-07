@@ -346,6 +346,7 @@ def add_package_protected_paths(paths: dict[Path, str], package_dir: Path | None
         return
     for filename in [
         "handoff_trial.json",
+        "readiness.json",
         "external_evidence.json",
         "rendered_manifest.json",
         "artifact_manifest.json",
