@@ -410,6 +410,8 @@ def plan_commands(
             "--verify-git-commit",
             "--expect-tag",
             "v0.1.0",
+            "--expect-repo",
+            "benngaihk/MorphoJet",
         ],
         "final_production_gate": [
             "python3",

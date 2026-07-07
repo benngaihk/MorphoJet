@@ -129,6 +129,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("--require-stable-report", stable_report)
             self.assertIn("--verify-git-commit", stable_report)
             self.assertEqual("v0.1.0", stable_report[stable_report.index("--expect-tag") + 1])
+            self.assertEqual("benngaihk/MorphoJet", stable_report[stable_report.index("--expect-repo") + 1])
             final_gate = plan["commands"]["final_production_gate"]
             self.assertEqual(
                 str((workspace / "handoff_trial.json").resolve()),
