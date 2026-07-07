@@ -19,6 +19,7 @@ import validate_handoff_manifest
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = "benchmark/prepare_external_l4_trial.py"
 DEFAULT_TEMPLATE = Path("benchmark/handoff/external_lab_template.json")
+DEFAULT_TEMPLATE_ABS = (ROOT / DEFAULT_TEMPLATE).resolve()
 MANIFEST_NAME = "external_manifest.json"
 PLAN_NAME = "trial_plan.json"
 README_NAME = "README.md"
@@ -62,7 +63,7 @@ def command_line(command: list[str]) -> str:
 
 def generator_argv(template_path: Path, workspace: Path, package_name: str | None, overwrite: bool) -> list[str]:
     argv = [GENERATOR, "--workspace", str(workspace)]
-    if template_path != DEFAULT_TEMPLATE:
+    if template_path.resolve() != DEFAULT_TEMPLATE_ABS:
         argv.extend(["--template", str(template_path)])
     if package_name is not None:
         argv.extend(["--package-name", package_name])
@@ -100,16 +101,20 @@ def validate_generator_argv(payload: dict[str, Any], argv: list[str]) -> list[st
     for value in workspace_values:
         if value is None:
             failures.append("argv --workspace must include a value")
+        elif not Path(value).is_absolute():
+            failures.append("argv --workspace must be an absolute path")
         elif isinstance(workspace, str) and value != workspace:
             failures.append(f"workspace must match argv --workspace {value}")
     template_values = argv_values(argv, "--template")
     if len(template_values) > 1:
         failures.append("argv has duplicate --template")
-    if not template_values and template != str(DEFAULT_TEMPLATE):
+    if not template_values and template not in {str(DEFAULT_TEMPLATE), str(DEFAULT_TEMPLATE_ABS)}:
         failures.append("argv missing --template for non-default template")
     for value in template_values:
         if value is None:
             failures.append("argv --template must include a value")
+        elif not Path(value).is_absolute():
+            failures.append("argv --template must be an absolute path")
         elif isinstance(template, str) and value != template:
             failures.append(f"template must match argv --template {value}")
     package_values = argv_values(argv, "--package-name")
@@ -154,6 +159,8 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
         value = payload.get(key)
         if not isinstance(value, str) or not value.strip():
             failures.append(f"{key} must be a non-empty string")
+        elif key != "package_name" and not Path(value).is_absolute():
+            failures.append(f"{key} must be an absolute path")
     template_size = payload.get("template_size_bytes")
     if not isinstance(template_size, int) or template_size <= 0:
         failures.append(f"template_size_bytes={template_size}")
@@ -440,6 +447,8 @@ def prepare_workspace(
     package_name: str | None = None,
     overwrite: bool = False,
 ) -> dict[str, Any]:
+    template_path = template_path.resolve()
+    workspace = workspace.resolve()
     template = load_json(template_path)
     validate_template(template)
     trial_id = template.get("trial_id")
@@ -497,8 +506,11 @@ def main() -> int:
         parser.error("--workspace is required unless --verify-plan is used")
 
     try:
+        template = args.template
+        if template == DEFAULT_TEMPLATE and not template.is_absolute():
+            template = DEFAULT_TEMPLATE_ABS
         plan = prepare_workspace(
-            args.template,
+            template,
             args.workspace,
             package_name=args.package_name,
             overwrite=args.overwrite,

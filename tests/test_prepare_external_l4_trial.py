@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
+import os
 import json
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -19,6 +21,16 @@ import prepare_external_l4_trial  # noqa: E402
 
 
 TEMPLATE = ROOT / "benchmark/handoff/external_lab_template.json"
+
+
+@contextmanager
+def temporary_cwd(path: Path):
+    previous = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(previous)
 
 
 class PrepareExternalL4TrialTest(unittest.TestCase):
@@ -36,12 +48,13 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 [
                     "benchmark/prepare_external_l4_trial.py",
                     "--workspace",
-                    str(workspace),
-                    "--template",
-                    str(TEMPLATE),
+                    str(workspace.resolve()),
                 ],
                 plan["argv"],
             )
+            self.assertEqual(str(TEMPLATE.resolve()), plan["template"])
+            self.assertEqual(str(workspace.resolve()), plan["workspace"])
+            self.assertEqual(str((workspace / "external_manifest.json").resolve()), plan["manifest"])
             self.assertEqual(TEMPLATE.stat().st_size, plan["template_size_bytes"])
             self.assertEqual(prepare_external_l4_trial.sha256(TEMPLATE), plan["template_sha256"])
             self.assertTrue((workspace / "external_manifest.json").is_file())
@@ -60,20 +73,23 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                     "python3",
                     "benchmark/prepare_external_l4_trial.py",
                     "--verify-plan",
-                    str(workspace / "trial_plan.json"),
+                    str((workspace / "trial_plan.json").resolve()),
                     "--verify-plan-files",
                 ],
                 verify_plan,
             )
             run_command = plan["commands"]["run_trial"]
             self.assertIn("--require-external-evidence", run_command)
-            self.assertIn(f"base_dir={workspace}", run_command)
-            self.assertEqual(str(workspace / "handoff_trial.json"), run_command[run_command.index("--out-json") + 1])
-            self.assertEqual(str(workspace), plan["commands"]["check_readiness"][3])
+            self.assertIn(f"base_dir={workspace.resolve()}", run_command)
+            self.assertEqual(
+                str((workspace / "handoff_trial.json").resolve()),
+                run_command[run_command.index("--out-json") + 1],
+            )
+            self.assertEqual(str(workspace.resolve()), plan["commands"]["check_readiness"][3])
             self.assertEqual(plan["package_name"], plan["commands"]["check_readiness"][5])
             verify_readiness = plan["commands"]["verify_readiness"]
             self.assertEqual(
-                str(workspace / "readiness.json"),
+                str((workspace / "readiness.json").resolve()),
                 verify_readiness[verify_readiness.index("--verify-report") + 1],
             )
             self.assertIn("--verify-report-files", verify_readiness)
@@ -97,14 +113,38 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 [
                     "benchmark/prepare_external_l4_trial.py",
                     "--workspace",
-                    str(workspace),
-                    "--template",
-                    str(TEMPLATE),
+                    str(workspace.resolve()),
                     "--package-name",
                     "external review package",
                 ],
                 plan["argv"],
             )
+
+    def test_cli_records_absolute_paths_for_relative_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workspace = root / "external-trial"
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "benchmark/prepare_external_l4_trial.py"),
+                    "--workspace",
+                    "external-trial",
+                ],
+                cwd=root,
+                text=True,
+                capture_output=True,
+            )
+            plan_path = workspace / "trial_plan.json"
+            plan = json.loads(plan_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertEqual(str(workspace.resolve()), plan["workspace"])
+        self.assertEqual(str(TEMPLATE.resolve()), plan["template"])
+        self.assertEqual(str((workspace / "external_manifest.json").resolve()), plan["manifest"])
+        self.assertIn(str(workspace.resolve()), plan["argv"])
+        self.assertIn(str((workspace / "trial_plan.json").resolve()), plan["commands"]["verify_plan"])
 
     def test_saved_trial_plan_can_be_verified_with_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -176,6 +216,60 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
 
             self.assertNotEqual(0, completed.returncode)
             self.assertIn("commands changed after plan was written", completed.stderr)
+
+    def test_saved_trial_plan_rejects_relative_top_level_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+            payload = json.loads(plan_path.read_text(encoding="utf-8"))
+            payload["template"] = "benchmark/handoff/external_lab_template.json"
+            payload["workspace"] = "external-trial"
+            payload["manifest"] = "external-trial/external_manifest.json"
+            plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("template must be an absolute path", completed.stderr)
+        self.assertIn("workspace must be an absolute path", completed.stderr)
+        self.assertIn("manifest must be an absolute path", completed.stderr)
+
+    def test_saved_trial_plan_rejects_relative_generator_argv_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+            payload = json.loads(plan_path.read_text(encoding="utf-8"))
+            payload["argv"][payload["argv"].index("--workspace") + 1] = "external-trial"
+            payload["argv"].extend(["--template", "benchmark/handoff/external_lab_template.json"])
+            plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with temporary_cwd(workspace):
+                completed = subprocess.run(
+                    [
+                        sys.executable,
+                        str(ROOT / "benchmark/prepare_external_l4_trial.py"),
+                        "--verify-plan",
+                        str(plan_path),
+                    ],
+                    text=True,
+                    capture_output=True,
+                )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("argv --workspace must be an absolute path", completed.stderr)
+        self.assertIn("argv --template must be an absolute path", completed.stderr)
 
     def test_saved_trial_plan_rejects_command_tampering_without_file_checks(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -287,7 +381,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
 
             plan = prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace, overwrite=True)
 
-            self.assertEqual(str(workspace / "external_manifest.json"), plan["manifest"])
+            self.assertEqual(str((workspace / "external_manifest.json").resolve()), plan["manifest"])
 
     def test_prepare_workspace_refuses_stale_trial_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
