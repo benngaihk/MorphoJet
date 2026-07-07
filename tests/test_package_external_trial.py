@@ -76,14 +76,33 @@ class PackageExternalTrialTest(unittest.TestCase):
             self.assertTrue((package_dir / "artifacts/external/handoff_contract.json").is_file())
             self.assertEqual(4, result["artifact_count"])
             self.assertEqual(4, len(manifest["artifacts"]))
+            self.assertEqual("NOT_PRODUCTION_CLAIM", manifest["claim_status"])
+            self.assertEqual("EXTERNAL_L4_EVIDENCE_PACKAGE", manifest["evidence_scope"])
+            self.assertFalse(manifest["final_production_signoff"])
             self.assertEqual(
                 json.loads(trial_json.read_text(encoding="utf-8"))["readiness_report"],
                 manifest["readiness_report"],
             )
             self.assertEqual("external-l4-demo", manifest["readiness_report"]["package_name"])
             self.assertIn(
+                "- final_production_signoff: `False`",
+                (package_dir / "README.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "not a final production signoff by itself",
+                (package_dir / "README.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
                 "- readiness_package_name: `external-l4-demo`",
                 (package_dir / "README.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "- final_production_signoff: `False`",
+                (package_dir / "README.zh-CN.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "它本身不是最终生产签核",
+                (package_dir / "README.zh-CN.md").read_text(encoding="utf-8"),
             )
             self.assertIn(
                 "- readiness_package_name: `external-l4-demo`",
@@ -1222,6 +1241,7 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual("FAIL", gate.status)
         self.assertIn("package README missing signoff field: trial_id", gate.detail)
         self.assertIn("package README missing signoff field: validation_detail", gate.detail)
+        self.assertIn("package README missing signoff field: final_production_signoff", gate.detail)
 
     def test_release_gate_rejects_package_chinese_readme_missing_signoff_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1248,6 +1268,38 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual("FAIL", gate.status)
         self.assertIn("package Chinese README missing signoff field: trial_id", gate.detail)
         self.assertIn("package Chinese README missing signoff field: validation_detail", gate.detail)
+        self.assertIn("package Chinese README missing signoff field: final_production_signoff", gate.detail)
+
+    def test_release_gate_rejects_package_manifest_claim_boundary_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+            manifest_path = package_dir / "artifact_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["claim_status"] = "PASS"
+            manifest["evidence_scope"] = "FINAL_PRODUCTION_CLAIM"
+            manifest["final_production_signoff"] = True
+            manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            zip_path = Path(result["zip"])
+            package_external_trial.zip_directory(package_dir, zip_path)
+            Path(result["sha256"]).write_text(
+                f"{release_gate.sha256_file(zip_path)}  external-l4-demo.zip\n",
+                encoding="utf-8",
+            )
+
+            gate = release_gate.validate_external_evidence_package(package_dir, trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("package artifact_manifest.claim_status=PASS", gate.detail)
+        self.assertIn("package artifact_manifest.evidence_scope=FINAL_PRODUCTION_CLAIM", gate.detail)
+        self.assertIn("package artifact_manifest.final_production_signoff must be false", gate.detail)
 
     def test_release_gate_rejects_tampered_review_file_digest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

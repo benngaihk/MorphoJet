@@ -1165,6 +1165,11 @@ def external_package_readme_common_required_fields(trial: dict, artifact_manifes
     evidence = trial.get("external_evidence") if isinstance(trial.get("external_evidence"), dict) else {}
     metadata = trial.get("metadata") if isinstance(trial.get("metadata"), dict) else {}
     return {
+        "claim_status": f"- claim_status: `{artifact_manifest.get('claim_status')}`",
+        "evidence_scope": f"- evidence_scope: `{artifact_manifest.get('evidence_scope')}`",
+        "final_production_signoff": (
+            f"- final_production_signoff: `{artifact_manifest.get('final_production_signoff')}`"
+        ),
         "trial_id": f"- trial_id: `{trial.get('trial_id')}`",
         "trial_status": f"- trial_status: `{trial.get('status')}`",
         "lab_or_org": f"- lab_or_org: `{evidence.get('lab_or_org')}`",
@@ -1196,7 +1201,9 @@ def external_package_readme_failures(readme: str, trial: dict, artifact_manifest
     evidence = trial.get("external_evidence") if isinstance(trial.get("external_evidence"), dict) else {}
     required_fields = {
         **external_package_readme_common_required_fields(trial, artifact_manifest),
+        "language_switch": "Language: English | [简体中文](README.zh-CN.md)",
         "validation_detail": "This package was created only after the external trial report passed",
+        "not_final_signoff": "not a final production signoff by itself",
         "revalidation_command": "python3 benchmark/release_gate.py --external-trial-json",
     }
     failures = []
@@ -1218,6 +1225,7 @@ def external_package_chinese_readme_failures(readme: str, trial: dict, artifact_
         "title": "# 外部 L4 试验证据包",
         "language_switch": "Language: [English](README.md) | 简体中文",
         "validation_detail": "这个 evidence package 只在外部 trial report 通过",
+        "not_final_signoff": "它本身不是最终生产签核",
         "revalidation_command": "python3 benchmark/release_gate.py --external-trial-json",
     }
     failures = []
@@ -1382,6 +1390,14 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
             failures.append(f"package artifact_manifest.schema_version={artifact_manifest.get('schema_version')}")
         if artifact_manifest.get("generator") != "benchmark/package_external_trial.py":
             failures.append(f"package artifact_manifest.generator={artifact_manifest.get('generator')}")
+        if artifact_manifest.get("claim_status") != "NOT_PRODUCTION_CLAIM":
+            failures.append(f"package artifact_manifest.claim_status={artifact_manifest.get('claim_status')}")
+        if artifact_manifest.get("evidence_scope") != "EXTERNAL_L4_EVIDENCE_PACKAGE":
+            failures.append(f"package artifact_manifest.evidence_scope={artifact_manifest.get('evidence_scope')}")
+        if artifact_manifest.get("final_production_signoff") is not False:
+            failures.append(
+                "package artifact_manifest.final_production_signoff must be false"
+            )
         failures.extend(package_artifact_manifest_argv_failures(artifact_manifest, package_dir, trial_json))
         packaged_at = artifact_manifest.get("packaged_at_utc")
         if not isinstance(packaged_at, str) or not packaged_at.strip():
