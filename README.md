@@ -1,6 +1,6 @@
 # MorphoJet
 
-[中文 README](README.zh-CN.md)
+Language: English | [简体中文](README.zh-CN.md)
 
 CellProfiler-compatible fast batch measurements for microscopy images.
 

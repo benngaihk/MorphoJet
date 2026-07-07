@@ -1,6 +1,6 @@
 # MorphoJet
 
-[English README](README.md)
+语言：[English](README.md) | 简体中文
 
 MorphoJet 是面向显微图像批量测量的高速命令行工具，目标是兼容一部分 CellProfiler 风格的数据交付流程。
 
