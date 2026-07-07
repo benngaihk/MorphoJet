@@ -154,6 +154,16 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 str((workspace / "production-claim.json").resolve()),
                 final_gate[final_gate.index("--out-json") + 1],
             )
+            final_report = plan["commands"]["verify_final_production_report"]
+            self.assertEqual(
+                str((workspace / "production-claim.json").resolve()),
+                final_report[2],
+            )
+            self.assertIn("--require-report-pass", final_report)
+            self.assertIn("--require-clean-git-metadata", final_report)
+            self.assertIn("--verify-git-commit", final_report)
+            self.assertIn("--require-production-claim-pass", final_report)
+            self.assertEqual("none", final_report[final_report.index("--expect-missing-checks") + 1])
             readme = (workspace / "README.md").read_text(encoding="utf-8")
             self.assertLess(readme.index("## verify_plan"), readme.index("## validate_manifest"))
             self.assertLess(readme.index("## verify_readiness"), readme.index("## run_trial"))
@@ -168,6 +178,10 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertLess(
                 readme.index("## verify_stable_release_report"),
                 readme.index("## final_production_gate"),
+            )
+            self.assertLess(
+                readme.index("## final_production_gate"),
+                readme.index("## verify_final_production_report"),
             )
 
     def test_prepare_workspace_records_custom_generator_argv(self) -> None:

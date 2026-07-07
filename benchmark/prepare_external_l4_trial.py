@@ -184,6 +184,7 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
         "verify_stable_release",
         "verify_stable_release_report",
         "final_production_gate",
+        "verify_final_production_report",
     ]
     if not isinstance(commands, dict):
         failures.append("commands must be an object")
@@ -435,6 +436,17 @@ def plan_commands(
             "--out-md",
             str(production_claim_md),
         ],
+        "verify_final_production_report": [
+            "python3",
+            "benchmark/verify_release_gate_report.py",
+            str(production_claim_json),
+            "--require-report-pass",
+            "--require-clean-git-metadata",
+            "--verify-git-commit",
+            "--require-production-claim-pass",
+            "--expect-missing-checks",
+            "none",
+        ],
     }
 
 
@@ -468,6 +480,7 @@ def render_readme(plan: dict[str, Any]) -> str:
         "verify_stable_release",
         "verify_stable_release_report",
         "final_production_gate",
+        "verify_final_production_report",
     ]:
         lines.extend(
             [
@@ -481,7 +494,8 @@ def render_readme(plan: dict[str, Any]) -> str:
         )
     lines.extend(
         [
-            "The final production gate still requires the completed external trial, evidence package, and a live stable release verification in one passing report.",
+            "The final production gate still requires the completed external trial, evidence package, saved reviewer reports, a live stable release verification, and a saved stable release verifier report in one passing report.",
+            "The final verification command re-checks that saved production-claim report before signoff.",
             "",
         ]
     )
