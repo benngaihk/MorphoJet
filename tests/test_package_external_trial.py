@@ -180,6 +180,7 @@ class PackageExternalTrialTest(unittest.TestCase):
             expected_trial_sha = release_gate.sha256_file(trial_json)
             expected_zip_sha = release_gate.sha256_file(Path(result["zip"]))
             expected_manifest_sha = release_gate.sha256_file(Path(result["package_dir"]) / "artifact_manifest.json")
+            expected_readiness_sha = release_gate.sha256_file(Path(result["package_dir"]) / "readiness.json")
 
         self.assertEqual(0, code)
         self.assertEqual(1, payload["schema_version"])
@@ -192,6 +193,7 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual(expected_trial_sha, payload["input_files"]["source_trial_json"]["sha256"])
         self.assertEqual(expected_zip_sha, payload["input_files"]["package_zip"]["sha256"])
         self.assertEqual(expected_manifest_sha, payload["input_files"]["package_artifact_manifest"]["sha256"])
+        self.assertEqual(expected_readiness_sha, payload["input_files"]["package_readiness"]["sha256"])
 
     def test_standalone_verifier_records_absolute_paths_for_relative_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -220,6 +222,10 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual(
             str((package_dir / "artifact_manifest.json").resolve()),
             payload["input_files"]["package_artifact_manifest"]["path"],
+        )
+        self.assertEqual(
+            str((package_dir / "readiness.json").resolve()),
+            payload["input_files"]["package_readiness"]["path"],
         )
         self.assertEqual(str(trial_json.resolve()), payload["input_files"]["source_trial_json"]["path"])
         self.assertIn(str(package_dir.resolve()), payload["argv"])
@@ -266,6 +272,27 @@ class PackageExternalTrialTest(unittest.TestCase):
                 )
 
         self.assertIn("--json-out must not overwrite package review file: artifact_manifest.json", str(context.exception))
+
+    def test_package_verifier_json_out_must_not_overwrite_package_readiness_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+
+            with self.assertRaises(SystemExit) as context:
+                verify_external_evidence_package.verify_external_evidence_package(
+                    package_dir,
+                    trial_json=trial_json,
+                    json_out=package_dir / "readiness.json",
+                )
+
+        self.assertIn("--json-out must not overwrite package review file: readiness.json", str(context.exception))
 
     def test_package_verifier_json_out_must_not_overwrite_package_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -720,7 +747,7 @@ class PackageExternalTrialTest(unittest.TestCase):
                     json_out=json_out,
                 )
             payload = json.loads(json_out.read_text(encoding="utf-8"))
-            payload["input_files"]["package_readme"]["sha256"] = "0" * 64
+            payload["input_files"]["package_readiness"]["sha256"] = "0" * 64
             json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
             with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
@@ -731,7 +758,7 @@ class PackageExternalTrialTest(unittest.TestCase):
 
         self.assertEqual(1, code)
         self.assertIn(
-            "input_files.package_readme.sha256 changed after recomputing evidence package validation",
+            "input_files.package_readiness.sha256 changed after recomputing evidence package validation",
             stderr.getvalue(),
         )
 

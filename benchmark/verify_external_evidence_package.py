@@ -19,6 +19,7 @@ VERIFIER = "benchmark/verify_external_evidence_package.py"
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 PACKAGE_REVIEW_FILES = {
     "package_handoff_trial": "handoff_trial.json",
+    "package_readiness": "readiness.json",
     "package_rendered_manifest": "rendered_manifest.json",
     "package_external_evidence": "external_evidence.json",
     "package_artifact_manifest": "artifact_manifest.json",
