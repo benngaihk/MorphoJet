@@ -174,6 +174,8 @@ class ReleaseGateTest(unittest.TestCase):
             "external_trial_json": None,
             "external_trial_root": None,
             "external_evidence_package_dir": None,
+            "external_trial_verification_report": None,
+            "external_evidence_package_verification_report": None,
             "verify_github_release": None,
             "github_release_kind": "prerelease",
             "github_release_verification_report": None,
@@ -226,14 +228,18 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertEqual("MISSING", statuses["l3_provenance_hashes"])
         self.assertEqual("MISSING", statuses["external_l4_workflow_trial"])
         self.assertEqual("MISSING", statuses["external_l4_evidence_package"])
+        self.assertEqual("MISSING", statuses["external_l4_saved_reviewer_reports"])
         self.assertEqual("MISSING", statuses["stable_github_release"])
+        self.assertEqual("MISSING", statuses["stable_github_release_saved_report"])
         self.assertEqual(
             [
                 "clean_git_worktree",
                 "l3_provenance_hashes",
                 "external_l4_workflow_trial",
                 "external_l4_evidence_package",
+                "external_l4_saved_reviewer_reports",
                 "stable_github_release",
+                "stable_github_release_saved_report",
             ],
             audit["missing_or_failed_checks"],
         )
@@ -256,7 +262,10 @@ class ReleaseGateTest(unittest.TestCase):
                 "Validate CellBinDB handoff trial artifacts",
                 "Validate external L4 workflow trial report",
                 "Validate external L4 evidence package",
+                "Verify saved external L4 trial report",
+                "Verify saved external L4 evidence package report",
                 "Verify GitHub release assets",
+                "Verify saved stable GitHub release report",
             ]
         )
 
@@ -266,8 +275,11 @@ class ReleaseGateTest(unittest.TestCase):
                 require_l3_provenance=True,
                 external_trial_json=Path("handoff_trial.json"),
                 external_evidence_package_dir=Path("external-l4-package"),
+                external_trial_verification_report=Path("trial-verification.json"),
+                external_evidence_package_verification_report=Path("package-verification.json"),
                 verify_github_release="v0.1.0",
                 github_release_kind="stable",
+                github_release_verification_report=Path("github-release-verification.json"),
             ),
             gates,
             {"git_commit": "abc123"},
@@ -315,7 +327,9 @@ class ReleaseGateTest(unittest.TestCase):
                 "l3_provenance_hashes",
                 "external_l4_workflow_trial",
                 "external_l4_evidence_package",
+                "external_l4_saved_reviewer_reports",
                 "stable_github_release",
+                "stable_github_release_saved_report",
             ],
             payload["production_claim_audit"]["missing_or_failed_checks"],
         )
@@ -344,7 +358,10 @@ class ReleaseGateTest(unittest.TestCase):
                 "Validate CellBinDB handoff trial artifacts",
                 "Validate external L4 workflow trial report",
                 "Validate external L4 evidence package",
+                "Verify saved external L4 trial report",
+                "Verify saved external L4 evidence package report",
                 "Verify GitHub release assets",
+                "Verify saved stable GitHub release report",
             ]
         )
 
@@ -357,8 +374,11 @@ class ReleaseGateTest(unittest.TestCase):
                     require_production_claim=True,
                     external_trial_json=Path("handoff_trial.json"),
                     external_evidence_package_dir=Path("external-l4-package"),
+                    external_trial_verification_report=Path("trial-verification.json"),
+                    external_evidence_package_verification_report=Path("package-verification.json"),
                     verify_github_release="v0.1.0",
                     github_release_kind="stable",
+                    github_release_verification_report=Path("github-release-verification.json"),
                     out_json=root / "report.json",
                     out_md=root / "report.md",
                 ),

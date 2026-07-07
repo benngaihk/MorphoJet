@@ -1656,6 +1656,17 @@ def production_audit_status(gates: list[Gate], name: str) -> str:
     return status
 
 
+def combined_production_audit_status(gates: list[Gate], names: list[str], enabled: bool) -> str:
+    if not enabled:
+        return "MISSING"
+    statuses = [production_audit_status(gates, name) for name in names]
+    if all(status == "PASS" for status in statuses):
+        return "PASS"
+    if any(status == "FAIL" for status in statuses):
+        return "FAIL"
+    return "MISSING"
+
+
 def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], metadata: dict) -> dict:
     standard_gate_names = [
         "Rust formatting",
@@ -1706,11 +1717,34 @@ def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], me
             "detail": "Requires --external-evidence-package-dir from a validated external L4 trial package.",
         },
         {
+            "name": "external_l4_saved_reviewer_reports",
+            "status": combined_production_audit_status(
+                gates,
+                [
+                    "Verify saved external L4 trial report",
+                    "Verify saved external L4 evidence package report",
+                ],
+                bool(args.external_trial_verification_report)
+                and bool(args.external_evidence_package_verification_report),
+            ),
+            "detail": (
+                "Requires saved external trial and evidence-package reviewer reports to be supplied "
+                "and re-checked with file hashing."
+            ),
+        },
+        {
             "name": "stable_github_release",
             "status": production_audit_status(gates, "Verify GitHub release assets")
             if args.verify_github_release and args.github_release_kind == "stable"
             else "MISSING",
             "detail": "Requires --verify-github-release with --github-release-kind stable.",
+        },
+        {
+            "name": "stable_github_release_saved_report",
+            "status": production_audit_status(gates, "Verify saved stable GitHub release report")
+            if args.github_release_verification_report
+            else "MISSING",
+            "detail": "Requires a saved stable GitHub release verifier report bound to the final repo and tag.",
         },
     ]
     status = "PASS" if all(check["status"] == "PASS" for check in checks) else "INCOMPLETE"

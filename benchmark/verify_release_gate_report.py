@@ -22,7 +22,9 @@ REQUIRED_AUDIT_CHECKS = [
     "l3_provenance_hashes",
     "external_l4_workflow_trial",
     "external_l4_evidence_package",
+    "external_l4_saved_reviewer_reports",
     "stable_github_release",
+    "stable_github_release_saved_report",
 ]
 
 
@@ -46,7 +48,10 @@ REQUIRED_PRODUCTION_GATE_NAMES = {
     "Validate CellBinDB handoff trial artifacts",
     "Validate external L4 workflow trial report",
     "Validate external L4 evidence package",
+    "Verify saved external L4 trial report",
+    "Verify saved external L4 evidence package report",
     "Verify GitHub release assets",
+    "Verify saved stable GitHub release report",
 }
 
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
@@ -257,6 +262,14 @@ def validate_production_claim_metadata(metadata: Any) -> list[str]:
         if metadata.get(key) is not True:
             failures.append(f"production PASS metadata.{key} must be true")
     for key in ["external_trial_json", "external_trial_root", "external_evidence_package_dir"]:
+        value = metadata.get(key)
+        if not isinstance(value, str) or not value.strip():
+            failures.append(f"production PASS metadata.{key} must be a non-empty string")
+    for key in [
+        "external_trial_verification_report",
+        "external_evidence_package_verification_report",
+        "github_release_verification_report",
+    ]:
         value = metadata.get(key)
         if not isinstance(value, str) or not value.strip():
             failures.append(f"production PASS metadata.{key} must be a non-empty string")

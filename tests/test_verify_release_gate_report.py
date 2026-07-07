@@ -25,6 +25,8 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             "external_trial_json": None,
             "external_trial_root": None,
             "external_evidence_package_dir": None,
+            "external_trial_verification_report": None,
+            "external_evidence_package_verification_report": None,
             "verify_github_release": None,
             "github_release_kind": "prerelease",
             "github_release_verification_report": None,
@@ -103,14 +105,44 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                 "Validate CellBinDB handoff trial artifacts",
                 "Validate external L4 workflow trial report",
                 "Validate external L4 evidence package",
+                "Verify saved external L4 trial report",
+                "Verify saved external L4 evidence package report",
                 "Verify GitHub release assets",
+                "Verify saved stable GitHub release report",
             ]
         )
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            trial_report = root / "review" / "trial-verification.json"
+            package_report = root / "review" / "package-verification.json"
+            github_report = root / "review" / "github-release-verification.json"
             for gate in gates:
                 if gate.name == "Verify GitHub release assets":
                     gate.command = verify_release_gate_report.live_github_release_gate_command("v0.1.0", "stable")
+                elif gate.name == "Verify saved external L4 trial report":
+                    gate.command = [
+                        "python3",
+                        "benchmark/verify_external_trial_report.py",
+                        "--verify-report",
+                        str(trial_report),
+                        "--verify-report-files",
+                        "--require-report-pass",
+                    ]
+                elif gate.name == "Verify saved external L4 evidence package report":
+                    gate.command = [
+                        "python3",
+                        "benchmark/verify_external_evidence_package.py",
+                        "--verify-report",
+                        str(package_report),
+                        "--verify-report-files",
+                        "--require-report-pass",
+                        "--require-trial-json",
+                    ]
+                elif gate.name == "Verify saved stable GitHub release report":
+                    gate.command = verify_release_gate_report.saved_github_release_report_command(
+                        str(github_report),
+                        "v0.1.0",
+                    )
             trial_json = root / "external" / "handoff_trial.json"
             trial_root = root / "external"
             package_dir = root / "evidence" / "external-l4-trial"
@@ -122,8 +154,11 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                     external_trial_json=trial_json,
                     external_trial_root=trial_root,
                     external_evidence_package_dir=package_dir,
+                    external_trial_verification_report=trial_report,
+                    external_evidence_package_verification_report=package_report,
                     verify_github_release="v0.1.0",
                     github_release_kind="stable",
+                    github_release_verification_report=github_report,
                     out_json=root / "report.json",
                     out_md=root / "report.md",
                 ),
@@ -141,10 +176,16 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                         str(trial_root),
                         "--external-evidence-package-dir",
                         str(package_dir),
+                        "--external-trial-verification-report",
+                        str(trial_report),
+                        "--external-evidence-package-verification-report",
+                        str(package_report),
                         "--verify-github-release",
                         "v0.1.0",
                         "--github-release-kind",
                         "stable",
+                        "--github-release-verification-report",
+                        str(github_report),
                     ],
                     "verify_github_release": "v0.1.0",
                     "github_release_kind": "stable",
@@ -154,6 +195,9 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                     "external_trial_json": str(trial_json),
                     "external_trial_root": str(trial_root),
                     "external_evidence_package_dir": str(package_dir),
+                    "external_trial_verification_report": str(trial_report),
+                    "external_evidence_package_verification_report": str(package_report),
+                    "github_release_verification_report": str(github_report),
                 },
             )
 
@@ -337,7 +381,9 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                     "l3_provenance_hashes",
                     "external_l4_workflow_trial",
                     "external_l4_evidence_package",
+                    "external_l4_saved_reviewer_reports",
                     "stable_github_release",
+                    "stable_github_release_saved_report",
                 ],
             ),
         )
@@ -348,15 +394,20 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             expected_missing_checks=[
                 "external_l4_workflow_trial",
                 "external_l4_evidence_package",
+                "external_l4_saved_reviewer_reports",
                 "stable_github_release",
+                "stable_github_release_saved_report",
             ],
         )
 
         self.assertIn(
             "missing_or_failed_checks does not match expected checks: "
             "['clean_git_worktree', 'l3_provenance_hashes', 'external_l4_workflow_trial', "
-            "'external_l4_evidence_package', 'stable_github_release'] != "
-            "['external_l4_workflow_trial', 'external_l4_evidence_package', 'stable_github_release']",
+            "'external_l4_evidence_package', 'external_l4_saved_reviewer_reports', "
+            "'stable_github_release', 'stable_github_release_saved_report'] != "
+            "['external_l4_workflow_trial', 'external_l4_evidence_package', "
+            "'external_l4_saved_reviewer_reports', 'stable_github_release', "
+            "'stable_github_release_saved_report']",
             failures,
         )
 

@@ -80,7 +80,7 @@ python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --
 python3 benchmark/release_gate.py
 ```
 
-Release-gate JSON 和 Markdown 报告会记录运行时间、git commit、工作区是否 dirty、调用参数、顶层 `production_claim_status` 和 `missing_or_failed_checks`。在真实外部 L4 workflow trial、匹配 evidence package、稳定 GitHub release 都进入同一份生产声明门禁之前，`production_claim_status` 应保持 `INCOMPLETE`。
+Release-gate JSON 和 Markdown 报告会记录运行时间、git commit、工作区是否 dirty、调用参数、顶层 `production_claim_status` 和 `missing_or_failed_checks`。在真实外部 L4 workflow trial、匹配 evidence package、外部 trial/package saved reviewer reports、稳定 GitHub release、以及 saved stable-release verifier report 都进入同一份生产声明门禁之前，`production_claim_status` 应保持 `INCOMPLETE`。
 
 审查已保存的 release-gate JSON：
 
@@ -183,7 +183,7 @@ python3 benchmark/run_production_gate.py \
   --github-release-tag v0.1.0
 ```
 
-这个 wrapper 要求稳定非 RC tag，复核外部 trial/package reviewer 报告，要求 saved GitHub release verifier report 是同一 final tag 和 `benngaihk/MorphoJet` repo 的 stable PASS 报告，并委托 `benchmark/release_gate.py --require-production-claim`。direct release gate 复核 saved GitHub release report 时也会带上 `--expect-repo benngaihk/MorphoJet`。它通过之前，项目不能宣称 production-ready。
+这个 wrapper 要求稳定非 RC tag，复核外部 trial/package reviewer 报告，要求 saved GitHub release verifier report 是同一 final tag 和 `benngaihk/MorphoJet` repo 的 stable PASS 报告，并委托 `benchmark/release_gate.py --require-production-claim`。最终生产声明现在会把 saved trial/package reviewer reports 和 saved stable-release verifier report 作为独立审计项；direct release gate 复核 saved GitHub release report 时也会带上 `--expect-repo benngaihk/MorphoJet`。它通过之前，项目不能宣称 production-ready。
 
 ## 当前里程碑状态
 
@@ -198,7 +198,9 @@ python3 benchmark/run_production_gate.py \
 
 - 真实外部 L4 workflow trial。
 - 匹配的外部 L4 evidence package。
+- 外部 L4 trial/package saved reviewer reports。
 - live stable GitHub release。
+- saved stable-release verifier report。
 
 更多状态见：
 
