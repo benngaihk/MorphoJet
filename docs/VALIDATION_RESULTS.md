@@ -2,6 +2,25 @@
 
 Updated: 2026-07-08
 
+## Saved Release-Gate Claim-Scope Source Snapshot
+
+This snapshot records local verification for making `benchmark/verify_release_gate_report.py` reuse `benchmark/release_gate.py` as the source for final/non-final claim labels, evidence-scope labels, and the saved GitHub release verifier report path. The saved release-gate verifier no longer carries separate handwritten `FINAL_PRODUCTION_CLAIM`, `NOT_PRODUCTION_CLAIM`, `FINAL_PRODUCTION_RELEASE_GATE`, `RELEASE_GATE_PRECHECK`, or GitHub release verification report path contracts.
+
+This is not a production claim. The current release-gate report must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE` until real external L4 trial/package evidence, saved reviewer reports, live stable release evidence, and saved stable-release verifier evidence are present in one final passing report.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_verify_release_gate_report.py` | PASS, 52 tests |
+| `python3 tests/test_release_gate.py` | PASS, 74 tests |
+| `python3 -m unittest discover -s tests` | PASS, 511 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS |
+| `git diff --check` | PASS |
+| Shared saved release-gate claim-scope contracts | PASS |
+
 ## Saved Release-Gate Verifier Command Source Snapshot
 
 This snapshot records local verification for making `benchmark/verify_release_gate_report.py` validate live GitHub release, saved external reviewer, and saved stable-release reviewer gate commands through `benchmark/release_gate.py`'s canonical command builders. The saved release-gate verifier no longer carries separate handwritten expected command lists for `Verify saved external L4 trial report`, `Verify saved external L4 evidence package report`, `Verify saved stable GitHub release report`, or live GitHub release verification; report writer, final wrapper, and saved report reviewer now share the same command contracts.

@@ -16,10 +16,10 @@ import release_gate
 
 ROOT = Path(__file__).resolve().parents[1]
 GITHUB_RELEASE_REPO = release_gate.GITHUB_RELEASE_REPO
-FINAL_CLAIM_STATUS = "FINAL_PRODUCTION_CLAIM"
-NON_FINAL_CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
-FINAL_EVIDENCE_SCOPE = "FINAL_PRODUCTION_RELEASE_GATE"
-NON_FINAL_EVIDENCE_SCOPE = "RELEASE_GATE_PRECHECK"
+FINAL_CLAIM_STATUS = release_gate.FINAL_CLAIM_STATUS
+NON_FINAL_CLAIM_STATUS = release_gate.NON_FINAL_CLAIM_STATUS
+FINAL_EVIDENCE_SCOPE = release_gate.FINAL_EVIDENCE_SCOPE
+NON_FINAL_EVIDENCE_SCOPE = release_gate.NON_FINAL_EVIDENCE_SCOPE
 
 REQUIRED_AUDIT_CHECKS = release_gate.PRODUCTION_AUDIT_CHECK_NAMES
 PRODUCTION_CHECKLIST_GUIDANCE = release_gate.PRODUCTION_CHECKLIST_GUIDANCE
@@ -286,7 +286,7 @@ def saved_github_release_report_command(report: str, expected_tag: str | None = 
 
 
 def github_release_verification_report_path(tag: str) -> str:
-    return str((ROOT / "benchmark" / "results" / "github-release-verification" / f"{tag}.json").resolve(strict=False))
+    return str(release_gate.github_release_verification_report_path(tag).resolve(strict=False))
 
 
 def live_github_release_gate_command(tag: str, kind: str) -> list[str]:

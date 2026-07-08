@@ -35,6 +35,22 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             release_gate.GITHUB_RELEASE_REPO,
             verify_release_gate_report.GITHUB_RELEASE_REPO,
         )
+        self.assertIs(
+            release_gate.FINAL_CLAIM_STATUS,
+            verify_release_gate_report.FINAL_CLAIM_STATUS,
+        )
+        self.assertIs(
+            release_gate.NON_FINAL_CLAIM_STATUS,
+            verify_release_gate_report.NON_FINAL_CLAIM_STATUS,
+        )
+        self.assertIs(
+            release_gate.FINAL_EVIDENCE_SCOPE,
+            verify_release_gate_report.FINAL_EVIDENCE_SCOPE,
+        )
+        self.assertIs(
+            release_gate.NON_FINAL_EVIDENCE_SCOPE,
+            verify_release_gate_report.NON_FINAL_EVIDENCE_SCOPE,
+        )
 
     def production_args(self, **overrides: object) -> Namespace:
         values = {
@@ -602,6 +618,12 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
         self.assertEqual(
             verify_release_gate_report.github_release_verification_report_path("v0.1.0"),
             command[command.index("--json-out") + 1],
+        )
+
+    def test_github_release_verification_report_path_reuses_release_gate_contract(self) -> None:
+        self.assertEqual(
+            str(release_gate.github_release_verification_report_path("v0.1.0").resolve(strict=False)),
+            verify_release_gate_report.github_release_verification_report_path("v0.1.0"),
         )
 
     def test_saved_github_release_report_command_reuses_release_gate_contract(self) -> None:
