@@ -314,6 +314,18 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
         self.assertIn("missing_or_failed_checks does not match production_claim_audit", failures)
         self.assertIn("missing_or_failed_checks does not match audit check statuses", failures)
 
+    def test_rejects_non_final_report_claim_scope_tampering(self) -> None:
+        payload = self.valid_payload()
+        payload["claim_status"] = "FINAL_PRODUCTION_CLAIM"
+        payload["evidence_scope"] = "FINAL_PRODUCTION_RELEASE_GATE"
+        payload["final_production_signoff"] = True
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn("claim_status=FINAL_PRODUCTION_CLAIM expected NOT_PRODUCTION_CLAIM", failures)
+        self.assertIn("evidence_scope=FINAL_PRODUCTION_RELEASE_GATE expected RELEASE_GATE_PRECHECK", failures)
+        self.assertIn("final_production_signoff=True expected False", failures)
+
     def test_rejects_missing_production_claim_checklist(self) -> None:
         payload = self.valid_payload()
         del payload["production_claim_checklist"]
@@ -485,6 +497,9 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
     def test_accepts_complete_production_claim_report(self) -> None:
         payload = self.complete_production_claim_payload()
 
+        self.assertEqual("FINAL_PRODUCTION_CLAIM", payload["claim_status"])
+        self.assertEqual("FINAL_PRODUCTION_RELEASE_GATE", payload["evidence_scope"])
+        self.assertTrue(payload["final_production_signoff"])
         self.assertEqual(
             [],
             verify_release_gate_report.validate_release_gate_report_payload(
@@ -493,6 +508,18 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                 require_production_claim_pass=True,
             ),
         )
+
+    def test_rejects_complete_production_claim_with_weakened_claim_scope(self) -> None:
+        payload = self.complete_production_claim_payload()
+        payload["claim_status"] = "NOT_PRODUCTION_CLAIM"
+        payload["evidence_scope"] = "RELEASE_GATE_PRECHECK"
+        payload["final_production_signoff"] = False
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn("claim_status=NOT_PRODUCTION_CLAIM expected FINAL_PRODUCTION_CLAIM", failures)
+        self.assertIn("evidence_scope=RELEASE_GATE_PRECHECK expected FINAL_PRODUCTION_RELEASE_GATE", failures)
+        self.assertIn("final_production_signoff=False expected True", failures)
 
     def test_rejects_passing_production_claim_missing_required_gates(self) -> None:
         payload = self.complete_production_claim_payload()

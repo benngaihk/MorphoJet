@@ -15,6 +15,10 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 GITHUB_RELEASE_REPO = "benngaihk/MorphoJet"
+FINAL_CLAIM_STATUS = "FINAL_PRODUCTION_CLAIM"
+NON_FINAL_CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
+FINAL_EVIDENCE_SCOPE = "FINAL_PRODUCTION_RELEASE_GATE"
+NON_FINAL_EVIDENCE_SCOPE = "RELEASE_GATE_PRECHECK"
 
 REQUIRED_AUDIT_CHECKS = [
     "clean_git_worktree",
@@ -576,6 +580,25 @@ def validate_production_claim_checklist(payload: dict) -> list[str]:
     return failures
 
 
+def validate_report_claim_scope(payload: dict, metadata: Any, top_level_claim_status: Any) -> list[str]:
+    failures: list[str] = []
+    expected_final_signoff = bool(
+        payload.get("status") == "PASS"
+        and top_level_claim_status == "PASS"
+        and isinstance(metadata, dict)
+        and metadata.get("require_production_claim") is True
+    )
+    expected_claim_status = FINAL_CLAIM_STATUS if expected_final_signoff else NON_FINAL_CLAIM_STATUS
+    expected_evidence_scope = FINAL_EVIDENCE_SCOPE if expected_final_signoff else NON_FINAL_EVIDENCE_SCOPE
+    if payload.get("claim_status") != expected_claim_status:
+        failures.append(f"claim_status={payload.get('claim_status')} expected {expected_claim_status}")
+    if payload.get("evidence_scope") != expected_evidence_scope:
+        failures.append(f"evidence_scope={payload.get('evidence_scope')} expected {expected_evidence_scope}")
+    if payload.get("final_production_signoff") is not expected_final_signoff:
+        failures.append(f"final_production_signoff={payload.get('final_production_signoff')} expected {expected_final_signoff}")
+    return failures
+
+
 def validate_release_gate_report_payload(
     payload: Any,
     require_report_pass: bool = False,
@@ -627,11 +650,12 @@ def validate_release_gate_report_payload(
                 f"{top_level_missing} != {expected_missing_checks}"
             )
 
+    metadata = payload.get("metadata")
+    failures.extend(validate_report_claim_scope(payload, metadata, top_level_claim_status))
     if isinstance(audit, dict):
         failures.extend(validate_audit_checks(audit, top_level_missing))
     failures.extend(validate_production_claim_checklist(payload))
 
-    metadata = payload.get("metadata")
     failures.extend(validate_metadata(metadata, report_path=report_path))
     if isinstance(metadata, dict):
         if require_clean_git_metadata:
@@ -719,6 +743,9 @@ def verify_release_gate_report(
         return 1
     print(f"release-gate report ok: {path}")
     print(f"status={payload['status']}")
+    print(f"claim_status={payload['claim_status']}")
+    print(f"evidence_scope={payload['evidence_scope']}")
+    print(f"final_production_signoff={payload['final_production_signoff']}")
     print(f"production_claim_status={payload['production_claim_status']}")
     print(f"missing_or_failed_checks={','.join(payload['missing_or_failed_checks']) or 'none'}")
     if expected_missing_checks is not None:

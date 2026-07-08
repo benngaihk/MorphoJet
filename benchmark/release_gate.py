@@ -20,6 +20,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 GITHUB_RELEASE_REPO = "benngaihk/MorphoJet"
+FINAL_CLAIM_STATUS = "FINAL_PRODUCTION_CLAIM"
+NON_FINAL_CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
+FINAL_EVIDENCE_SCOPE = "FINAL_PRODUCTION_RELEASE_GATE"
+NON_FINAL_EVIDENCE_SCOPE = "RELEASE_GATE_PRECHECK"
 
 
 def is_utc_datetime(value: datetime) -> bool:
@@ -1886,6 +1890,9 @@ def render_markdown(payload: dict, out_json: Path) -> str:
         "# Release Gate Report",
         "",
         f"- status: `{payload['status']}`",
+        f"- claim_status: `{payload['claim_status']}`",
+        f"- evidence_scope: `{payload['evidence_scope']}`",
+        f"- final_production_signoff: `{payload['final_production_signoff']}`",
         f"- production_claim_status: `{payload['production_claim_status']}`",
         f"- missing_or_failed_checks: `{', '.join(payload['missing_or_failed_checks']) or 'none'}`",
         f"- json: `{out_json}`",
@@ -2003,8 +2010,12 @@ def write_report(args: argparse.Namespace, gates: list[Gate], metadata: dict) ->
     audit = build_production_claim_audit(args, gates, metadata)
     gates_pass = all(gate.status == "PASS" for gate in gates)
     production_claim_pass = audit["status"] == "PASS"
+    final_production_signoff = bool(gates_pass and production_claim_pass and args.require_production_claim)
     payload = {
         "status": "PASS" if gates_pass and (production_claim_pass or not args.require_production_claim) else "FAIL",
+        "claim_status": FINAL_CLAIM_STATUS if final_production_signoff else NON_FINAL_CLAIM_STATUS,
+        "evidence_scope": FINAL_EVIDENCE_SCOPE if final_production_signoff else NON_FINAL_EVIDENCE_SCOPE,
+        "final_production_signoff": final_production_signoff,
         "production_claim_status": audit["status"],
         "missing_or_failed_checks": audit["missing_or_failed_checks"],
         "production_claim_audit": audit,

@@ -324,6 +324,9 @@ class ReleaseGateTest(unittest.TestCase):
 
         self.assertEqual("FAIL", payload["status"])
         self.assertEqual("INCOMPLETE", payload["production_claim_status"])
+        self.assertEqual("NOT_PRODUCTION_CLAIM", payload["claim_status"])
+        self.assertEqual("RELEASE_GATE_PRECHECK", payload["evidence_scope"])
+        self.assertFalse(payload["final_production_signoff"])
         self.assertEqual("INCOMPLETE", payload["production_claim_audit"]["status"])
         self.assertEqual(
             [
@@ -478,11 +481,17 @@ class ReleaseGateTest(unittest.TestCase):
 
         self.assertEqual("PASS", payload["status"])
         self.assertEqual("PASS", payload["production_claim_status"])
+        self.assertEqual("FINAL_PRODUCTION_CLAIM", payload["claim_status"])
+        self.assertEqual("FINAL_PRODUCTION_RELEASE_GATE", payload["evidence_scope"])
+        self.assertTrue(payload["final_production_signoff"])
         self.assertEqual([], payload["missing_or_failed_checks"])
         self.assertEqual("PASS", payload["production_claim_audit"]["status"])
         self.assertTrue(
             all(row["next_action"] == "No action needed for this check." for row in payload["production_claim_checklist"])
         )
+        self.assertIn("- claim_status: `FINAL_PRODUCTION_CLAIM`", markdown)
+        self.assertIn("- evidence_scope: `FINAL_PRODUCTION_RELEASE_GATE`", markdown)
+        self.assertIn("- final_production_signoff: `True`", markdown)
         self.assertIn("| external_l4_workflow_trial | PASS |", markdown)
         self.assertIn("No action needed for this check.", markdown)
 
