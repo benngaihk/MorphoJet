@@ -596,6 +596,42 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 readme_zh.index("## verify_final_production_report"),
             )
 
+    def test_external_workspace_readme_shared_anchor_guard(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            plan = prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            readme = prepare_external_l4_trial.render_readme(plan)
+            readme_zh = prepare_external_l4_trial.render_readme_zh(plan)
+
+            self.assertEqual(
+                [],
+                prepare_external_l4_trial.validate_external_workspace_readme_shared_anchors(
+                    "README.md",
+                    readme,
+                ),
+            )
+            self.assertEqual(
+                [],
+                prepare_external_l4_trial.validate_external_workspace_readme_shared_anchors(
+                    "README.zh-CN.md",
+                    readme_zh,
+                ),
+            )
+
+            tampered_zh = readme_zh.replace("--github-release-verification-report", "--missing-github-report")
+            failures = prepare_external_l4_trial.validate_external_workspace_readme_shared_anchors(
+                "README.zh-CN.md",
+                tampered_zh,
+            )
+
+        self.assertEqual(
+            [
+                "README.zh-CN.md missing external L4 shared README anchor: "
+                "--github-release-verification-report"
+            ],
+            failures,
+        )
+
     def test_prepare_workspace_records_custom_generator_argv(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "external-trial"

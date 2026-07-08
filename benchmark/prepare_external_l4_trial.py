@@ -43,6 +43,20 @@ EXTERNAL_EVIDENCE_REQUIRED_FIELDS = [
     "signoff_statement",
 ]
 EXTERNAL_EVIDENCE_MIN_ACCEPTANCE_CRITERIA = 3
+EXTERNAL_WORKSPACE_README_SHARED_ANCHORS = [
+    "claim_status=NOT_PRODUCTION_CLAIM",
+    "final_production_signoff=false",
+    "README.zh-CN.md",
+    "README.md",
+    "--require-report-pass",
+    "--verify-report-files",
+    "--require-local-evidence-preflight-pass",
+    "--external-trial-verification-report",
+    "--external-evidence-package-verification-report",
+    "--github-release-verification-report",
+    "--require-production-claim-pass",
+    "--expect-missing-checks",
+]
 
 
 class PrepareError(Exception):
@@ -777,13 +791,27 @@ def validate_plan_files(payload: dict[str, Any]) -> list[str]:
     readme_path = workspace / README_NAME
     if not readme_path.is_file():
         failures.append(f"README file does not exist: {readme_path}")
-    elif readme_path.read_text(encoding="utf-8") != render_readme(payload):
-        failures.append("README changed after plan was written")
+    else:
+        readme_text = readme_path.read_text(encoding="utf-8")
+        if readme_text != render_readme(payload):
+            failures.append("README changed after plan was written")
+        failures.extend(validate_external_workspace_readme_shared_anchors(README_NAME, readme_text))
     readme_zh_path = workspace / README_ZH_NAME
     if not readme_zh_path.is_file():
         failures.append(f"Chinese README file does not exist: {readme_zh_path}")
-    elif readme_zh_path.read_text(encoding="utf-8") != render_readme_zh(payload):
-        failures.append("Chinese README changed after plan was written")
+    else:
+        readme_zh_text = readme_zh_path.read_text(encoding="utf-8")
+        if readme_zh_text != render_readme_zh(payload):
+            failures.append("Chinese README changed after plan was written")
+        failures.extend(validate_external_workspace_readme_shared_anchors(README_ZH_NAME, readme_zh_text))
+    return failures
+
+
+def validate_external_workspace_readme_shared_anchors(readme_name: str, text: str) -> list[str]:
+    failures = []
+    for anchor in EXTERNAL_WORKSPACE_README_SHARED_ANCHORS:
+        if anchor not in text:
+            failures.append(f"{readme_name} missing external L4 shared README anchor: {anchor}")
     return failures
 
 
