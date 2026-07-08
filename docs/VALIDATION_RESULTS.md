@@ -2,6 +2,45 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `8140c1a`
+
+This snapshot records the verification for carrying declared object metadata through the CellProfiler-style wide handoff bridge. `benchmark/materialize_morphojet_cellprofiler_wide.py` now accepts `--metadata-columns`, preserves those columns in the wide CSV, and rejects per-object metadata values that differ across channel rows. The handoff runner and release-gate rendered-manifest command checks pass declared metadata columns into the materializer, allow the same columns during CellProfiler subset comparison, and the downstream wide-contract checker can require them. Because this milestone touched the L3 handoff materializer/comparer path, the full CellBinDB L3 workflow was rerun instead of relying on old provenance.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `8140c1a2f40bd09950b2d979b4fa973753077958`
+- Full L3 rerun command: `benchmark/run_cellbindb_l3_validation.sh`
+- Template validation command: `python3 benchmark/validate_handoff_manifest.py benchmark/handoff/external_lab_template.json --var base_dir=/tmp/morphojet-external-l4 --require-downstream-check --require-external-evidence --allow-external-evidence-placeholders`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-wide-metadata.json --out-md /tmp/morphojet-l3-release-report-wide-metadata.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-wide-metadata.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Wide metadata materializer tests | PASS, 4 tests |
+| Release-gate helper tests | PASS, 72 tests |
+| External L4 workspace preparation tests | PASS, 21 tests |
+| External L4 readiness tests | PASS, 27 tests |
+| Full Python unit test suite | PASS, 487 tests |
+| External L4 template validation | PASS |
+| Source claim-language guard | PASS, 16 paths |
+| Whitespace diff check | PASS |
+| Full CellBinDB L3 rerun | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Declared metadata columns preserved in wide CSV | PASS |
+| Declared metadata columns allowed during subset comparison | PASS |
+| Declared metadata columns required by downstream wide-contract check | PASS |
+| English wide-metadata README documentation | PASS |
+| Chinese wide-metadata README documentation | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `62d405b`
 
 This snapshot records the verification for making object metadata an explicit external L4 readiness contract. The external trial template now declares `required_object_metadata_columns` for `Plate`, `Well`, and `Site`; manifest validation checks the field shape, generated English and Chinese workspace READMEs tell reviewers to use `measure --include-object-metadata`, and readiness fails before trial execution if the declared metadata columns are missing from MorphoJet `Objects.csv`.
