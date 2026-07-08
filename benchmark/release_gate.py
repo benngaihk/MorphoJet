@@ -1302,6 +1302,8 @@ def external_package_readme_common_required_fields(trial: dict, artifact_manifes
         "readiness_package_name": (
             f"- readiness_package_name: `{trial.get('readiness_report', {}).get('package_name')}`"
         ),
+        "readiness_workspace": f"- readiness_workspace: `{trial.get('readiness_report', {}).get('workspace')}`",
+        "readiness_manifest": f"- readiness_manifest: `{trial.get('readiness_report', {}).get('manifest')}`",
         "packaged_at_utc": f"- packaged_at_utc: `{artifact_manifest.get('packaged_at_utc')}`",
         "validation_detail_text": str(artifact_manifest.get("validation_detail")),
     }
