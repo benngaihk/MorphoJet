@@ -252,7 +252,7 @@ python3 benchmark/run_external_l4_rehearsal.py \
   --overwrite
 ```
 
-The same internal rehearsal is wired into `.github/workflows/external-l4-rehearsal.yml` for pushes to `main`, weekly scheduled runs, and manual `workflow_dispatch`. That workflow runs the rehearsal outside the git checkout, writes the Markdown summary to the GitHub Actions step summary, and uploads the summary, trial plan, bilingual README files, readiness report, trial report, saved trial/package verifier reports, local preflight report, and evidence package as a 30-day artifact. It is continuous non-final rehearsal evidence and still does not satisfy real external L4 signoff, the stable GitHub release, or final production-claim gates.
+The same internal rehearsal machinery is wired into `.github/workflows/external-l4-rehearsal.yml` for pushes to `main`, weekly scheduled runs, and manual `workflow_dispatch`. That workflow generates a minimal CI fixture outside the git checkout, runs the rehearsal there, writes the Markdown summary to the GitHub Actions step summary, and uploads the summary, trial plan, bilingual README files, readiness report, trial report, saved trial/package verifier reports, local preflight report, and evidence package as a 30-day artifact. It is continuous non-final rehearsal evidence and still does not satisfy real external L4 signoff, the stable GitHub release, or final production-claim gates.
 
 The external L4 template declares `required_object_metadata_columns` for `Plate`, `Well`, and `Site`. Readiness checks enforce those columns on MorphoJet `Objects.csv`, so real handoff workspaces should generate `Objects.csv` with `measure --include-object-metadata` or intentionally update the manifest contract before review.
 

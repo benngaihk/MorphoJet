@@ -28,8 +28,106 @@ jobs:
         run: |
           set -euo pipefail
           workspace="${RUNNER_TEMP}/morphojet-external-l4-rehearsal"
+          fixture="${RUNNER_TEMP}/morphojet-external-l4-fixture"
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, "benchmark")
+          import check_cellprofiler_wide_contract
+          import check_external_l4_readiness
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "morphojet-external-l4-fixture"
+          (root / "morphojet").mkdir(parents=True, exist_ok=True)
+          (root / "cellprofiler").mkdir(parents=True, exist_ok=True)
+
+          object_columns = list(
+              dict.fromkeys(
+                  [
+                      *check_external_l4_readiness.required_morphojet_objects_columns(),
+                      "Plate",
+                      "Well",
+                      "Site",
+                  ]
+              )
+          )
+          rows = []
+          for channel in ["DNA", "PH3"]:
+              row = {column: "1" for column in object_columns}
+              row.update(
+                  {
+                      "ImageNumber": "1",
+                      "ObjectNumber": "1",
+                      "Channel": channel,
+                      "ObjectSet": "Cells",
+                      "AreaShape_BoundingBoxMinimum_X": "0",
+                      "AreaShape_BoundingBoxMinimum_Y": "0",
+                      "AreaShape_BoundingBoxMaximum_X": "2",
+                      "AreaShape_BoundingBoxMaximum_Y": "2",
+                      "AreaShape_Solidity": "1",
+                      "Plate": "P001",
+                      "Well": "A01",
+                      "Site": "1",
+                  }
+              )
+              rows.append(row)
+          (root / "morphojet" / "Objects.csv").write_text(
+              ",".join(object_columns)
+              + "\n"
+              + "\n".join(",".join(row[column] for column in object_columns) for row in rows)
+              + "\n",
+              encoding="utf-8",
+          )
+
+          cellprofiler_columns = check_cellprofiler_wide_contract.required_columns(["DNA", "PH3"])
+          (root / "cellprofiler" / "Cells.csv").write_text(
+              ",".join(cellprofiler_columns) + "\n" + ",".join("1" for _ in cellprofiler_columns) + "\n",
+              encoding="utf-8",
+          )
+
+          template = {
+              "trial_id": "ci-internal-rehearsal",
+              "description": "CI fixture for the internal external-L4 rehearsal workflow.",
+              "morphojet_objects_csv": "{base_dir}/morphojet/Objects.csv",
+              "required_object_metadata_columns": ["Plate", "Well", "Site"],
+              "exports": [
+                  {
+                      "name": "Cells",
+                      "object_set": "Cells",
+                      "channels": ["DNA", "PH3"],
+                      "out_csv": "{base_dir}/morphojet/Cells.wide.csv",
+                  }
+              ],
+              "downstream_checks": [
+                  {
+                      "name": "Validate Cells wide CSV downstream contract",
+                      "command": [
+                          "python3",
+                          "benchmark/check_cellprofiler_wide_contract.py",
+                          "{base_dir}/morphojet/Cells.wide.csv",
+                          "--channels",
+                          "DNA,PH3",
+                          "--metadata-columns",
+                          "Plate,Well,Site",
+                          "--min-rows",
+                          "1",
+                          "--json-out",
+                          "{base_dir}/handoff_contract.json",
+                      ],
+                      "artifacts": ["{base_dir}/handoff_contract.json"],
+                  }
+              ],
+          }
+          (root / "minimal-template.json").write_text(json.dumps(template, indent=2) + "\n", encoding="utf-8")
+          PY
           python3 benchmark/run_external_l4_rehearsal.py \
             --workspace "${workspace}" \
+            --template "${fixture}/minimal-template.json" \
+            --morphojet-objects "${fixture}/morphojet/Objects.csv" \
+            --cellprofiler-cells "${fixture}/cellprofiler/Cells.csv" \
+            --package-name ci-external-l4-rehearsal \
             --overwrite
 
       - name: Write rehearsal summary

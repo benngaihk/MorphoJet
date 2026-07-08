@@ -28,7 +28,12 @@ class ExternalL4RehearsalWorkflowTest(unittest.TestCase):
         self.assertIn("timeout-minutes: 60", self.workflow_text)
         self.assertIn("permissions:\n  contents: read", self.workflow_text)
         self.assertIn('workspace="${RUNNER_TEMP}/morphojet-external-l4-rehearsal"', self.workflow_text)
+        self.assertIn('fixture="${RUNNER_TEMP}/morphojet-external-l4-fixture"', self.workflow_text)
+        self.assertIn("minimal-template.json", self.workflow_text)
         self.assertIn("python3 benchmark/run_external_l4_rehearsal.py", self.workflow_text)
+        self.assertIn("--morphojet-objects", self.workflow_text)
+        self.assertIn("--cellprofiler-cells", self.workflow_text)
+        self.assertIn("--package-name ci-external-l4-rehearsal", self.workflow_text)
         self.assertIn("--overwrite", self.workflow_text)
 
     def test_workflow_uploads_auditable_rehearsal_evidence(self) -> None:
