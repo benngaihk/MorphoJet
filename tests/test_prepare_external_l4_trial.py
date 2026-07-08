@@ -92,6 +92,21 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 str((workspace / "handoff_trial.json").resolve()),
                 run_command[run_command.index("--out-json") + 1],
             )
+            verify_trial_report = plan["commands"]["verify_trial_report"]
+            self.assertEqual(
+                str((workspace / "handoff_trial-verification.json").resolve()),
+                verify_trial_report[verify_trial_report.index("--verify-report") + 1],
+            )
+            self.assertIn("--verify-report-files", verify_trial_report)
+            self.assertIn("--require-report-pass", verify_trial_report)
+            verify_package_report = plan["commands"]["verify_package_report"]
+            self.assertEqual(
+                str((workspace / "evidence-package-verification.json").resolve()),
+                verify_package_report[verify_package_report.index("--verify-report") + 1],
+            )
+            self.assertIn("--verify-report-files", verify_package_report)
+            self.assertIn("--require-report-pass", verify_package_report)
+            self.assertIn("--require-trial-json", verify_package_report)
             self.assertEqual(str(workspace.resolve()), plan["commands"]["check_readiness"][3])
             self.assertEqual(plan["package_name"], plan["commands"]["check_readiness"][5])
             verify_readiness = plan["commands"]["verify_readiness"]
@@ -248,8 +263,16 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 requirement_by_name["external_l4_trial_saved_reviewer_report"]["required_for"],
             )
             self.assertEqual(
+                "verify_trial_report",
+                requirement_by_name["external_l4_trial_saved_reviewer_report"]["verification_step"],
+            )
+            self.assertEqual(
                 "final_production_gate --external-evidence-package-verification-report",
                 requirement_by_name["external_l4_package_saved_reviewer_report"]["required_for"],
+            )
+            self.assertEqual(
+                "verify_package_report",
+                requirement_by_name["external_l4_package_saved_reviewer_report"]["verification_step"],
             )
             self.assertEqual(
                 "https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0",
@@ -322,6 +345,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("`required_object_metadata_columns`", readme)
             self.assertIn("`measure --include-object-metadata`", readme)
             self.assertIn("passes declared object metadata columns through to the wide CSV", readme)
+            self.assertIn("`verify_trial_report` and `verify_package_report` re-check", readme)
+            self.assertIn("PASS enforcement before local preflight or final signoff", readme)
             self.assertIn("required input-artifact summaries to remain `exists=true`", readme)
             self.assertIn("package `README.md`", readme)
             self.assertIn("package `README.zh-CN.md`", readme)
@@ -338,6 +363,13 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("package README-rendered handoff contract binding to `rendered_manifest.json`", readme)
             self.assertLess(readme.index("## verify_plan"), readme.index("## validate_manifest"))
             self.assertLess(readme.index("## verify_readiness"), readme.index("## run_trial"))
+            self.assertLess(readme.index("## verify_trial"), readme.index("## verify_trial_report"))
+            self.assertLess(readme.index("## verify_trial_report"), readme.index("## package_evidence"))
+            self.assertLess(readme.index("## verify_package"), readme.index("## verify_package_report"))
+            self.assertLess(
+                readme.index("## verify_package_report"),
+                readme.index("## local_evidence_preflight"),
+            )
             self.assertLess(
                 readme.index("## local_evidence_preflight"),
                 readme.index("## verify_local_evidence_preflight"),
@@ -388,6 +420,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("`required_object_metadata_columns`", readme_zh)
             self.assertIn("`measure --include-object-metadata`", readme_zh)
             self.assertIn("把声明过的 object metadata columns 带进宽表", readme_zh)
+            self.assertIn("`verify_trial_report` 和 `verify_package_report`", readme_zh)
+            self.assertIn("local preflight 或最终签核", readme_zh)
             self.assertIn("input-artifact summaries 保持 `exists=true`", readme_zh)
             self.assertIn("package `README.md`", readme_zh)
             self.assertIn("package `README.zh-CN.md`", readme_zh)
@@ -404,6 +438,13 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("package README 渲染出的 handoff contract 与 `rendered_manifest.json` 的绑定", readme_zh)
             self.assertLess(readme_zh.index("## verify_plan"), readme_zh.index("## validate_manifest"))
             self.assertLess(readme_zh.index("## verify_readiness"), readme_zh.index("## run_trial"))
+            self.assertLess(readme_zh.index("## verify_trial"), readme_zh.index("## verify_trial_report"))
+            self.assertLess(readme_zh.index("## verify_trial_report"), readme_zh.index("## package_evidence"))
+            self.assertLess(readme_zh.index("## verify_package"), readme_zh.index("## verify_package_report"))
+            self.assertLess(
+                readme_zh.index("## verify_package_report"),
+                readme_zh.index("## local_evidence_preflight"),
+            )
             self.assertLess(
                 readme_zh.index("## final_production_gate"),
                 readme_zh.index("## verify_final_production_report"),
@@ -769,8 +810,18 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             payload = json.loads(plan_path.read_text(encoding="utf-8"))
             verify_trial = payload["commands"]["verify_trial"]
             verify_trial[verify_trial.index("--json-out") + 1] = str(workspace / "wrong-trial-review.json")
+            verify_trial_report = payload["commands"]["verify_trial_report"]
+            verify_trial_report[verify_trial_report.index("--verify-report") + 1] = str(
+                workspace / "wrong-trial-review.json"
+            )
+            verify_trial_report.remove("--require-report-pass")
             verify_package = payload["commands"]["verify_package"]
             verify_package[2] = str(workspace / "wrong-package")
+            verify_package_report = payload["commands"]["verify_package_report"]
+            verify_package_report[verify_package_report.index("--verify-report") + 1] = str(
+                workspace / "wrong-package-review.json"
+            )
+            verify_package_report.remove("--require-trial-json")
             final_report = payload["commands"]["verify_final_production_report"]
             final_report[2] = str(workspace / "wrong-production-claim.json")
             plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -789,8 +840,21 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
 
         self.assertNotEqual(0, completed.returncode)
         self.assertIn("commands.verify_trial --json-out must match trial reviewer report", completed.stderr)
+        self.assertIn("commands.verify_trial_report --verify-report must match trial reviewer report", completed.stderr)
+        self.assertIn(
+            "commands.verify_trial_report must include exactly one --require-report-pass",
+            completed.stderr,
+        )
         self.assertIn(
             "commands.verify_package positional evidence package directory must match",
+            completed.stderr,
+        )
+        self.assertIn(
+            "commands.verify_package_report --verify-report must match package reviewer report",
+            completed.stderr,
+        )
+        self.assertIn(
+            "commands.verify_package_report must include exactly one --require-trial-json",
             completed.stderr,
         )
         self.assertIn(

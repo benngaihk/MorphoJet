@@ -162,11 +162,15 @@ def validate_final_signoff_command_bindings(payload: dict[str, Any]) -> list[str
     flag_bindings = [
         ("external_l4_workflow_trial", "--external-trial-json", "verify_trial"),
         ("external_l4_evidence_package", "--external-evidence-package-dir", "verify_package"),
-        ("external_l4_trial_saved_reviewer_report", "--external-trial-verification-report", "verify_trial"),
         (
             "external_l4_package_saved_reviewer_report",
             "--external-evidence-package-verification-report",
-            "verify_package",
+            "verify_package_report",
+        ),
+        (
+            "external_l4_trial_saved_reviewer_report",
+            "--external-trial-verification-report",
+            "verify_trial_report",
         ),
         ("stable_github_release_saved_report", "--github-release-verification-report", "verify_stable_release_report"),
     ]
@@ -393,10 +397,12 @@ def validate_external_evidence_command_bindings(payload: dict[str, Any]) -> list
     expect_flag("final_production_gate", "--external-evidence-package-dir", package_dir, "evidence package directory")
 
     expect_flag("verify_trial", "--json-out", trial_verification, "trial reviewer report")
+    expect_flag("verify_trial_report", "--verify-report", trial_verification, "trial reviewer report")
     expect_flag("local_evidence_preflight", "--external-trial-verification-report", trial_verification, "trial reviewer report")
     expect_flag("final_production_gate", "--external-trial-verification-report", trial_verification, "trial reviewer report")
 
     expect_flag("verify_package", "--json-out", package_verification, "package reviewer report")
+    expect_flag("verify_package_report", "--verify-report", package_verification, "package reviewer report")
     expect_flag(
         "local_evidence_preflight",
         "--external-evidence-package-verification-report",
@@ -491,6 +497,59 @@ def validate_stable_release_command_bindings(payload: dict[str, Any]) -> list[st
         github_release_verification,
         "GitHub release verifier report",
     )
+    return failures
+
+
+def validate_saved_reviewer_report_command_bindings(payload: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    commands = payload.get("commands")
+    workspace = payload.get("workspace")
+    package_name = payload.get("package_name")
+    if not isinstance(commands, dict):
+        return failures
+    if not isinstance(workspace, str) or not workspace.strip():
+        return failures
+    if not isinstance(package_name, str) or not package_name.strip():
+        return failures
+    workspace_path = Path(workspace)
+    trial_json = str(workspace_path / "handoff_trial.json")
+    trial_verification = str(workspace_path / "handoff_trial-verification.json")
+    package_verification = str(workspace_path / "evidence-package-verification.json")
+
+    def command(command_name: str) -> list[str]:
+        value = commands.get(command_name)
+        if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
+            failures.append(f"commands.{command_name} must be a non-empty string list before saved-reviewer binding")
+            return []
+        return value
+
+    def expect_flag(command_name: str, flag: str, expected: str, label: str) -> None:
+        values = argv_values(command(command_name), flag)
+        if len(values) != 1 or values[0] is None:
+            failures.append(f"commands.{command_name} must include exactly one {flag} value for {label}")
+        elif values[0] != expected:
+            failures.append(f"commands.{command_name} {flag} must match {label}")
+
+    def expect_present(command_name: str, flag: str, label: str) -> None:
+        count = command(command_name).count(flag)
+        if count != 1:
+            failures.append(f"commands.{command_name} must include exactly one {flag} for {label}")
+
+    expect_flag("verify_trial_report", "--verify-report", trial_verification, "trial reviewer report")
+    for flag, label in [
+        ("--verify-report-files", "trial saved reviewer file recheck"),
+        ("--require-report-pass", "trial saved reviewer PASS enforcement"),
+    ]:
+        expect_present("verify_trial_report", flag, label)
+
+    expect_flag("verify_package_report", "--verify-report", package_verification, "package reviewer report")
+    for flag, label in [
+        ("--verify-report-files", "package saved reviewer file recheck"),
+        ("--require-report-pass", "package saved reviewer PASS enforcement"),
+        ("--require-trial-json", "package saved reviewer source trial binding"),
+    ]:
+        expect_present("verify_package_report", flag, label)
+    expect_flag("verify_package", "--trial-json", trial_json, "source trial JSON")
     return failures
 
 
@@ -591,8 +650,10 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
         "verify_readiness",
         "run_trial",
         "verify_trial",
+        "verify_trial_report",
         "package_evidence",
         "verify_package",
+        "verify_package_report",
         "local_evidence_preflight",
         "verify_local_evidence_preflight",
         "verify_stable_release",
@@ -626,6 +687,7 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
             failures.extend(validate_final_signoff_command_bindings(payload))
             failures.extend(validate_external_evidence_command_bindings(payload))
             failures.extend(validate_stable_release_command_bindings(payload))
+            failures.extend(validate_saved_reviewer_report_command_bindings(payload))
             failures.extend(validate_external_evidence_requirements(payload))
     if verify_files:
         failures.extend(validate_plan_files(payload))
@@ -769,6 +831,14 @@ def plan_commands(
             "--json-out",
             str(trial_verification),
         ],
+        "verify_trial_report": [
+            "python3",
+            "benchmark/verify_external_trial_report.py",
+            "--verify-report",
+            str(trial_verification),
+            "--verify-report-files",
+            "--require-report-pass",
+        ],
         "package_evidence": [
             "python3",
             "benchmark/package_external_trial.py",
@@ -789,6 +859,15 @@ def plan_commands(
             str(trial_json),
             "--json-out",
             str(package_verification),
+        ],
+        "verify_package_report": [
+            "python3",
+            "benchmark/verify_external_evidence_package.py",
+            "--verify-report",
+            str(package_verification),
+            "--verify-report-files",
+            "--require-report-pass",
+            "--require-trial-json",
         ],
         "local_evidence_preflight": [
             "python3",
@@ -903,14 +982,14 @@ def final_signoff_requirements(workspace: Path, package_name: str) -> list[dict[
             "name": "external_l4_trial_saved_reviewer_report",
             "status": "PENDING_EXTERNAL_REVIEW",
             "planned_path": str(workspace / "handoff_trial-verification.json"),
-            "verification_step": "verify_trial",
+            "verification_step": "verify_trial_report",
             "required_for": "final_production_gate --external-trial-verification-report",
         },
         {
             "name": "external_l4_package_saved_reviewer_report",
             "status": "PENDING_EXTERNAL_REVIEW",
             "planned_path": str(workspace / "evidence-package-verification.json"),
-            "verification_step": "verify_package",
+            "verification_step": "verify_package_report",
             "required_for": "final_production_gate --external-evidence-package-verification-report",
         },
         {
@@ -972,6 +1051,7 @@ def render_readme(plan: dict[str, Any]) -> str:
         "`check_readiness` also verifies the saved `trial_plan.json`, template hash, manifest presence, and both English and Chinese README files before returning READY, so readiness fails if the execution instructions or plan are weakened after workspace preparation.",
         "`check_readiness` also enforces any `required_object_metadata_columns` declared in the manifest. If the template keeps `Plate`, `Well`, and `Site`, generate MorphoJet `Objects.csv` with `measure --include-object-metadata` so those columns are present before the external trial runs.",
         "`run_trial` re-verifies the saved READY report and refuses to execute if its manifest or workspace does not match the current trial manifest and `base_dir`. It also passes declared object metadata columns through to the wide CSV and allows those same columns during supported-subset comparison.",
+        "`verify_trial_report` and `verify_package_report` re-check the saved reviewer reports with file hashing and PASS enforcement before local preflight or final signoff can treat those reports as reviewer evidence.",
         "`verify_local_evidence_preflight` rehashes the source trial JSON, packaged trial JSON, package `artifact_manifest.json`, package `readiness.json`, package `README.md`, package `README.zh-CN.md`, zip, checksum, and reviewer reports; it also requires required input-artifact summaries to remain `exists=true`, only treats saved reviewer reports as validated when both saved reviewer verifier gates pass, requires metadata-bound saved reviewer reports to keep matching gate entries and hash summaries, and recomputes the source/package trial claim-scope labels, package-manifest package/source-trial scope labels, packaged readiness READY status, `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_READINESS_PRECHECK`, `final_production_signoff=false`, UTC generation time, `package_name`, workspace, manifest, package README-rendered readiness scope, and package README-rendered handoff contract binding to `rendered_manifest.json` before PASS can be accepted.",
         "Replace all `REPLACE_WITH` values in the manifest and place the real input files before running the trial.",
         "",
@@ -1011,8 +1091,10 @@ def render_readme(plan: dict[str, Any]) -> str:
         "verify_readiness",
         "run_trial",
         "verify_trial",
+        "verify_trial_report",
         "package_evidence",
         "verify_package",
+        "verify_package_report",
         "local_evidence_preflight",
         "verify_local_evidence_preflight",
         "verify_stable_release",
@@ -1092,6 +1174,7 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
         "`check_readiness` 在返回 READY 前也会复核 saved `trial_plan.json`、template hash、manifest 是否存在，以及英文和中文 README 文件；如果 workspace 准备后执行说明或计划被改弱，readiness 会失败。",
         "`check_readiness` 也会强制检查 manifest 里的 `required_object_metadata_columns`。如果模板保留 `Plate`、`Well`、`Site`，请用 `measure --include-object-metadata` 生成 MorphoJet `Objects.csv`，确保外部 trial 运行前这些列已经存在。",
         "`run_trial` 会重新复核 saved READY report，并且在 report 的 manifest 或 workspace 与当前 trial manifest 和 `base_dir` 不一致时拒绝执行。它也会把声明过的 object metadata columns 带进宽表，并在 supported-subset comparison 中允许这些同一批列。",
+        "`verify_trial_report` 和 `verify_package_report` 会用 file hashing 和 PASS enforcement 重新复核 saved reviewer reports；local preflight 或最终签核只有在这些复核通过后，才可把它们当成 reviewer evidence。",
         "`verify_local_evidence_preflight` 会重新 hash source trial JSON、package 内 trial JSON、package `artifact_manifest.json`、package `readiness.json`、package `README.md`、package `README.zh-CN.md`、zip、checksum 和 reviewer reports；它还要求必需的 input-artifact summaries 保持 `exists=true`；只有两条 saved reviewer verifier gates 都 PASS 时，它才会把 saved reviewer reports 当作 validated，并且仍要求 metadata 绑定的 saved reviewer reports 保留对应 gate entries 和 hash summaries，再重新计算 source/package trial claim-scope labels、package manifest 的 package/source-trial scope labels、packaged readiness 的 READY 状态、`claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=EXTERNAL_L4_READINESS_PRECHECK`、`final_production_signoff=false`、UTC 生成时间、`package_name`、workspace、manifest、package README 渲染出的 readiness scope，以及 package README 渲染出的 handoff contract 与 `rendered_manifest.json` 的绑定，全部通过后才可接受 PASS。",
         "运行 trial 前，请替换 manifest 中所有 `REPLACE_WITH` 值，并放入真实输入文件。",
         "",
@@ -1131,8 +1214,10 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
         "verify_readiness",
         "run_trial",
         "verify_trial",
+        "verify_trial_report",
         "package_evidence",
         "verify_package",
+        "verify_package_report",
         "local_evidence_preflight",
         "verify_local_evidence_preflight",
         "verify_stable_release",
