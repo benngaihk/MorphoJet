@@ -2,6 +2,35 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `6608094`
+
+This snapshot records the clean `main` verification for the code commit that updates generated external L4 trial workspace READMEs. Newly prepared English and Chinese workspaces now tell reviewers that the saved package verifier report produced by `verify_package` is itself a non-final review artifact with `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW`, and `final_production_signoff=false`. `--verify-plan-files` re-renders and checks both generated README files, so weakening that package-review scope in either language is caught before an external L4 run.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `6608094`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-6608094.json --out-md /tmp/morphojet-l3-release-report-main-6608094.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-6608094.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| External trial workspace generator tests | PASS, 20 tests |
+| Full Python unit test suite | PASS, 422 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Generated English README Package Review Scope | PASS |
+| Generated Chinese README Package Review Scope | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `5ad23ed`
 
 This snapshot records the clean `main` verification for the code commit that labels saved external L4 evidence-package verifier reports as independent non-production review artifacts. The package verifier now writes top-level `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW`, and `final_production_signoff=false`, and saved-report verification rejects reports tampered into final production-claim scope. This complements the package manifest's own `EXTERNAL_L4_EVIDENCE_PACKAGE` scope and keeps the reviewer JSON from being mistaken for final production signoff.
