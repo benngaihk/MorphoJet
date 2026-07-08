@@ -2,6 +2,38 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `0f19f72`
+
+This snapshot records the clean `main` verification for requiring saved external L4 reviewer verifier gates to pass before local evidence preflight marks `external_l4_saved_reviewer_reports` as validated. `benchmark/run_production_gate.py` now keeps that check in the skipped final checklist when saved reviewer report paths are supplied but either saved reviewer verifier gate fails, while still requiring metadata-bound saved reviewer gate entries and input-artifact summaries to remain present for review. English and Chinese README coverage plus production-readiness docs now describe that stricter PASS-only validation rule.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `0f19f72`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-0f19f72.json --out-md /tmp/morphojet-l3-release-report-main-0f19f72.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-0f19f72.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Production wrapper/local preflight tests | PASS, 78 tests |
+| Full Python unit test suite | PASS, 460 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Failed Saved Reviewer Pair Not Validated | PASS |
+| Metadata-Bound Saved Reviewer Gates Still Required | PASS |
+| English README PASS-Only Reviewer Validation Coverage | PASS |
+| Chinese README PASS-Only Reviewer Validation Coverage | PASS |
+| Production Readiness PASS-Only Reviewer Validation Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `3744512`
 
 This snapshot records the clean `main` verification for requiring evidence-package English and Chinese READMEs to preserve the same readiness workspace and manifest context already bound in JSON/verifier reports. `benchmark/package_external_trial.py` now renders `readiness_workspace` and `readiness_manifest`, and `benchmark/release_gate.py` rejects packages whose READMEs omit those fields, so human reviewers can see the readiness context inside the package itself.
