@@ -2,6 +2,37 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `c717a4e`
+
+This snapshot records the clean `main` verification for the code commit that makes generated external L4 trial plans bind the live stable GitHub release as a distinct final signoff requirement. `benchmark/prepare_external_l4_trial.py` now writes a separate `stable_github_release` row pointing to `https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0`, keeps `stable_github_release_saved_report` as a separate saved verifier artifact, and uses shared stable-release tag/repo constants for the generated commands. Saved plan verification regenerates and rejects tampered final signoff requirements, and generated English plus Chinese workspace READMEs render both stable-release rows.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `c717a4e`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-c717a4e.json --out-md /tmp/morphojet-l3-release-report-main-c717a4e.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-c717a4e.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| External trial workspace preparation tests | PASS, 21 tests |
+| Full Python unit test suite | PASS, 435 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Live Stable GitHub Release Requirement Binding | PASS |
+| Saved Stable Release Report Requirement Binding | PASS |
+| English README Stable Release Requirement Coverage | PASS |
+| Chinese README Stable Release Requirement Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `14c6ac1`
 
 This snapshot records the clean `main` verification for the code commit that adds machine-readable pre-signoff prerequisites to generated external L4 trial plans. `benchmark/prepare_external_l4_trial.py` now writes `pre_signoff_requirements` into `trial_plan.json`, binding the readiness report to `verify_readiness` before `run_trial` and the saved local evidence preflight report to `verify_local_evidence_preflight` before `verify_stable_release`. Saved plan verification regenerates and rejects tampered `pre_signoff_requirements`, and generated English plus Chinese workspace READMEs render the pre-signoff table alongside the final signoff table.
