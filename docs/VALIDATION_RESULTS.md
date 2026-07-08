@@ -2,6 +2,37 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `a2b0377`
+
+This snapshot records the clean `main` verification for binding saved GitHub stable-release reports to a single GitHub release API identity. `benchmark/verify_github_release.py` now rejects saved reports whose `release_api_url` points to a different numeric release than the recorded `release_database_id`, preventing a report from mixing independently valid release identity fields across releases. English and Chinese README coverage plus production-readiness docs describe the database-ID/API-URL binding for saved stable-release verifier reports.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `a2b0377`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-a2b0377.json --out-md /tmp/morphojet-l3-release-report-main-a2b0377.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-a2b0377.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| GitHub release verifier tests | PASS, 60 tests |
+| Full Python unit test suite | PASS, 461 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Saved GitHub Release API/Database ID Binding | PASS |
+| English README Stable-Release Identity Coverage | PASS |
+| Chinese README Stable-Release Identity Coverage | PASS |
+| Production Readiness Stable-Release Identity Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `1d84b87`
 
 This snapshot records the clean `main` verification for carrying the saved-reviewer PASS-only local-preflight rule into generated external L4 workspace README files. `benchmark/prepare_external_l4_trial.py` now renders that rule in both English and Chinese generated READMEs, the root English and Chinese READMEs describe the same reviewer expectation, and the workspace-preparation tests require both generated languages to mention that saved reviewer reports are validated only when both saved reviewer verifier gates pass.
