@@ -2,6 +2,40 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `5a4de0d`
+
+This snapshot records the clean `main` verification for the code commit that labels real external L4 trial reports as non-final evidence. `benchmark/run_handoff_trial.py` now writes `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_WORKFLOW_TRIAL`, and `final_production_signoff=false` into source trial reports. `benchmark/release_gate.py` rejects trial reports that remove or weaken those labels, and `benchmark/verify_external_trial_report.py` copies the source trial claim-scope labels into `input_files.trial_json` so saved trial-reviewer reports and file rechecks catch source trial claim-scope tampering. English and Chinese README guidance now describe the source trial and saved trial-reviewer report as separate non-final artifacts.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `5a4de0d`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-5a4de0d.json --out-md /tmp/morphojet-l3-release-report-main-5a4de0d.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-5a4de0d.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Release-gate helper tests | PASS, 69 tests |
+| External trial verifier tests | PASS, 30 tests |
+| Package external trial tests | PASS, 64 tests |
+| Production wrapper tests | PASS, 67 tests |
+| Full Python unit test suite | PASS, 426 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| External Trial Source Non-Production Scope | PASS |
+| Saved Trial Reviewer Source-Scope Recheck | PASS |
+| English README Trial Scope Coverage | PASS |
+| Chinese README Trial Scope Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `0e66873`
 
 This snapshot records the clean `main` verification for the code commit that binds direct live GitHub release verification to the production repository. `benchmark/release_gate.py --verify-github-release` now passes `--repo benngaihk/MorphoJet` to the live verifier, and `benchmark/verify_release_gate_report.py` rejects saved release-gate reports whose live release verifier command omits or changes that production-repo binding. English and Chinese README guidance now state the same direct/live repo-binding requirement.
