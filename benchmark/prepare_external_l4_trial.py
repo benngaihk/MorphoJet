@@ -194,6 +194,12 @@ def validate_final_signoff_command_bindings(payload: dict[str, Any]) -> list[str
     requirements = payload.get("final_signoff_requirements")
     if not isinstance(commands, dict) or not isinstance(requirements, list):
         return failures
+    workspace = payload.get("workspace")
+    package_name = payload.get("package_name")
+    if not isinstance(workspace, str) or not workspace.strip():
+        return failures
+    if not isinstance(package_name, str) or not package_name.strip():
+        return failures
     final_gate = commands.get("final_production_gate")
     if not isinstance(final_gate, list) or not all(isinstance(item, str) and item for item in final_gate):
         return failures
@@ -205,22 +211,10 @@ def validate_final_signoff_command_bindings(payload: dict[str, Any]) -> list[str
         if isinstance(name, str):
             requirement_by_name[name] = requirement
 
-    flag_bindings = [
-        ("external_l4_workflow_trial", "--external-trial-json", "verify_trial"),
-        ("external_l4_evidence_package", "--external-evidence-package-dir", "verify_package"),
-        (
-            "external_l4_package_saved_reviewer_report",
-            "--external-evidence-package-verification-report",
-            "verify_package_report",
-        ),
-        (
-            "external_l4_trial_saved_reviewer_report",
-            "--external-trial-verification-report",
-            "verify_trial_report",
-        ),
-        ("stable_github_release_saved_report", "--github-release-verification-report", "verify_stable_release_report"),
-    ]
-    for requirement_name, flag, verification_step in flag_bindings:
+    for binding in final_gate_requirement_bindings(Path(workspace), package_name):
+        requirement_name = binding["name"]
+        flag = binding["final_gate_flag"]
+        verification_step = binding["verification_step"]
         requirement = requirement_by_name.get(requirement_name)
         if requirement is None:
             failures.append(f"final_signoff_requirements missing {requirement_name}")
@@ -235,27 +229,12 @@ def validate_final_signoff_command_bindings(payload: dict[str, Any]) -> list[str
         flag_values = argv_values(final_gate, flag)
         if len(flag_values) != 1 or flag_values[0] is None:
             failures.append(f"commands.final_production_gate must include exactly one {flag} value")
-        elif requirement.get("planned_path") != flag_values[0]:
+        elif binding["final_gate_value"] != flag_values[0]:
+            failures.append(f"commands.final_production_gate {flag} must be {binding['final_gate_value']}")
+        elif flag != "--github-release-tag" and requirement.get("planned_path") != flag_values[0]:
             failures.append(f"final_signoff_requirements.{requirement_name} planned_path must match final_production_gate {flag}")
-
-    stable_requirement = requirement_by_name.get("stable_github_release")
-    if stable_requirement is None:
-        failures.append("final_signoff_requirements missing stable_github_release")
-    else:
-        expected_required_for = "final_production_gate --github-release-tag"
-        if stable_requirement.get("required_for") != expected_required_for:
-            failures.append(f"final_signoff_requirements.stable_github_release required_for must be {expected_required_for}")
-        if stable_requirement.get("verification_step") != "verify_stable_release":
-            failures.append("final_signoff_requirements.stable_github_release verification_step must be verify_stable_release")
-        elif "verify_stable_release" not in commands:
-            failures.append("final_signoff_requirements.stable_github_release verification_step missing commands.verify_stable_release")
-        tag_values = argv_values(final_gate, "--github-release-tag")
-        if len(tag_values) != 1 or tag_values[0] is None:
-            failures.append("commands.final_production_gate must include exactly one --github-release-tag value")
-        elif tag_values[0] != STABLE_RELEASE_TAG:
-            failures.append(f"commands.final_production_gate --github-release-tag must be {STABLE_RELEASE_TAG}")
-        if stable_requirement.get("planned_path") != STABLE_RELEASE_URL:
-            failures.append(f"final_signoff_requirements.stable_github_release planned_path must be {STABLE_RELEASE_URL}")
+        if requirement.get("planned_path") != binding["planned_path"]:
+            failures.append(f"final_signoff_requirements.{requirement_name} planned_path must be {binding['planned_path']}")
 
     final_report_requirement = requirement_by_name.get("final_production_claim_report")
     if final_report_requirement is None:
@@ -1046,7 +1025,7 @@ def plan_commands(
     }
 
 
-def final_signoff_requirements(workspace: Path, package_name: str) -> list[dict[str, str]]:
+def final_gate_requirement_bindings(workspace: Path, package_name: str) -> list[dict[str, str]]:
     package_dir = workspace / "evidence-package" / package_name
     return [
         {
@@ -1054,51 +1033,73 @@ def final_signoff_requirements(workspace: Path, package_name: str) -> list[dict[
             "status": "PENDING_EXTERNAL_EVIDENCE",
             "planned_path": str(workspace / "handoff_trial.json"),
             "verification_step": "verify_trial",
-            "required_for": "final_production_gate --external-trial-json",
+            "final_gate_flag": "--external-trial-json",
+            "final_gate_value": str(workspace / "handoff_trial.json"),
         },
         {
             "name": "external_l4_evidence_package",
             "status": "PENDING_EXTERNAL_EVIDENCE",
             "planned_path": str(package_dir),
             "verification_step": "verify_package",
-            "required_for": "final_production_gate --external-evidence-package-dir",
+            "final_gate_flag": "--external-evidence-package-dir",
+            "final_gate_value": str(package_dir),
         },
         {
             "name": "external_l4_trial_saved_reviewer_report",
             "status": "PENDING_EXTERNAL_REVIEW",
             "planned_path": str(workspace / "handoff_trial-verification.json"),
             "verification_step": "verify_trial_report",
-            "required_for": "final_production_gate --external-trial-verification-report",
+            "final_gate_flag": "--external-trial-verification-report",
+            "final_gate_value": str(workspace / "handoff_trial-verification.json"),
         },
         {
             "name": "external_l4_package_saved_reviewer_report",
             "status": "PENDING_EXTERNAL_REVIEW",
             "planned_path": str(workspace / "evidence-package-verification.json"),
             "verification_step": "verify_package_report",
-            "required_for": "final_production_gate --external-evidence-package-verification-report",
+            "final_gate_flag": "--external-evidence-package-verification-report",
+            "final_gate_value": str(workspace / "evidence-package-verification.json"),
         },
         {
             "name": "stable_github_release",
             "status": "PENDING_STABLE_RELEASE",
             "planned_path": STABLE_RELEASE_URL,
             "verification_step": "verify_stable_release",
-            "required_for": "final_production_gate --github-release-tag",
+            "final_gate_flag": "--github-release-tag",
+            "final_gate_value": STABLE_RELEASE_TAG,
         },
         {
             "name": "stable_github_release_saved_report",
             "status": "PENDING_STABLE_RELEASE",
             "planned_path": str(workspace / "github-release-verification.json"),
             "verification_step": "verify_stable_release_report",
-            "required_for": "final_production_gate --github-release-verification-report",
+            "final_gate_flag": "--github-release-verification-report",
+            "final_gate_value": str(workspace / "github-release-verification.json"),
         },
+    ]
+
+
+def final_signoff_requirements(workspace: Path, package_name: str) -> list[dict[str, str]]:
+    requirements = [
+        {
+            "name": binding["name"],
+            "status": binding["status"],
+            "planned_path": binding["planned_path"],
+            "verification_step": binding["verification_step"],
+            "required_for": f"final_production_gate {binding['final_gate_flag']}",
+        }
+        for binding in final_gate_requirement_bindings(workspace, package_name)
+    ]
+    requirements.append(
         {
             "name": "final_production_claim_report",
             "status": "PENDING_FINAL_GATE",
             "planned_path": str(workspace / "production-claim.json"),
             "verification_step": "verify_final_production_report",
             "required_for": "production_signoff",
-        },
-    ]
+        }
+    )
+    return requirements
 
 
 def pre_signoff_requirements(workspace: Path) -> list[dict[str, str]]:
@@ -1135,8 +1136,20 @@ def pre_signoff_requirements(workspace: Path) -> list[dict[str, str]]:
 
 
 def production_claim_blockers(workspace: Path, package_name: str) -> list[dict[str, Any]]:
-    package_dir = workspace / "evidence-package" / package_name
-    plan_bindings: dict[str, dict[str, Any]] = {
+    final_requirement_bindings = {
+        binding["name"]: binding for binding in final_gate_requirement_bindings(workspace, package_name)
+    }
+    blocker_requirement_groups = {
+        "external_l4_workflow_trial": ["external_l4_workflow_trial"],
+        "external_l4_evidence_package": ["external_l4_evidence_package"],
+        "external_l4_saved_reviewer_reports": [
+            "external_l4_trial_saved_reviewer_report",
+            "external_l4_package_saved_reviewer_report",
+        ],
+        "stable_github_release": ["stable_github_release"],
+        "stable_github_release_saved_report": ["stable_github_release_saved_report"],
+    }
+    blocker_bindings: dict[str, dict[str, Any]] = {
         "clean_git_worktree": {
             "status": "PENDING_FINAL_GATE",
             "planned_paths": [str(workspace / "production-claim.json")],
@@ -1147,42 +1160,21 @@ def production_claim_blockers(workspace: Path, package_name: str) -> list[dict[s
             "planned_paths": [str(workspace / "production-claim.json")],
             "final_gate_bindings": ["run_production_gate.py --require-l3-provenance"],
         },
-        "external_l4_workflow_trial": {
-            "status": "PENDING_EXTERNAL_EVIDENCE",
-            "planned_paths": [str(workspace / "handoff_trial.json")],
-            "final_gate_bindings": ["final_production_gate --external-trial-json"],
-        },
-        "external_l4_evidence_package": {
-            "status": "PENDING_EXTERNAL_EVIDENCE",
-            "planned_paths": [str(package_dir)],
-            "final_gate_bindings": ["final_production_gate --external-evidence-package-dir"],
-        },
-        "external_l4_saved_reviewer_reports": {
-            "status": "PENDING_EXTERNAL_REVIEW",
-            "planned_paths": [
-                str(workspace / "handoff_trial-verification.json"),
-                str(workspace / "evidence-package-verification.json"),
-            ],
-            "final_gate_bindings": [
-                "final_production_gate --external-trial-verification-report",
-                "final_production_gate --external-evidence-package-verification-report",
-            ],
-        },
-        "stable_github_release": {
-            "status": "PENDING_STABLE_RELEASE",
-            "planned_paths": [STABLE_RELEASE_URL],
-            "final_gate_bindings": ["final_production_gate --github-release-tag"],
-        },
-        "stable_github_release_saved_report": {
-            "status": "PENDING_STABLE_RELEASE",
-            "planned_paths": [str(workspace / "github-release-verification.json")],
-            "final_gate_bindings": ["final_production_gate --github-release-verification-report"],
-        },
     }
+    for blocker_name, requirement_names in blocker_requirement_groups.items():
+        requirements = [final_requirement_bindings[name] for name in requirement_names]
+        blocker_bindings[blocker_name] = {
+            "status": requirements[0]["status"],
+            "planned_paths": [requirement["planned_path"] for requirement in requirements],
+            "final_gate_bindings": [
+                f"final_production_gate {requirement['final_gate_flag']}"
+                for requirement in requirements
+            ],
+        }
     blockers: list[dict[str, Any]] = []
     for name in release_gate.PRODUCTION_FINAL_BLOCKER_NAMES:
         guidance = release_gate.PRODUCTION_CHECKLIST_GUIDANCE[name]
-        binding = plan_bindings[name]
+        binding = blocker_bindings[name]
         blockers.append(
             {
                 "name": name,

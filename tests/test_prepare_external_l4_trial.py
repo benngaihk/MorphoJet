@@ -365,6 +365,43 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 "final_production_gate --github-release-verification-report",
                 blocker_by_name["stable_github_release_saved_report"]["final_gate_bindings"],
             )
+            final_requirement_bindings = {
+                binding["name"]: binding
+                for binding in prepare_external_l4_trial.final_gate_requirement_bindings(
+                    workspace.resolve(),
+                    plan["package_name"],
+                )
+            }
+            for requirement_name, binding in final_requirement_bindings.items():
+                self.assertEqual(
+                    binding["planned_path"],
+                    requirement_by_name[requirement_name]["planned_path"],
+                )
+                self.assertEqual(
+                    f"final_production_gate {binding['final_gate_flag']}",
+                    requirement_by_name[requirement_name]["required_for"],
+                )
+                final_gate_values = prepare_external_l4_trial.argv_values(
+                    final_gate,
+                    binding["final_gate_flag"],
+                )
+                self.assertEqual([binding["final_gate_value"]], final_gate_values)
+            self.assertEqual(
+                [
+                    final_requirement_bindings["external_l4_trial_saved_reviewer_report"]["planned_path"],
+                    final_requirement_bindings["external_l4_package_saved_reviewer_report"]["planned_path"],
+                ],
+                blocker_by_name["external_l4_saved_reviewer_reports"]["planned_paths"],
+            )
+            self.assertEqual(
+                [
+                    "final_production_gate "
+                    + final_requirement_bindings["external_l4_trial_saved_reviewer_report"]["final_gate_flag"],
+                    "final_production_gate "
+                    + final_requirement_bindings["external_l4_package_saved_reviewer_report"]["final_gate_flag"],
+                ],
+                blocker_by_name["external_l4_saved_reviewer_reports"]["final_gate_bindings"],
+            )
             readme = (workspace / "README.md").read_text(encoding="utf-8")
             self.assertIn("Language: English | [简体中文](README.zh-CN.md)", readme)
             self.assertIn("## pre_signoff_requirements", readme)
@@ -815,8 +852,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             completed.stderr,
         )
         self.assertIn(
-            "final_signoff_requirements.external_l4_workflow_trial planned_path must match "
-            "final_production_gate --external-trial-json",
+            "commands.final_production_gate --external-trial-json must be "
+            f"{(workspace / 'handoff_trial.json').resolve()}",
             completed.stderr,
         )
 

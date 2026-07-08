@@ -2,6 +2,26 @@
 
 Updated: 2026-07-08
 
+## External L4 Final-Gate Binding Source Snapshot
+
+This snapshot records local verification for making generated external L4 trial plans derive final signoff requirements, production blocker planned paths, and final production wrapper flag bindings from one shared `final_gate_requirement_bindings` helper in `benchmark/prepare_external_l4_trial.py`. The saved plan format is unchanged, but `final_signoff_requirements`, `production_claim_blockers`, and `--verify-plan` command-binding checks now use the same planned path and final-gate flag metadata for external trial JSON, evidence package directory, saved trial/package reviewer reports, stable release tag, and saved stable-release verifier report. This reduces the risk that a real external L4 workspace can render one final signoff path while validating or documenting a different final production wrapper argument.
+
+This is not a production claim. The release-gate report must still remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE` until real external L4 evidence, saved reviewer reports, a live stable release, a saved stable-release verifier report, and the final production wrapper all pass in one final report.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_prepare_external_l4_trial.py` | PASS, 27 tests |
+| `python3 tests/test_run_production_gate.py` | PASS, 88 tests |
+| `python3 tests/test_verify_release_gate_report.py` | PASS, 50 tests |
+| `python3 -m unittest discover -s tests` | PASS, 503 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS |
+| `git diff --check` | PASS |
+| Shared external L4 final-gate binding source | PASS |
+
 ## Final Production Gate-Name Source Binding Snapshot
 
 This snapshot records local verification for making `benchmark/verify_release_gate_report.py` reuse the final production PASS gate-name requirement from `benchmark/release_gate.py`. The release-gate writer now owns `REQUIRED_PRODUCTION_GATE_NAMES`, and the saved-report verifier imports that exact object when rejecting production-claim PASS reports that omit clean-git, standard code/artifact, L3 provenance, external L4, saved external reviewer, live stable GitHub release, or saved stable-release verifier gates. This prevents a final saved-report review from drifting into a weaker production PASS contract than the report generator.
