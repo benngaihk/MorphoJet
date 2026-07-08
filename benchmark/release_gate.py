@@ -471,6 +471,8 @@ def live_github_release_report_command(tag: str, kind: str) -> list[str]:
         "python3",
         "benchmark/verify_github_release.py",
         tag,
+        "--repo",
+        GITHUB_RELEASE_REPO,
         release_kind_flag,
         "--json-out",
         normalized_path_key(github_release_verification_report_path(tag)),

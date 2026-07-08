@@ -613,6 +613,16 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             failures,
         )
 
+    def test_live_github_release_gate_command_binds_production_repo(self) -> None:
+        command = verify_release_gate_report.live_github_release_gate_command("v0.1.0", "stable")
+
+        self.assertEqual("benngaihk/MorphoJet", command[command.index("--repo") + 1])
+        self.assertIn("--expect-stable", command)
+        self.assertEqual(
+            verify_release_gate_report.github_release_verification_report_path("v0.1.0"),
+            command[command.index("--json-out") + 1],
+        )
+
     def test_rejects_passing_production_claim_without_final_metadata_flags(self) -> None:
         payload = self.complete_production_claim_payload()
         payload["metadata"]["require_clean_git"] = False

@@ -112,7 +112,7 @@ python3 benchmark/release_gate.py --verify-github-release v0.1.0-rc.1
 python3 benchmark/release_gate.py --verify-github-release v0.1.0 --github-release-kind stable
 ```
 
-GitHub release verifier 会检查 tag 身份、release URL、GitHub release ID/API 身份、作者、target commit-ish、UTC 时间戳、draft/prerelease/immutable 状态、稳定 semver tag、发布资产集合、下载文件 checksum、archive 内容，并要求当前机器兼容的 archive 能通过 `morphojet doctor` 且 commit 前缀匹配。Saved GitHub release verifier report 会标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=GITHUB_STABLE_RELEASE_VERIFICATION`、`final_production_signoff=false`；复核 saved report 时可用 `--expect-repo benngaihk/MorphoJet` 防止其他仓库的 release 报告进入签核链。
+GitHub release verifier 会检查 tag 身份、release URL、GitHub release ID/API 身份、作者、target commit-ish、UTC 时间戳、draft/prerelease/immutable 状态、稳定 semver tag、发布资产集合、下载文件 checksum、archive 内容，并要求当前机器兼容的 archive 能通过 `morphojet doctor` 且 commit 前缀匹配。Direct release gate 的 live GitHub release verification 会绑定生产仓库 `benngaihk/MorphoJet`；Saved GitHub release verifier report 会标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=GITHUB_STABLE_RELEASE_VERIFICATION`、`final_production_signoff=false`；复核 saved report 时可用 `--expect-repo benngaihk/MorphoJet` 防止其他仓库的 release 报告进入签核链。
 
 ## CellProfiler 风格宽表导出
 
@@ -185,7 +185,7 @@ python3 benchmark/run_production_gate.py \
   --github-release-tag v0.1.0
 ```
 
-这个 wrapper 要求稳定非 RC tag，复核外部 trial/package reviewer 报告，拒绝 final output 覆盖 package review files（包括 `README.md` 和 `README.zh-CN.md`），要求 saved GitHub release verifier report 是同一 final tag 和 `benngaihk/MorphoJet` repo 的 stable PASS 报告，并委托 `benchmark/release_gate.py --require-production-claim`。如果 final release gate 通过，wrapper 会立刻复核 `production-claim.json`，要求 `--require-production-claim-pass` 和 `--expect-missing-checks none`；生成的 trial plan 也保留同一条 final report verification 作为独立签核步骤。最终生产声明现在会把 saved trial/package reviewer reports 和 saved stable-release verifier report 作为独立审计项；saved GitHub release verifier report 自身仍标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=GITHUB_STABLE_RELEASE_VERIFICATION`、`final_production_signoff=false`，direct release gate 复核 saved GitHub release report 时也会带上 `--expect-repo benngaihk/MorphoJet`。它通过之前，项目不能宣称 production-ready。
+这个 wrapper 要求稳定非 RC tag，复核外部 trial/package reviewer 报告，拒绝 final output 覆盖 package review files（包括 `README.md` 和 `README.zh-CN.md`），要求 saved GitHub release verifier report 是同一 final tag 和 `benngaihk/MorphoJet` repo 的 stable PASS 报告，并委托 `benchmark/release_gate.py --require-production-claim`。如果 final release gate 通过，wrapper 会立刻复核 `production-claim.json`，要求 `--require-production-claim-pass` 和 `--expect-missing-checks none`；生成的 trial plan 也保留同一条 final report verification 作为独立签核步骤。最终生产声明现在会把 saved trial/package reviewer reports 和 saved stable-release verifier report 作为独立审计项；saved GitHub release verifier report 自身仍标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=GITHUB_STABLE_RELEASE_VERIFICATION`、`final_production_signoff=false`，direct release gate 的 live GitHub release verification 和 saved GitHub release report 复核都会绑定 `benngaihk/MorphoJet`。它通过之前，项目不能宣称 production-ready。
 
 ## 当前里程碑状态
 
