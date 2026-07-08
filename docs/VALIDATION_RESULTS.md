@@ -2,6 +2,23 @@
 
 Updated: 2026-07-08
 
+## External Workspace Reviewer Signoff Instructions Snapshot
+
+This snapshot records local verification for making generated external L4 workspace READMEs state that saved trial/package reviewer report signoff must pair `--require-report-pass` with `--verify-report-files`. The generated plan already emits the stronger commands; the generated English and Chinese READMEs now tell reviewers why that pairing is required, and `--verify-plan-files` rejects README edits that remove or weaken the instruction.
+
+This is not a production claim. The workspace remains a preparation scaffold, and production remains incomplete until a real external L4 trial, matching evidence package, saved trial/package reviewer reports, live stable GitHub release, saved stable-release verifier report, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_prepare_external_l4_trial.py` | PASS, 28 tests |
+| `python3 -m unittest discover -s tests` | PASS, 522 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## External Reviewer Report File Signoff Snapshot
 
 This snapshot records local verification for making saved external L4 trial and evidence-package reviewer report signoff fail closed unless `--require-report-pass` is paired with `--verify-report-files`. The generated external L4 plans and production wrapper already use file rechecks; this closes the manual-review gap where a saved reviewer JSON could require PASS without rehashing and recomputing the bound trial/package evidence files.
