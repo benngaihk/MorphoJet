@@ -25,6 +25,58 @@ class ValidateClaimLanguageTest(unittest.TestCase):
         self.assertIn("corpus/README.md", default_paths)
         self.assertIn("docs/PRODUCTION_READINESS.md", default_paths)
 
+    def test_root_readme_contract_requires_chinese_community_coverage(self) -> None:
+        failures = validate_claim_language.validate_root_readme_contract()
+
+        self.assertEqual([], failures)
+
+    def test_root_readme_contract_rejects_missing_chinese_l4_guidance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            readme = root / "README.md"
+            readme_zh = root / "README.zh-CN.md"
+            readme.write_text(
+                "Language: English | [简体中文](README.zh-CN.md)\n"
+                "Production-readiness gates are tracked in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).\n"
+                "README.zh-CN.md\n",
+                encoding="utf-8",
+            )
+            readme_zh.write_text(
+                "语言：[English](README.md) | 简体中文\n"
+                "## 当前里程碑状态\n"
+                "中文社区\n",
+                encoding="utf-8",
+            )
+            original_contract = validate_claim_language.ROOT_README_CONTRACT
+            validate_claim_language.ROOT_README_CONTRACT = [
+                {
+                    "path": readme,
+                    "requirements": [
+                        "Language: English | [简体中文](README.zh-CN.md)",
+                        "Production-readiness gates are tracked in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md)",
+                        "README.zh-CN.md",
+                    ],
+                },
+                {
+                    "path": readme_zh,
+                    "requirements": [
+                        "语言：[English](README.md) | 简体中文",
+                        "## 外部 L4 试验与生产门禁",
+                        "python3 benchmark/run_production_gate.py",
+                        "中文社区",
+                    ],
+                },
+            ]
+            try:
+                failures = validate_claim_language.validate_root_readme_contract()
+            finally:
+                validate_claim_language.ROOT_README_CONTRACT = original_contract
+
+        self.assertEqual(2, len(failures))
+        self.assertIn("README.zh-CN.md", failures[0])
+        self.assertIn("## 外部 L4 试验与生产门禁", failures[0])
+        self.assertIn("python3 benchmark/run_production_gate.py", failures[1])
+
     def test_accepts_guarded_claim_language(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "README.md"

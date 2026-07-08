@@ -31,6 +31,31 @@ DEFAULT_PATHS = unique_paths(
         *sorted((ROOT / "corpus").rglob("*.md")),
     ]
 )
+ROOT_README_CONTRACT = [
+    {
+        "path": ROOT / "README.md",
+        "requirements": [
+            "Language: English | [简体中文](README.zh-CN.md)",
+            "Production-readiness gates are tracked in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md)",
+            "README.zh-CN.md",
+        ],
+    },
+    {
+        "path": ROOT / "README.zh-CN.md",
+        "requirements": [
+            "语言：[English](README.md) | 简体中文",
+            "## 外部 L4 试验与生产门禁",
+            "## 当前里程碑状态",
+            "python3 benchmark/prepare_external_l4_trial.py --workspace path/to/external-trial",
+            "python3 benchmark/run_production_gate.py",
+            "README.md",
+            "README.zh-CN.md",
+            "真实外部 L4 workflow trial",
+            "saved stable-release verifier report",
+            "中文社区",
+        ],
+    },
+]
 RISKY_PATTERNS = [
     re.compile(r"\bproduction[- ]ready\b", re.IGNORECASE),
     re.compile(r"\bproduction[- ]grade\b", re.IGNORECASE),
@@ -143,12 +168,30 @@ def validate_paths(paths: list[Path]) -> list[str]:
     return failures
 
 
+def validate_root_readme_contract() -> list[str]:
+    failures: list[str] = []
+    for contract in ROOT_README_CONTRACT:
+        path = contract["path"]
+        if not isinstance(path, Path) or not path.is_file():
+            failures.append(f"{display_path(path)}: missing required root README")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for required in contract["requirements"]:
+            if required not in text:
+                failures.append(
+                    f"{display_path(path)}: missing required bilingual README contract text: {required}"
+                )
+    return failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("paths", nargs="*", type=Path, help="Markdown files or directories to scan")
     args = parser.parse_args()
     paths = args.paths or DEFAULT_PATHS
     failures = validate_paths(paths)
+    if not args.paths:
+        failures.extend(validate_root_readme_contract())
     if failures:
         for failure in failures:
             print(f"FAIL: {failure}", file=sys.stderr)
