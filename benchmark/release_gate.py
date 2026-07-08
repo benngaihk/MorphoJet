@@ -2329,6 +2329,27 @@ def production_checklist_rows(audit: dict) -> list[dict[str, str]]:
     return rows
 
 
+def production_claim_boundary_lines(payload: dict) -> list[str]:
+    if payload.get("final_production_signoff") is FINAL_PRODUCTION_SIGNOFF:
+        return [
+            "## Production Claim Boundary",
+            "",
+            "This report is a final production signoff candidate because `final_production_signoff=true`; "
+            "the saved report verifier must still pass with `--require-production-claim-pass` and "
+            "`--expect-missing-checks none` before release signoff is accepted.",
+        ]
+    missing = ", ".join(payload.get("missing_or_failed_checks") or []) or "none"
+    return [
+        "## Production Claim Boundary",
+        "",
+        "This report is not a production signoff. It remains `NOT_PRODUCTION_CLAIM` until "
+        "`final_production_signoff=true`, `production_claim_status=PASS`, and "
+        "`missing_or_failed_checks=none` are present in the same saved report.",
+        "",
+        f"Current production blockers: `{missing}`.",
+    ]
+
+
 def render_markdown(payload: dict, out_json: Path) -> str:
     metadata = payload["metadata"]
     audit = payload["production_claim_audit"]
@@ -2347,6 +2368,8 @@ def render_markdown(payload: dict, out_json: Path) -> str:
         f"- git_commit: `{metadata['git_commit']}`",
         f"- git_dirty: `{metadata['git_dirty']}`",
         f"- argv: `{' '.join(metadata['argv'])}`",
+        "",
+        *production_claim_boundary_lines(payload),
         "",
         "| Gate | Status | Seconds |",
         "|---|---:|---:|",

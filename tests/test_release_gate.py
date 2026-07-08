@@ -948,6 +948,16 @@ class ReleaseGateTest(unittest.TestCase):
             markdown = (root / "report.md").read_text(encoding="utf-8")
 
         self.assertIn("## Production Claim Checklist", markdown)
+        self.assertIn("## Production Claim Boundary", markdown)
+        self.assertIn("This report is not a production signoff.", markdown)
+        self.assertIn("`missing_or_failed_checks=none`", markdown)
+        self.assertIn(
+            "Current production blockers: `clean_git_worktree, l3_provenance_hashes, "
+            "external_l4_workflow_trial, external_l4_evidence_package, "
+            "external_l4_saved_reviewer_reports, stable_github_release, "
+            "stable_github_release_saved_report`.",
+            markdown,
+        )
         self.assertIn("| external_l4_workflow_trial | MISSING |", markdown)
         self.assertIn("A real external handoff_trial.json PASS report", markdown)
         self.assertIn("benchmark/run_handoff_trial.py with --require-external-evidence", markdown)
@@ -1051,6 +1061,10 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertIn("- claim_status: `FINAL_PRODUCTION_CLAIM`", markdown)
         self.assertIn("- evidence_scope: `FINAL_PRODUCTION_RELEASE_GATE`", markdown)
         self.assertIn("- final_production_signoff: `True`", markdown)
+        self.assertIn("## Production Claim Boundary", markdown)
+        self.assertIn("This report is a final production signoff candidate", markdown)
+        self.assertIn("`--require-production-claim-pass`", markdown)
+        self.assertIn("`--expect-missing-checks none`", markdown)
         self.assertIn("| external_l4_workflow_trial | PASS |", markdown)
         self.assertIn("No action needed for this check.", markdown)
 

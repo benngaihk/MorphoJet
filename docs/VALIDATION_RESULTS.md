@@ -2,6 +2,23 @@
 
 Updated: 2026-07-09
 
+## Markdown Production Claim Boundary Snapshot
+
+This snapshot records local verification for making release-gate Markdown reports harder to misread when they are copied into human review. `benchmark/release_gate.py` now renders a `Production Claim Boundary` section: non-final reports explicitly say they are not production signoff and repeat the current production blockers, while final candidates state that saved-report verification with production-claim PASS and `--expect-missing-checks none` is still required.
+
+This is not a production claim. The current release-gate precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_release_gate.py` | PASS, 98 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 -m unittest discover -s tests` | PASS, 552 tests |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## External Workspace Bilingual README Anchor Guard Snapshot
 
 This snapshot records local verification for making generated external L4 workspace READMEs safer for English and Chinese reviewers. `benchmark/prepare_external_l4_trial.py --verify-plan-files` now checks both generated README files for shared audit anchors, including non-final claim labels, saved reviewer report flags, local-preflight signoff, final wrapper saved-report flags, final saved-report verification flags, and bilingual README paths.
