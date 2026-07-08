@@ -657,6 +657,26 @@ def production_claim_contract_failures(args: argparse.Namespace) -> list[str]:
             "--require-production-claim with --external-evidence-package-verification-report requires "
             "--external-evidence-package-dir and --external-trial-json"
         )
+    if (
+        args.external_trial_verification_report
+        and args.external_trial_json
+        and args.external_trial_root
+        and not args.external_evidence_package_verification_report
+    ):
+        failures.append(
+            "--require-production-claim with --external-trial-verification-report requires "
+            "--external-evidence-package-verification-report"
+        )
+    if (
+        args.external_evidence_package_verification_report
+        and args.external_evidence_package_dir
+        and args.external_trial_json
+        and not args.external_trial_verification_report
+    ):
+        failures.append(
+            "--require-production-claim with --external-evidence-package-verification-report requires "
+            "--external-trial-verification-report"
+        )
     return failures
 
 

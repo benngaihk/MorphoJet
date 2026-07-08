@@ -477,6 +477,48 @@ class ReleaseGateTest(unittest.TestCase):
 
         self.assertEqual([], failures)
 
+    def test_require_production_claim_rejects_saved_trial_report_without_saved_package_report(self) -> None:
+        failures = release_gate.production_claim_contract_failures(
+            self.production_args(
+                require_production_claim=True,
+                require_clean_git=True,
+                require_l3_provenance=True,
+                external_trial_json=Path("handoff_trial.json"),
+                external_trial_root=Path("external-trial"),
+                external_evidence_package_dir=Path("external-l4-package"),
+                external_trial_verification_report=Path("trial-verification.json"),
+            )
+        )
+
+        self.assertEqual(
+            [
+                "--require-production-claim with --external-trial-verification-report requires "
+                "--external-evidence-package-verification-report"
+            ],
+            failures,
+        )
+
+    def test_require_production_claim_rejects_saved_package_report_without_saved_trial_report(self) -> None:
+        failures = release_gate.production_claim_contract_failures(
+            self.production_args(
+                require_production_claim=True,
+                require_clean_git=True,
+                require_l3_provenance=True,
+                external_trial_json=Path("handoff_trial.json"),
+                external_trial_root=Path("external-trial"),
+                external_evidence_package_dir=Path("external-l4-package"),
+                external_evidence_package_verification_report=Path("package-verification.json"),
+            )
+        )
+
+        self.assertEqual(
+            [
+                "--require-production-claim with --external-evidence-package-verification-report requires "
+                "--external-trial-verification-report"
+            ],
+            failures,
+        )
+
     def test_production_claim_audit_defaults_to_incomplete_without_l4_or_stable_release(self) -> None:
         gates = self.production_gates(
             [
