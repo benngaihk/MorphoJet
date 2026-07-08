@@ -177,7 +177,12 @@ def resolve_manifest_path(path: str) -> Path:
     return Path(path)
 
 
-def morphojet_objects_csv_issues(path: str, object_set: str, channels: list[str]) -> list[str]:
+def morphojet_objects_csv_issues(
+    path: str,
+    object_set: str,
+    channels: list[str],
+    required_metadata_columns: list[str] | None = None,
+) -> list[str]:
     csv_path = resolve_manifest_path(path)
     if not csv_path.is_file():
         return []
@@ -186,6 +191,12 @@ def morphojet_objects_csv_issues(path: str, object_set: str, channels: list[str]
     missing_columns = [column for column in required_morphojet_objects_columns() if column not in columns]
     if missing_columns:
         issues.append(f"MorphoJet objects CSV missing columns for {path}: {','.join(missing_columns)}")
+    missing_metadata_columns = [column for column in (required_metadata_columns or []) if column not in columns]
+    if missing_metadata_columns:
+        issues.append(
+            "MorphoJet objects CSV missing metadata columns for "
+            f"{path}: {','.join(missing_metadata_columns)}"
+        )
     matching_rows = [row for row in rows if row.get("ObjectSet") == object_set]
     if not matching_rows:
         issues.append(f"MorphoJet objects CSV has no rows for ObjectSet={object_set}: {path}")
@@ -216,6 +227,7 @@ def expected_cellprofiler_csv_issues(path: str, channels: list[str]) -> list[str
 def input_csv_schema_issues(manifest: dict[str, Any]) -> list[str]:
     issues = []
     top_level_objects = manifest.get("morphojet_objects_csv")
+    top_level_metadata = manifest.get("required_object_metadata_columns", [])
     for export in manifest.get("exports", []):
         if not isinstance(export, dict):
             continue
@@ -227,7 +239,19 @@ def input_csv_schema_issues(manifest: dict[str, Any]) -> list[str]:
             continue
         objects_csv = export.get("objects_csv", top_level_objects)
         if isinstance(objects_csv, str):
-            issues.extend(morphojet_objects_csv_issues(objects_csv, object_set, channels))
+            required_metadata_columns = export.get("required_object_metadata_columns", top_level_metadata)
+            if not isinstance(required_metadata_columns, list) or not all(
+                isinstance(column, str) and column.strip() for column in required_metadata_columns
+            ):
+                required_metadata_columns = []
+            issues.extend(
+                morphojet_objects_csv_issues(
+                    objects_csv,
+                    object_set,
+                    channels,
+                    required_metadata_columns,
+                )
+            )
         expected = export.get("expected_cellprofiler_csv")
         if isinstance(expected, str):
             issues.extend(expected_cellprofiler_csv_issues(expected, channels))

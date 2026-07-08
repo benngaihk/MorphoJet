@@ -52,8 +52,10 @@ def fill_external_evidence(manifest: dict) -> None:
     )
 
 
-def write_valid_inputs(workspace: Path) -> None:
+def write_valid_inputs(workspace: Path, include_metadata: bool = True) -> None:
     object_columns = check_external_l4_readiness.required_morphojet_objects_columns()
+    metadata_columns = ["Plate", "Well", "Site"] if include_metadata else []
+    object_columns = list(dict.fromkeys([*object_columns, *metadata_columns]))
     rows = []
     for channel in ["DNA", "PH3"]:
         row = {column: "1" for column in object_columns}
@@ -68,6 +70,9 @@ def write_valid_inputs(workspace: Path) -> None:
                 "AreaShape_BoundingBoxMaximum_X": "2",
                 "AreaShape_BoundingBoxMaximum_Y": "2",
                 "AreaShape_Solidity": "1",
+                "Plate": "P001",
+                "Well": "A01",
+                "Site": "1",
             }
         )
         rows.append(row)
@@ -136,6 +141,25 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             self.assertEqual(
                 ["benchmark/check_external_l4_readiness.py", "--workspace", str(workspace.resolve())],
                 payload["argv"],
+            )
+
+    def test_required_object_metadata_columns_are_checked_before_trial(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            manifest_path = workspace / "external_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            fill_external_evidence(manifest)
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            write_valid_inputs(workspace, include_metadata=False)
+
+            payload = check_external_l4_readiness.readiness_report(workspace)
+
+            self.assertEqual("NOT_READY", payload["status"])
+            self.assertIn(
+                f"MorphoJet objects CSV missing metadata columns for {workspace.resolve()}/morphojet/Objects.csv: "
+                "Plate,Well,Site",
+                payload["issues"],
             )
 
     def test_cli_report_records_auditable_timestamp_and_argv(self) -> None:

@@ -19,6 +19,7 @@
     ]
   },
   "morphojet_objects_csv": "{base_dir}/morphojet/Objects.csv",
+  "required_object_metadata_columns": ["Plate", "Well", "Site"],
   "exports": [
     {
       "name": "Cells",

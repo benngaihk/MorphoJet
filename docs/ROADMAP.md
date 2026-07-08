@@ -41,9 +41,10 @@
   - [x] Structured measure success/failure JSON reports.
   - [x] GitHub scheduled CellBinDB L3 workflow.
   - [x] Optional object-level image-table metadata export for plate/well/site handoff context.
+  - [x] External L4 manifest/readiness contract for required object metadata columns.
   - [ ] External workflow trial.
 
-- Multi-channel and plate/well/site metadata polish: object-level metadata export is available behind `measure --include-object-metadata`; remaining work is external L4 confirmation that the handoff shape matches real lab systems.
+- Multi-channel and plate/well/site metadata polish: object-level metadata export is available behind `measure --include-object-metadata`, and the external L4 template/readiness checker can require `Plate`, `Well`, and `Site`; remaining work is external L4 confirmation that the handoff shape matches real lab systems.
 - More morphology features.
 - Better error reporting.
 - macOS/Linux binaries.

@@ -22,6 +22,11 @@ def require_string(data: dict[str, Any], key: str, issues: list[str], prefix: st
         issues.append(f"{prefix}.{key} must be a non-empty string")
 
 
+def validate_string_list(value: Any, name: str, issues: list[str]) -> None:
+    if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
+        issues.append(f"{name} must be a string list when present")
+
+
 def validate_export(export: Any, index: int, issues: list[str]) -> None:
     prefix = f"exports[{index}]"
     if not isinstance(export, dict):
@@ -38,6 +43,12 @@ def validate_export(export: Any, index: int, issues: list[str]) -> None:
         issues.append(f"{prefix}.channels must be a non-empty string list")
     if "objects_csv" in export and not isinstance(export["objects_csv"], str):
         issues.append(f"{prefix}.objects_csv must be a string when present")
+    if "required_object_metadata_columns" in export:
+        validate_string_list(
+            export["required_object_metadata_columns"],
+            f"{prefix}.required_object_metadata_columns",
+            issues,
+        )
     if "expected_cellprofiler_csv" in export:
         for key in ["expected_cellprofiler_csv", "comparison_report", "comparison_json"]:
             require_string(export, key, issues, prefix)
@@ -121,6 +132,12 @@ def validate_schema(
     issues: list[str] = []
     for key in ["trial_id", "morphojet_objects_csv"]:
         require_string(data, key, issues, "manifest")
+    if "required_object_metadata_columns" in data:
+        validate_string_list(
+            data["required_object_metadata_columns"],
+            "manifest.required_object_metadata_columns",
+            issues,
+        )
 
     exports = data.get("exports")
     if not isinstance(exports, list) or not exports:

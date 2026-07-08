@@ -70,6 +70,33 @@ class HandoffManifestValidationTest(unittest.TestCase):
 
         self.assertEqual([], issues)
 
+    def test_required_object_metadata_columns_are_validated(self) -> None:
+        manifest = valid_manifest()
+        manifest["required_object_metadata_columns"] = ["Plate", "Well", "Site"]
+        manifest["exports"][0]["required_object_metadata_columns"] = ["Plate"]
+
+        issues = validate_handoff_manifest.validate_schema(
+            manifest,
+            require_downstream_check=True,
+            require_external_evidence=True,
+        )
+
+        self.assertEqual([], issues)
+
+    def test_required_object_metadata_columns_must_be_string_lists(self) -> None:
+        manifest = valid_manifest()
+        manifest["required_object_metadata_columns"] = ["Plate", ""]
+        manifest["exports"][0]["required_object_metadata_columns"] = "Plate"
+
+        issues = validate_handoff_manifest.validate_schema(
+            manifest,
+            require_downstream_check=True,
+            require_external_evidence=True,
+        )
+
+        self.assertIn("manifest.required_object_metadata_columns must be a string list when present", issues)
+        self.assertIn("exports[0].required_object_metadata_columns must be a string list when present", issues)
+
     def test_external_evidence_is_required_for_l4_trial(self) -> None:
         manifest = valid_manifest()
         del manifest["external_evidence"]
