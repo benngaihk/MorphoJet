@@ -265,6 +265,14 @@ python3 benchmark/run_production_gate.py \
 
 Local evidence preflight 会写出 JSON/Markdown 报告，并标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`、`final_evidence_acceptable=false`。报告会列出被刻意跳过的最终生产门禁，记录 `skipped_final_checklist`，并用绝对路径、size 和 SHA-256 绑定 source trial JSON、package 内 `handoff_trial.json`、`artifact_manifest.json`、`readiness.json`、`README.md`、`README.zh-CN.md`、package zip、checksum 和可选 saved reviewer reports；这些必需 evidence summaries 必须保持 `exists=true`，不能被改成 missing 来移除 hash。只有两份 saved external reviewer reports 都提供、且两条 saved reviewer verifier gates 都 PASS 时，`external_l4_saved_reviewer_reports` 才会进入 `validated_checks`；否则它会留在 `skipped_final_checklist`。`stable_github_release` 和 `stable_github_release_saved_report` 在 local preflight 中始终保持 skipped，因为稳定 release 与 saved stable-release verifier report 必须在最终 production wrapper 中验证。它还会把 source/package trial 的三项 claim-scope 字段、package artifact manifest 的 package-scope 和 source-trial scope 字段、packaged readiness 的 READY 状态、`claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=EXTERNAL_L4_READINESS_PRECHECK`、`final_production_signoff=false`、UTC 生成时间、`package_name`、workspace、manifest，以及两份 package README 渲染出的 readiness scope、handoff contract 和 `review_entrypoint_present` 写入 `input_artifacts`；Markdown 报告会显示 readiness 字段、每份 package README 的 reviewer-entrypoint 状态，并额外渲染 package README handoff-contract 表，方便中文 reviewer 不打开 JSON 也能复核 readiness 上下文、中文入口和下游 CSV 合同。Saved preflight verifier 会确认 `metadata.github_release_tag` 仍是稳定非 RC release tag，并把这些 README handoff-contract summaries 和 reviewer entrypoint 重新绑定到当前 package README 文件和 `rendered_manifest.json`；在 `--verify-local-evidence-preflight-files` 下也会从文件重新计算这些字段，防止本地预检报告被误改成最终生产签核、悄悄丢失下游 CSV 合同、替换成 RC tag，或删掉中文 reviewer 入口。`--require-local-evidence-preflight-pass` 现在是签核模式参数，必须同时要求 `metadata.git_dirty=false`、`metadata.git_status=[]`、`--verify-local-evidence-preflight-files` 和 `--verify-local-evidence-preflight-gates`，避免 dirty worktree 产出的报告、只检查 JSON 结构、或没有重新 hash 文件和重跑 gate 的弱复核被当成 reviewer-ready evidence。
 
+如果要在提交到真实外部 reviewer 前先复演整条证据链，可以在 clean worktree 上运行内部 rehearsal runner。它会准备外部 L4 workspace，复制已提交的 CellBinDB full MorphoJet/CellProfiler CSV 输入，按生成的 plan 顺序执行 plan/readiness/trial/package/local-preflight 及 saved report 复核，并写出 summary；summary 会标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=EXTERNAL_L4_INTERNAL_REHEARSAL`、`final_production_signoff=false` 和 `final_evidence_acceptable=false`。它会刻意跳过稳定 GitHub release、saved stable-release report、final production gate 和 final saved-report verifier；这只是证据链机制复演，不是外部 L4 签核。
+
+```bash
+python3 benchmark/run_external_l4_rehearsal.py \
+  --workspace /tmp/morphojet-external-l4-rehearsal \
+  --overwrite
+```
+
 稳定 release 存在后，用 production wrapper 把所有必需证据绑定到同一份最终报告：
 
 ```bash
