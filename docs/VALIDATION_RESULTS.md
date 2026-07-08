@@ -2,6 +2,39 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `f3b7b13`
+
+This snapshot records the clean `main` verification for binding external L4 readiness to the saved trial plan and bilingual reviewer instructions. `benchmark/check_external_l4_readiness.py` now requires the workspace `trial_plan.json` to exist and verifies it with file checks before returning READY, which also revalidates the template hash, manifest presence, and both English and Chinese README files. Saved readiness report file rechecks now fail if the plan or bilingual instructions are weakened after the readiness report is written.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `f3b7b13`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-f3b7b13.json --out-md /tmp/morphojet-l3-release-report-main-f3b7b13.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-f3b7b13.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| External L4 readiness tests | PASS, 26 tests |
+| External trial workspace preparation tests | PASS, 21 tests |
+| Full Python unit test suite | PASS, 447 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Generated workspace readiness smoke | PASS, READY before tamper |
+| Generated workspace README tamper rejection | PASS, NOT_READY after tamper |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Standard CellBinDB direct-mask release gate | PASS, 1,044 / 1,044 samples, 1,044 semantic masks, 107,936 positive labels, MD5 `e770f1287619eb45e74d131430e20fe5` |
+| English README Readiness Plan Binding Coverage | PASS |
+| Chinese README Readiness Plan Binding Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `78d93f9`
 
 This snapshot records the clean `main` verification for making CellBinDB direct-mask inspection a standard release-gate audit item. `benchmark/release_gate.py` now runs the full MD5-backed CellBinDB direct-mask inspection before validating saved L3 artifacts, and `benchmark/verify_release_gate_report.py` treats that gate as part of the required production gate set. English and Chinese READMEs now state that L3 release prechecks fail if the CellBinDB input-mask contract drifts.
