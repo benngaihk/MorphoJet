@@ -21,6 +21,9 @@ class ValidateClaimLanguageTest(unittest.TestCase):
 
         self.assertIn("README.md", default_paths)
         self.assertIn("README.zh-CN.md", default_paths)
+        self.assertIn("MORPHOJET-FEASIBILITY.md", default_paths)
+        self.assertIn("corpus/README.md", default_paths)
+        self.assertIn("docs/PRODUCTION_READINESS.md", default_paths)
 
     def test_accepts_guarded_claim_language(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -70,6 +73,15 @@ class ValidateClaimLanguageTest(unittest.TestCase):
 
         self.assertEqual([], failures)
 
+    def test_accepts_guarded_chinese_substitution_heading(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "MORPHOJET-FEASIBILITY.md"
+            path.write_text("## 为什么不替代 CellProfiler：尊重 oracle\n", encoding="utf-8")
+
+            failures = validate_claim_language.validate_paths([path])
+
+        self.assertEqual([], failures)
+
     def test_rejects_unguarded_chinese_production_claim(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "README.zh-CN.md"
@@ -89,6 +101,18 @@ class ValidateClaimLanguageTest(unittest.TestCase):
 
         self.assertEqual(1, len(failures))
         self.assertIn("MorphoJet 可以替代 CellProfiler", failures[0])
+
+    def test_directory_scan_is_recursive(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            nested = root / "nested" / "README.md"
+            nested.parent.mkdir(parents=True)
+            nested.write_text("MorphoJet is production-ready for labs.\n", encoding="utf-8")
+
+            failures = validate_claim_language.validate_paths([root])
+
+        self.assertEqual(1, len(failures))
+        self.assertIn("nested/README.md", failures[0])
 
 
 if __name__ == "__main__":

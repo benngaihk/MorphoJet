@@ -10,11 +10,27 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PATHS = [
-    ROOT / "README.md",
-    *sorted(ROOT.glob("README.*.md")),
-    *(ROOT / "docs").glob("*.md"),
-]
+
+
+def unique_paths(paths: list[Path]) -> list[Path]:
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for path in paths:
+        resolved = path.resolve(strict=False)
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        unique.append(path)
+    return unique
+
+
+DEFAULT_PATHS = unique_paths(
+    [
+        *sorted(ROOT.glob("*.md")),
+        *sorted((ROOT / "docs").rglob("*.md")),
+        *sorted((ROOT / "corpus").rglob("*.md")),
+    ]
+)
 RISKY_PATTERNS = [
     re.compile(r"\bproduction[- ]ready\b", re.IGNORECASE),
     re.compile(r"\bproduction[- ]grade\b", re.IGNORECASE),
@@ -52,6 +68,10 @@ SAFE_LINE_MARKERS = [
     "不可",
     "不应",
     "不要",
+    "不替代",
+    "不取代",
+    "不能替代",
+    "不能取代",
     "尚未",
     "未完成",
     "未通过",
@@ -76,6 +96,8 @@ SAFE_CONTEXT_MARKERS = [
     "不是",
     "尚未",
     "直到",
+    "不替代",
+    "不取代",
 ]
 
 
@@ -114,7 +136,7 @@ def validate_paths(paths: list[Path]) -> list[str]:
     failures: list[str] = []
     for path in paths:
         if path.is_dir():
-            for child in sorted(path.glob("*.md")):
+            for child in sorted(path.rglob("*.md")):
                 failures.extend(validate_file(child))
         else:
             failures.extend(validate_file(path))
