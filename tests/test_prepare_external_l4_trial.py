@@ -260,6 +260,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("`check_readiness` also verifies the saved `trial_plan.json`", readme)
             self.assertIn("both English and Chinese README files before returning READY", readme)
             self.assertIn("required input-artifact summaries to remain `exists=true`", readme)
+            self.assertIn("package `README.md`", readme)
+            self.assertIn("package `README.zh-CN.md`", readme)
             self.assertIn("both saved reviewer verifier gates pass", readme)
             self.assertIn("metadata-bound saved reviewer reports", readme)
             self.assertIn("matching gate entries and hash summaries", readme)
@@ -269,6 +271,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("evidence_scope=EXTERNAL_L4_READINESS_PRECHECK", readme)
             self.assertIn("final_production_signoff=false", readme)
             self.assertIn("UTC generation time", readme)
+            self.assertIn("package README-rendered readiness scope", readme)
             self.assertLess(readme.index("## verify_plan"), readme.index("## validate_manifest"))
             self.assertLess(readme.index("## verify_readiness"), readme.index("## run_trial"))
             self.assertLess(
@@ -307,6 +310,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("`check_readiness` 在返回 READY 前也会复核 saved `trial_plan.json`", readme_zh)
             self.assertIn("英文和中文 README 文件", readme_zh)
             self.assertIn("input-artifact summaries 保持 `exists=true`", readme_zh)
+            self.assertIn("package `README.md`", readme_zh)
+            self.assertIn("package `README.zh-CN.md`", readme_zh)
             self.assertIn("两条 saved reviewer verifier gates 都 PASS", readme_zh)
             self.assertIn("metadata 绑定的 saved reviewer reports", readme_zh)
             self.assertIn("对应 gate entries 和 hash summaries", readme_zh)
@@ -316,6 +321,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("evidence_scope=EXTERNAL_L4_READINESS_PRECHECK", readme_zh)
             self.assertIn("final_production_signoff=false", readme_zh)
             self.assertIn("UTC 生成时间", readme_zh)
+            self.assertIn("package README 渲染出的 readiness scope", readme_zh)
             self.assertLess(readme_zh.index("## verify_plan"), readme_zh.index("## validate_manifest"))
             self.assertLess(readme_zh.index("## verify_readiness"), readme_zh.index("## run_trial"))
             self.assertLess(
