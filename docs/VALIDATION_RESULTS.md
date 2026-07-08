@@ -2,6 +2,26 @@
 
 Updated: 2026-07-08
 
+## External Reviewer Report File Signoff Snapshot
+
+This snapshot records local verification for making saved external L4 trial and evidence-package reviewer report signoff fail closed unless `--require-report-pass` is paired with `--verify-report-files`. The generated external L4 plans and production wrapper already use file rechecks; this closes the manual-review gap where a saved reviewer JSON could require PASS without rehashing and recomputing the bound trial/package evidence files.
+
+This is not a production claim. Saved external reviewer reports remain `claim_status=NOT_PRODUCTION_CLAIM` with external L4 review evidence scopes; production remains incomplete until a real external L4 trial, matching evidence package, saved trial/package reviewer reports, live stable GitHub release, saved stable-release verifier report, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_verify_external_trial_report.py` | PASS, 35 tests |
+| `python3 tests/test_package_external_trial.py` | PASS, 82 tests |
+| `python3 tests/test_run_production_gate.py` | PASS, 92 tests |
+| `python3 tests/test_release_gate.py` | PASS, 78 tests |
+| `python3 -m unittest discover -s tests` | PASS, 522 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## Stable Release Saved Report PASS Signoff Snapshot
 
 This snapshot records local verification for making `benchmark/verify_github_release.py --require-stable-report` require `--require-report-pass` in addition to file rechecks, git commit/tag verification, expected tag, and expected repo. This closes the manual-review gap where a stable-looking saved report could be rechecked with strong identity bindings but without requiring the saved verifier report status itself to be `PASS`.

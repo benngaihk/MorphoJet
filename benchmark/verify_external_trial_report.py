@@ -554,6 +554,8 @@ def verify_saved_external_trial_report(
         require_report_pass=require_report_pass,
         report_path=report,
     )
+    if require_report_pass and not verify_files:
+        failures.append("--require-report-pass requires --verify-report-files")
     if not failures and verify_files:
         trial_json = Path(payload["trial_json"])
         trial_root = Path(payload["trial_root"])
@@ -588,7 +590,11 @@ def main() -> int:
     parser.add_argument("--json-out", type=Path, help="Optional machine-readable verifier report")
     parser.add_argument("--verify-report", type=Path, help="Validate a saved verifier JSON report")
     parser.add_argument("--verify-report-files", action="store_true", help="Recompute trial validation from report paths")
-    parser.add_argument("--require-report-pass", action="store_true", help="Reject saved verifier reports that are not PASS")
+    parser.add_argument(
+        "--require-report-pass",
+        action="store_true",
+        help="Reject saved verifier reports that are not PASS; requires --verify-report-files",
+    )
     parser.add_argument(
         "--allow-fail-report",
         action="store_true",

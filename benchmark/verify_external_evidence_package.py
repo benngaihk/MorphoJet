@@ -824,6 +824,8 @@ def verify_saved_external_evidence_package_report(
         require_trial_json=require_trial_json,
         report_path=report,
     )
+    if require_report_pass and not verify_files:
+        failures.append("--require-report-pass requires --verify-report-files")
     if not failures and verify_files:
         package_dir = Path(payload["package_dir"])
         trial_json = Path(payload["trial_json"]) if payload.get("trial_json") is not None else None
@@ -861,7 +863,11 @@ def main() -> int:
     parser.add_argument("--json-out", type=Path, help="Optional machine-readable verifier report")
     parser.add_argument("--verify-report", type=Path, help="Validate a saved verifier JSON report")
     parser.add_argument("--verify-report-files", action="store_true", help="Recompute package validation from report paths")
-    parser.add_argument("--require-report-pass", action="store_true", help="Reject saved verifier reports that are not PASS")
+    parser.add_argument(
+        "--require-report-pass",
+        action="store_true",
+        help="Reject saved verifier reports that are not PASS; requires --verify-report-files",
+    )
     parser.add_argument(
         "--require-trial-json",
         action="store_true",

@@ -243,6 +243,27 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
 
         self.assertEqual(0, code)
 
+    def test_require_report_pass_requires_file_recheck(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_trial_report.verify_saved_external_trial_report(
+                    json_out,
+                    require_report_pass=True,
+                )
+
+        self.assertEqual(1, code)
+        self.assertIn("--require-report-pass requires --verify-report-files", stderr.getvalue())
+
     def test_saved_verification_report_rejects_status_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

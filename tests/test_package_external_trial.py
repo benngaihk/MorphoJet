@@ -623,6 +623,33 @@ class PackageExternalTrialTest(unittest.TestCase):
 
         self.assertEqual(0, code)
 
+    def test_saved_package_require_report_pass_requires_file_recheck(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(
+                    json_out,
+                    require_report_pass=True,
+                )
+
+        self.assertEqual(1, code)
+        self.assertIn("--require-report-pass requires --verify-report-files", stderr.getvalue())
+
     def test_saved_package_verification_report_rejects_readme_reviewer_entrypoint_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
