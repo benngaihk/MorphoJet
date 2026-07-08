@@ -2,6 +2,41 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `62d405b`
+
+This snapshot records the verification for making object metadata an explicit external L4 readiness contract. The external trial template now declares `required_object_metadata_columns` for `Plate`, `Well`, and `Site`; manifest validation checks the field shape, generated English and Chinese workspace READMEs tell reviewers to use `measure --include-object-metadata`, and readiness fails before trial execution if the declared metadata columns are missing from MorphoJet `Objects.csv`.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `62d405b131f4daf93a5d6a64ff52508eaa70b35d`
+- Template validation command: `python3 benchmark/validate_handoff_manifest.py benchmark/handoff/external_lab_template.json --var base_dir=/tmp/morphojet-external-l4 --require-downstream-check --require-external-evidence --allow-external-evidence-placeholders`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-l4-metadata-contract.json --out-md /tmp/morphojet-l3-release-report-l4-metadata-contract.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-l4-metadata-contract.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Handoff manifest validation tests | PASS, 24 tests |
+| External L4 readiness tests | PASS, 27 tests |
+| External L4 workspace preparation tests | PASS, 21 tests |
+| Full Python unit test suite | PASS, 482 tests |
+| External L4 template validation | PASS |
+| Source claim-language guard | PASS, 16 paths |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| External template requires `Plate`/`Well`/`Site` metadata | PASS |
+| Readiness rejects missing required object metadata columns | PASS |
+| English generated-workspace README metadata guidance | PASS |
+| Chinese generated-workspace README metadata guidance | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `951366a`
 
 This snapshot records the verification for optional object-level image-table metadata export. `measure --include-object-metadata` can now repeat metadata such as `Plate`, `Well`, and `Site` on every `Objects.csv` row while the default object CSV schema remains unchanged. Because this milestone touched core output and CLI code, the full CellBinDB L3 workflow was rerun instead of relying on old provenance.
