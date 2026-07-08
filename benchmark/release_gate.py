@@ -947,6 +947,48 @@ def readiness_report_summary_failures(
     return failures
 
 
+def expected_trial_manifest_path(trial: dict) -> Path | None:
+    manifest = trial.get("manifest")
+    if not isinstance(manifest, str) or not manifest.strip():
+        return None
+    manifest_path = Path(manifest)
+    if manifest_path.is_absolute():
+        return manifest_path
+    variables = trial.get("variables")
+    if isinstance(variables, dict):
+        base_dir = variables.get("base_dir")
+        if isinstance(base_dir, str) and base_dir.strip():
+            return Path(base_dir) / manifest_path
+    return manifest_path
+
+
+def readiness_report_binding_failures(summary: object, trial: dict) -> list[str]:
+    failures = []
+    if not isinstance(summary, dict):
+        return failures
+    expected_manifest = expected_trial_manifest_path(trial)
+    manifest = summary.get("manifest")
+    if expected_manifest is not None and isinstance(manifest, str) and manifest.strip():
+        if normalized_path_key(Path(manifest)) != normalized_path_key(expected_manifest):
+            failures.append("readiness_report.manifest must match trial manifest")
+    workspace = summary.get("workspace")
+    if isinstance(workspace, str) and workspace.strip():
+        variables = trial.get("variables")
+        expected_workspace: Path | None = None
+        if isinstance(variables, dict):
+            base_dir = variables.get("base_dir")
+            if isinstance(base_dir, str) and base_dir.strip():
+                expected_workspace = Path(base_dir)
+        if expected_workspace is None and expected_manifest is not None:
+            expected_workspace = expected_manifest.parent
+        if (
+            expected_workspace is not None
+            and normalized_path_key(Path(workspace)) != normalized_path_key(expected_workspace)
+        ):
+            failures.append("readiness_report.workspace must match trial workspace")
+    return failures
+
+
 def external_trial_failures(
     trial: dict,
     artifact_root: Path | None = None,
@@ -971,6 +1013,7 @@ def external_trial_failures(
             readiness_report_file=readiness_report_file,
         )
     )
+    failures.extend(readiness_report_binding_failures(trial.get("readiness_report"), trial))
     rendered_manifest = trial.get("rendered_manifest")
     if not isinstance(rendered_manifest, dict):
         failures.append("rendered_manifest must be present for external workflow trial reports")

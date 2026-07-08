@@ -114,6 +114,7 @@ def valid_external_trial() -> dict:
 
 def write_trial_artifacts(trial: dict, root: Path, empty_paths: set[str] | None = None) -> None:
     empty_paths = empty_paths or set()
+    trial["variables"] = {"base_dir": str((root / "external").resolve())}
     readiness_summary = trial.get("readiness_report")
     if isinstance(readiness_summary, dict):
         readiness_path = root / "external" / "readiness.json"
@@ -154,6 +155,19 @@ def write_trial_artifacts(trial: dict, root: Path, empty_paths: set[str] | None 
         )
         argv = trial["metadata"]["argv"]
         argv[argv.index("--readiness-report") + 1] = str(readiness_path.resolve())
+        trial["metadata"]["argv"] = [
+            "benchmark/run_handoff_trial.py",
+            trial["manifest"],
+            "--var",
+            f"base_dir={trial['variables']['base_dir']}",
+            "--readiness-report",
+            str(readiness_path.resolve()),
+            "--out-json",
+            "external/handoff_trial.json",
+            "--out-md",
+            "external/handoff_trial.md",
+            "--require-external-evidence",
+        ]
     for artifact in trial["artifacts"]:
         path = root / artifact
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -1123,6 +1137,30 @@ class ReleaseGateTest(unittest.TestCase):
             )
 
         self.assertIn("readiness_report.package_name must match readiness report file", failures)
+
+    def test_external_trial_rejects_readiness_manifest_binding_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            trial["readiness_report"]["manifest"] = str((root / "external" / "other_manifest.json").resolve())
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("readiness_report.manifest must match trial manifest", failures)
+
+    def test_external_trial_rejects_readiness_workspace_binding_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            trial["readiness_report"]["workspace"] = str((root / "other-workspace").resolve())
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("readiness_report.workspace must match trial workspace", failures)
 
     def test_external_trial_rejects_readiness_claim_scope_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

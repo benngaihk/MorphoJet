@@ -84,6 +84,14 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
         self.assertFalse(payload["input_files"]["trial_json"]["final_production_signoff"])
         self.assertEqual(expected_readiness_sha, payload["input_files"]["readiness_report"]["sha256"])
         self.assertEqual("external-l4-demo", payload["input_files"]["readiness_report"]["package_name"])
+        self.assertEqual(
+            trial["readiness_report"]["workspace"],
+            payload["input_files"]["readiness_report"]["workspace"],
+        )
+        self.assertEqual(
+            trial["readiness_report"]["manifest"],
+            payload["input_files"]["readiness_report"]["manifest"],
+        )
         self.assertEqual(expected_artifact_files, payload["input_files"]["artifact_files"])
 
     def test_verifier_records_absolute_paths_for_relative_inputs(self) -> None:
@@ -697,6 +705,56 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
         self.assertEqual(1, code)
         self.assertIn(
             "input_files.readiness_report.path must match trial readiness_report.path",
+            stderr.getvalue(),
+        )
+
+    def test_saved_verification_report_rejects_unbound_readiness_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["input_files"]["readiness_report"]["manifest"] = str(
+                root / "external" / "other_manifest.json"
+            )
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_trial_report.verify_saved_external_trial_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn(
+            "input_files.readiness_report.manifest must match trial readiness_report.manifest",
+            stderr.getvalue(),
+        )
+
+    def test_saved_verification_report_rejects_unbound_readiness_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["input_files"]["readiness_report"]["workspace"] = str(root / "other-workspace")
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_trial_report.verify_saved_external_trial_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn(
+            "input_files.readiness_report.workspace must match trial readiness_report.workspace",
             stderr.getvalue(),
         )
 

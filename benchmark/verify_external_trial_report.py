@@ -105,6 +105,13 @@ def load_trial_readiness_report_package_name(trial_json: Path) -> str | None:
     return package_name if isinstance(package_name, str) and package_name.strip() else None
 
 
+def load_trial_readiness_report_field(trial_json: Path, field: str) -> str | None:
+    trial = load_trial_payload(trial_json)
+    readiness = trial.get("readiness_report") if isinstance(trial, dict) else None
+    value = readiness.get(field) if isinstance(readiness, dict) else None
+    return value if isinstance(value, str) and value.strip() else None
+
+
 def trial_input_files(trial_json: Path, trial_root: Path) -> dict[str, Any]:
     artifact_files = []
     for artifact in load_trial_artifacts(trial_json):
@@ -120,6 +127,8 @@ def trial_input_files(trial_json: Path, trial_root: Path) -> dict[str, Any]:
         input_files["readiness_report"] = {
             **file_summary(readiness_path),
             "package_name": load_trial_readiness_report_package_name(trial_json),
+            "workspace": load_trial_readiness_report_field(trial_json, "workspace"),
+            "manifest": load_trial_readiness_report_field(trial_json, "manifest"),
         }
     return input_files
 
@@ -182,6 +191,12 @@ def input_files_issues(input_files: Any, status: Any) -> list[str]:
                     failures.append("input_files.readiness_report.package_name must be null or a non-empty string")
                 elif release_gate.slugify(package_name) != package_name:
                     failures.append("input_files.readiness_report.package_name must be a canonical slug")
+            for field in ["workspace", "manifest"]:
+                value = readiness_summary.get(field)
+                if not isinstance(value, str) or not value.strip():
+                    failures.append(f"input_files.readiness_report.{field} must be a non-empty string")
+                elif not Path(value).is_absolute():
+                    failures.append(f"input_files.readiness_report.{field} must be an absolute path")
     artifact_files = input_files.get("artifact_files")
     if not isinstance(artifact_files, list):
         return failures + ["input_files.artifact_files must be a list"]
@@ -228,6 +243,10 @@ def input_file_path_binding_issues(input_files: dict[str, Any], trial_json: str,
         trial_package_name = load_trial_readiness_report_package_name(Path(trial_json))
         if readiness_summary.get("package_name") != trial_package_name:
             failures.append("input_files.readiness_report.package_name must match trial readiness_report.package_name")
+        for field in ["workspace", "manifest"]:
+            expected = load_trial_readiness_report_field(Path(trial_json), field)
+            if readiness_summary.get(field) != expected:
+                failures.append(f"input_files.readiness_report.{field} must match trial readiness_report.{field}")
     artifact_files = input_files.get("artifact_files")
     if not isinstance(artifact_files, list):
         return failures
