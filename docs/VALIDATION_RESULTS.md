@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## Saved Final Report Contract Combination Coverage Snapshot
+
+This snapshot records local verification for covering saved final production-claim report metadata and `metadata.argv` combinations. The verifier regression test starts from a complete production PASS report, enumerates the clean-git, L3 provenance, production-claim flag, stable-release evidence, and external L4 evidence metadata/argv contract across 2048 combinations, and confirms that every partial saved final contract is rejected while only the complete saved contract passes final saved-report signoff.
+
+This is not a production claim. The current release-gate precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_verify_release_gate_report.py` | PASS, 55 tests |
+| saved final-report contract enumeration over 2048 metadata/argv combinations | PASS; only the complete saved final contract is accepted |
+| `python3 -m unittest discover -s tests` | PASS, 548 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## Complete Final-Claim Contract Combination Coverage Snapshot
 
 This snapshot records local verification for covering every direct `benchmark/release_gate.py --require-production-claim` final evidence contract combination. The regression test enumerates clean-git enforcement, L3 provenance, the stable-release evidence group, and the external L4 evidence group across 1024 combinations, then confirms that every partial contract fails fast while only the complete ten-condition contract is accepted by argument validation.

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import copy
 import sys
 import tempfile
 import unittest
@@ -563,6 +564,86 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                 verify_git_commit=True,
             ),
         )
+
+    def test_require_production_claim_pass_rejects_every_partial_final_metadata_contract(self) -> None:
+        required_fields = [
+            "require_clean_git",
+            "require_l3_provenance",
+            "require_production_claim",
+            "verify_github_release",
+            "github_release_kind_stable",
+            "github_release_verification_report",
+            "external_trial_json",
+            "external_trial_root",
+            "external_evidence_package_dir",
+            "external_trial_verification_report",
+            "external_evidence_package_verification_report",
+        ]
+        full_contract = set(required_fields)
+        accepted_groups = []
+        base_payload = self.complete_production_claim_payload()
+
+        for mask in range(1 << len(required_fields)):
+            payload = copy.deepcopy(base_payload)
+            metadata = payload["metadata"]
+            base_metadata = metadata.copy()
+            present = set()
+            for index, field in enumerate(required_fields):
+                if mask & (1 << index):
+                    present.add(field)
+
+            metadata["require_clean_git"] = "require_clean_git" in present
+            metadata["require_l3_provenance"] = "require_l3_provenance" in present
+            metadata["require_production_claim"] = "require_production_claim" in present
+            metadata["verify_github_release"] = (
+                base_metadata["verify_github_release"] if "verify_github_release" in present else None
+            )
+            metadata["github_release_kind"] = "stable" if "github_release_kind_stable" in present else "prerelease"
+            for field in [
+                "github_release_verification_report",
+                "external_trial_json",
+                "external_trial_root",
+                "external_evidence_package_dir",
+                "external_trial_verification_report",
+                "external_evidence_package_verification_report",
+            ]:
+                metadata[field] = base_metadata[field] if field in present else None
+
+            argv = ["benchmark/release_gate.py"]
+            if metadata["require_clean_git"]:
+                argv.append("--require-clean-git")
+            if metadata["require_l3_provenance"]:
+                argv.append("--require-l3-provenance")
+            if metadata["require_production_claim"]:
+                argv.append("--require-production-claim")
+            for metadata_key, flag in [
+                ("external_trial_json", "--external-trial-json"),
+                ("external_trial_root", "--external-trial-root"),
+                ("external_evidence_package_dir", "--external-evidence-package-dir"),
+                ("external_trial_verification_report", "--external-trial-verification-report"),
+                ("external_evidence_package_verification_report", "--external-evidence-package-verification-report"),
+                ("verify_github_release", "--verify-github-release"),
+            ]:
+                if metadata[metadata_key]:
+                    argv.extend([flag, metadata[metadata_key]])
+            if metadata["github_release_kind"] == "stable":
+                argv.extend(["--github-release-kind", "stable"])
+            if metadata["github_release_verification_report"]:
+                argv.extend(["--github-release-verification-report", metadata["github_release_verification_report"]])
+            metadata["argv"] = argv
+
+            failures = verify_release_gate_report.validate_release_gate_report_payload(
+                payload,
+                require_report_pass=True,
+                require_production_claim_pass=True,
+                expected_missing_checks=[],
+                require_clean_git_metadata=True,
+                verify_git_commit=True,
+            )
+            if not failures:
+                accepted_groups.append(present)
+
+        self.assertEqual([full_contract], accepted_groups)
 
     def test_rejects_complete_production_claim_with_weakened_claim_scope(self) -> None:
         payload = self.complete_production_claim_payload()
