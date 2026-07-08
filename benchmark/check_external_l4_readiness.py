@@ -20,6 +20,9 @@ import validate_handoff_manifest
 
 CHECKER = "benchmark/check_external_l4_readiness.py"
 MANIFEST_NAME = "external_manifest.json"
+CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
+EVIDENCE_SCOPE = "EXTERNAL_L4_READINESS_PRECHECK"
+FINAL_PRODUCTION_SIGNOFF = False
 
 
 def is_utc_datetime(value: datetime) -> bool:
@@ -363,8 +366,12 @@ def validate_readiness_report_payload(
         failures.append(f"status={status}")
     if require_ready and status != "READY":
         failures.append(f"readiness report status is not READY: {status}")
-    if payload.get("claim_status") != "NOT_PRODUCTION_CLAIM":
+    if payload.get("claim_status") != CLAIM_STATUS:
         failures.append(f"claim_status={payload.get('claim_status')}")
+    if payload.get("evidence_scope") != EVIDENCE_SCOPE:
+        failures.append(f"evidence_scope={payload.get('evidence_scope')}")
+    if payload.get("final_production_signoff") is not FINAL_PRODUCTION_SIGNOFF:
+        failures.append("final_production_signoff must be false")
     workspace = payload.get("workspace")
     if not isinstance(workspace, str) or not workspace.strip():
         failures.append("workspace must be a non-empty string")
@@ -576,7 +583,9 @@ def readiness_report(
             json_out=json_out,
         ),
         "status": status,
-        "claim_status": "NOT_PRODUCTION_CLAIM",
+        "claim_status": CLAIM_STATUS,
+        "evidence_scope": EVIDENCE_SCOPE,
+        "final_production_signoff": FINAL_PRODUCTION_SIGNOFF,
         "workspace": str(workspace),
         "manifest": str(manifest_path),
         "package_name": canonical_package_name,

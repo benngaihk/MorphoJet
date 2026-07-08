@@ -88,6 +88,8 @@ def valid_external_trial() -> dict:
             "sha256": "0" * 64,
             "status": "READY",
             "claim_status": "NOT_PRODUCTION_CLAIM",
+            "evidence_scope": "EXTERNAL_L4_READINESS_PRECHECK",
+            "final_production_signoff": False,
             "generated_at_utc": "2026-07-02T23:59:59+00:00",
             "workspace": "/external",
             "manifest": "/external/external_manifest.json",
@@ -126,6 +128,8 @@ def write_trial_artifacts(trial: dict, root: Path, empty_paths: set[str] | None 
             ],
             "status": "READY",
             "claim_status": "NOT_PRODUCTION_CLAIM",
+            "evidence_scope": "EXTERNAL_L4_READINESS_PRECHECK",
+            "final_production_signoff": False,
             "workspace": str((root / "external").resolve()),
             "manifest": str((root / "external" / "external_manifest.json").resolve()),
             "package_name": readiness_summary.get("package_name"),
@@ -1080,6 +1084,30 @@ class ReleaseGateTest(unittest.TestCase):
             )
 
         self.assertIn("readiness_report.package_name must match readiness report file", failures)
+
+    def test_external_trial_rejects_readiness_claim_scope_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            readiness_path = Path(trial["readiness_report"]["path"])
+            trial["readiness_report"]["claim_status"] = "PASS"
+            trial["readiness_report"]["evidence_scope"] = "FINAL_PRODUCTION_CLAIM"
+            trial["readiness_report"]["final_production_signoff"] = True
+
+            failures = release_gate.external_trial_failures(
+                trial,
+                root,
+                readiness_report_file=readiness_path,
+            )
+
+        self.assertIn("readiness_report.claim_status=PASS", failures)
+        self.assertIn("readiness_report.evidence_scope=FINAL_PRODUCTION_CLAIM", failures)
+        self.assertIn("readiness_report.final_production_signoff must be false", failures)
+        self.assertIn("readiness_report.claim_status must match readiness report file", failures)
+        self.assertIn("readiness_report.evidence_scope must match readiness report file", failures)
+        self.assertIn("readiness_report.final_production_signoff must match readiness report file", failures)
 
     def test_external_trial_rejects_duplicate_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -820,6 +820,10 @@ def readiness_report_summary_failures(
         failures.append(f"readiness_report.status={summary.get('status')}")
     if summary.get("claim_status") != "NOT_PRODUCTION_CLAIM":
         failures.append(f"readiness_report.claim_status={summary.get('claim_status')}")
+    if summary.get("evidence_scope") != "EXTERNAL_L4_READINESS_PRECHECK":
+        failures.append(f"readiness_report.evidence_scope={summary.get('evidence_scope')}")
+    if summary.get("final_production_signoff") is not False:
+        failures.append("readiness_report.final_production_signoff must be false")
     generated_at = summary.get("generated_at_utc")
     parsed_readiness_at = None
     if not isinstance(generated_at, str) or not generated_at.strip():
@@ -875,6 +879,8 @@ def readiness_report_summary_failures(
                 expected_fields = {
                     "status": "status",
                     "claim_status": "claim_status",
+                    "evidence_scope": "evidence_scope",
+                    "final_production_signoff": "final_production_signoff",
                     "generated_at_utc": "generated_at_utc",
                     "workspace": "workspace",
                     "manifest": "manifest",

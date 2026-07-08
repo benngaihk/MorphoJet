@@ -173,6 +173,8 @@ def validate_readiness_report(report: Path) -> dict[str, Any]:
         "sha256": sha256_file(report),
         "status": payload.get("status"),
         "claim_status": payload.get("claim_status"),
+        "evidence_scope": payload.get("evidence_scope"),
+        "final_production_signoff": payload.get("final_production_signoff"),
         "generated_at_utc": payload.get("generated_at_utc"),
         "workspace": payload.get("workspace"),
         "manifest": payload.get("manifest"),

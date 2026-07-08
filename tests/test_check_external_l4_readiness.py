@@ -99,6 +99,8 @@ class ExternalL4ReadinessTest(unittest.TestCase):
 
             self.assertEqual("NOT_READY", payload["status"])
             self.assertEqual("NOT_PRODUCTION_CLAIM", payload["claim_status"])
+            self.assertEqual("EXTERNAL_L4_READINESS_PRECHECK", payload["evidence_scope"])
+            self.assertFalse(payload["final_production_signoff"])
             self.assertIn(
                 "external_evidence.lab_or_org must replace template placeholder text",
                 payload["issues"],
@@ -122,6 +124,9 @@ class ExternalL4ReadinessTest(unittest.TestCase):
 
             self.assertEqual("READY", payload["status"])
             self.assertEqual([], payload["issues"])
+            self.assertEqual("NOT_PRODUCTION_CLAIM", payload["claim_status"])
+            self.assertEqual("EXTERNAL_L4_READINESS_PRECHECK", payload["evidence_scope"])
+            self.assertFalse(payload["final_production_signoff"])
             self.assertIsNone(payload["package_name"])
             self.assertTrue(all(check["status"] == "PASS" for check in payload["checks"]))
             generated_at = datetime.fromisoformat(payload["generated_at_utc"])
@@ -165,6 +170,9 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             self.assertIsNotNone(generated_at.tzinfo)
             self.assertEqual(timezone.utc.utcoffset(generated_at), generated_at.utcoffset())
             self.assertEqual("custom-review", payload["package_name"])
+            self.assertEqual("NOT_PRODUCTION_CLAIM", payload["claim_status"])
+            self.assertEqual("EXTERNAL_L4_READINESS_PRECHECK", payload["evidence_scope"])
+            self.assertFalse(payload["final_production_signoff"])
             self.assertEqual(
                 [
                     "benchmark/check_external_l4_readiness.py",
@@ -279,6 +287,34 @@ class ExternalL4ReadinessTest(unittest.TestCase):
 
             self.assertNotEqual(0, completed.returncode)
             self.assertIn("generated_at_utc must be UTC", completed.stderr)
+
+    def test_saved_readiness_report_rejects_claim_scope_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            report = check_external_l4_readiness.readiness_report(workspace)
+            report["claim_status"] = "PASS"
+            report["evidence_scope"] = "FINAL_PRODUCTION_CLAIM"
+            report["final_production_signoff"] = True
+            report_path = workspace / "readiness.json"
+            report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--verify-report",
+                    str(report_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("claim_status=PASS", completed.stderr)
+        self.assertIn("evidence_scope=FINAL_PRODUCTION_CLAIM", completed.stderr)
+        self.assertIn("final_production_signoff must be false", completed.stderr)
 
     def test_saved_readiness_report_rejects_relative_top_level_paths(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
