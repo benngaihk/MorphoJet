@@ -2,6 +2,39 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `7ffca9b`
+
+This snapshot records the clean `main` verification for the code commit that binds evidence packages to the source trial report's claim-scope labels. `benchmark/package_external_trial.py` now writes `trial_claim_status`, `trial_evidence_scope`, and `trial_final_production_signoff` into `artifact_manifest.json`. `benchmark/release_gate.py` rejects packages whose artifact manifest drops or mutates those source trial labels, and `benchmark/verify_external_evidence_package.py` copies the source trial labels into `input_files.source_trial_json` so saved package-reviewer reports and file rechecks catch source trial claim-scope tampering. English and Chinese README guidance now describe the package manifest and saved package verifier as carrying the source trial's non-final scope.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `7ffca9b`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-7ffca9b.json --out-md /tmp/morphojet-l3-release-report-main-7ffca9b.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-7ffca9b.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Package external trial tests | PASS, 67 tests |
+| Release-gate helper tests | PASS, 69 tests |
+| Production wrapper tests | PASS, 67 tests |
+| Full Python unit test suite | PASS, 429 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Package Manifest Source-Trial Scope Binding | PASS |
+| Saved Package Reviewer Source-Trial Scope Recheck | PASS |
+| English README Package Source Scope Coverage | PASS |
+| Chinese README Package Source Scope Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `5a4de0d`
 
 This snapshot records the clean `main` verification for the code commit that labels real external L4 trial reports as non-final evidence. `benchmark/run_handoff_trial.py` now writes `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_WORKFLOW_TRIAL`, and `final_production_signoff=false` into source trial reports. `benchmark/release_gate.py` rejects trial reports that remove or weaken those labels, and `benchmark/verify_external_trial_report.py` copies the source trial claim-scope labels into `input_files.trial_json` so saved trial-reviewer reports and file rechecks catch source trial claim-scope tampering. English and Chinese README guidance now describe the source trial and saved trial-reviewer report as separate non-final artifacts.
