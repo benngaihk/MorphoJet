@@ -483,6 +483,21 @@ class ReleaseGateTest(unittest.TestCase):
             failures,
         )
 
+    def test_require_production_claim_rejects_unbound_external_trial_root(self) -> None:
+        failures = release_gate.production_claim_contract_failures(
+            self.production_claim_args(
+                external_trial_json=None,
+                external_evidence_package_dir=None,
+                external_trial_verification_report=None,
+                external_evidence_package_verification_report=None,
+            )
+        )
+
+        self.assertEqual(
+            ["--require-production-claim with --external-trial-root requires --external-trial-json"],
+            failures,
+        )
+
     def test_require_production_claim_rejects_unbound_external_package_dir(self) -> None:
         failures = release_gate.production_claim_contract_failures(
             self.production_args(

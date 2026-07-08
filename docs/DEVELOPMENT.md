@@ -117,7 +117,7 @@ Direct final-claim release-gate use must bind external L4 evidence as a complete
 
 Direct final-claim release-gate use now requires that stable-release evidence pair instead of only binding it when supplied: `--require-production-claim` requires live `--verify-github-release`, requires `--github-release-kind stable`, and requires `--github-release-verification-report` in the same command. Missing live stable-release evidence or missing saved stable-release verifier evidence is rejected before the heavier release-gate audit starts.
 
-Direct final-claim release-gate use also requires the external L4 evidence group before the heavier release-gate audit starts: `--external-trial-json`, `--external-trial-root`, `--external-evidence-package-dir`, `--external-trial-verification-report`, and `--external-evidence-package-verification-report` must all be present for `--require-production-claim`. Partial groups still use the specific external L4 binding errors above.
+Direct final-claim release-gate use also requires the external L4 evidence group before the heavier release-gate audit starts: `--external-trial-json`, `--external-trial-root`, `--external-evidence-package-dir`, `--external-trial-verification-report`, and `--external-evidence-package-verification-report` must all be present for `--require-production-claim`. Partial groups still use the specific external L4 binding errors above, including rejecting `--external-trial-root` unless `--external-trial-json` is supplied in the same command.
 
 ```bash
 python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json
