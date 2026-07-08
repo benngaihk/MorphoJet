@@ -2,6 +2,38 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `0f83696`
+
+This snapshot records the clean `main` verification for adding the scheduled GitHub Actions CellBinDB L3 validation workflow. `.github/workflows/cellbindb-l3.yml` now runs the scheduler-ready `benchmark/run_cellbindb_l3_validation.sh` weekly and on manual dispatch, uploads the L3 release-gate, parity, impact, provenance, workflow-bridge, and handoff-trial reports as a 30-day artifact, and remains explicitly documented as recurring non-final L3 regression evidence rather than an external L4 or stable-release production claim.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `0f83696`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-0f83696.json --out-md /tmp/morphojet-l3-release-report-main-0f83696.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-0f83696.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Scheduled L3 workflow tests | PASS, 3 tests |
+| Release gate helper tests | PASS, 71 tests |
+| Full Python unit test suite | PASS, 479 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| GitHub Scheduled CellBinDB L3 Workflow | PASS |
+| L3 Provenance Compatibility for Scheduled Workflow | PASS |
+| English Scheduled L3 Documentation | PASS |
+| Chinese Scheduled L3 Documentation | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `6748df4`
 
 This snapshot records the clean `main` verification for making the source claim-language guard enforce the root bilingual README contract. `benchmark/validate_claim_language.py` now requires the English README to link to `README.zh-CN.md` and requires the Chinese README to keep the external L4 workflow, local preflight, final production wrapper, current blocker list, and package README evidence path visible for Chinese-community review before the release gate can pass.
