@@ -395,6 +395,20 @@ def has_complete_saved_reviewer_report_pair(trial_report: object, package_report
     return bool(trial_report) and bool(package_report)
 
 
+def saved_reviewer_report_gates_passed(gates: list[object]) -> bool:
+    statuses: dict[str, object] = {}
+    for gate in gates:
+        if isinstance(gate, dict):
+            name = gate.get("name")
+            status = gate.get("status")
+        else:
+            name = getattr(gate, "name", None)
+            status = getattr(gate, "status", None)
+        if isinstance(name, str):
+            statuses[name] = status
+    return all(statuses.get(name) == "PASS" for name in LOCAL_PREFLIGHT_OPTIONAL_GATE_NAMES)
+
+
 def local_preflight_validated_checks(saved_reviewer_reports: bool) -> list[str]:
     checks = list(LOCAL_PREFLIGHT_VALIDATED_CHECKS)
     if saved_reviewer_reports:
@@ -412,10 +426,7 @@ def local_preflight_skipped_final_checks(saved_reviewer_reports: bool) -> list[s
 
 def build_local_evidence_preflight_payload(args: argparse.Namespace, gates: list[release_gate.Gate]) -> dict:
     git_status_lines = release_gate.git_status_porcelain()
-    saved_reviewer_reports = has_complete_saved_reviewer_report_pair(
-        args.external_trial_verification_report,
-        args.external_evidence_package_verification_report,
-    )
+    saved_reviewer_reports = saved_reviewer_report_gates_passed(gates)
     return {
         "schema_version": 1,
         "status": "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL",
@@ -1004,10 +1015,12 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
         return ["local evidence preflight report must be a JSON object"]
     metadata = payload.get("metadata")
     metadata_dict = metadata if isinstance(metadata, dict) else {}
-    saved_reviewer_reports = has_complete_saved_reviewer_report_pair(
+    metadata_saved_reviewer_reports = has_complete_saved_reviewer_report_pair(
         metadata_dict.get("external_trial_verification_report"),
         metadata_dict.get("external_evidence_package_verification_report"),
     )
+    gates = payload.get("gates")
+    saved_reviewer_reports = saved_reviewer_report_gates_passed(gates) if isinstance(gates, list) else False
     if payload.get("schema_version") != 1:
         failures.append(f"schema_version={payload.get('schema_version')}")
     if payload.get("status") not in {"PASS", "FAIL"}:
@@ -1161,7 +1174,6 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
             failures.extend(validate_local_evidence_preflight_readiness_binding(metadata, artifact_summaries))
             failures.extend(validate_local_evidence_preflight_artifact_presence(metadata, artifact_summaries))
 
-    gates = payload.get("gates")
     if not isinstance(gates, list):
         failures.append("gates must be a list")
     else:
@@ -1195,7 +1207,7 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
             if not isinstance(gate.get("detail"), str):
                 failures.append(f"gate detail must be a string: {gate.get('name')}")
         required_gate_names = set(LOCAL_PREFLIGHT_GATE_NAMES)
-        if saved_reviewer_reports:
+        if metadata_saved_reviewer_reports:
             required_gate_names.update(LOCAL_PREFLIGHT_OPTIONAL_GATE_NAMES)
         missing_required_gates = required_gate_names - gate_names
         unexpected_gates = gate_names - allowed_gate_names
