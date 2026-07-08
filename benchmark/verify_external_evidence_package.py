@@ -21,6 +21,9 @@ CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
 EVIDENCE_SCOPE = "EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW"
 FINAL_PRODUCTION_SIGNOFF = False
 SOURCE_TRIAL_EVIDENCE_SCOPE = "EXTERNAL_L4_WORKFLOW_TRIAL"
+READINESS_STATUS = "READY"
+READINESS_CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
+READINESS_EVIDENCE_SCOPE = "EXTERNAL_L4_READINESS_PRECHECK"
 PACKAGE_REVIEW_FILES = {
     "package_handoff_trial": "handoff_trial.json",
     "package_readiness": "readiness.json",
@@ -94,6 +97,11 @@ def readiness_report_summary(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         payload = {}
     return {
+        "status": payload.get("status"),
+        "claim_status": payload.get("claim_status"),
+        "evidence_scope": payload.get("evidence_scope"),
+        "final_production_signoff": payload.get("final_production_signoff"),
+        "generated_at_utc": payload.get("generated_at_utc"),
         "package_name": payload.get("package_name"),
         "workspace": payload.get("workspace"),
         "manifest": payload.get("manifest"),
@@ -183,6 +191,29 @@ def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) 
         require_exists = status == "PASS" and (name in required_keys or name == "source_trial_json")
         failures.extend(input_file_summary_issues(name, summary, require_exists=require_exists))
         if name == "package_readiness" and isinstance(summary, dict):
+            if summary.get("exists"):
+                if summary.get("status") != READINESS_STATUS:
+                    failures.append(f"input_files.package_readiness.status={summary.get('status')}")
+                if summary.get("claim_status") != READINESS_CLAIM_STATUS:
+                    failures.append(f"input_files.package_readiness.claim_status={summary.get('claim_status')}")
+                if summary.get("evidence_scope") != READINESS_EVIDENCE_SCOPE:
+                    failures.append(f"input_files.package_readiness.evidence_scope={summary.get('evidence_scope')}")
+                if summary.get("final_production_signoff") is not FINAL_PRODUCTION_SIGNOFF:
+                    failures.append("input_files.package_readiness.final_production_signoff must be false")
+                generated_at = summary.get("generated_at_utc")
+                if not isinstance(generated_at, str) or not generated_at.strip():
+                    failures.append("input_files.package_readiness.generated_at_utc must be a non-empty string")
+                else:
+                    try:
+                        parsed_generated_at = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+                        if parsed_generated_at.tzinfo is None:
+                            failures.append("input_files.package_readiness.generated_at_utc must include timezone")
+                        elif not is_utc_datetime(parsed_generated_at):
+                            failures.append("input_files.package_readiness.generated_at_utc must be UTC")
+                    except ValueError:
+                        failures.append(
+                            f"input_files.package_readiness.generated_at_utc is invalid: {generated_at}"
+                        )
             if "package_name" not in summary:
                 failures.append("input_files.package_readiness.package_name must be present")
             else:
@@ -274,7 +305,16 @@ def input_file_path_binding_issues(
     readiness_summary = input_files.get("package_readiness")
     if isinstance(readiness_summary, dict):
         expected_readiness = readiness_report_summary(root / "readiness.json")
-        for field in ["package_name", "workspace", "manifest"]:
+        for field in [
+            "status",
+            "claim_status",
+            "evidence_scope",
+            "final_production_signoff",
+            "generated_at_utc",
+            "package_name",
+            "workspace",
+            "manifest",
+        ]:
             if readiness_summary.get(field) != expected_readiness.get(field):
                 failures.append(f"input_files.package_readiness.{field} must match package readiness report")
     source_trial_summary = input_files.get("source_trial_json")
@@ -308,6 +348,8 @@ def recomputed_input_file_issues(recorded: dict[str, Any], package_dir: Path, tr
             "exists",
             "size_bytes",
             "sha256",
+            "status",
+            "generated_at_utc",
             "package_name",
             "workspace",
             "manifest",

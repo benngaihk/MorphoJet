@@ -281,6 +281,17 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertFalse(payload["input_files"]["package_artifact_manifest"]["trial_final_production_signoff"])
         self.assertEqual(expected_readiness_sha, payload["input_files"]["package_readiness"]["sha256"])
         self.assertEqual(expected_readme_zh_sha, payload["input_files"]["package_readme_zh"]["sha256"])
+        self.assertEqual("READY", payload["input_files"]["package_readiness"]["status"])
+        self.assertEqual("NOT_PRODUCTION_CLAIM", payload["input_files"]["package_readiness"]["claim_status"])
+        self.assertEqual(
+            "EXTERNAL_L4_READINESS_PRECHECK",
+            payload["input_files"]["package_readiness"]["evidence_scope"],
+        )
+        self.assertFalse(payload["input_files"]["package_readiness"]["final_production_signoff"])
+        self.assertEqual(
+            expected_readiness_payload["generated_at_utc"],
+            payload["input_files"]["package_readiness"]["generated_at_utc"],
+        )
         self.assertEqual("external-l4-demo", payload["input_files"]["package_readiness"]["package_name"])
         self.assertEqual(expected_readiness_payload["workspace"], payload["input_files"]["package_readiness"]["workspace"])
         self.assertEqual(expected_readiness_payload["manifest"], payload["input_files"]["package_readiness"]["manifest"])
@@ -1184,6 +1195,96 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual(1, code)
         self.assertIn(
             "input_files.package_readiness.package_name must match package readiness report",
+            stderr.getvalue(),
+        )
+
+    def test_saved_package_verification_report_rejects_unbound_readiness_scope_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["input_files"]["package_readiness"]["status"] = "PASS"
+            payload["input_files"]["package_readiness"]["claim_status"] = "FINAL_PRODUCTION_CLAIM"
+            payload["input_files"]["package_readiness"]["evidence_scope"] = "FINAL_PRODUCTION_RELEASE_GATE"
+            payload["input_files"]["package_readiness"]["final_production_signoff"] = True
+            payload["input_files"]["package_readiness"]["generated_at_utc"] = "2026-07-03T00:00:00+00:00"
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn("input_files.package_readiness.status=PASS", stderr.getvalue())
+        self.assertIn("input_files.package_readiness.claim_status=FINAL_PRODUCTION_CLAIM", stderr.getvalue())
+        self.assertIn(
+            "input_files.package_readiness.evidence_scope=FINAL_PRODUCTION_RELEASE_GATE",
+            stderr.getvalue(),
+        )
+        self.assertIn("input_files.package_readiness.final_production_signoff must be false", stderr.getvalue())
+        self.assertIn(
+            "input_files.package_readiness.generated_at_utc must match package readiness report",
+            stderr.getvalue(),
+        )
+
+    def test_saved_package_verification_report_recomputes_readiness_scope_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    package_dir,
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+            readiness_path = package_dir / "readiness.json"
+            readiness = json.loads(readiness_path.read_text(encoding="utf-8"))
+            readiness["claim_status"] = "FINAL_PRODUCTION_CLAIM"
+            readiness["evidence_scope"] = "FINAL_PRODUCTION_RELEASE_GATE"
+            readiness["final_production_signoff"] = True
+            readiness_path.write_text(json.dumps(readiness, indent=2) + "\n", encoding="utf-8")
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["input_files"]["package_readiness"]["size_bytes"] = readiness_path.stat().st_size
+            payload["input_files"]["package_readiness"]["sha256"] = release_gate.sha256_file(readiness_path)
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(
+                    json_out,
+                    verify_files=True,
+                )
+
+        self.assertEqual(1, code)
+        self.assertIn(
+            "input_files.package_readiness.claim_status must match package readiness report",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_files.package_readiness.evidence_scope must match package readiness report",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_files.package_readiness.final_production_signoff must match package readiness report",
             stderr.getvalue(),
         )
 
