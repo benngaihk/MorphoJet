@@ -54,6 +54,9 @@ EXTERNAL_WORKSPACE_README_SHARED_ANCHORS = [
     "--external-trial-verification-report",
     "--external-evidence-package-verification-report",
     "--github-release-verification-report",
+    "--github-workflow-verification-report",
+    "audit_production_evidence.py",
+    "PRODUCTION_EVIDENCE_READINESS_AUDIT",
     "--require-production-claim-pass",
     "--expect-missing-checks",
 ]
@@ -406,6 +409,43 @@ def validate_pre_signoff_command_bindings(payload: dict[str, Any]) -> list[str]:
                     f"pre_signoff_requirements.{requirement_name} planned_path must match "
                     f"{command_name} {flag}"
                 )
+    audit_requirement = requirement_by_name.get("production_evidence_readiness_audit")
+    if audit_requirement is None:
+        failures.append("pre_signoff_requirements missing production_evidence_readiness_audit")
+    else:
+        if audit_requirement.get("verification_step") != "verify_production_evidence_audit":
+            failures.append(
+                "pre_signoff_requirements.production_evidence_readiness_audit verification_step must be "
+                "verify_production_evidence_audit"
+            )
+        elif "verify_production_evidence_audit" not in commands:
+            failures.append(
+                "pre_signoff_requirements.production_evidence_readiness_audit verification_step missing "
+                "commands.verify_production_evidence_audit"
+            )
+        if audit_requirement.get("required_before") != "final_production_gate":
+            failures.append(
+                "pre_signoff_requirements.production_evidence_readiness_audit required_before must be "
+                "final_production_gate"
+            )
+        elif "final_production_gate" not in commands:
+            failures.append(
+                "pre_signoff_requirements.production_evidence_readiness_audit required_before missing "
+                "commands.final_production_gate"
+            )
+        planned_path = audit_requirement.get("planned_path")
+        for command_name, flag in [
+            ("audit_production_evidence", "--out-json"),
+            ("verify_production_evidence_audit", "--verify-report"),
+        ]:
+            values = command_values(command_name, flag)
+            if len(values) != 1 or values[0] is None:
+                failures.append(f"commands.{command_name} must include exactly one {flag} value")
+            elif planned_path != values[0]:
+                failures.append(
+                    "pre_signoff_requirements.production_evidence_readiness_audit planned_path must match "
+                    f"{command_name} {flag}"
+                )
     return failures
 
 
@@ -430,6 +470,7 @@ def validate_external_evidence_command_bindings(payload: dict[str, Any]) -> list
     preflight_json = str(workspace_path / "local-evidence-preflight.json")
     github_release_verification = str(workspace_path / "github-release-verification.json")
     production_claim_json = str(workspace_path / "production-claim.json")
+    production_evidence_audit_json = str(workspace_path / "production-evidence-audit.json")
 
     def command(command_name: str) -> list[str]:
         value = commands.get(command_name)
@@ -538,6 +579,37 @@ def validate_external_evidence_command_bindings(payload: dict[str, Any]) -> list
         github_workflow_verification,
         "GitHub workflow verifier report",
     )
+    for command_name in ["audit_production_evidence", "final_production_gate"]:
+        expect_flag(command_name, "--external-trial-json", trial_json, "handoff_trial.json")
+        expect_flag(command_name, "--external-trial-root", workspace, "external trial root")
+        expect_flag(command_name, "--external-evidence-package-dir", package_dir, "evidence package directory")
+        expect_flag(command_name, "--external-trial-verification-report", trial_verification, "trial reviewer report")
+        expect_flag(
+            command_name,
+            "--external-evidence-package-verification-report",
+            package_verification,
+            "package reviewer report",
+        )
+        expect_flag(
+            command_name,
+            "--github-release-verification-report",
+            github_release_verification,
+            "GitHub release verifier report",
+        )
+        expect_flag(
+            command_name,
+            "--github-workflow-verification-report",
+            github_workflow_verification,
+            "GitHub workflow verifier report",
+        )
+        expect_flag(command_name, "--github-release-tag", STABLE_RELEASE_TAG, "stable release tag")
+    expect_flag("audit_production_evidence", "--out-json", production_evidence_audit_json, "production evidence audit")
+    expect_flag(
+        "verify_production_evidence_audit",
+        "--verify-report",
+        production_evidence_audit_json,
+        "production evidence audit",
+    )
     expect_flag("final_production_gate", "--out-json", production_claim_json, "final production claim report")
     expect_positional("verify_final_production_report", 2, production_claim_json, "final production claim report")
     return failures
@@ -553,6 +625,7 @@ def validate_stable_release_command_bindings(payload: dict[str, Any]) -> list[st
         return failures
     github_release_verification = str(Path(workspace) / "github-release-verification.json")
     github_workflow_verification = str(Path(workspace) / "github-workflow-verification.json")
+    production_evidence_audit = str(Path(workspace) / "production-evidence-audit.json")
 
     def command(command_name: str) -> list[str]:
         value = commands.get(command_name)
@@ -610,6 +683,28 @@ def validate_stable_release_command_bindings(payload: dict[str, Any]) -> list[st
         if workflow not in values:
             failures.append(f"commands.verify_github_workflows_report missing --expect-workflow {workflow}")
     expect_present("verify_github_workflows_report", "--require-report-pass", "saved GitHub workflow PASS enforcement")
+
+    expect_flag(
+        "audit_production_evidence",
+        "--github-release-verification-report",
+        github_release_verification,
+        "GitHub release verifier report",
+    )
+    expect_flag(
+        "audit_production_evidence",
+        "--github-workflow-verification-report",
+        github_workflow_verification,
+        "GitHub workflow verifier report",
+    )
+    expect_flag("audit_production_evidence", "--github-release-tag", STABLE_RELEASE_TAG, "stable release tag")
+    expect_present("audit_production_evidence", "--verify-live-github-release", "live stable release audit")
+    expect_flag(
+        "verify_production_evidence_audit",
+        "--verify-report",
+        production_evidence_audit,
+        "production evidence audit",
+    )
+    expect_present("verify_production_evidence_audit", "--require-ready", "production evidence audit readiness")
 
     expect_flag("final_production_gate", "--github-release-tag", STABLE_RELEASE_TAG, "final stable release tag")
     expect_flag(
@@ -787,6 +882,8 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
         "verify_stable_release_report",
         "verify_github_workflows",
         "verify_github_workflows_report",
+        "audit_production_evidence",
+        "verify_production_evidence_audit",
         "final_production_gate",
         "verify_final_production_report",
     ]
@@ -924,6 +1021,8 @@ def plan_commands(
     github_release_dir = workspace / "github-release"
     github_release_verification = workspace / "github-release-verification.json"
     github_workflow_verification = workspace / "github-workflow-verification.json"
+    production_evidence_audit_json = workspace / "production-evidence-audit.json"
+    production_evidence_audit_md = workspace / "production-evidence-audit.md"
     production_claim_json = workspace / "production-claim.json"
     production_claim_md = workspace / "production-claim.md"
     readiness_json = workspace / "readiness.json"
@@ -1107,6 +1206,38 @@ def plan_commands(
             "--expect-workflow",
             "external-l4-rehearsal.yml",
         ],
+        "audit_production_evidence": [
+            "python3",
+            "benchmark/audit_production_evidence.py",
+            "--external-trial-json",
+            str(trial_json),
+            "--external-trial-root",
+            str(workspace),
+            "--external-evidence-package-dir",
+            str(package_dir),
+            "--external-trial-verification-report",
+            str(trial_verification),
+            "--external-evidence-package-verification-report",
+            str(package_verification),
+            "--github-release-verification-report",
+            str(github_release_verification),
+            "--github-workflow-verification-report",
+            str(github_workflow_verification),
+            "--github-release-tag",
+            STABLE_RELEASE_TAG,
+            "--verify-live-github-release",
+            "--out-json",
+            str(production_evidence_audit_json),
+            "--out-md",
+            str(production_evidence_audit_md),
+        ],
+        "verify_production_evidence_audit": [
+            "python3",
+            "benchmark/audit_production_evidence.py",
+            "--verify-report",
+            str(production_evidence_audit_json),
+            "--require-ready",
+        ],
         "final_production_gate": [
             "python3",
             "benchmark/run_production_gate.py",
@@ -1260,6 +1391,13 @@ def pre_signoff_requirements(workspace: Path) -> list[dict[str, str]]:
             "verification_step": "verify_package_report",
             "required_before": "local_evidence_preflight",
         },
+        {
+            "name": "production_evidence_readiness_audit",
+            "status": "PENDING_FINAL_GATE",
+            "planned_path": str(workspace / "production-evidence-audit.json"),
+            "verification_step": "verify_production_evidence_audit",
+            "required_before": "final_production_gate",
+        },
     ]
 
 
@@ -1330,6 +1468,7 @@ def render_readme(plan: dict[str, Any]) -> str:
         f"trial_plan.json final_production_signoff: `{plan['final_production_signoff']}`",
         "The saved package verifier report produced by `verify_package` is also not final production signoff: `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW`, `final_production_signoff=false`.",
         "The saved local preflight report produced by `local_evidence_preflight` is also not final production signoff: it must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`.",
+        "The saved production evidence audit produced by `audit_production_evidence` is also not final production signoff: it must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=PRODUCTION_EVIDENCE_READINESS_AUDIT`, and `final_production_signoff=false`. It must be rechecked with `--require-ready` before `final_production_gate` runs.",
         "Chinese-community reviewers can use `README.zh-CN.md` as a first-class review entrypoint. It must preserve the same command order, non-final claim labels, pre-signoff requirements, final blockers, and package README evidence path as this English README.",
         "The saved trial-plan signoff command must pair `--require-plan-files` with `--verify-plan-files`, so a structurally valid `trial_plan.json` cannot be accepted before rechecking the template, manifest, and English plus Chinese README files.",
         "`check_readiness` also verifies the saved `trial_plan.json`, template hash, manifest presence, and both English and Chinese README files before returning READY, so readiness fails if the execution instructions or plan are weakened after workspace preparation. The saved readiness signoff command must pair `--require-ready` with `--verify-report-files`; otherwise the saved READY JSON is rejected instead of being treated as reviewer-ready evidence.",
@@ -1385,6 +1524,8 @@ def render_readme(plan: dict[str, Any]) -> str:
         "verify_stable_release_report",
         "verify_github_workflows",
         "verify_github_workflows_report",
+        "audit_production_evidence",
+        "verify_production_evidence_audit",
         "final_production_gate",
         "verify_final_production_report",
     ]:
@@ -1476,6 +1617,7 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
         f"trial_plan.json final_production_signoff：`{plan['final_production_signoff']}`",
         "`verify_package` 生成的 saved package verifier report 也不是最终生产签核：`claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW`、`final_production_signoff=false`。",
         "`local_evidence_preflight` 生成的 saved local preflight report 也不是最终生产签核：它必须保持 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`、`final_evidence_acceptable=false`。",
+        "`audit_production_evidence` 生成的 saved production evidence audit 也不是最终生产签核：它必须保持 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=PRODUCTION_EVIDENCE_READINESS_AUDIT`、`final_production_signoff=false`。它必须在 `final_production_gate` 运行前用 `--require-ready` 重新复核。",
         "中文社区 reviewer 可以把 `README.zh-CN.md` 作为一等复核入口。它必须保留与英文 README 相同的命令顺序、非最终 claim labels、pre-signoff requirements、最终阻塞项和 package README evidence path。",
         "Saved trial-plan 签核命令必须把 `--require-plan-files` 和 `--verify-plan-files` 配对使用；这样结构正确的 `trial_plan.json` 也必须重新复核 template、manifest、英文 README 和中文 README 文件后才可被接受。",
         "`check_readiness` 在返回 READY 前也会复核 saved `trial_plan.json`、template hash、manifest 是否存在，以及英文和中文 README 文件；如果 workspace 准备后执行说明或计划被改弱，readiness 会失败。Saved readiness 签核命令必须把 `--require-ready` 和 `--verify-report-files` 配对使用；否则 saved READY JSON 会被拒绝，不能当作 reviewer-ready evidence。",
@@ -1529,6 +1671,10 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
         "verify_local_evidence_preflight",
         "verify_stable_release",
         "verify_stable_release_report",
+        "verify_github_workflows",
+        "verify_github_workflows_report",
+        "audit_production_evidence",
+        "verify_production_evidence_audit",
         "final_production_gate",
         "verify_final_production_report",
     ]:
@@ -1627,6 +1773,9 @@ def planned_execution_outputs(workspace: Path, package_slug: str) -> list[Path]:
         workspace / "local-evidence-preflight.json",
         workspace / "local-evidence-preflight.md",
         workspace / "github-release-verification.json",
+        workspace / "github-workflow-verification.json",
+        workspace / "production-evidence-audit.json",
+        workspace / "production-evidence-audit.md",
         workspace / "github-release",
         workspace / "production-claim.json",
         workspace / "production-claim.md",
