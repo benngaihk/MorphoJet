@@ -32,45 +32,14 @@ LOCAL_PREFLIGHT_VALIDATED_CHECKS = [
     "external_l4_evidence_package",
 ]
 LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS = [
-    "clean_git_worktree",
-    "standard_code_and_artifact_gates",
-    "l3_provenance_hashes",
-    "external_l4_saved_reviewer_reports",
-    "stable_github_release",
-    "stable_github_release_saved_report",
+    check
+    for check in release_gate.PRODUCTION_AUDIT_CHECK_NAMES
+    if check not in LOCAL_PREFLIGHT_VALIDATED_CHECKS
+] + [
     "production_claim_enforcement",
 ]
 LOCAL_PREFLIGHT_SKIPPED_FINAL_GUIDANCE = {
-    "clean_git_worktree": {
-        "evidence": "Final production wrapper runs benchmark/release_gate.py with --require-clean-git.",
-        "next_action": "Commit or remove local changes before running the final production wrapper.",
-    },
-    "standard_code_and_artifact_gates": {
-        "evidence": "Final release-gate report reruns or verifies the standard Rust, Python, manifest, and L3 gates.",
-        "next_action": "Run the final production wrapper after code gates and L3 release evidence are current.",
-    },
-    "l3_provenance_hashes": {
-        "evidence": "Final release-gate report includes --require-l3-provenance and matching CellBinDB artifact hashes.",
-        "next_action": "Refresh L3 provenance if measurement code changed, then run the final production wrapper.",
-    },
-    "external_l4_saved_reviewer_reports": {
-        "evidence": "Both saved external L4 trial and evidence-package verifier reports pass file rechecks.",
-        "next_action": (
-            "Supply both --external-trial-verification-report and "
-            "--external-evidence-package-verification-report, then rerun local preflight."
-        ),
-    },
-    "stable_github_release": {
-        "evidence": "Live GitHub verification passes for the stable non-RC release tag.",
-        "next_action": "After external L4 evidence is accepted, publish the stable tag and verify it with release gate.",
-    },
-    "stable_github_release_saved_report": {
-        "evidence": "A saved stable GitHub release verifier report is bound to the final repo, tag, commit, and assets.",
-        "next_action": (
-            "Save verify_github_release.py output outside the download directory, then recheck it with "
-            "--verify-report-files --require-stable-report."
-        ),
-    },
+    **release_gate.PRODUCTION_CHECKLIST_GUIDANCE,
     "production_claim_enforcement": {
         "evidence": "Final report passes --require-production-claim and rechecks with --expect-missing-checks none.",
         "next_action": "Run benchmark/run_production_gate.py without --local-evidence-preflight-only after stable release evidence exists.",

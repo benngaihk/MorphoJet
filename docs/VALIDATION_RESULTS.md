@@ -2,6 +2,17 @@
 
 Updated: 2026-07-08
 
+## Local Preflight Skipped-Final Checklist Source Binding Snapshot
+
+This snapshot records local verification for making `benchmark/run_production_gate.py --local-evidence-preflight-only` derive its skipped-final check list and guidance from `benchmark/release_gate.py`. Local evidence preflight still adds its own `production_claim_enforcement` row, but the clean-git, standard-gate, L3 provenance, external reviewer report, stable release, and saved stable-release rows now reuse the release-gate production audit order and checklist guidance directly.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_run_production_gate.py` | PASS, 88 tests |
+| Local preflight skipped-final checklist source binding | PASS |
+
 ## Saved Release-Gate Checklist Source Binding Snapshot
 
 This snapshot records local verification for making `benchmark/verify_release_gate_report.py` reuse the release-gate production audit check order and checklist guidance directly from `benchmark/release_gate.py`. Saved release-gate report verification no longer carries a second handwritten `REQUIRED_AUDIT_CHECKS` or `PRODUCTION_CHECKLIST_GUIDANCE` copy, so the report writer and report reviewer cannot drift into different production-claim checklists.

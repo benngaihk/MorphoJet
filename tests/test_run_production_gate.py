@@ -19,6 +19,7 @@ sys.path.insert(0, str(ROOT / "benchmark"))
 sys.path.insert(0, str(ROOT / "tests"))
 
 import package_external_trial  # noqa: E402
+import release_gate  # noqa: E402
 import run_production_gate  # noqa: E402
 import verify_external_evidence_package  # noqa: E402
 import verify_external_trial_report  # noqa: E402
@@ -1495,20 +1496,33 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("stable_github_release_saved_report", payload["skipped_final_checks"])
         self.assertIn("external_l4_saved_reviewer_reports", payload["skipped_final_checks"])
         self.assertIn("production_claim_enforcement", payload["skipped_final_checks"])
+        self.assertEqual(
+            [
+                check
+                for check in release_gate.PRODUCTION_AUDIT_CHECK_NAMES
+                if check not in run_production_gate.LOCAL_PREFLIGHT_VALIDATED_CHECKS
+            ]
+            + ["production_claim_enforcement"],
+            run_production_gate.LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS,
+        )
         checklist_by_check = {row["check"]: row for row in payload["skipped_final_checklist"]}
         self.assertEqual("SKIPPED", checklist_by_check["external_l4_saved_reviewer_reports"]["status"])
-        self.assertIn(
-            "--external-trial-verification-report",
+        self.assertEqual(
+            release_gate.PRODUCTION_CHECKLIST_GUIDANCE["external_l4_saved_reviewer_reports"]["evidence"],
+            checklist_by_check["external_l4_saved_reviewer_reports"]["evidence"],
+        )
+        self.assertEqual(
+            release_gate.PRODUCTION_CHECKLIST_GUIDANCE["external_l4_saved_reviewer_reports"]["next_action"],
             checklist_by_check["external_l4_saved_reviewer_reports"]["next_action"],
         )
         self.assertEqual("SKIPPED", checklist_by_check["stable_github_release"]["status"])
-        self.assertIn(
-            "publish the stable tag",
+        self.assertEqual(
+            release_gate.PRODUCTION_CHECKLIST_GUIDANCE["stable_github_release"]["next_action"],
             checklist_by_check["stable_github_release"]["next_action"],
         )
         self.assertEqual("SKIPPED", checklist_by_check["stable_github_release_saved_report"]["status"])
-        self.assertIn(
-            "--require-stable-report",
+        self.assertEqual(
+            release_gate.PRODUCTION_CHECKLIST_GUIDANCE["stable_github_release_saved_report"]["next_action"],
             checklist_by_check["stable_github_release_saved_report"]["next_action"],
         )
         self.assertIn(
