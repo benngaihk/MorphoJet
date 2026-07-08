@@ -20,6 +20,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 GITHUB_RELEASE_REPO = "benngaihk/MorphoJet"
+DEFAULT_STABLE_RELEASE_TAG = "v0.1.0"
+STABLE_RELEASE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 FINAL_CLAIM_STATUS = "FINAL_PRODUCTION_CLAIM"
 NON_FINAL_CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
 FINAL_EVIDENCE_SCOPE = "FINAL_PRODUCTION_RELEASE_GATE"
@@ -99,6 +101,14 @@ def external_package_manifest_claim_scope() -> dict[str, object]:
         "trial_evidence_scope": EXTERNAL_TRIAL_EVIDENCE_SCOPE,
         "trial_final_production_signoff": NON_FINAL_PRODUCTION_SIGNOFF,
     }
+
+
+def is_stable_release_tag(tag: str) -> bool:
+    return bool(STABLE_RELEASE_TAG_PATTERN.fullmatch(tag))
+
+
+def stable_release_url(tag: str = DEFAULT_STABLE_RELEASE_TAG, repo: str = GITHUB_RELEASE_REPO) -> str:
+    return f"https://github.com/{repo}/releases/tag/{tag}"
 
 
 def is_utc_datetime(value: datetime) -> bool:

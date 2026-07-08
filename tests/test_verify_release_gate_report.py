@@ -52,6 +52,26 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             verify_release_gate_report.NON_FINAL_EVIDENCE_SCOPE,
         )
 
+    def test_stable_release_metadata_uses_release_gate_tag_contract(self) -> None:
+        metadata = self.production_metadata()
+        metadata.update(
+            {
+                "verify_github_release": release_gate.DEFAULT_STABLE_RELEASE_TAG,
+                "github_release_kind": "stable",
+            }
+        )
+
+        self.assertNotIn(
+            "metadata.github_release_kind=stable requires a stable metadata.verify_github_release tag",
+            verify_release_gate_report.validate_metadata(metadata),
+        )
+
+        metadata["verify_github_release"] = "v0.1.0-rc.1"
+        self.assertIn(
+            "metadata.github_release_kind=stable requires a stable metadata.verify_github_release tag",
+            verify_release_gate_report.validate_metadata(metadata),
+        )
+
     def production_args(self, **overrides: object) -> Namespace:
         values = {
             "require_clean_git": False,

@@ -194,6 +194,17 @@ def add_artifact_provenance(trial: dict, root: Path) -> None:
 
 
 class ReleaseGateTest(unittest.TestCase):
+    def test_stable_release_tag_contract_is_shared(self) -> None:
+        self.assertEqual("v0.1.0", release_gate.DEFAULT_STABLE_RELEASE_TAG)
+        self.assertEqual(
+            "https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0",
+            release_gate.stable_release_url(),
+        )
+        self.assertTrue(release_gate.is_stable_release_tag("v0.1.0"))
+        self.assertTrue(release_gate.is_stable_release_tag("v0.1.0+build.7"))
+        self.assertFalse(release_gate.is_stable_release_tag("v0.1.0-rc.1"))
+        self.assertFalse(release_gate.is_stable_release_tag("release-0.1.0"))
+
     def test_external_claim_scope_contracts_are_shared(self) -> None:
         self.assertEqual(
             release_gate.non_final_claim_scope(release_gate.EXTERNAL_TRIAL_PLAN_EVIDENCE_SCOPE),

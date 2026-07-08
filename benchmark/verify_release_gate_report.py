@@ -32,8 +32,6 @@ def is_utc_datetime(value: datetime) -> bool:
     return value.utcoffset() == timezone.utc.utcoffset(value)
 
 
-STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
-
 PRODUCTION_PATH_METADATA_KEYS = {
     "external_trial_json",
     "external_trial_root",
@@ -122,7 +120,9 @@ def validate_metadata(metadata: Any, report_path: Path | None = None) -> list[st
     if github_release_kind not in {"prerelease", "stable", None}:
         failures.append(f"metadata.github_release_kind={github_release_kind}")
     elif github_release_kind == "stable":
-        if not isinstance(verify_github_release, str) or not STABLE_TAG_PATTERN.fullmatch(verify_github_release):
+        if not isinstance(verify_github_release, str) or not release_gate.is_stable_release_tag(
+            verify_github_release
+        ):
             failures.append("metadata.github_release_kind=stable requires a stable metadata.verify_github_release tag")
     for key in sorted(PRODUCTION_PATH_METADATA_KEYS):
         value = metadata.get(key)
@@ -252,7 +252,7 @@ def validate_production_claim_metadata(metadata: Any) -> list[str]:
         if not isinstance(value, str) or not value.strip():
             failures.append(f"production PASS metadata.{key} must be a non-empty string")
     tag = metadata.get("verify_github_release")
-    if not isinstance(tag, str) or not STABLE_TAG_PATTERN.fullmatch(tag):
+    if not isinstance(tag, str) or not release_gate.is_stable_release_tag(tag):
         failures.append("production PASS metadata.verify_github_release must be a stable semver tag like v0.1.0")
     if metadata.get("github_release_kind") != "stable":
         failures.append(f"production PASS metadata.github_release_kind must be stable: {metadata.get('github_release_kind')}")

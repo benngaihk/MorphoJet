@@ -73,7 +73,6 @@ TRIAL_CLAIM_SCOPE = {
 PACKAGE_MANIFEST_CLAIM_SCOPE = release_gate.external_package_manifest_claim_scope()
 PACKAGE_READINESS_SCOPE = release_gate.external_readiness_scope()
 GITHUB_RELEASE_REPO = release_gate.GITHUB_RELEASE_REPO
-STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 
 
 def is_utc_datetime(value: datetime) -> bool:
@@ -85,9 +84,10 @@ class ProductionGateError(Exception):
 
 
 def validate_stable_tag(tag: str) -> None:
-    if not STABLE_TAG_PATTERN.fullmatch(tag):
+    if not release_gate.is_stable_release_tag(tag):
         raise ProductionGateError(
-            f"{tag!r} is not a stable release tag; expected a non-RC tag like v0.1.0"
+            f"{tag!r} is not a stable release tag; expected a non-RC tag like "
+            f"{release_gate.DEFAULT_STABLE_RELEASE_TAG}"
         )
 
 
@@ -899,7 +899,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--external-trial-verification-report", type=Path)
     parser.add_argument("--external-evidence-package-verification-report", type=Path)
     parser.add_argument("--github-release-verification-report", type=Path)
-    parser.add_argument("--github-release-tag", help="Stable non-RC release tag, e.g. v0.1.0")
+    parser.add_argument(
+        "--github-release-tag",
+        help=f"Stable non-RC release tag, e.g. {release_gate.DEFAULT_STABLE_RELEASE_TAG}",
+    )
     parser.add_argument("--out-json", type=Path, default=DEFAULT_OUT_JSON)
     parser.add_argument("--out-md", type=Path, default=DEFAULT_OUT_MD)
     parser.add_argument("--run-l3", action="store_true", help="Rerun the full CellBinDB L3 benchmark")

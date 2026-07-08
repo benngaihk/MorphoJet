@@ -39,6 +39,26 @@ class VerifyGithubReleaseTest(unittest.TestCase):
     def test_default_repo_reuses_release_gate_contract(self) -> None:
         self.assertIs(release_gate.GITHUB_RELEASE_REPO, verify_github_release.DEFAULT_REPO)
 
+    def test_stable_release_tag_validation_reuses_release_gate_contract(self) -> None:
+        self.assertEqual(
+            [],
+            verify_github_release.release_type_issues(
+                release_gate.DEFAULT_STABLE_RELEASE_TAG,
+                {"isPrerelease": False},
+                expect_prerelease=False,
+                expect_stable=True,
+            ),
+        )
+        self.assertIn(
+            "stable release tag must be a non-prerelease semver tag like v0.1.0",
+            verify_github_release.release_type_issues(
+                "v0.1.0-rc.1",
+                {"isPrerelease": False},
+                expect_prerelease=False,
+                expect_stable=True,
+            ),
+        )
+
     def test_prerelease_expectation(self) -> None:
         self.assertEqual(
             [],

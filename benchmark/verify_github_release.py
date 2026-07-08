@@ -26,7 +26,6 @@ CLAIM_STATUS = release_gate.NON_FINAL_CLAIM_STATUS
 EVIDENCE_SCOPE = release_gate.GITHUB_STABLE_RELEASE_EVIDENCE_SCOPE
 FINAL_PRODUCTION_SIGNOFF = release_gate.NON_FINAL_PRODUCTION_SIGNOFF
 REQUIRED_PACKAGE_FILES = {"morphojet", "README.md", "LICENSE"}
-STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 FULL_COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
 SHORT_COMMIT_PATTERN = re.compile(r"[0-9a-f]{12}")
 ASSET_DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
@@ -210,7 +209,7 @@ def release_type_issues(tag: str, release: dict, expect_prerelease: bool, expect
     if expect_stable:
         if release.get("isPrerelease"):
             issues.append("stable release is marked prerelease")
-        if not STABLE_TAG_PATTERN.fullmatch(tag):
+        if not release_gate.is_stable_release_tag(tag):
             issues.append("stable release tag must be a non-prerelease semver tag like v0.1.0")
     return issues
 
@@ -633,7 +632,7 @@ def validate_verification_report_payload(
             failures.append(f"expected_release_kind is not stable: {expected_kind}")
         if payload.get("is_prerelease") is not False:
             failures.append("stable report must have is_prerelease=false")
-        if isinstance(tag, str) and not STABLE_TAG_PATTERN.fullmatch(tag):
+        if isinstance(tag, str) and not release_gate.is_stable_release_tag(tag):
             failures.append("stable report tag must be a non-prerelease semver tag like v0.1.0")
     expected_commit = payload.get("expected_commit")
     expected_doctor_commit = payload.get("expected_doctor_commit")
