@@ -287,15 +287,19 @@ python3 benchmark/audit_production_evidence.py \
 
 这个 audit 报告仍是非最终证据，会写入 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=PRODUCTION_EVIDENCE_READINESS_AUDIT`、`final_production_signoff=false`、`production_claim_status=PASS|INCOMPLETE`，并沿用 release gate 的 production blocker 名称。最终 wrapper 前用 `python3 benchmark/audit_production_evidence.py --verify-report path/to/production-evidence-audit.json --verify-report-files --require-ready` 复核；最终 wrapper 也必须通过 `--production-evidence-audit-report` 消费同一份 saved audit，并在 wrapper 内再次用 `--verify-report-files --require-ready` 复核。它会按 saved metadata 路径重新运行 audit gates，并拒绝旧 commit、argv、输入路径或 final-wrapper-command 被篡改的 audit JSON。它只是 reviewer checklist 和路径绑定 guard，不能替代 `benchmark/run_production_gate.py`，也不能替代最终 saved `verify_release_gate_report.py --require-production-claim-pass --expect-missing-checks none` 签核。
 
-如果要在提交到真实外部 reviewer 前先复演整条证据链，可以在 clean worktree 上运行内部 rehearsal runner。它会准备外部 L4 workspace，复制已提交的 CellBinDB full MorphoJet/CellProfiler CSV 输入，按生成的 plan 顺序执行 plan/readiness/trial/package/local-preflight 及 saved report 复核，并写出 summary；summary 会标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=EXTERNAL_L4_INTERNAL_REHEARSAL`、`final_production_signoff=false` 和 `final_evidence_acceptable=false`。它会刻意跳过稳定 GitHub release、saved stable-release report、final production gate 和 final saved-report verifier；这只是证据链机制复演，不是外部 L4 签核。
+如果要在提交到真实外部 reviewer 前先复演整条证据链，可以在 clean worktree 上运行内部 rehearsal runner。它会准备外部 L4 workspace，复制已提交的 CellBinDB full MorphoJet/CellProfiler CSV 输入，按生成的 plan 顺序执行 plan/readiness/trial/package/local-preflight 及 saved report 复核，并写出 summary；summary 会标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=EXTERNAL_L4_INTERNAL_REHEARSAL`、`final_production_signoff=false` 和 `final_evidence_acceptable=false`。复核保存的 summary 时必须使用 `--verify-report-files --require-report-pass`，重新绑定输入/输出文件摘要、local-preflight 状态和非最终标签。它会刻意跳过稳定 GitHub release、saved stable-release report、final production gate 和 final saved-report verifier；这只是证据链机制复演，不是外部 L4 签核。
 
 ```bash
 python3 benchmark/run_external_l4_rehearsal.py \
   --workspace /tmp/morphojet-external-l4-rehearsal \
   --overwrite
+python3 benchmark/run_external_l4_rehearsal.py \
+  --verify-report /tmp/morphojet-external-l4-rehearsal/external-l4-rehearsal-summary.json \
+  --verify-report-files \
+  --require-report-pass
 ```
 
-同一套内部 rehearsal 机制也接入 `.github/workflows/external-l4-rehearsal.yml`：push 到 `main`、每周定时和手动 `workflow_dispatch` 都会运行。这个 workflow 会在 git checkout 外生成最小 CI fixture，再执行 rehearsal，把 Markdown summary 写入 GitHub Actions step summary，并把 summary、trial plan、中英文 README、readiness report、trial report、trial/package saved verifier reports、local preflight report 和 evidence package 作为保留 30 天的 artifact 上传。它是持续的非最终 rehearsal evidence，仍然不能替代真实外部 L4 签核、稳定 GitHub release 或最终 production-claim gate。
+同一套内部 rehearsal 机制也接入 `.github/workflows/external-l4-rehearsal.yml`：push 到 `main`、每周定时和手动 `workflow_dispatch` 都会运行。这个 workflow 会在 git checkout 外生成最小 CI fixture，执行 rehearsal 后立刻用 file hashes 和 PASS enforcement 复核 saved summary，把 Markdown summary 写入 GitHub Actions step summary，并把 summary、trial plan、中英文 README、readiness report、trial report、trial/package saved verifier reports、local preflight report 和 evidence package 作为保留 30 天的 artifact 上传。它是持续的非最终 rehearsal evidence，仍然不能替代真实外部 L4 签核、稳定 GitHub release 或最终 production-claim gate。
 
 推送候选 commit 后，可以保存并复核必需 GitHub Actions workflow 证据：
 

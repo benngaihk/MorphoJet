@@ -69,6 +69,32 @@ class RunExternalL4RehearsalTest(unittest.TestCase):
         workspace = Path(plan["workspace"])
         package_dir = workspace / "evidence-package" / plan["package_name"]
         package_dir.mkdir(parents=True, exist_ok=True)
+        (workspace / "readiness.json").write_text(
+            json.dumps(
+                {
+                    "status": "READY",
+                    "claim_status": "NOT_PRODUCTION_CLAIM",
+                    "evidence_scope": "EXTERNAL_L4_READINESS_PRECHECK",
+                    "final_production_signoff": False,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (package_dir / "artifact_manifest.json").write_text(
+            json.dumps(
+                {
+                    "claim_status": "NOT_PRODUCTION_CLAIM",
+                    "evidence_scope": "EXTERNAL_L4_EVIDENCE_PACKAGE",
+                    "final_production_signoff": False,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (package_dir / "README.md").write_text("English review entrypoint\n", encoding="utf-8")
         (package_dir / "README.zh-CN.md").write_text("中文 review entrypoint\n", encoding="utf-8")
         external_evidence = json.loads((workspace / "external_manifest.json").read_text(encoding="utf-8"))[
             "external_evidence"
@@ -170,12 +196,159 @@ class RunExternalL4RehearsalTest(unittest.TestCase):
             self.assertTrue((workspace / "evidence-package-verification.json").is_file())
             self.assertTrue((workspace / "local-evidence-preflight.json").is_file())
             self.assertTrue((workspace / "evidence-package" / "external-l4-demo" / "README.zh-CN.md").is_file())
+            self.assertEqual("PASS", summary["output_files"]["package_readme_zh"]["exists"] and "PASS")
+            self.assertRegex(summary["output_files"]["package_readme_zh"]["sha256"], r"^[0-9a-f]{64}$")
 
             trial = json.loads((workspace / "handoff_trial.json").read_text(encoding="utf-8"))
             self.assertEqual("NOT_PRODUCTION_CLAIM", trial["claim_status"])
             self.assertEqual("EXTERNAL_L4_WORKFLOW_TRIAL", trial["evidence_scope"])
             self.assertFalse(trial["final_production_signoff"])
             self.assertIn("Internal rehearsal only", trial["external_evidence"]["signoff_statement"])
+
+    def test_saved_report_verification_rechecks_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source_inputs = root / "source-inputs"
+            source_inputs.mkdir()
+            (source_inputs / "morphojet").mkdir()
+            (source_inputs / "cellprofiler").mkdir()
+            write_valid_inputs(source_inputs)
+            workspace = root / "rehearsal"
+            template = root / "minimal-template.json"
+            write_rehearsal_template(template)
+
+            with (
+                patch.object(run_external_l4_rehearsal.release_gate, "git_status_porcelain", return_value=[]),
+                patch.object(run_external_l4_rehearsal, "run_command_sequence", side_effect=self.fake_command_sequence),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                status = run_external_l4_rehearsal.main(
+                    [
+                        "--workspace",
+                        str(workspace),
+                        "--template",
+                        str(template),
+                        "--morphojet-objects",
+                        str(source_inputs / "morphojet" / "Objects.csv"),
+                        "--cellprofiler-cells",
+                        str(source_inputs / "cellprofiler" / "Cells.csv"),
+                        "--package-name",
+                        "external-l4-demo",
+                    ]
+                )
+            self.assertEqual(0, status)
+
+            with contextlib.redirect_stdout(io.StringIO()) as stdout:
+                verify_status = run_external_l4_rehearsal.main(
+                    [
+                        "--verify-report",
+                        str(workspace / "external-l4-rehearsal-summary.json"),
+                        "--verify-report-files",
+                        "--require-report-pass",
+                    ]
+                )
+
+            self.assertEqual(0, verify_status)
+            self.assertIn("external L4 rehearsal report ok", stdout.getvalue())
+
+    def test_saved_report_verification_rejects_tampered_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source_inputs = root / "source-inputs"
+            source_inputs.mkdir()
+            (source_inputs / "morphojet").mkdir()
+            (source_inputs / "cellprofiler").mkdir()
+            write_valid_inputs(source_inputs)
+            workspace = root / "rehearsal"
+            template = root / "minimal-template.json"
+            write_rehearsal_template(template)
+
+            with (
+                patch.object(run_external_l4_rehearsal.release_gate, "git_status_porcelain", return_value=[]),
+                patch.object(run_external_l4_rehearsal, "run_command_sequence", side_effect=self.fake_command_sequence),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                status = run_external_l4_rehearsal.main(
+                    [
+                        "--workspace",
+                        str(workspace),
+                        "--template",
+                        str(template),
+                        "--morphojet-objects",
+                        str(source_inputs / "morphojet" / "Objects.csv"),
+                        "--cellprofiler-cells",
+                        str(source_inputs / "cellprofiler" / "Cells.csv"),
+                        "--package-name",
+                        "external-l4-demo",
+                    ]
+                )
+            self.assertEqual(0, status)
+            (workspace / "evidence-package" / "external-l4-demo" / "README.zh-CN.md").write_text(
+                "tampered\n",
+                encoding="utf-8",
+            )
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_external_l4_rehearsal.main(
+                    [
+                        "--verify-report",
+                        str(workspace / "external-l4-rehearsal-summary.json"),
+                        "--verify-report-files",
+                        "--require-report-pass",
+                    ]
+                )
+
+            self.assertEqual(1, verify_status)
+            self.assertIn("output_files.package_readme_zh.sha256", stderr.getvalue())
+
+    def test_require_report_pass_requires_file_recheck(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary = root / "summary.json"
+            summary.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "runner": run_external_l4_rehearsal.RUNNER,
+                        "status": "PASS",
+                        "claim_status": "NOT_PRODUCTION_CLAIM",
+                        "evidence_scope": "EXTERNAL_L4_INTERNAL_REHEARSAL",
+                        "final_production_signoff": False,
+                        "final_evidence_acceptable": False,
+                        "skipped_final_commands": run_external_l4_rehearsal.SKIPPED_FINAL_COMMANDS,
+                        "commands": [
+                            {"name": name, "status": "PASS"} for name in run_external_l4_rehearsal.COMMAND_SEQUENCE
+                        ],
+                        "metadata": {
+                            "generated_at_utc": "2026-07-09T00:00:00+00:00",
+                            "git_commit": "a" * 40,
+                            "git_dirty": False,
+                            "git_status": [],
+                            "argv": [run_external_l4_rehearsal.RUNNER],
+                        },
+                        "workspace": str(root),
+                        "source_template": str(root / "template.json"),
+                        "prepared_template": str(root / "prepared.json"),
+                        "trial_plan": str(root / "trial_plan.json"),
+                        "handoff_trial_json": str(root / "handoff_trial.json"),
+                        "evidence_package_dir": str(root / "package"),
+                        "local_evidence_preflight_json": str(root / "local-evidence-preflight.json"),
+                        "input_file_summaries": {},
+                        "output_files": {},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_external_l4_rehearsal.main(
+                    ["--verify-report", str(summary), "--require-report-pass"]
+                )
+
+            self.assertEqual(1, verify_status)
+            self.assertIn("--require-report-pass requires --verify-report-files", stderr.getvalue())
 
     def test_overwrite_replaces_existing_workspace(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

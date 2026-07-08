@@ -2,6 +2,19 @@
 
 Updated: 2026-07-09
 
+## Internal Rehearsal Saved Summary Verification Snapshot
+
+This snapshot records the hardening that makes internal external-L4 rehearsal summaries re-verifiable after they are saved. `benchmark/run_external_l4_rehearsal.py --verify-report` now checks the saved summary schema, non-final claim labels, clean git metadata, expected command sequence, skipped final commands, and PASS status. With `--verify-report-files`, it re-hashes the copied MorphoJet/CellProfiler inputs, generated trial plan, readiness report, trial report, saved trial/package reviewer reports, local-preflight report, package artifact manifest, and bilingual package READMEs, then checks that the saved local-preflight status and check lists still match the referenced report. `--require-report-pass` is fail-closed and requires `--verify-report-files`.
+
+The GitHub `external-l4-rehearsal.yml` workflow now runs that saved-summary verification immediately after generating the rehearsal evidence, before uploading the 30-day artifact bundle. This is still not a production claim: the summary remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_INTERNAL_REHEARSAL`, `final_production_signoff=false`, and `final_evidence_acceptable=false`. It proves the rehearsal evidence mechanics are auditable; it does not replace a real external L4 workflow trial, saved external reviewer reports, live stable GitHub release, or final production gate.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/run_external_l4_rehearsal.py tests/test_run_external_l4_rehearsal.py` | PASS |
+| `python3 -m unittest discover -s tests -p 'test_run_external_l4_rehearsal.py'` | PASS, 6 tests |
+
 ## Current Main Clean L3 And Workflow Evidence Snapshot
 
 This snapshot records the current `main` commit after the external saved-reviewer commit-binding hardening was merged and pushed. It saves fresh GitHub Actions workflow evidence for the current commit, then rechecks clean git metadata, existing CellBinDB L3 provenance hashes, and that saved workflow report in one release-gate report.

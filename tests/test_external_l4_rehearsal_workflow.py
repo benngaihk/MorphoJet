@@ -35,6 +35,9 @@ class ExternalL4RehearsalWorkflowTest(unittest.TestCase):
         self.assertIn("--cellprofiler-cells", self.workflow_text)
         self.assertIn("--package-name ci-external-l4-rehearsal", self.workflow_text)
         self.assertIn("--overwrite", self.workflow_text)
+        self.assertIn('--verify-report "${workspace}/external-l4-rehearsal-summary.json"', self.workflow_text)
+        self.assertIn("--verify-report-files", self.workflow_text)
+        self.assertIn("--require-report-pass", self.workflow_text)
 
     def test_workflow_uploads_auditable_rehearsal_evidence(self) -> None:
         required_artifacts = [

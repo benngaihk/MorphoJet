@@ -129,6 +129,10 @@ jobs:
             --cellprofiler-cells "${fixture}/cellprofiler/Cells.csv" \
             --package-name ci-external-l4-rehearsal \
             --overwrite
+          python3 benchmark/run_external_l4_rehearsal.py \
+            --verify-report "${workspace}/external-l4-rehearsal-summary.json" \
+            --verify-report-files \
+            --require-report-pass
 
       - name: Write rehearsal summary
         if: always()
