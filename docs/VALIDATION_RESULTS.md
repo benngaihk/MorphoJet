@@ -2,6 +2,43 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `13f1356`
+
+This snapshot records the clean `main` verification for binding package readiness review context in both standalone evidence-package reviewer reports and local evidence preflight reports. `benchmark/verify_external_evidence_package.py` and `benchmark/run_production_gate.py` now record and re-check the packaged `readiness.json` `package_name`, workspace, and manifest summary, while preserving diagnostic FAIL report review when the readiness file is missing. English, Chinese, and generated external workspace README coverage now describe the same package-readiness context binding for reviewers.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `13f1356`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-13f1356774c6.json --out-md /tmp/morphojet-l3-release-report-main-13f1356774c6.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-13f1356774c6.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| External package reviewer tests | PASS, 70 tests |
+| Production wrapper/local preflight tests | PASS, 77 tests |
+| External trial workspace preparation tests | PASS, 21 tests |
+| Full Python unit test suite | PASS, 458 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Package Reviewer Readiness Manifest Binding | PASS |
+| Package Reviewer Readiness Workspace Binding | PASS |
+| Local Preflight Readiness Manifest Binding | PASS |
+| Local Preflight Readiness Workspace Binding | PASS |
+| Diagnostic FAIL Package Review Compatibility | PASS |
+| English README Package Readiness Binding Coverage | PASS |
+| Chinese README Package Readiness Binding Coverage | PASS |
+| Generated Workspace Bilingual README Binding Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `9739bbf`
 
 This snapshot records the clean `main` verification for making external L4 readiness binding independently reviewable after trial execution. `benchmark/release_gate.py` now rejects external trial reports whose readiness summary `manifest` does not match the trial manifest, resolving relative manifests through `variables.base_dir`, or whose readiness `workspace` does not match the trial workspace. `benchmark/verify_external_trial_report.py` now records and validates the bound readiness report's workspace, manifest, package-name, size, and SHA-256 in saved reviewer reports so reviewer JSON cannot silently describe a different readiness context than the source trial.
