@@ -37,6 +37,23 @@ EXTERNAL_READINESS_STATUS = "READY"
 EXTERNAL_READINESS_EVIDENCE_SCOPE = "EXTERNAL_L4_READINESS_PRECHECK"
 LOCAL_PREFLIGHT_EVIDENCE_SCOPE = "LOCAL_EXTERNAL_L4_PREFLIGHT"
 GITHUB_STABLE_RELEASE_EVIDENCE_SCOPE = "GITHUB_STABLE_RELEASE_VERIFICATION"
+PRODUCTION_AUDIT_PASS_STATUS = "PASS"
+PRODUCTION_AUDIT_FAIL_STATUS = "FAIL"
+PRODUCTION_AUDIT_MISSING_STATUS = "MISSING"
+PRODUCTION_AUDIT_INCOMPLETE_STATUS = "INCOMPLETE"
+PRODUCTION_AUDIT_CHECK_STATUSES = frozenset(
+    [
+        PRODUCTION_AUDIT_PASS_STATUS,
+        PRODUCTION_AUDIT_FAIL_STATUS,
+        PRODUCTION_AUDIT_MISSING_STATUS,
+    ]
+)
+PRODUCTION_CLAIM_STATUSES = frozenset(
+    [
+        PRODUCTION_AUDIT_PASS_STATUS,
+        PRODUCTION_AUDIT_INCOMPLETE_STATUS,
+    ]
+)
 PRODUCTION_AUDIT_CHECK_NAMES = [
     "clean_git_worktree",
     "standard_code_and_artifact_gates",
@@ -2018,19 +2035,19 @@ def gate_status(gates: list[Gate], name: str) -> str | None:
 def production_audit_status(gates: list[Gate], name: str) -> str:
     status = gate_status(gates, name)
     if status is None:
-        return "MISSING"
+        return PRODUCTION_AUDIT_MISSING_STATUS
     return status
 
 
 def combined_production_audit_status(gates: list[Gate], names: list[str], enabled: bool) -> str:
     if not enabled:
-        return "MISSING"
+        return PRODUCTION_AUDIT_MISSING_STATUS
     statuses = [production_audit_status(gates, name) for name in names]
-    if all(status == "PASS" for status in statuses):
-        return "PASS"
-    if any(status == "FAIL" for status in statuses):
-        return "FAIL"
-    return "MISSING"
+    if all(status == PRODUCTION_AUDIT_PASS_STATUS for status in statuses):
+        return PRODUCTION_AUDIT_PASS_STATUS
+    if any(status == PRODUCTION_AUDIT_FAIL_STATUS for status in statuses):
+        return PRODUCTION_AUDIT_FAIL_STATUS
+    return PRODUCTION_AUDIT_MISSING_STATUS
 
 
 def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], metadata: dict) -> dict:
@@ -2040,33 +2057,35 @@ def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], me
             "name": "clean_git_worktree",
             "status": production_audit_status(gates, "Require clean git worktree")
             if args.require_clean_git
-            else "MISSING",
+            else PRODUCTION_AUDIT_MISSING_STATUS,
             "detail": "Release or production-readiness reports should run with --require-clean-git.",
         },
         {
             "name": "standard_code_and_artifact_gates",
-            "status": "PASS" if all(status == "PASS" for status in standard_statuses) else "FAIL",
+            "status": PRODUCTION_AUDIT_PASS_STATUS
+            if all(status == PRODUCTION_AUDIT_PASS_STATUS for status in standard_statuses)
+            else PRODUCTION_AUDIT_FAIL_STATUS,
             "detail": "Standard Rust, Python, manifest, direct-mask, L3 artifact, workflow bridge, and handoff gates.",
         },
         {
             "name": "l3_provenance_hashes",
             "status": production_audit_status(gates, "Validate CellBinDB L3 provenance")
             if args.require_l3_provenance
-            else "MISSING",
+            else PRODUCTION_AUDIT_MISSING_STATUS,
             "detail": "Production-readiness claims should run with --require-l3-provenance.",
         },
         {
             "name": "external_l4_workflow_trial",
             "status": production_audit_status(gates, "Validate external L4 workflow trial report")
             if args.external_trial_json
-            else "MISSING",
+            else PRODUCTION_AUDIT_MISSING_STATUS,
             "detail": "Requires --external-trial-json from a real no-manual-CSV-edit workflow trial.",
         },
         {
             "name": "external_l4_evidence_package",
             "status": production_audit_status(gates, "Validate external L4 evidence package")
             if args.external_evidence_package_dir
-            else "MISSING",
+            else PRODUCTION_AUDIT_MISSING_STATUS,
             "detail": "Requires --external-evidence-package-dir from a validated external L4 trial package.",
         },
         {
@@ -2089,21 +2108,27 @@ def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], me
             "name": "stable_github_release",
             "status": production_audit_status(gates, "Verify GitHub release assets")
             if args.verify_github_release and args.github_release_kind == "stable"
-            else "MISSING",
+            else PRODUCTION_AUDIT_MISSING_STATUS,
             "detail": "Requires --verify-github-release with --github-release-kind stable.",
         },
         {
             "name": "stable_github_release_saved_report",
             "status": production_audit_status(gates, "Verify saved stable GitHub release report")
             if args.github_release_verification_report
-            else "MISSING",
+            else PRODUCTION_AUDIT_MISSING_STATUS,
             "detail": "Requires a saved stable GitHub release verifier report bound to the final repo and tag.",
         },
     ]
     if [check["name"] for check in checks] != PRODUCTION_AUDIT_CHECK_NAMES:
         raise AssertionError("production audit check order drifted from PRODUCTION_AUDIT_CHECK_NAMES")
-    status = "PASS" if all(check["status"] == "PASS" for check in checks) else "INCOMPLETE"
-    missing_or_failed_checks = [check["name"] for check in checks if check["status"] != "PASS"]
+    status = (
+        PRODUCTION_AUDIT_PASS_STATUS
+        if all(check["status"] == PRODUCTION_AUDIT_PASS_STATUS for check in checks)
+        else PRODUCTION_AUDIT_INCOMPLETE_STATUS
+    )
+    missing_or_failed_checks = [
+        check["name"] for check in checks if check["status"] != PRODUCTION_AUDIT_PASS_STATUS
+    ]
     return {
         "status": status,
         "git_commit": metadata["git_commit"],
@@ -2166,7 +2191,11 @@ def production_checklist_rows(audit: dict) -> list[dict[str, str]]:
     rows = []
     for check in audit["checks"]:
         guidance = PRODUCTION_CHECKLIST_GUIDANCE[check["name"]]
-        next_action = "No action needed for this check." if check["status"] == "PASS" else guidance["next_action"]
+        next_action = (
+            "No action needed for this check."
+            if check["status"] == PRODUCTION_AUDIT_PASS_STATUS
+            else guidance["next_action"]
+        )
         rows.append(
             {
                 "check": check["name"],
@@ -2305,7 +2334,7 @@ def build_metadata(args: argparse.Namespace, git_status_lines: list[str]) -> dic
 def write_report(args: argparse.Namespace, gates: list[Gate], metadata: dict) -> dict:
     audit = build_production_claim_audit(args, gates, metadata)
     gates_pass = all(gate.status == "PASS" for gate in gates)
-    production_claim_pass = audit["status"] == "PASS"
+    production_claim_pass = audit["status"] == PRODUCTION_AUDIT_PASS_STATUS
     final_production_signoff = bool(gates_pass and production_claim_pass and args.require_production_claim)
     payload = {
         "status": "PASS" if gates_pass and (production_claim_pass or not args.require_production_claim) else "FAIL",

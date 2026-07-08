@@ -205,6 +205,16 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertFalse(release_gate.is_stable_release_tag("v0.1.0-rc.1"))
         self.assertFalse(release_gate.is_stable_release_tag("release-0.1.0"))
 
+    def test_production_audit_status_contract_is_shared(self) -> None:
+        self.assertEqual(
+            frozenset({"PASS", "FAIL", "MISSING"}),
+            release_gate.PRODUCTION_AUDIT_CHECK_STATUSES,
+        )
+        self.assertEqual(
+            frozenset({"PASS", "INCOMPLETE"}),
+            release_gate.PRODUCTION_CLAIM_STATUSES,
+        )
+
     def test_external_claim_scope_contracts_are_shared(self) -> None:
         self.assertEqual(
             release_gate.non_final_claim_scope(release_gate.EXTERNAL_TRIAL_PLAN_EVIDENCE_SCOPE),

@@ -32,6 +32,18 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             verify_release_gate_report.REQUIRED_PRODUCTION_GATE_NAMES,
         )
         self.assertIs(
+            release_gate.PRODUCTION_AUDIT_CHECK_STATUSES,
+            verify_release_gate_report.PRODUCTION_AUDIT_CHECK_STATUSES,
+        )
+        self.assertIs(
+            release_gate.PRODUCTION_CLAIM_STATUSES,
+            verify_release_gate_report.PRODUCTION_CLAIM_STATUSES,
+        )
+        self.assertIs(
+            release_gate.PRODUCTION_AUDIT_PASS_STATUS,
+            verify_release_gate_report.PRODUCTION_AUDIT_PASS_STATUS,
+        )
+        self.assertIs(
             release_gate.GITHUB_RELEASE_REPO,
             verify_release_gate_report.GITHUB_RELEASE_REPO,
         )

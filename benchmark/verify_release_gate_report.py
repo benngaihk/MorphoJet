@@ -24,6 +24,9 @@ NON_FINAL_EVIDENCE_SCOPE = release_gate.NON_FINAL_EVIDENCE_SCOPE
 REQUIRED_AUDIT_CHECKS = release_gate.PRODUCTION_AUDIT_CHECK_NAMES
 PRODUCTION_CHECKLIST_GUIDANCE = release_gate.PRODUCTION_CHECKLIST_GUIDANCE
 REQUIRED_PRODUCTION_GATE_NAMES = release_gate.REQUIRED_PRODUCTION_GATE_NAMES
+PRODUCTION_AUDIT_CHECK_STATUSES = release_gate.PRODUCTION_AUDIT_CHECK_STATUSES
+PRODUCTION_CLAIM_STATUSES = release_gate.PRODUCTION_CLAIM_STATUSES
+PRODUCTION_AUDIT_PASS_STATUS = release_gate.PRODUCTION_AUDIT_PASS_STATUS
 
 NO_ACTION_NEEDED = "No action needed for this check."
 
@@ -412,11 +415,11 @@ def validate_audit_checks(audit: dict, top_level_missing: Any) -> list[str]:
             failures.append("production_claim_audit.check name must be a non-empty string")
             continue
         check_names.append(name)
-        if status not in {"PASS", "FAIL", "MISSING"}:
+        if status not in PRODUCTION_AUDIT_CHECK_STATUSES:
             failures.append(f"production_claim_audit.check status invalid for {name}: {status}")
         if not isinstance(check.get("detail"), str):
             failures.append(f"production_claim_audit.check detail must be a string: {name}")
-        if status != "PASS":
+        if status != PRODUCTION_AUDIT_PASS_STATUS:
             failed_check_names.append(name)
     if check_names != REQUIRED_AUDIT_CHECKS:
         failures.append(f"production_claim_audit.check names={check_names}")
@@ -435,7 +438,7 @@ def expected_checklist_row(check: dict) -> dict[str, str] | None:
         "check": name,
         "status": status,
         "evidence": guidance["evidence"],
-        "next_action": NO_ACTION_NEEDED if status == "PASS" else guidance["next_action"],
+        "next_action": NO_ACTION_NEEDED if status == PRODUCTION_AUDIT_PASS_STATUS else guidance["next_action"],
     }
 
 
@@ -475,7 +478,7 @@ def validate_report_claim_scope(payload: dict, metadata: Any, top_level_claim_st
     failures: list[str] = []
     expected_final_signoff = bool(
         payload.get("status") == "PASS"
-        and top_level_claim_status == "PASS"
+        and top_level_claim_status == PRODUCTION_AUDIT_PASS_STATUS
         and isinstance(metadata, dict)
         and metadata.get("require_production_claim") is True
     )
@@ -513,7 +516,7 @@ def validate_release_gate_report_payload(
         failures.append("production_claim_audit must be an object")
         audit = {}
     audit_status = audit.get("status")
-    if audit_status not in {"PASS", "INCOMPLETE"}:
+    if audit_status not in PRODUCTION_CLAIM_STATUSES:
         failures.append(f"production_claim_audit.status={audit_status}")
     top_level_claim_status = payload.get("production_claim_status")
     if top_level_claim_status != audit_status:
@@ -521,7 +524,7 @@ def validate_release_gate_report_payload(
             "production_claim_status does not match production_claim_audit.status: "
             f"{top_level_claim_status} != {audit_status}"
         )
-    if require_production_claim_pass and top_level_claim_status != "PASS":
+    if require_production_claim_pass and top_level_claim_status != PRODUCTION_AUDIT_PASS_STATUS:
         failures.append(f"production_claim_status is not PASS: {top_level_claim_status}")
 
     audit_missing = audit.get("missing_or_failed_checks")
@@ -530,7 +533,7 @@ def validate_release_gate_report_payload(
         failures.append("production_claim_audit.missing_or_failed_checks must be a string list")
     if top_level_missing != audit_missing:
         failures.append("missing_or_failed_checks does not match production_claim_audit")
-    if top_level_claim_status == "PASS" and top_level_missing != []:
+    if top_level_claim_status == PRODUCTION_AUDIT_PASS_STATUS and top_level_missing != []:
         failures.append("passing production claim must have no missing_or_failed_checks")
     if expected_missing_checks is not None:
         if not isinstance(top_level_missing, list):
@@ -558,7 +561,7 @@ def validate_release_gate_report_payload(
         if verify_git_commit and isinstance(git_commit, str) and re.fullmatch(r"[0-9a-f]{40}", git_commit):
             if not git_commit_is_reachable(git_commit):
                 failures.append(f"metadata.git_commit is not reachable: {git_commit}")
-    if top_level_claim_status == "PASS":
+    if top_level_claim_status == PRODUCTION_AUDIT_PASS_STATUS:
         failures.extend(validate_production_claim_metadata(metadata))
 
     gates = payload.get("gates")
@@ -586,12 +589,15 @@ def validate_release_gate_report_payload(
         if (
             payload.get("status") in {"PASS", "FAIL"}
             and isinstance(metadata, dict)
-            and top_level_claim_status in {"PASS", "INCOMPLETE"}
+            and top_level_claim_status in PRODUCTION_CLAIM_STATUSES
         ):
             expected_status = (
                 "PASS"
                 if not failed_gate_names
-                and (top_level_claim_status == "PASS" or metadata.get("require_production_claim") is not True)
+                and (
+                    top_level_claim_status == PRODUCTION_AUDIT_PASS_STATUS
+                    or metadata.get("require_production_claim") is not True
+                )
                 else "FAIL"
             )
             if payload.get("status") != expected_status:
@@ -599,7 +605,7 @@ def validate_release_gate_report_payload(
                     "release-gate status does not match gate and production-claim statuses: "
                     f"{payload.get('status')} != {expected_status}"
                 )
-        if top_level_claim_status == "PASS":
+        if top_level_claim_status == PRODUCTION_AUDIT_PASS_STATUS:
             missing_required_gates = sorted(REQUIRED_PRODUCTION_GATE_NAMES - gate_names)
             if missing_required_gates:
                 failures.append("passing production claim missing gates: " + ",".join(missing_required_gates))

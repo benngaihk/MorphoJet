@@ -2,6 +2,25 @@
 
 Updated: 2026-07-08
 
+## Production Audit Status Source Snapshot
+
+This snapshot records local verification for making production audit check statuses and top-level production-claim statuses reuse `benchmark/release_gate.py` as the canonical source. The release-gate writer and saved report verifier now share the same allowed production audit check statuses (`PASS`, `FAIL`, `MISSING`) and production claim statuses (`PASS`, `INCOMPLETE`), so the final saved-report reviewer cannot silently drift into accepting a different top-level production-claim state than the writer emits.
+
+This is not a production claim. The current release-gate report must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE` until the real external L4 evidence chain and stable release evidence are present in one final passing report.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_release_gate.py` | PASS, 77 tests |
+| `python3 tests/test_verify_release_gate_report.py` | PASS, 53 tests |
+| `python3 -m unittest discover -s tests` | PASS, 517 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS |
+| `git diff --check` | PASS |
+| Shared production audit status contracts | PASS |
+
 ## Stable Release Tag Contract Source Snapshot
 
 This snapshot records local verification for making the planned final stable release tag, stable GitHub release URL, and stable semver matcher reuse `benchmark/release_gate.py` as the canonical source. The external L4 plan generator, final production wrapper, GitHub release verifier, and saved release-gate report verifier no longer carry separate handwritten stable-tag regexes or a separate default final tag.
