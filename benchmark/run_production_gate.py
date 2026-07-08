@@ -136,7 +136,7 @@ def validate_stable_tag(tag: str) -> None:
         )
 
 
-def require_final_gate_args(args: argparse.Namespace) -> None:
+def require_final_gate_args(args: argparse.Namespace, require_saved_reports: bool = False) -> None:
     missing = []
     for name in [
         "external_trial_json",
@@ -146,6 +146,14 @@ def require_final_gate_args(args: argparse.Namespace) -> None:
     ]:
         if getattr(args, name) is None:
             missing.append("--" + name.replace("_", "-"))
+    if require_saved_reports:
+        for name in [
+            "external_trial_verification_report",
+            "external_evidence_package_verification_report",
+            "github_release_verification_report",
+        ]:
+            if getattr(args, name) is None:
+                missing.append("--" + name.replace("_", "-"))
     if missing:
         raise ProductionGateError("missing required arguments: " + ", ".join(missing))
 
@@ -1009,7 +1017,10 @@ def main(argv: list[str] | None = None) -> int:
                 verify_gates=args.verify_local_evidence_preflight_gates,
                 require_pass=args.require_local_evidence_preflight_pass,
             )
-        require_final_gate_args(args)
+        require_final_gate_args(
+            args,
+            require_saved_reports=not args.dry_run and not args.local_evidence_preflight_only,
+        )
         command = build_release_gate_command(args)
         if args.local_evidence_preflight_only:
             if args.github_release_verification_report:

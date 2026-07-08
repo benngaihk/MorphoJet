@@ -392,6 +392,42 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("benchmark/release_gate.py", stdout.getvalue())
         self.assertIn("benchmark/verify_release_gate_report.py", stdout.getvalue())
 
+    def test_final_run_requires_saved_verifier_reports(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_root = root / "external"
+            package_dir = root / "evidence" / "external-l4-trial"
+            trial_root.mkdir()
+            package_dir.mkdir(parents=True)
+            trial_json = trial_root / "handoff_trial.json"
+            trial_json.write_text("{}\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                status = run_production_gate.main(
+                    [
+                        "--external-trial-json",
+                        str(trial_json),
+                        "--external-trial-root",
+                        str(trial_root),
+                        "--external-evidence-package-dir",
+                        str(package_dir),
+                        "--github-release-tag",
+                        "v0.1.0",
+                    ]
+                )
+
+        self.assertEqual(2, status)
+        self.assertIn("--external-trial-verification-report", stderr.getvalue())
+        self.assertIn("--external-evidence-package-verification-report", stderr.getvalue())
+        self.assertIn("--github-release-verification-report", stderr.getvalue())
+
+    def test_local_preflight_does_not_require_saved_verifier_reports(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, _out_json, _trial_json, _package_dir = self.write_local_preflight(root)
+
+        self.assertEqual(0, status)
+
     def test_main_verifies_final_report_after_successful_release_gate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -401,9 +437,15 @@ class RunProductionGateTest(unittest.TestCase):
             package_dir.mkdir(parents=True)
             trial_json = trial_root / "handoff_trial.json"
             trial_json.write_text("{}\n", encoding="utf-8")
+            trial_report = root / "trial-verification.json"
+            package_report = root / "package-verification.json"
+            github_report = root / "github-verification.json"
+            for report in [trial_report, package_report, github_report]:
+                report.write_text("{}\n", encoding="utf-8")
             out_json = root / "reports" / "production-claim.json"
             out_md = root / "reports" / "production-claim.md"
             with (
+                patch.object(run_production_gate, "saved_reviewer_report_gates", return_value=[]) as reviewer_mock,
                 patch.object(
                     run_production_gate.subprocess,
                     "run",
@@ -426,6 +468,12 @@ class RunProductionGateTest(unittest.TestCase):
                         str(package_dir),
                         "--github-release-tag",
                         "v0.1.0",
+                        "--external-trial-verification-report",
+                        str(trial_report),
+                        "--external-evidence-package-verification-report",
+                        str(package_report),
+                        "--github-release-verification-report",
+                        str(github_report),
                         "--out-json",
                         str(out_json),
                         "--out-md",
@@ -434,6 +482,7 @@ class RunProductionGateTest(unittest.TestCase):
                 )
 
         self.assertEqual(0, status)
+        reviewer_mock.assert_called_once()
         run_mock.assert_called_once()
         verify_mock.assert_called_once_with(
             out_json,
@@ -454,7 +503,13 @@ class RunProductionGateTest(unittest.TestCase):
             package_dir.mkdir(parents=True)
             trial_json = trial_root / "handoff_trial.json"
             trial_json.write_text("{}\n", encoding="utf-8")
+            trial_report = root / "trial-verification.json"
+            package_report = root / "package-verification.json"
+            github_report = root / "github-verification.json"
+            for report in [trial_report, package_report, github_report]:
+                report.write_text("{}\n", encoding="utf-8")
             with (
+                patch.object(run_production_gate, "saved_reviewer_report_gates", return_value=[]),
                 patch.object(
                     run_production_gate.subprocess,
                     "run",
@@ -477,6 +532,12 @@ class RunProductionGateTest(unittest.TestCase):
                         str(package_dir),
                         "--github-release-tag",
                         "v0.1.0",
+                        "--external-trial-verification-report",
+                        str(trial_report),
+                        "--external-evidence-package-verification-report",
+                        str(package_report),
+                        "--github-release-verification-report",
+                        str(github_report),
                     ]
                 )
 
@@ -492,7 +553,13 @@ class RunProductionGateTest(unittest.TestCase):
             package_dir.mkdir(parents=True)
             trial_json = trial_root / "handoff_trial.json"
             trial_json.write_text("{}\n", encoding="utf-8")
+            trial_report = root / "trial-verification.json"
+            package_report = root / "package-verification.json"
+            github_report = root / "github-verification.json"
+            for report in [trial_report, package_report, github_report]:
+                report.write_text("{}\n", encoding="utf-8")
             with (
+                patch.object(run_production_gate, "saved_reviewer_report_gates", return_value=[]),
                 patch.object(
                     run_production_gate.subprocess,
                     "run",
@@ -515,6 +582,12 @@ class RunProductionGateTest(unittest.TestCase):
                         str(package_dir),
                         "--github-release-tag",
                         "v0.1.0",
+                        "--external-trial-verification-report",
+                        str(trial_report),
+                        "--external-evidence-package-verification-report",
+                        str(package_report),
+                        "--github-release-verification-report",
+                        str(github_report),
                     ]
                 )
 
