@@ -2,6 +2,23 @@
 
 Updated: 2026-07-08
 
+## Final Production Saved Report Signoff Snapshot
+
+This snapshot records local verification for making saved final release-gate report signoff fail closed unless `--require-production-claim-pass` is paired with the full final verifier bundle: `--require-report-pass`, `--require-clean-git-metadata`, `--verify-git-commit`, and `--expect-missing-checks none`. This closes the manual-review gap where a saved production-claim PASS report could ask for production-claim PASS without also enforcing whole-report PASS, clean committed metadata, reachable git commit, and zero remaining production blockers.
+
+This is not a production claim. The current release-gate precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_verify_release_gate_report.py` | PASS, 54 tests |
+| `python3 -m unittest discover -s tests` | PASS, 524 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## Readiness Saved Report File Signoff Snapshot
 
 This snapshot records local verification for making saved external L4 readiness report signoff fail closed unless `--require-ready` is paired with `--verify-report-files`. Generated external L4 plans already use that stronger command; this closes the manual-review gap where a saved READY JSON could be accepted without revalidating the current workspace, manifest, bilingual README files, input CSVs, planned outputs, and package paths.

@@ -226,6 +226,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                 gates,
                 {
                     **self.production_metadata(),
+                    "git_commit": release_gate.git_commit(),
                     "argv": [
                         "benchmark/release_gate.py",
                         "--require-clean-git",
@@ -439,9 +440,24 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             "production_claim_status is not PASS: INCOMPLETE",
             verify_release_gate_report.validate_release_gate_report_payload(
                 self.valid_payload(),
+                require_report_pass=True,
                 require_production_claim_pass=True,
+                expected_missing_checks=[],
+                require_clean_git_metadata=True,
+                verify_git_commit=True,
             ),
         )
+
+    def test_require_production_claim_pass_requires_final_signoff_checks(self) -> None:
+        failures = verify_release_gate_report.validate_release_gate_report_payload(
+            self.complete_production_claim_payload(),
+            require_production_claim_pass=True,
+        )
+
+        self.assertIn("--require-production-claim-pass requires --require-report-pass", failures)
+        self.assertIn("--require-production-claim-pass requires --require-clean-git-metadata", failures)
+        self.assertIn("--require-production-claim-pass requires --verify-git-commit", failures)
+        self.assertIn("--require-production-claim-pass requires --expect-missing-checks none", failures)
 
     def test_can_require_exact_missing_checks(self) -> None:
         self.assertEqual(
@@ -542,6 +558,9 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                 payload,
                 require_report_pass=True,
                 require_production_claim_pass=True,
+                expected_missing_checks=[],
+                require_clean_git_metadata=True,
+                verify_git_commit=True,
             ),
         )
 

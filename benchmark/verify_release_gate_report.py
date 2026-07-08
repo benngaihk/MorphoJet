@@ -487,6 +487,16 @@ def validate_release_gate_report_payload(
     if not isinstance(payload, dict):
         return ["release-gate report must be a JSON object"]
 
+    if require_production_claim_pass:
+        if not require_report_pass:
+            failures.append("--require-production-claim-pass requires --require-report-pass")
+        if not require_clean_git_metadata:
+            failures.append("--require-production-claim-pass requires --require-clean-git-metadata")
+        if not verify_git_commit:
+            failures.append("--require-production-claim-pass requires --verify-git-commit")
+        if expected_missing_checks != []:
+            failures.append("--require-production-claim-pass requires --expect-missing-checks none")
+
     if payload.get("status") not in {"PASS", "FAIL"}:
         failures.append(f"status={payload.get('status')}")
     if require_report_pass and payload.get("status") != "PASS":
@@ -649,7 +659,15 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("report", type=Path, help="Release-gate JSON report to validate")
     parser.add_argument("--require-report-pass", action="store_true")
-    parser.add_argument("--require-production-claim-pass", action="store_true")
+    parser.add_argument(
+        "--require-production-claim-pass",
+        action="store_true",
+        help=(
+            "Reject saved reports unless the production audit is PASS; requires "
+            "--require-report-pass, --require-clean-git-metadata, --verify-git-commit, "
+            "and --expect-missing-checks none"
+        ),
+    )
     parser.add_argument(
         "--require-clean-git-metadata",
         action="store_true",
