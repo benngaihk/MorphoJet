@@ -167,6 +167,32 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("--verify-git-commit", final_report)
             self.assertIn("--require-production-claim-pass", final_report)
             self.assertEqual("none", final_report[final_report.index("--expect-missing-checks") + 1])
+            pre_requirements = plan["pre_signoff_requirements"]
+            pre_requirement_by_name = {requirement["name"]: requirement for requirement in pre_requirements}
+            self.assertEqual(
+                str((workspace / "readiness.json").resolve()),
+                pre_requirement_by_name["external_l4_readiness_precheck"]["planned_path"],
+            )
+            self.assertEqual(
+                "verify_readiness",
+                pre_requirement_by_name["external_l4_readiness_precheck"]["verification_step"],
+            )
+            self.assertEqual(
+                "run_trial",
+                pre_requirement_by_name["external_l4_readiness_precheck"]["required_before"],
+            )
+            self.assertEqual(
+                str((workspace / "local-evidence-preflight.json").resolve()),
+                pre_requirement_by_name["local_evidence_preflight_report"]["planned_path"],
+            )
+            self.assertEqual(
+                "verify_local_evidence_preflight",
+                pre_requirement_by_name["local_evidence_preflight_report"]["verification_step"],
+            )
+            self.assertEqual(
+                "verify_stable_release",
+                pre_requirement_by_name["local_evidence_preflight_report"]["required_before"],
+            )
             requirements = plan["final_signoff_requirements"]
             requirement_by_name = {requirement["name"]: requirement for requirement in requirements}
             self.assertEqual(
@@ -190,6 +216,9 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             )
             readme = (workspace / "README.md").read_text(encoding="utf-8")
             self.assertIn("Language: English | [简体中文](README.zh-CN.md)", readme)
+            self.assertIn("## pre_signoff_requirements", readme)
+            self.assertIn("| Requirement | Status | Planned Path | Verification Step | Required Before |", readme)
+            self.assertIn("local_evidence_preflight_report", readme)
             self.assertIn("## final_signoff_requirements", readme)
             self.assertIn("| Requirement | Status | Planned Path | Verification Step | Required For |", readme)
             self.assertIn("external_l4_workflow_trial", readme)
@@ -227,6 +256,9 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             readme_zh = (workspace / "README.zh-CN.md").read_text(encoding="utf-8")
             self.assertIn("Language: [English](README.md) | 简体中文", readme_zh)
             self.assertIn("这个工作区只是准备脚手架，不是外部 L4 证据。", readme_zh)
+            self.assertIn("## pre_signoff_requirements", readme_zh)
+            self.assertIn("| 要求 | 状态 | 计划路径 | 验证步骤 | 前置于 |", readme_zh)
+            self.assertIn("local_evidence_preflight_report", readme_zh)
             self.assertIn("## final_signoff_requirements", readme_zh)
             self.assertIn("| 要求 | 状态 | 计划路径 | 验证步骤 | 用于 |", readme_zh)
             self.assertIn("production_signoff", readme_zh)
@@ -492,6 +524,30 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
 
         self.assertNotEqual(0, completed.returncode)
         self.assertIn("final_signoff_requirements changed after plan was written", completed.stderr)
+
+    def test_saved_trial_plan_rejects_pre_signoff_requirement_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+            payload = json.loads(plan_path.read_text(encoding="utf-8"))
+            payload["pre_signoff_requirements"][1]["required_before"] = "production_signoff"
+            plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("pre_signoff_requirements changed after plan was written", completed.stderr)
 
     def test_saved_trial_plan_rejects_template_hash_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

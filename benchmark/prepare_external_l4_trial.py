@@ -213,6 +213,9 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
             expected_requirements = final_signoff_requirements(Path(workspace), package_name)
             if payload.get("final_signoff_requirements") != expected_requirements:
                 failures.append("final_signoff_requirements changed after plan was written")
+            expected_pre_signoff = pre_signoff_requirements(Path(workspace))
+            if payload.get("pre_signoff_requirements") != expected_pre_signoff:
+                failures.append("pre_signoff_requirements changed after plan was written")
     if verify_files:
         failures.extend(validate_plan_files(payload))
     return failures
@@ -516,6 +519,25 @@ def final_signoff_requirements(workspace: Path, package_name: str) -> list[dict[
     ]
 
 
+def pre_signoff_requirements(workspace: Path) -> list[dict[str, str]]:
+    return [
+        {
+            "name": "external_l4_readiness_precheck",
+            "status": "PENDING_EXTERNAL_EVIDENCE",
+            "planned_path": str(workspace / "readiness.json"),
+            "verification_step": "verify_readiness",
+            "required_before": "run_trial",
+        },
+        {
+            "name": "local_evidence_preflight_report",
+            "status": "PENDING_EXTERNAL_EVIDENCE",
+            "planned_path": str(workspace / "local-evidence-preflight.json"),
+            "verification_step": "verify_local_evidence_preflight",
+            "required_before": "verify_stable_release",
+        },
+    ]
+
+
 def render_readme(plan: dict[str, Any]) -> str:
     commands = plan["commands"]
     lines = [
@@ -568,13 +590,31 @@ def render_readme(plan: dict[str, Any]) -> str:
         )
     lines.extend(
         [
+            "## pre_signoff_requirements",
+            "",
+            "| Requirement | Status | Planned Path | Verification Step | Required Before |",
+            "|---|---:|---|---|---|",
+        ]
+    )
+    for requirement in plan.get("pre_signoff_requirements", []):
+        lines.append(
+            "| "
+            f"{requirement['name']} | "
+            f"{requirement['status']} | "
+            f"{requirement['planned_path']} | "
+            f"{requirement['verification_step']} | "
+            f"{requirement['required_before']} |"
+        )
+    lines.extend(
+        [
+            "",
             "## final_signoff_requirements",
             "",
             "| Requirement | Status | Planned Path | Verification Step | Required For |",
             "|---|---:|---|---|---|",
         ]
     )
-    for requirement in plan["final_signoff_requirements"]:
+    for requirement in plan.get("final_signoff_requirements", []):
         lines.append(
             "| "
             f"{requirement['name']} | "
@@ -646,13 +686,31 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
         )
     lines.extend(
         [
+            "## pre_signoff_requirements",
+            "",
+            "| 要求 | 状态 | 计划路径 | 验证步骤 | 前置于 |",
+            "|---|---:|---|---|---|",
+        ]
+    )
+    for requirement in plan.get("pre_signoff_requirements", []):
+        lines.append(
+            "| "
+            f"{requirement['name']} | "
+            f"{requirement['status']} | "
+            f"{requirement['planned_path']} | "
+            f"{requirement['verification_step']} | "
+            f"{requirement['required_before']} |"
+        )
+    lines.extend(
+        [
+            "",
             "## final_signoff_requirements",
             "",
             "| 要求 | 状态 | 计划路径 | 验证步骤 | 用于 |",
             "|---|---:|---|---|---|",
         ]
     )
-    for requirement in plan["final_signoff_requirements"]:
+    for requirement in plan.get("final_signoff_requirements", []):
         lines.append(
             "| "
             f"{requirement['name']} | "
@@ -747,6 +805,7 @@ def prepare_workspace(
         "evidence_scope": EVIDENCE_SCOPE,
         "final_production_signoff": FINAL_PRODUCTION_SIGNOFF,
         "commands": commands,
+        "pre_signoff_requirements": pre_signoff_requirements(workspace),
         "final_signoff_requirements": final_signoff_requirements(workspace, package_slug),
     }
     write_json(workspace / PLAN_NAME, plan)
