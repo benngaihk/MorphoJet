@@ -329,6 +329,9 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             "schema_version": 1,
             "verifier": "benchmark/verify_github_release.py",
             "generated_at_utc": "2026-07-03T00:00:00+00:00",
+            "claim_status": "NOT_PRODUCTION_CLAIM",
+            "evidence_scope": "GITHUB_STABLE_RELEASE_VERIFICATION",
+            "final_production_signoff": False,
             "status": "PASS",
             "argv": [
                 "benchmark/verify_github_release.py",
@@ -392,6 +395,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
     def test_saved_release_report_passes_with_file_recheck(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
 
             with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
                 status = verify_github_release.verify_saved_github_release_report(
@@ -402,6 +406,26 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                 )
 
         self.assertEqual(0, status)
+        self.assertEqual("NOT_PRODUCTION_CLAIM", payload["claim_status"])
+        self.assertEqual("GITHUB_STABLE_RELEASE_VERIFICATION", payload["evidence_scope"])
+        self.assertFalse(payload["final_production_signoff"])
+
+    def test_saved_release_report_rejects_claim_scope_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["claim_status"] = "PASS"
+            payload["evidence_scope"] = "FINAL_PRODUCTION_CLAIM"
+            payload["final_production_signoff"] = True
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                status = verify_github_release.verify_saved_github_release_report(report)
+
+        self.assertEqual(1, status)
+        self.assertIn("claim_status=PASS", stderr.getvalue())
+        self.assertIn("evidence_scope=FINAL_PRODUCTION_CLAIM", stderr.getvalue())
+        self.assertIn("final_production_signoff must be false", stderr.getvalue())
 
     def test_saved_release_report_rejects_non_stable_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

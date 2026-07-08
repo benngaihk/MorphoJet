@@ -68,6 +68,9 @@ class RunProductionGateTest(unittest.TestCase):
                     "schema_version": 1,
                     "verifier": "benchmark/verify_github_release.py",
                     "generated_at_utc": "2026-07-03T00:00:00+00:00",
+                    "claim_status": "NOT_PRODUCTION_CLAIM",
+                    "evidence_scope": "GITHUB_STABLE_RELEASE_VERIFICATION",
+                    "final_production_signoff": False,
                     "status": "PASS",
                     "argv": [
                         "benchmark/verify_github_release.py",

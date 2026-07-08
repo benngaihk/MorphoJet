@@ -20,6 +20,9 @@ from verify_release_archive import verify
 
 
 VERIFIER = "benchmark/verify_github_release.py"
+CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
+EVIDENCE_SCOPE = "GITHUB_STABLE_RELEASE_VERIFICATION"
+FINAL_PRODUCTION_SIGNOFF = False
 REQUIRED_PACKAGE_FILES = {"morphojet", "README.md", "LICENSE"}
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 FULL_COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
@@ -572,6 +575,12 @@ def validate_verification_report_payload(
         failures.append(f"schema_version={payload.get('schema_version')}")
     if payload.get("verifier") != VERIFIER:
         failures.append(f"verifier={payload.get('verifier')}")
+    if payload.get("claim_status") != CLAIM_STATUS:
+        failures.append(f"claim_status={payload.get('claim_status')}")
+    if payload.get("evidence_scope") != EVIDENCE_SCOPE:
+        failures.append(f"evidence_scope={payload.get('evidence_scope')}")
+    if payload.get("final_production_signoff") is not FINAL_PRODUCTION_SIGNOFF:
+        failures.append("final_production_signoff must be false")
     generated_at = payload.get("generated_at_utc")
     if not isinstance(generated_at, str) or not generated_at.strip():
         failures.append("generated_at_utc must be a non-empty string")
@@ -987,6 +996,9 @@ def main() -> int:
         "schema_version": 1,
         "verifier": VERIFIER,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "claim_status": CLAIM_STATUS,
+        "evidence_scope": EVIDENCE_SCOPE,
+        "final_production_signoff": FINAL_PRODUCTION_SIGNOFF,
         "status": "PASS" if not issues else "FAIL",
         "argv": verifier_argv(args, out_dir),
         "tag": args.tag,
