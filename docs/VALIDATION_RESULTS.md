@@ -2,6 +2,36 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `b2b75d4`
+
+This snapshot records the verification for saved trial-plan checks that bind external evidence reviewer/signoff requirements into the generated plan and English/Chinese workspace READMEs. `benchmark/prepare_external_l4_trial.py --verify-plan` now rejects saved plans whose external evidence contract removes required reviewer/signoff fields, weakens UTC review timestamp handling, permits manual CSV editing, lowers the acceptance-criteria requirement, permits placeholders, or drops enforcement by both manifest validation and trial execution.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `b2b75d4d3f070f2b44658d73870ac5c6228844e3`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-external-evidence-requirements.json --out-md /tmp/morphojet-l3-release-report-external-evidence-requirements.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-external-evidence-requirements.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Generated external L4 workspace tests | PASS, 26 tests |
+| External evidence requirement tamper test | PASS |
+| Full Python unit test suite | PASS, 498 tests |
+| Source claim-language guard | PASS, 16 paths |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| English external evidence requirement documentation | PASS |
+| Chinese external evidence requirement documentation | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `52bce77`
 
 This snapshot records the verification for saved trial-plan checks that bind stable-release command identity across the generated release verifier, saved stable-release report verifier, and final production wrapper. `benchmark/prepare_external_l4_trial.py --verify-plan` now checks that stable-release commands use `v0.1.0`, `benngaihk/MorphoJet`, the planned GitHub release verifier report path, stable-report enforcement, git commit verification, and the same final-wrapper tag.
