@@ -1445,6 +1445,8 @@ class RunProductionGateTest(unittest.TestCase):
                 "package_handoff_trial_json",
                 "package_artifact_manifest_json",
                 "package_readiness_json",
+                "package_readme",
+                "package_readme_zh",
                 "package_zip",
                 "package_zip_sha256",
             },
@@ -1492,6 +1494,31 @@ class RunProductionGateTest(unittest.TestCase):
         )
         self.assertEqual(package_readiness_payload["workspace"], artifact_by_name["package_readiness_json"]["workspace"])
         self.assertEqual(package_readiness_payload["manifest"], artifact_by_name["package_readiness_json"]["manifest"])
+        for readme_name in ["package_readme", "package_readme_zh"]:
+            self.assertTrue(artifact_by_name[readme_name]["exists"])
+            self.assertEqual("NOT_PRODUCTION_CLAIM", artifact_by_name[readme_name]["claim_status"])
+            self.assertEqual("EXTERNAL_L4_EVIDENCE_PACKAGE", artifact_by_name[readme_name]["evidence_scope"])
+            self.assertIs(False, artifact_by_name[readme_name]["final_production_signoff"])
+            self.assertEqual("READY", artifact_by_name[readme_name]["readiness_status"])
+            self.assertEqual("NOT_PRODUCTION_CLAIM", artifact_by_name[readme_name]["readiness_claim_status"])
+            self.assertEqual(
+                "EXTERNAL_L4_READINESS_PRECHECK",
+                artifact_by_name[readme_name]["readiness_evidence_scope"],
+            )
+            self.assertIs(False, artifact_by_name[readme_name]["readiness_final_production_signoff"])
+            self.assertEqual(
+                package_readiness_payload["generated_at_utc"],
+                artifact_by_name[readme_name]["readiness_generated_at_utc"],
+            )
+            self.assertEqual("external-l4-demo", artifact_by_name[readme_name]["readiness_package_name"])
+            self.assertEqual(
+                package_readiness_payload["workspace"],
+                artifact_by_name[readme_name]["readiness_workspace"],
+            )
+            self.assertEqual(
+                package_readiness_payload["manifest"],
+                artifact_by_name[readme_name]["readiness_manifest"],
+            )
         self.assertEqual(2, len(payload["gates"]))
         self.assertIn("Local External L4 Evidence Preflight", markdown)
         self.assertIn("claim_status: `NOT_PRODUCTION_CLAIM`", markdown)
@@ -1509,6 +1536,8 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("package_artifact_manifest_json", markdown)
         self.assertIn(package_readiness_payload["workspace"], markdown)
         self.assertIn(package_readiness_payload["manifest"], markdown)
+        self.assertIn("package_readme", markdown)
+        self.assertIn("package_readme_zh", markdown)
         self.assertIn("package_zip", markdown)
         self.assertIn("Validate external L4 evidence package", markdown)
         self.assertIn("does not satisfy the stable GitHub release", markdown)
@@ -2054,6 +2083,77 @@ class RunProductionGateTest(unittest.TestCase):
             "input_artifacts.package_readiness_json.generated_at_utc must match package readiness report",
             stderr.getvalue(),
         )
+
+    def test_verify_local_evidence_preflight_report_rejects_package_readme_scope_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, out_json, _trial_json, _package_dir = self.write_local_preflight(
+                root,
+                package_name="external-l4-demo",
+            )
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            artifact_by_name = {artifact["name"]: artifact for artifact in payload["input_artifacts"]}
+            artifact_by_name["package_readme_zh"]["readiness_claim_status"] = "FINAL_PRODUCTION_CLAIM"
+            artifact_by_name["package_readme_zh"]["readiness_evidence_scope"] = "FINAL_PRODUCTION_RELEASE_GATE"
+            artifact_by_name["package_readme_zh"]["readiness_final_production_signoff"] = True
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertEqual(1, verify_status)
+        self.assertIn(
+            "input_artifacts.package_readme_zh.readiness_claim_status=FINAL_PRODUCTION_CLAIM",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_artifacts.package_readme_zh.readiness_evidence_scope=FINAL_PRODUCTION_RELEASE_GATE",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_artifacts.package_readme_zh.readiness_final_production_signoff must be false",
+            stderr.getvalue(),
+        )
+
+    def test_verify_local_evidence_preflight_files_recomputes_package_readme_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, out_json, _trial_json, package_dir = self.write_local_preflight(
+                root,
+                package_name="external-l4-demo",
+            )
+            readme_path = package_dir / "README.md"
+            readme_path.write_text(
+                readme_path.read_text(encoding="utf-8").replace(
+                    "- readiness_claim_status: `NOT_PRODUCTION_CLAIM`",
+                    "- readiness_claim_status: `FINAL_PRODUCTION_CLAIM`",
+                ),
+                encoding="utf-8",
+            )
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            artifact_by_name = {artifact["name"]: artifact for artifact in payload["input_artifacts"]}
+            artifact_by_name["package_readme"]["size_bytes"] = readme_path.stat().st_size
+            artifact_by_name["package_readme"]["sha256"] = run_production_gate.release_gate.sha256_file(readme_path)
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                        "--verify-local-evidence-preflight-files",
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertEqual(1, verify_status)
+        self.assertIn("input artifact readiness_claim_status mismatch: package_readme", stderr.getvalue())
 
     def test_verify_local_evidence_preflight_report_rejects_package_readiness_manifest_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -81,6 +81,8 @@ LOCAL_PREFLIGHT_INPUT_NAMES = {
     "package_handoff_trial_json",
     "package_artifact_manifest_json",
     "package_readiness_json",
+    "package_readme",
+    "package_readme_zh",
     "package_zip",
     "package_zip_sha256",
 }
@@ -483,6 +485,12 @@ def local_evidence_input_artifacts(args: argparse.Namespace) -> list[dict]:
     package_dir = args.external_evidence_package_dir
     package_readiness = file_summary("package_readiness_json", package_dir / "readiness.json")
     package_readiness.update(readiness_report_summary(package_dir / "readiness.json"))
+    package_readme = file_summary("package_readme", package_dir / "README.md")
+    package_readme.update(verify_external_evidence_package.readme_scope_summary(package_dir / "README.md"))
+    package_readme_zh = file_summary("package_readme_zh", package_dir / "README.zh-CN.md")
+    package_readme_zh.update(
+        verify_external_evidence_package.readme_scope_summary(package_dir / "README.zh-CN.md")
+    )
     return [
         json_field_summary("external_trial_json", args.external_trial_json, TRIAL_CLAIM_SCOPE),
         json_field_summary("package_handoff_trial_json", package_dir / "handoff_trial.json", TRIAL_CLAIM_SCOPE),
@@ -492,6 +500,8 @@ def local_evidence_input_artifacts(args: argparse.Namespace) -> list[dict]:
             PACKAGE_MANIFEST_CLAIM_SCOPE,
         ),
         package_readiness,
+        package_readme,
+        package_readme_zh,
         file_summary("package_zip", package_dir.parent / f"{package_dir.name}.zip"),
         file_summary("package_zip_sha256", package_dir.parent / f"{package_dir.name}.zip.sha256"),
         *optional_file_summaries(
@@ -796,17 +806,17 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
             f"{artifact['exists']} | "
             f"{artifact['size_bytes'] if artifact['size_bytes'] is not None else ''} | "
             f"{artifact['sha256'] or ''} | "
-            f"{artifact.get('status') or ''} | "
+            f"{artifact.get('status') or artifact.get('readiness_status') or ''} | "
             f"{artifact.get('claim_status') or ''} | "
             f"{artifact.get('evidence_scope') or ''} | "
             f"{artifact.get('final_production_signoff') if 'final_production_signoff' in artifact else ''} | "
             f"{artifact.get('trial_claim_status') or ''} | "
             f"{artifact.get('trial_evidence_scope') or ''} | "
             f"{artifact.get('trial_final_production_signoff') if 'trial_final_production_signoff' in artifact else ''} | "
-            f"{artifact.get('package_name') or ''} | "
-            f"{artifact.get('generated_at_utc') or ''} | "
-            f"{artifact.get('workspace') or ''} | "
-            f"{artifact.get('manifest') or ''} | "
+            f"{artifact.get('package_name') or artifact.get('readiness_package_name') or ''} | "
+            f"{artifact.get('generated_at_utc') or artifact.get('readiness_generated_at_utc') or ''} | "
+            f"{artifact.get('workspace') or artifact.get('readiness_workspace') or ''} | "
+            f"{artifact.get('manifest') or artifact.get('readiness_manifest') or ''} | "
             f"{artifact['path']} |"
         )
     lines.extend(
@@ -1176,6 +1186,8 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
                 failures.append(f"missing input artifact must not carry size/hash: {name}")
             if name == "package_readiness_json":
                 failures.extend(package_readiness_artifact_package_name_issues(artifact))
+            if name in {"package_readme", "package_readme_zh"}:
+                failures.extend(package_readme_artifact_scope_issues(name, artifact))
             if name in {"external_trial_json", "package_handoff_trial_json"}:
                 failures.extend(claim_scope_artifact_issues(name, artifact, TRIAL_CLAIM_SCOPE))
             if name == "package_artifact_manifest_json":
@@ -1325,6 +1337,57 @@ def claim_scope_artifact_issues(
     return failures
 
 
+def package_readme_artifact_scope_issues(name: str, artifact: dict) -> list[str]:
+    failures = []
+    if artifact.get("exists"):
+        package_scope = {
+            "claim_status": "NOT_PRODUCTION_CLAIM",
+            "evidence_scope": "EXTERNAL_L4_EVIDENCE_PACKAGE",
+            "final_production_signoff": False,
+        }
+        readiness_scope = {
+            "readiness_status": PACKAGE_READINESS_SCOPE["status"],
+            "readiness_claim_status": PACKAGE_READINESS_SCOPE["claim_status"],
+            "readiness_evidence_scope": PACKAGE_READINESS_SCOPE["evidence_scope"],
+            "readiness_final_production_signoff": PACKAGE_READINESS_SCOPE["final_production_signoff"],
+        }
+        for field, expected in {**package_scope, **readiness_scope}.items():
+            if field not in artifact:
+                failures.append(f"input_artifacts.{name}.{field} must be present")
+            elif artifact.get(field) != expected:
+                if expected is False:
+                    failures.append(f"input_artifacts.{name}.{field} must be false")
+                else:
+                    failures.append(f"input_artifacts.{name}.{field}={artifact.get(field)}")
+        generated_at = artifact.get("readiness_generated_at_utc")
+        if not isinstance(generated_at, str) or not generated_at.strip():
+            failures.append(f"input_artifacts.{name}.readiness_generated_at_utc must be a non-empty string")
+        else:
+            try:
+                parsed_generated_at = datetime.fromisoformat(generated_at)
+                if parsed_generated_at.tzinfo is None:
+                    failures.append(f"input_artifacts.{name}.readiness_generated_at_utc must include timezone")
+                elif not is_utc_datetime(parsed_generated_at):
+                    failures.append(f"input_artifacts.{name}.readiness_generated_at_utc must be UTC")
+            except ValueError:
+                failures.append(f"input_artifacts.{name}.readiness_generated_at_utc is invalid: {generated_at}")
+        if "readiness_package_name" not in artifact:
+            failures.append(f"input_artifacts.{name}.readiness_package_name must be present")
+        package_name = artifact.get("readiness_package_name")
+        if package_name is not None:
+            if not isinstance(package_name, str) or not package_name.strip():
+                failures.append(f"input_artifacts.{name}.readiness_package_name must be null or a non-empty string")
+            elif release_gate.slugify(package_name) != package_name:
+                failures.append(f"input_artifacts.{name}.readiness_package_name must be a canonical slug")
+        for field in ["readiness_workspace", "readiness_manifest"]:
+            value = artifact.get(field)
+            if not isinstance(value, str) or not value.strip():
+                failures.append(f"input_artifacts.{name}.{field} must be a non-empty string")
+            elif not Path(value).is_absolute():
+                failures.append(f"input_artifacts.{name}.{field} must be an absolute path")
+    return failures
+
+
 def argv_values(argv: list[str], flag: str) -> list[str | None]:
     values: list[str | None] = []
     for index, item in enumerate(argv):
@@ -1432,6 +1495,23 @@ def validate_local_evidence_preflight_files(payload: dict) -> list[str]:
             for field in PACKAGE_MANIFEST_CLAIM_SCOPE:
                 if actual_summary.get(field) != artifact.get(field):
                     failures.append(f"input artifact {field} mismatch: {name}")
+        if name in {"package_readme", "package_readme_zh"}:
+            actual_summary = verify_external_evidence_package.readme_scope_summary(path)
+            for field in [
+                "claim_status",
+                "evidence_scope",
+                "final_production_signoff",
+                "readiness_status",
+                "readiness_claim_status",
+                "readiness_evidence_scope",
+                "readiness_final_production_signoff",
+                "readiness_generated_at_utc",
+                "readiness_package_name",
+                "readiness_workspace",
+                "readiness_manifest",
+            ]:
+                if actual_summary.get(field) != artifact.get(field):
+                    failures.append(f"input artifact {field} mismatch: {name}")
     return failures
 
 
@@ -1509,6 +1589,8 @@ def validate_local_evidence_preflight_path_bindings(
             "package_handoff_trial_json": package_dir / "handoff_trial.json",
             "package_artifact_manifest_json": package_dir / "artifact_manifest.json",
             "package_readiness_json": package_dir / "readiness.json",
+            "package_readme": package_dir / "README.md",
+            "package_readme_zh": package_dir / "README.zh-CN.md",
             "package_zip": package_dir.parent / f"{package_dir.name}.zip",
             "package_zip_sha256": package_dir.parent / f"{package_dir.name}.zip.sha256",
         }
@@ -1578,6 +1660,34 @@ def validate_local_evidence_preflight_readiness_binding(
     ]:
         if readiness_summary.get(field) != expected_readiness.get(field):
             failures.append(f"input_artifacts.package_readiness_json.{field} must match package readiness report")
+    expected_manifest_scope = verify_external_evidence_package.artifact_manifest_claim_scope(
+        Path(package_dir_value) / "artifact_manifest.json"
+    )
+    for artifact_name in ["package_readme", "package_readme_zh"]:
+        readme_summary = artifact_summaries.get(artifact_name)
+        if not isinstance(readme_summary, dict):
+            continue
+        readme_to_manifest = {
+            "claim_status": "claim_status",
+            "evidence_scope": "evidence_scope",
+            "final_production_signoff": "final_production_signoff",
+        }
+        for readme_field, manifest_field in readme_to_manifest.items():
+            if readme_summary.get(readme_field) != expected_manifest_scope.get(manifest_field):
+                failures.append(f"input_artifacts.{artifact_name}.{readme_field} must match package artifact manifest")
+        readme_to_readiness = {
+            "readiness_status": "status",
+            "readiness_claim_status": "claim_status",
+            "readiness_evidence_scope": "evidence_scope",
+            "readiness_final_production_signoff": "final_production_signoff",
+            "readiness_generated_at_utc": "generated_at_utc",
+            "readiness_package_name": "package_name",
+            "readiness_workspace": "workspace",
+            "readiness_manifest": "manifest",
+        }
+        for readme_field, readiness_field in readme_to_readiness.items():
+            if readme_summary.get(readme_field) != expected_readiness.get(readiness_field):
+                failures.append(f"input_artifacts.{artifact_name}.{readme_field} must match package readiness report")
     return failures
 
 
