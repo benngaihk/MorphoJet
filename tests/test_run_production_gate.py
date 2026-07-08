@@ -1403,6 +1403,10 @@ class RunProductionGateTest(unittest.TestCase):
             package_readiness_payload = json.loads(
                 (Path(package["package_dir"]) / "readiness.json").read_text(encoding="utf-8")
             )
+            package_dir = Path(package["package_dir"])
+            expected_handoff_contract = verify_external_evidence_package.rendered_manifest_contract_summary(
+                package_dir / "rendered_manifest.json"
+            )
 
         self.assertEqual(0, status)
         self.assertEqual(1, payload["schema_version"])
@@ -1499,6 +1503,7 @@ class RunProductionGateTest(unittest.TestCase):
             self.assertEqual("NOT_PRODUCTION_CLAIM", artifact_by_name[readme_name]["claim_status"])
             self.assertEqual("EXTERNAL_L4_EVIDENCE_PACKAGE", artifact_by_name[readme_name]["evidence_scope"])
             self.assertIs(False, artifact_by_name[readme_name]["final_production_signoff"])
+            self.assertEqual(expected_handoff_contract, artifact_by_name[readme_name]["handoff_contract"])
             self.assertEqual("READY", artifact_by_name[readme_name]["readiness_status"])
             self.assertEqual("NOT_PRODUCTION_CLAIM", artifact_by_name[readme_name]["readiness_claim_status"])
             self.assertEqual(
@@ -1525,6 +1530,9 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("evidence_scope: `LOCAL_EXTERNAL_L4_PREFLIGHT`", markdown)
         self.assertIn("final_evidence_acceptable: `False`", markdown)
         self.assertIn("## Input Artifacts", markdown)
+        self.assertIn("## Package README Handoff Contracts", markdown)
+        self.assertIn("package_readme_zh", markdown)
+        self.assertIn("morphojet_objects_csv", markdown)
         self.assertIn("## Skipped Final Checks", markdown)
         self.assertIn("stable_github_release", markdown)
         self.assertIn("Trial Claim Status", markdown)
@@ -2121,6 +2129,39 @@ class RunProductionGateTest(unittest.TestCase):
             stderr.getvalue(),
         )
 
+    def test_verify_local_evidence_preflight_report_rejects_package_readme_handoff_contract_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, out_json, _trial_json, _package_dir = self.write_local_preflight(
+                root,
+                package_name="external-l4-demo",
+            )
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            artifact_by_name = {artifact["name"]: artifact for artifact in payload["input_artifacts"]}
+            artifact_by_name["package_readme"]["handoff_contract"] = {
+                "morphojet_objects_csv": "external/morphojet/Other.csv"
+            }
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertEqual(1, verify_status)
+        self.assertIn(
+            "input_artifacts.package_readme.handoff_contract must match package README",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_artifacts.package_readme.handoff_contract must match rendered manifest",
+            stderr.getvalue(),
+        )
+
     def test_verify_local_evidence_preflight_files_recomputes_package_readme_scope(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -2154,6 +2195,47 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(0, status)
         self.assertEqual(1, verify_status)
         self.assertIn("input artifact readiness_claim_status mismatch: package_readme", stderr.getvalue())
+
+    def test_verify_local_evidence_preflight_files_recomputes_package_readme_handoff_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, out_json, _trial_json, package_dir = self.write_local_preflight(
+                root,
+                package_name="external-l4-demo",
+            )
+            readme_path = package_dir / "README.zh-CN.md"
+            readme_path.write_text(
+                readme_path.read_text(encoding="utf-8").replace(
+                    "- morphojet_objects_csv: `external/morphojet/Objects.csv`",
+                    "- morphojet_objects_csv: `external/morphojet/Other.csv`",
+                ),
+                encoding="utf-8",
+            )
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            artifact_by_name = {artifact["name"]: artifact for artifact in payload["input_artifacts"]}
+            artifact_by_name["package_readme_zh"]["size_bytes"] = readme_path.stat().st_size
+            artifact_by_name["package_readme_zh"]["sha256"] = run_production_gate.release_gate.sha256_file(
+                readme_path
+            )
+            file_failures = run_production_gate.validate_local_evidence_preflight_files(payload)
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                        "--verify-local-evidence-preflight-files",
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertIn("input artifact handoff_contract mismatch: package_readme_zh", file_failures)
+        self.assertEqual(1, verify_status)
+        self.assertIn(
+            "input_artifacts.package_readme_zh.handoff_contract must match package README",
+            stderr.getvalue(),
+        )
 
     def test_verify_local_evidence_preflight_report_rejects_package_readiness_manifest_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -819,6 +819,29 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
             f"{artifact.get('manifest') or artifact.get('readiness_manifest') or ''} | "
             f"{artifact['path']} |"
         )
+    handoff_contract_rows = []
+    for artifact in payload["input_artifacts"]:
+        handoff_contract = artifact.get("handoff_contract")
+        if not isinstance(handoff_contract, dict) or not handoff_contract:
+            continue
+        for field, value in sorted(handoff_contract.items()):
+            handoff_contract_rows.append(
+                "| "
+                f"{markdown_table_cell(str(artifact['name']))} | "
+                f"{markdown_table_cell(str(field))} | "
+                f"{markdown_table_cell(str(value))} |"
+            )
+    if handoff_contract_rows:
+        lines.extend(
+            [
+                "",
+                "## Package README Handoff Contracts",
+                "",
+                "| Package README | Field | Value |",
+                "|---|---|---|",
+                *handoff_contract_rows,
+            ]
+        )
     lines.extend(
         [
             "",
@@ -845,6 +868,10 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
         ]
     )
     return "\n".join(lines)
+
+
+def markdown_table_cell(value: str) -> str:
+    return value.replace("|", "\\|").replace("\n", " ")
 
 
 def write_local_evidence_preflight_report(
@@ -1385,6 +1412,9 @@ def package_readme_artifact_scope_issues(name: str, artifact: dict) -> list[str]
                 failures.append(f"input_artifacts.{name}.{field} must be a non-empty string")
             elif not Path(value).is_absolute():
                 failures.append(f"input_artifacts.{name}.{field} must be an absolute path")
+        handoff_contract = artifact.get("handoff_contract")
+        if not isinstance(handoff_contract, dict) or not handoff_contract:
+            failures.append(f"input_artifacts.{name}.handoff_contract must be a non-empty object")
     return failures
 
 
@@ -1509,6 +1539,7 @@ def validate_local_evidence_preflight_files(payload: dict) -> list[str]:
                 "readiness_package_name",
                 "readiness_workspace",
                 "readiness_manifest",
+                "handoff_contract",
             ]:
                 if actual_summary.get(field) != artifact.get(field):
                     failures.append(f"input artifact {field} mismatch: {name}")
@@ -1663,15 +1694,24 @@ def validate_local_evidence_preflight_readiness_binding(
     expected_manifest_scope = verify_external_evidence_package.artifact_manifest_claim_scope(
         Path(package_dir_value) / "artifact_manifest.json"
     )
+    expected_contract = verify_external_evidence_package.rendered_manifest_contract_summary(
+        Path(package_dir_value) / "rendered_manifest.json"
+    )
     for artifact_name in ["package_readme", "package_readme_zh"]:
         readme_summary = artifact_summaries.get(artifact_name)
         if not isinstance(readme_summary, dict):
             continue
+        readme_file = "README.md" if artifact_name == "package_readme" else "README.zh-CN.md"
+        expected_readme = verify_external_evidence_package.readme_scope_summary(Path(package_dir_value) / readme_file)
         readme_to_manifest = {
             "claim_status": "claim_status",
             "evidence_scope": "evidence_scope",
             "final_production_signoff": "final_production_signoff",
         }
+        if readme_summary.get("handoff_contract") != expected_readme.get("handoff_contract"):
+            failures.append(f"input_artifacts.{artifact_name}.handoff_contract must match package README")
+        if readme_summary.get("handoff_contract") != expected_contract:
+            failures.append(f"input_artifacts.{artifact_name}.handoff_contract must match rendered manifest")
         for readme_field, manifest_field in readme_to_manifest.items():
             if readme_summary.get(readme_field) != expected_manifest_scope.get(manifest_field):
                 failures.append(f"input_artifacts.{artifact_name}.{readme_field} must match package artifact manifest")
