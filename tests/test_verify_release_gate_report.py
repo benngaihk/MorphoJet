@@ -140,24 +140,9 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                 if gate.name == "Verify GitHub release assets":
                     gate.command = verify_release_gate_report.live_github_release_gate_command("v0.1.0", "stable")
                 elif gate.name == "Verify saved external L4 trial report":
-                    gate.command = [
-                        "python3",
-                        "benchmark/verify_external_trial_report.py",
-                        "--verify-report",
-                        str(trial_report),
-                        "--verify-report-files",
-                        "--require-report-pass",
-                    ]
+                    gate.command = release_gate.saved_external_trial_report_command(trial_report)
                 elif gate.name == "Verify saved external L4 evidence package report":
-                    gate.command = [
-                        "python3",
-                        "benchmark/verify_external_evidence_package.py",
-                        "--verify-report",
-                        str(package_report),
-                        "--verify-report-files",
-                        "--require-report-pass",
-                        "--require-trial-json",
-                    ]
+                    gate.command = release_gate.saved_external_package_report_command(package_report)
                 elif gate.name == "Verify saved stable GitHub release report":
                     gate.command = verify_release_gate_report.saved_github_release_report_command(
                         str(github_report),
@@ -253,49 +238,24 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             [
                 {
                     "name": "Verify saved external L4 trial report",
-                    "command": [
-                        "python3",
-                        "benchmark/verify_external_trial_report.py",
-                        "--verify-report",
-                        str(trial_report),
-                        "--verify-report-files",
-                        "--require-report-pass",
-                    ],
+                    "command": release_gate.saved_external_trial_report_command(trial_report),
                     "status": "PASS",
                     "elapsed_seconds": 0.0,
                     "detail": "ok",
                 },
                 {
                     "name": "Verify saved external L4 evidence package report",
-                    "command": [
-                        "python3",
-                        "benchmark/verify_external_evidence_package.py",
-                        "--verify-report",
-                        str(package_report),
-                        "--verify-report-files",
-                        "--require-report-pass",
-                        "--require-trial-json",
-                    ],
+                    "command": release_gate.saved_external_package_report_command(package_report),
                     "status": "PASS",
                     "elapsed_seconds": 0.0,
                     "detail": "ok",
                 },
                 {
                     "name": "Verify saved stable GitHub release report",
-                    "command": [
-                        "python3",
-                        "benchmark/verify_github_release.py",
-                        "--verify-report",
-                        str(github_report),
-                        "--verify-report-files",
-                        "--require-report-pass",
-                        "--require-stable-report",
-                        "--verify-git-commit",
-                        "--expect-repo",
-                        "benngaihk/MorphoJet",
-                        "--expect-tag",
-                        "v0.1.0",
-                    ],
+                    "command": release_gate.saved_github_release_report_command(
+                        github_report,
+                        expected_tag="v0.1.0",
+                    ),
                     "status": "PASS",
                     "elapsed_seconds": 0.0,
                     "detail": "ok",
@@ -636,11 +596,24 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
     def test_live_github_release_gate_command_binds_production_repo(self) -> None:
         command = verify_release_gate_report.live_github_release_gate_command("v0.1.0", "stable")
 
+        self.assertEqual(release_gate.live_github_release_report_command("v0.1.0", "stable"), command)
         self.assertEqual("benngaihk/MorphoJet", command[command.index("--repo") + 1])
         self.assertIn("--expect-stable", command)
         self.assertEqual(
             verify_release_gate_report.github_release_verification_report_path("v0.1.0"),
             command[command.index("--json-out") + 1],
+        )
+
+    def test_saved_github_release_report_command_reuses_release_gate_contract(self) -> None:
+        report = "/tmp/github-release-verification.json"
+        command = verify_release_gate_report.saved_github_release_report_command(
+            report,
+            expected_tag="v0.1.0",
+        )
+
+        self.assertEqual(
+            release_gate.saved_github_release_report_command(Path(report), expected_tag="v0.1.0"),
+            command,
         )
 
     def test_rejects_passing_production_claim_without_final_metadata_flags(self) -> None:

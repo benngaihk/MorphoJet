@@ -282,21 +282,7 @@ def validate_gate_entry(gate: Any) -> list[str]:
 
 
 def saved_github_release_report_command(report: str, expected_tag: str | None = None) -> list[str]:
-    command = [
-        "python3",
-        "benchmark/verify_github_release.py",
-        "--verify-report",
-        report,
-        "--verify-report-files",
-        "--require-report-pass",
-        "--require-stable-report",
-        "--verify-git-commit",
-        "--expect-repo",
-        GITHUB_RELEASE_REPO,
-    ]
-    if expected_tag:
-        command.extend(["--expect-tag", expected_tag])
-    return command
+    return release_gate.saved_github_release_report_command(Path(report), expected_tag=expected_tag)
 
 
 def github_release_verification_report_path(tag: str) -> str:
@@ -304,17 +290,7 @@ def github_release_verification_report_path(tag: str) -> str:
 
 
 def live_github_release_gate_command(tag: str, kind: str) -> list[str]:
-    release_kind_flag = "--expect-stable" if kind == "stable" else "--expect-prerelease"
-    return [
-        "python3",
-        "benchmark/verify_github_release.py",
-        tag,
-        "--repo",
-        GITHUB_RELEASE_REPO,
-        release_kind_flag,
-        "--json-out",
-        github_release_verification_report_path(tag),
-    ]
+    return release_gate.live_github_release_report_command(tag, kind)
 
 
 def validate_live_github_release_gate_command(gate: dict, metadata: Any) -> list[str]:
@@ -352,27 +328,12 @@ def validate_saved_reviewer_gate_command(gate: dict, metadata: Any) -> list[str]
         metadata_key = "external_trial_verification_report"
         report = metadata.get(metadata_key)
         if isinstance(report, str) and report.strip():
-            expected = [
-                "python3",
-                "benchmark/verify_external_trial_report.py",
-                "--verify-report",
-                report,
-                "--verify-report-files",
-                "--require-report-pass",
-            ]
+            expected = release_gate.saved_external_trial_report_command(Path(report))
     elif name == "Verify saved external L4 evidence package report":
         metadata_key = "external_evidence_package_verification_report"
         report = metadata.get(metadata_key)
         if isinstance(report, str) and report.strip():
-            expected = [
-                "python3",
-                "benchmark/verify_external_evidence_package.py",
-                "--verify-report",
-                report,
-                "--verify-report-files",
-                "--require-report-pass",
-                "--require-trial-json",
-            ]
+            expected = release_gate.saved_external_package_report_command(Path(report))
     elif name == "Verify saved stable GitHub release report":
         metadata_key = "github_release_verification_report"
         report = metadata.get(metadata_key)
