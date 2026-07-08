@@ -2,6 +2,37 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `6601914`
+
+This snapshot records the clean `main` verification for the code commit that makes saved local evidence-preflight reports fail closed when saved external reviewer metadata is present but the matching verifier gate entries are removed. `benchmark/run_production_gate.py` now derives required local-preflight gate names from report metadata, requires both saved reviewer verifier gates when both saved reviewer report paths are bound, and reports missing required gates explicitly. The production-wrapper tests cover tampering that removes a saved evidence-package reviewer gate while leaving the saved reviewer metadata and `validated_checks` in place.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `6601914`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-6601914.json --out-md /tmp/morphojet-l3-release-report-main-6601914.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-6601914.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Production wrapper tests | PASS, 73 tests |
+| Full Python unit test suite | PASS, 436 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Local Preflight Saved Reviewer Gate Binding | PASS |
+| Saved Reviewer Gate Removal Tamper Rejection | PASS |
+| English README Saved Reviewer Gate Coverage | PASS |
+| Chinese README Saved Reviewer Gate Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `153792f`
 
 This snapshot records the clean `main` verification for the code commit that makes local external L4 evidence preflight reports enumerate the remaining final production checks more completely. `benchmark/run_production_gate.py` now keeps `external_l4_saved_reviewer_reports` in `skipped_final_checklist` unless both saved external reviewer reports are supplied, moves that check into `validated_checks` only when both reports are present, and always keeps `stable_github_release` plus `stable_github_release_saved_report` out of local preflight scope. The saved local-preflight verifier derives the expected validated/skipped lists from report metadata and rejects checklist tampering. English and Chinese README coverage plus production readiness docs were updated to keep local preflight non-final.
