@@ -275,6 +275,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("final_production_signoff=false", readme)
             self.assertIn("UTC generation time", readme)
             self.assertIn("package README-rendered readiness scope", readme)
+            self.assertIn("package README-rendered handoff contract binding to `rendered_manifest.json`", readme)
             self.assertLess(readme.index("## verify_plan"), readme.index("## validate_manifest"))
             self.assertLess(readme.index("## verify_readiness"), readme.index("## run_trial"))
             self.assertLess(
@@ -328,6 +329,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("final_production_signoff=false", readme_zh)
             self.assertIn("UTC 生成时间", readme_zh)
             self.assertIn("package README 渲染出的 readiness scope", readme_zh)
+            self.assertIn("package README 渲染出的 handoff contract 与 `rendered_manifest.json` 的绑定", readme_zh)
             self.assertLess(readme_zh.index("## verify_plan"), readme_zh.index("## validate_manifest"))
             self.assertLess(readme_zh.index("## verify_readiness"), readme_zh.index("## run_trial"))
             self.assertLess(
