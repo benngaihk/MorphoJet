@@ -172,6 +172,8 @@ python3 benchmark/release_gate.py --verify-github-release v0.1.0 --github-releas
 
 GitHub release verifier 会检查 tag 身份、release URL、GitHub release ID/API 身份、作者、target commit-ish、UTC 时间戳、draft/prerelease/immutable 状态、稳定 semver tag、发布资产集合、下载文件 checksum、archive 内容，并要求 saved release API URL 与记录的 release database ID 匹配、当前机器兼容的 archive 能通过 `morphojet doctor` 且 commit 前缀匹配。Direct release gate 的 live GitHub release verification 会绑定生产仓库 `benngaihk/MorphoJet`；Saved GitHub release verifier report 会标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=GITHUB_STABLE_RELEASE_VERIFICATION`、`final_production_signoff=false`；复核 saved report 时可用 `--expect-repo benngaihk/MorphoJet` 防止其他仓库的 release 报告进入签核链。
 
+直接使用 `benchmark/release_gate.py --require-production-claim --verify-github-release <tag>` 时，还必须显式提供 `--github-release-kind stable`；如果 live GitHub release gate 仍是 prerelease/RC，命令会在参数合同层失败，不会进入最终生产声明路径。
+
 ## CellProfiler 风格宽表导出
 
 MorphoJet 原生 `Objects.csv` 是长表，键为 `ImageNumber`、`ObjectSet`、`ObjectNumber` 和 `Channel`。如果下游工具需要 CellProfiler object CSV，例如 `Cells.csv`，可以把当前支持的测量子集物化为宽表：

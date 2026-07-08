@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## Stable Live Release Production-Claim Contract Snapshot
+
+This snapshot records local verification for making direct `benchmark/release_gate.py --require-production-claim` live GitHub release checks fail closed unless `--github-release-kind stable` is supplied. This closes the direct-CLI gap where an RC/prerelease live release verification could be paired with production-claim mode and only surface as missing stable-release evidence after heavier gate execution.
+
+This is not a production claim. The current release-gate precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_release_gate.py` | PASS, 82 tests |
+| `python3 benchmark/release_gate.py --require-production-claim --require-clean-git --require-l3-provenance --verify-github-release v0.1.0-rc.1 --out-json /tmp/morphojet-prerelease-production-contract.json --out-md /tmp/morphojet-prerelease-production-contract.md` | PASS; expected exit 2 with missing `--github-release-kind stable` error |
+| `python3 -m unittest discover -s tests` | PASS, 531 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## Local Preflight Clean Metadata Signoff Snapshot
 
 This snapshot records local verification for making saved local evidence-preflight signoff require clean saved git metadata. `--require-local-evidence-preflight-pass` now rejects reports whose metadata says the worktree was dirty or whose saved `git_status` is non-empty, in addition to requiring file rehashing and gate reruns. This keeps reviewer-ready local preflight evidence reproducible from a clean committed tree while preserving ordinary saved-report checks for diagnostics.

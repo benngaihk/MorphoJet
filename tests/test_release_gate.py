@@ -350,6 +350,22 @@ class ReleaseGateTest(unittest.TestCase):
 
         self.assertEqual([], failures)
 
+    def test_require_production_claim_rejects_prerelease_live_github_gate(self) -> None:
+        failures = release_gate.production_claim_contract_failures(
+            self.production_args(
+                require_production_claim=True,
+                require_clean_git=True,
+                require_l3_provenance=True,
+                verify_github_release="v0.1.0-rc.1",
+                github_release_kind="prerelease",
+            )
+        )
+
+        self.assertEqual(
+            ["--require-production-claim with --verify-github-release requires --github-release-kind stable"],
+            failures,
+        )
+
     def test_production_claim_audit_defaults_to_incomplete_without_l4_or_stable_release(self) -> None:
         gates = self.production_gates(
             [
