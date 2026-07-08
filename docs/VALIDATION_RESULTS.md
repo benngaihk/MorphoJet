@@ -2,6 +2,37 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `5b5b588`
+
+This snapshot records the clean `main` verification for making local evidence preflight Markdown show the same package readiness context that JSON and saved verifiers already bind. `benchmark/run_production_gate.py` now renders readiness workspace and manifest columns in the input-artifact table, and the English/Chinese documentation explains that human reviewers can see those readiness fields without opening the JSON first.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `5b5b588`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-5b5b588da3d2.json --out-md /tmp/morphojet-l3-release-report-main-5b5b588da3d2.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-5b5b588da3d2.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Production wrapper/local preflight tests | PASS, 77 tests |
+| Full Python unit test suite | PASS, 458 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Local Preflight Markdown Readiness Workspace Column | PASS |
+| Local Preflight Markdown Readiness Manifest Column | PASS |
+| English README Markdown Reviewer Coverage | PASS |
+| Chinese README Markdown Reviewer Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `13f1356`
 
 This snapshot records the clean `main` verification for binding package readiness review context in both standalone evidence-package reviewer reports and local evidence preflight reports. `benchmark/verify_external_evidence_package.py` and `benchmark/run_production_gate.py` now record and re-check the packaged `readiness.json` `package_name`, workspace, and manifest summary, while preserving diagnostic FAIL report review when the readiness file is missing. English, Chinese, and generated external workspace README coverage now describe the same package-readiness context binding for reviewers.
