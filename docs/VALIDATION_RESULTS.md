@@ -2,6 +2,37 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `153792f`
+
+This snapshot records the clean `main` verification for the code commit that makes local external L4 evidence preflight reports enumerate the remaining final production checks more completely. `benchmark/run_production_gate.py` now keeps `external_l4_saved_reviewer_reports` in `skipped_final_checklist` unless both saved external reviewer reports are supplied, moves that check into `validated_checks` only when both reports are present, and always keeps `stable_github_release` plus `stable_github_release_saved_report` out of local preflight scope. The saved local-preflight verifier derives the expected validated/skipped lists from report metadata and rejects checklist tampering. English and Chinese README coverage plus production readiness docs were updated to keep local preflight non-final.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `153792f`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-153792f.json --out-md /tmp/morphojet-l3-release-report-main-153792f.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-153792f.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Production wrapper tests | PASS, 72 tests |
+| Full Python unit test suite | PASS, 435 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Local Preflight Saved Reviewer Dynamic Validation | PASS |
+| Local Preflight Saved Stable Release Skip Coverage | PASS |
+| English README Local Preflight Scope Coverage | PASS |
+| Chinese README Local Preflight Scope Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `c717a4e`
 
 This snapshot records the clean `main` verification for the code commit that makes generated external L4 trial plans bind the live stable GitHub release as a distinct final signoff requirement. `benchmark/prepare_external_l4_trial.py` now writes a separate `stable_github_release` row pointing to `https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0`, keeps `stable_github_release_saved_report` as a separate saved verifier artifact, and uses shared stable-release tag/repo constants for the generated commands. Saved plan verification regenerates and rejects tampered final signoff requirements, and generated English plus Chinese workspace READMEs render both stable-release rows.
