@@ -2,6 +2,32 @@
 
 Updated: 2026-07-08
 
+## Root Chinese README Maintenance Contract Snapshot
+
+This snapshot records local verification for treating `README.zh-CN.md` as a first-class Chinese-community entrypoint rather than a shortened translation. The root Chinese README now includes a maintenance commitment covering the current scope, release validation, external L4 workflow, local preflight, final production wrapper, current blockers, and package README evidence path. The English README links that commitment, and `benchmark/validate_claim_language.py` now requires the bilingual README contract to keep it visible before release gate can pass.
+
+This is not a production claim. The saved release-gate report remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_validate_claim_language.py` | PASS, 11 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 -m unittest discover -s tests` | PASS, 501 tests |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS |
+
+Remaining production blockers are unchanged:
+
+- `clean_git_worktree` for the non-clean local precommit report.
+- `l3_provenance_hashes` unless the release report is run with the formal L3 provenance gate.
+- `external_l4_workflow_trial`.
+- `external_l4_evidence_package`.
+- `external_l4_saved_reviewer_reports`.
+- `stable_github_release`.
+- `stable_github_release_saved_report`.
+
 ## Stable Release Saved-Report Checklist Guidance Snapshot
 
 This snapshot records the verification for strengthening the production-claim checklist guidance for `stable_github_release_saved_report`. `benchmark/release_gate.py` now tells reviewers to recheck saved stable GitHub release verifier reports with file rechecks, stable-report enforcement, git commit verification, expected final tag binding, and the production repo binding instead of a weaker repo-only saved-report instruction.

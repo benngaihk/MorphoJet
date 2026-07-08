@@ -38,11 +38,14 @@ class ValidateClaimLanguageTest(unittest.TestCase):
             readme.write_text(
                 "Language: English | [简体中文](README.zh-CN.md)\n"
                 "Production-readiness gates are tracked in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).\n"
+                "README 中文版维护承诺\n"
                 "README.zh-CN.md\n",
                 encoding="utf-8",
             )
             readme_zh.write_text(
                 "语言：[English](README.md) | 简体中文\n"
+                "## README 中文版维护承诺\n"
+                "`README.zh-CN.md` 是中文社区的一等入口，不是英文 README 的简短摘要\n"
                 "## 当前里程碑状态\n"
                 "中文社区\n",
                 encoding="utf-8",
@@ -54,6 +57,7 @@ class ValidateClaimLanguageTest(unittest.TestCase):
                     "requirements": [
                         "Language: English | [简体中文](README.zh-CN.md)",
                         "Production-readiness gates are tracked in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md)",
+                        "README 中文版维护承诺",
                         "README.zh-CN.md",
                     ],
                 },
@@ -61,6 +65,8 @@ class ValidateClaimLanguageTest(unittest.TestCase):
                     "path": readme_zh,
                     "requirements": [
                         "语言：[English](README.md) | 简体中文",
+                        "## README 中文版维护承诺",
+                        "`README.zh-CN.md` 是中文社区的一等入口，不是英文 README 的简短摘要",
                         "## 外部 L4 试验与生产门禁",
                         "python3 benchmark/run_production_gate.py",
                         "中文社区",

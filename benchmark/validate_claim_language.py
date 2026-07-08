@@ -37,6 +37,7 @@ ROOT_README_CONTRACT = [
         "requirements": [
             "Language: English | [简体中文](README.zh-CN.md)",
             "Production-readiness gates are tracked in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md)",
+            "README 中文版维护承诺",
             "README.zh-CN.md",
         ],
     },
@@ -44,6 +45,8 @@ ROOT_README_CONTRACT = [
         "path": ROOT / "README.zh-CN.md",
         "requirements": [
             "语言：[English](README.md) | 简体中文",
+            "## README 中文版维护承诺",
+            "`README.zh-CN.md` 是中文社区的一等入口，不是英文 README 的简短摘要",
             "## 外部 L4 试验与生产门禁",
             "## 中文社区验证入口",
             "## 当前里程碑状态",
