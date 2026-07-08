@@ -1423,6 +1423,8 @@ def package_readme_artifact_scope_issues(name: str, artifact: dict) -> list[str]
                 failures.append(f"input_artifacts.{name}.{field} must be a non-empty string")
             elif not Path(value).is_absolute():
                 failures.append(f"input_artifacts.{name}.{field} must be an absolute path")
+        if artifact.get("review_entrypoint_present") is not True:
+            failures.append(f"input_artifacts.{name}.review_entrypoint_present must be true")
         handoff_contract = artifact.get("handoff_contract")
         if not isinstance(handoff_contract, dict) or not handoff_contract:
             failures.append(f"input_artifacts.{name}.handoff_contract must be a non-empty object")
@@ -1550,6 +1552,7 @@ def validate_local_evidence_preflight_files(payload: dict) -> list[str]:
                 "readiness_package_name",
                 "readiness_workspace",
                 "readiness_manifest",
+                "review_entrypoint_present",
                 "handoff_contract",
             ]:
                 if actual_summary.get(field) != artifact.get(field):
@@ -1721,6 +1724,8 @@ def validate_local_evidence_preflight_readiness_binding(
         }
         if readme_summary.get("handoff_contract") != expected_readme.get("handoff_contract"):
             failures.append(f"input_artifacts.{artifact_name}.handoff_contract must match package README")
+        if readme_summary.get("review_entrypoint_present") != expected_readme.get("review_entrypoint_present"):
+            failures.append(f"input_artifacts.{artifact_name}.review_entrypoint_present must match package README")
         if readme_summary.get("handoff_contract") != expected_contract:
             failures.append(f"input_artifacts.{artifact_name}.handoff_contract must match rendered manifest")
         for readme_field, manifest_field in readme_to_manifest.items():

@@ -1576,6 +1576,7 @@ class RunProductionGateTest(unittest.TestCase):
             self.assertEqual("NOT_PRODUCTION_CLAIM", artifact_by_name[readme_name]["claim_status"])
             self.assertEqual("EXTERNAL_L4_EVIDENCE_PACKAGE", artifact_by_name[readme_name]["evidence_scope"])
             self.assertIs(False, artifact_by_name[readme_name]["final_production_signoff"])
+            self.assertIs(True, artifact_by_name[readme_name]["review_entrypoint_present"])
             self.assertEqual(expected_handoff_contract, artifact_by_name[readme_name]["handoff_contract"])
             self.assertEqual("READY", artifact_by_name[readme_name]["readiness_status"])
             self.assertEqual("NOT_PRODUCTION_CLAIM", artifact_by_name[readme_name]["readiness_claim_status"])
@@ -2235,6 +2236,33 @@ class RunProductionGateTest(unittest.TestCase):
             stderr.getvalue(),
         )
 
+    def test_verify_local_evidence_preflight_report_rejects_package_readme_reviewer_entrypoint_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, out_json, _trial_json, _package_dir = self.write_local_preflight(
+                root,
+                package_name="external-l4-demo",
+            )
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            artifact_by_name = {artifact["name"]: artifact for artifact in payload["input_artifacts"]}
+            artifact_by_name["package_readme_zh"]["review_entrypoint_present"] = False
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertEqual(1, verify_status)
+        self.assertIn(
+            "input_artifacts.package_readme_zh.review_entrypoint_present must be true",
+            stderr.getvalue(),
+        )
+
     def test_verify_local_evidence_preflight_files_recomputes_package_readme_scope(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -2307,6 +2335,44 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(1, verify_status)
         self.assertIn(
             "input_artifacts.package_readme_zh.handoff_contract must match package README",
+            stderr.getvalue(),
+        )
+
+    def test_verify_local_evidence_preflight_files_recomputes_package_readme_reviewer_entrypoint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, out_json, _trial_json, package_dir = self.write_local_preflight(
+                root,
+                package_name="external-l4-demo",
+            )
+            readme_path = package_dir / "README.zh-CN.md"
+            readme_path.write_text(
+                readme_path.read_text(encoding="utf-8").replace("## 中文 reviewer 入口", "## 复核说明"),
+                encoding="utf-8",
+            )
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            artifact_by_name = {artifact["name"]: artifact for artifact in payload["input_artifacts"]}
+            artifact_by_name["package_readme_zh"]["size_bytes"] = readme_path.stat().st_size
+            artifact_by_name["package_readme_zh"]["sha256"] = run_production_gate.release_gate.sha256_file(
+                readme_path
+            )
+            file_failures = run_production_gate.validate_local_evidence_preflight_files(payload)
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                        "--verify-local-evidence-preflight-files",
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertIn("input artifact review_entrypoint_present mismatch: package_readme_zh", file_failures)
+        self.assertEqual(1, verify_status)
+        self.assertIn(
+            "input_artifacts.package_readme_zh.review_entrypoint_present must match package README",
             stderr.getvalue(),
         )
 
