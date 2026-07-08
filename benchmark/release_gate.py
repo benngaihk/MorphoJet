@@ -38,6 +38,33 @@ PRODUCTION_AUDIT_CHECK_NAMES = [
 PRODUCTION_FINAL_BLOCKER_NAMES = [
     name for name in PRODUCTION_AUDIT_CHECK_NAMES if name != "standard_code_and_artifact_gates"
 ]
+PRODUCTION_STANDARD_GATE_NAMES = [
+    "Rust formatting",
+    "Rust tests",
+    "Rust clippy",
+    "Python helper compilation",
+    "Python helper tests",
+    "Validate claim language",
+    "Validate handoff manifests",
+    "Validate external lab handoff template",
+    "Validate CellBinDB direct-mask inspection",
+    "Validate existing CellBinDB L3 artifacts",
+    "Validate CellBinDB workflow bridge artifacts",
+    "Validate CellBinDB handoff trial artifacts",
+]
+REQUIRED_PRODUCTION_GATE_NAMES = frozenset(
+    [
+        "Require clean git worktree",
+        *PRODUCTION_STANDARD_GATE_NAMES,
+        "Validate CellBinDB L3 provenance",
+        "Validate external L4 workflow trial report",
+        "Validate external L4 evidence package",
+        "Verify saved external L4 trial report",
+        "Verify saved external L4 evidence package report",
+        "Verify GitHub release assets",
+        "Verify saved stable GitHub release report",
+    ]
+)
 
 
 def is_utc_datetime(value: datetime) -> bool:
@@ -1944,21 +1971,7 @@ def combined_production_audit_status(gates: list[Gate], names: list[str], enable
 
 
 def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], metadata: dict) -> dict:
-    standard_gate_names = [
-        "Rust formatting",
-        "Rust tests",
-        "Rust clippy",
-        "Python helper compilation",
-        "Python helper tests",
-        "Validate claim language",
-        "Validate handoff manifests",
-        "Validate external lab handoff template",
-        "Validate CellBinDB direct-mask inspection",
-        "Validate existing CellBinDB L3 artifacts",
-        "Validate CellBinDB workflow bridge artifacts",
-        "Validate CellBinDB handoff trial artifacts",
-    ]
-    standard_statuses = [production_audit_status(gates, name) for name in standard_gate_names]
+    standard_statuses = [production_audit_status(gates, name) for name in PRODUCTION_STANDARD_GATE_NAMES]
     checks = [
         {
             "name": "clean_git_worktree",

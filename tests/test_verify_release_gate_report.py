@@ -27,6 +27,10 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             release_gate.PRODUCTION_CHECKLIST_GUIDANCE,
             verify_release_gate_report.PRODUCTION_CHECKLIST_GUIDANCE,
         )
+        self.assertIs(
+            release_gate.REQUIRED_PRODUCTION_GATE_NAMES,
+            verify_release_gate_report.REQUIRED_PRODUCTION_GATE_NAMES,
+        )
 
     def production_args(self, **overrides: object) -> Namespace:
         values = {

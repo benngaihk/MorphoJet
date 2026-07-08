@@ -23,6 +23,7 @@ NON_FINAL_EVIDENCE_SCOPE = "RELEASE_GATE_PRECHECK"
 
 REQUIRED_AUDIT_CHECKS = release_gate.PRODUCTION_AUDIT_CHECK_NAMES
 PRODUCTION_CHECKLIST_GUIDANCE = release_gate.PRODUCTION_CHECKLIST_GUIDANCE
+REQUIRED_PRODUCTION_GATE_NAMES = release_gate.REQUIRED_PRODUCTION_GATE_NAMES
 
 NO_ACTION_NEEDED = "No action needed for this check."
 
@@ -30,29 +31,6 @@ NO_ACTION_NEEDED = "No action needed for this check."
 def is_utc_datetime(value: datetime) -> bool:
     return value.utcoffset() == timezone.utc.utcoffset(value)
 
-
-REQUIRED_PRODUCTION_GATE_NAMES = {
-    "Require clean git worktree",
-    "Rust formatting",
-    "Rust tests",
-    "Rust clippy",
-    "Python helper compilation",
-    "Python helper tests",
-    "Validate claim language",
-    "Validate handoff manifests",
-    "Validate external lab handoff template",
-    "Validate CellBinDB direct-mask inspection",
-    "Validate existing CellBinDB L3 artifacts",
-    "Validate CellBinDB L3 provenance",
-    "Validate CellBinDB workflow bridge artifacts",
-    "Validate CellBinDB handoff trial artifacts",
-    "Validate external L4 workflow trial report",
-    "Validate external L4 evidence package",
-    "Verify saved external L4 trial report",
-    "Verify saved external L4 evidence package report",
-    "Verify GitHub release assets",
-    "Verify saved stable GitHub release report",
-}
 
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 

@@ -2,6 +2,24 @@
 
 Updated: 2026-07-08
 
+## Final Production Gate-Name Source Binding Snapshot
+
+This snapshot records local verification for making `benchmark/verify_release_gate_report.py` reuse the final production PASS gate-name requirement from `benchmark/release_gate.py`. The release-gate writer now owns `REQUIRED_PRODUCTION_GATE_NAMES`, and the saved-report verifier imports that exact object when rejecting production-claim PASS reports that omit clean-git, standard code/artifact, L3 provenance, external L4, saved external reviewer, live stable GitHub release, or saved stable-release verifier gates. This prevents a final saved-report review from drifting into a weaker production PASS contract than the report generator.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_verify_release_gate_report.py` | PASS, 50 tests |
+| `python3 tests/test_release_gate.py` | PASS, 72 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 tests/test_run_production_gate.py` | PASS, 88 tests |
+| `python3 -m unittest discover -s tests` | PASS, 503 tests |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS |
+| `git diff --check` | PASS |
+| Shared final production gate-name source binding | PASS |
+
 ## Local Preflight Skipped-Final Checklist Source Binding Snapshot
 
 This snapshot records local verification for making `benchmark/run_production_gate.py --local-evidence-preflight-only` derive its skipped-final check list and guidance from `benchmark/release_gate.py`. Local evidence preflight still adds its own `production_claim_enforcement` row, but the clean-git, standard-gate, L3 provenance, external reviewer report, stable release, and saved stable-release rows now reuse the release-gate production audit order and checklist guidance directly.
