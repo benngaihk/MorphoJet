@@ -90,6 +90,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                     "--verify-plan",
                     str((workspace / "trial_plan.json").resolve()),
                     "--verify-plan-files",
+                    "--require-plan-files",
                 ],
                 verify_plan,
             )
@@ -458,6 +459,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("same command order, non-final claim labels, pre-signoff requirements", readme)
             self.assertIn("evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT", readme)
             self.assertIn("final_evidence_acceptable=false", readme)
+            self.assertIn("must pair `--require-plan-files` with `--verify-plan-files`", readme)
+            self.assertIn("template, manifest, and English plus Chinese README files", readme)
             self.assertIn("`check_readiness` also verifies the saved `trial_plan.json`", readme)
             self.assertIn("both English and Chinese README files before returning READY", readme)
             self.assertIn("must pair `--require-ready` with `--verify-report-files`", readme)
@@ -548,6 +551,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("相同的命令顺序、非最终 claim labels、pre-signoff requirements", readme_zh)
             self.assertIn("evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT", readme_zh)
             self.assertIn("final_evidence_acceptable=false", readme_zh)
+            self.assertIn("必须把 `--require-plan-files` 和 `--verify-plan-files` 配对使用", readme_zh)
+            self.assertIn("template、manifest、英文 README 和中文 README", readme_zh)
             self.assertIn("`check_readiness` 在返回 READY 前也会复核 saved `trial_plan.json`", readme_zh)
             self.assertIn("英文和中文 README 文件", readme_zh)
             self.assertIn("必须把 `--require-ready` 和 `--verify-report-files` 配对使用", readme_zh)
@@ -661,6 +666,28 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("claim_status=NOT_PRODUCTION_CLAIM", completed.stdout)
             self.assertIn("evidence_scope=EXTERNAL_L4_TRIAL_PLAN", completed.stdout)
             self.assertIn("final_production_signoff=False", completed.stdout)
+
+    def test_require_plan_files_requires_file_verification(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                    "--require-plan-files",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("--require-plan-files requires --verify-plan-files", completed.stderr)
 
     def test_saved_trial_plan_rejects_claim_scope_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

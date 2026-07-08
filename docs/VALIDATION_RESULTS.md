@@ -1,6 +1,23 @@
 # Validation Results
 
-Updated: 2026-07-08
+Updated: 2026-07-09
+
+## Trial Plan Saved File Signoff Snapshot
+
+This snapshot records local verification for making saved external L4 trial-plan signoff fail closed unless `--require-plan-files` is paired with `--verify-plan-files`. Generated external L4 plans now emit the stronger command; this closes the manual-review gap where a structurally valid `trial_plan.json` could be accepted without rechecking the template hash, manifest presence, and English plus Chinese README contents.
+
+This is not a production claim. Trial plans remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_TRIAL_PLAN`, and `final_production_signoff=false`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_prepare_external_l4_trial.py` | PASS, 29 tests |
+| `python3 -m unittest discover -s tests` | PASS, 525 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
 
 ## Final Production Saved Report Signoff Snapshot
 

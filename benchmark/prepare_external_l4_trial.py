@@ -805,6 +805,17 @@ def verify_saved_plan(plan_path: Path, verify_files: bool = False) -> int:
     return 0
 
 
+def verify_saved_plan_with_options(
+    plan_path: Path,
+    verify_files: bool = False,
+    require_plan_files: bool = False,
+) -> int:
+    if require_plan_files and not verify_files:
+        print("FAIL: --require-plan-files requires --verify-plan-files", file=sys.stderr)
+        return 1
+    return verify_saved_plan(plan_path, verify_files=verify_files)
+
+
 def validate_template(template: dict[str, Any]) -> None:
     issues = validate_handoff_manifest.validate_schema(
         template,
@@ -843,6 +854,7 @@ def plan_commands(
             "--verify-plan",
             str(plan_path),
             "--verify-plan-files",
+            "--require-plan-files",
         ],
         "validate_manifest": [
             "python3",
@@ -1202,6 +1214,7 @@ def render_readme(plan: dict[str, Any]) -> str:
         "The saved package verifier report produced by `verify_package` is also not final production signoff: `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW`, `final_production_signoff=false`.",
         "The saved local preflight report produced by `local_evidence_preflight` is also not final production signoff: it must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`.",
         "Chinese-community reviewers can use `README.zh-CN.md` as a first-class review entrypoint. It must preserve the same command order, non-final claim labels, pre-signoff requirements, final blockers, and package README evidence path as this English README.",
+        "The saved trial-plan signoff command must pair `--require-plan-files` with `--verify-plan-files`, so a structurally valid `trial_plan.json` cannot be accepted before rechecking the template, manifest, and English plus Chinese README files.",
         "`check_readiness` also verifies the saved `trial_plan.json`, template hash, manifest presence, and both English and Chinese README files before returning READY, so readiness fails if the execution instructions or plan are weakened after workspace preparation. The saved readiness signoff command must pair `--require-ready` with `--verify-report-files`; otherwise the saved READY JSON is rejected instead of being treated as reviewer-ready evidence.",
         "`check_readiness` also enforces any `required_object_metadata_columns` declared in the manifest. If the template keeps `Plate`, `Well`, and `Site`, generate MorphoJet `Objects.csv` with `measure --include-object-metadata` so those columns are present before the external trial runs.",
         "`run_trial` re-verifies the saved READY report and refuses to execute if its manifest or workspace does not match the current trial manifest and `base_dir`. It also passes declared object metadata columns through to the wide CSV and allows those same columns during supported-subset comparison.",
@@ -1345,6 +1358,7 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
         "`verify_package` 生成的 saved package verifier report 也不是最终生产签核：`claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW`、`final_production_signoff=false`。",
         "`local_evidence_preflight` 生成的 saved local preflight report 也不是最终生产签核：它必须保持 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`、`final_evidence_acceptable=false`。",
         "中文社区 reviewer 可以把 `README.zh-CN.md` 作为一等复核入口。它必须保留与英文 README 相同的命令顺序、非最终 claim labels、pre-signoff requirements、最终阻塞项和 package README evidence path。",
+        "Saved trial-plan 签核命令必须把 `--require-plan-files` 和 `--verify-plan-files` 配对使用；这样结构正确的 `trial_plan.json` 也必须重新复核 template、manifest、英文 README 和中文 README 文件后才可被接受。",
         "`check_readiness` 在返回 READY 前也会复核 saved `trial_plan.json`、template hash、manifest 是否存在，以及英文和中文 README 文件；如果 workspace 准备后执行说明或计划被改弱，readiness 会失败。Saved readiness 签核命令必须把 `--require-ready` 和 `--verify-report-files` 配对使用；否则 saved READY JSON 会被拒绝，不能当作 reviewer-ready evidence。",
         "`check_readiness` 也会强制检查 manifest 里的 `required_object_metadata_columns`。如果模板保留 `Plate`、`Well`、`Site`，请用 `measure --include-object-metadata` 生成 MorphoJet `Objects.csv`，确保外部 trial 运行前这些列已经存在。",
         "`run_trial` 会重新复核 saved READY report，并且在 report 的 manifest 或 workspace 与当前 trial manifest 和 `base_dir` 不一致时拒绝执行。它也会把声明过的 object metadata columns 带进宽表，并在 supported-subset comparison 中允许这些同一批列。",
@@ -1568,9 +1582,18 @@ def main() -> int:
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--verify-plan", type=Path, help="Validate a saved external L4 trial_plan.json")
     parser.add_argument("--verify-plan-files", action="store_true", help="Recompute template and command data for a saved trial plan")
+    parser.add_argument(
+        "--require-plan-files",
+        action="store_true",
+        help="Reject saved trial plans unless template, manifest, and README files are rechecked",
+    )
     args = parser.parse_args()
     if args.verify_plan:
-        return verify_saved_plan(args.verify_plan, verify_files=args.verify_plan_files)
+        return verify_saved_plan_with_options(
+            args.verify_plan,
+            verify_files=args.verify_plan_files,
+            require_plan_files=args.require_plan_files,
+        )
     if args.workspace is None:
         parser.error("--workspace is required unless --verify-plan is used")
 
