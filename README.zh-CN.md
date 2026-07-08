@@ -77,6 +77,19 @@ python3 benchmark/triage_oracle_candidates.py \
 
 这个报告会写入 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=ORACLE_CANDIDATE_TRIAGE`、`final_production_signoff=false`。它会把仍需导出 label masks 的官方 CellProfiler examples，与 CellBinDB 这类仍需检查文件布局、license、mask background=0 和正整数 instance labels 的 direct-mask 候选分开，不能被当作最终生产签核。
 
+对 CellBinDB，可以把这一步推进成保存下来的 direct-mask 合同检查报告：
+
+```bash
+python3 benchmark/inspect_cellbindb_direct_masks.py \
+  --full \
+  --verify-md5 \
+  --require-pass \
+  --json-out benchmark/results/cellbindb/direct-mask-inspection.json \
+  --md-out benchmark/results/cellbindb/direct-mask-inspection.md
+```
+
+这个报告同样是非最终证据，会写入 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=CELLBINDB_DIRECT_MASK_INSPECTION`、`final_production_signoff=false`。它会检查 archive size/checksum 元数据、image 与 instance-mask 配对数量、尺寸一致、背景 label `0`、正整数 labels，以及 source/license 元数据，然后才把 CellBinDB 作为 direct-mask oracle 输入。
+
 发布候选前的完整门禁：
 
 ```bash

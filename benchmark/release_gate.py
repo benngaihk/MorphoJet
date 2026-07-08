@@ -1675,6 +1675,7 @@ def is_l3_provenance_compatible_path(path: str) -> bool:
         is_doc_path(path)
         or path.startswith("tests/")
         or path == "benchmark/check_external_l4_readiness.py"
+        or path == "benchmark/inspect_cellbindb_direct_masks.py"
         or path == "benchmark/release_gate.py"
         or path == "benchmark/build_release_archive.py"
         or path == "benchmark/handoff/external_lab_template.json"
@@ -1698,6 +1699,7 @@ def is_external_trial_compatible_path(path: str) -> bool:
         is_doc_path(path)
         or path.startswith("tests/")
         or path == "benchmark/check_external_l4_readiness.py"
+        or path == "benchmark/inspect_cellbindb_direct_masks.py"
         or path == "benchmark/release_gate.py"
         or path == "benchmark/handoff/external_lab_template.json"
         or path == "benchmark/package_external_trial.py"

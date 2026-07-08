@@ -26,6 +26,19 @@ python3 benchmark/triage_oracle_candidates.py \
 
 The triage report is deliberately non-final evidence: it records `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=ORACLE_CANDIDATE_TRIAGE`, and `final_production_signoff=false`. It classifies current official CellProfiler examples as `BLOCKED` for M0 direct-mask use because they do not ship pre-existing label masks. It classifies CellBinDB entries as `NEEDS_INSPECTION` because the catalog declares direct-mask potential, but a reviewer still has to inspect the downloaded files for matching image/mask dimensions, background value 0, positive integer instance labels, license terms, and the CellProfiler measurement-only object-table materialization path.
 
+For CellBinDB, run the direct-mask inspection before treating the archive as M0 oracle input:
+
+```bash
+python3 benchmark/inspect_cellbindb_direct_masks.py \
+  --full \
+  --verify-md5 \
+  --require-pass \
+  --json-out benchmark/results/cellbindb/direct-mask-inspection.json \
+  --md-out benchmark/results/cellbindb/direct-mask-inspection.md
+```
+
+This report is also deliberately non-final: it records `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=CELLBINDB_DIRECT_MASK_INSPECTION`, and `final_production_signoff=false`. It checks the local ZIP against recorded size/checksum metadata, verifies the candidate source/license metadata is present, confirms at least 1,000 sample groups, and inspects image/instance-mask pairs for matching dimensions, integer masks, background label 0, and positive labels. Use `--sample-limit N` for quick local triage; use `--full --verify-md5 --require-pass` for saved evidence.
+
 Scan the local pinned examples checkout for measured objects, image counts, and missing label exports:
 
 ```bash

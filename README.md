@@ -101,6 +101,19 @@ python3 benchmark/triage_oracle_candidates.py \
 
 The report records `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=ORACLE_CANDIDATE_TRIAGE`, and `final_production_signoff=false`. It separates official CellProfiler examples that still need exported label masks from public direct-mask candidates such as CellBinDB that still require file/layout/license inspection before they can become manifest-driven oracle evidence.
 
+For CellBinDB, turn that inspection step into a saved direct-mask contract report:
+
+```bash
+python3 benchmark/inspect_cellbindb_direct_masks.py \
+  --full \
+  --verify-md5 \
+  --require-pass \
+  --json-out benchmark/results/cellbindb/direct-mask-inspection.json \
+  --md-out benchmark/results/cellbindb/direct-mask-inspection.md
+```
+
+This report is also non-final evidence with `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=CELLBINDB_DIRECT_MASK_INSPECTION`, and `final_production_signoff=false`. It verifies the archive size/checksum metadata, image and instance-mask pair count, matching dimensions, background label `0`, positive integer labels, and recorded source/license metadata before CellBinDB is used as direct-mask oracle input.
+
 Before a release candidate, run:
 
 ```bash
