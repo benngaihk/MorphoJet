@@ -18,6 +18,16 @@ import verify_release_gate_report  # noqa: E402
 
 
 class VerifyReleaseGateReportTest(unittest.TestCase):
+    def test_saved_report_verifier_uses_release_gate_production_check_contract(self) -> None:
+        self.assertIs(
+            release_gate.PRODUCTION_AUDIT_CHECK_NAMES,
+            verify_release_gate_report.REQUIRED_AUDIT_CHECKS,
+        )
+        self.assertIs(
+            release_gate.PRODUCTION_CHECKLIST_GUIDANCE,
+            verify_release_gate_report.PRODUCTION_CHECKLIST_GUIDANCE,
+        )
+
     def production_args(self, **overrides: object) -> Namespace:
         values = {
             "require_clean_git": False,

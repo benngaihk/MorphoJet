@@ -2,6 +2,18 @@
 
 Updated: 2026-07-08
 
+## Saved Release-Gate Checklist Source Binding Snapshot
+
+This snapshot records local verification for making `benchmark/verify_release_gate_report.py` reuse the release-gate production audit check order and checklist guidance directly from `benchmark/release_gate.py`. Saved release-gate report verification no longer carries a second handwritten `REQUIRED_AUDIT_CHECKS` or `PRODUCTION_CHECKLIST_GUIDANCE` copy, so the report writer and report reviewer cannot drift into different production-claim checklists.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_verify_release_gate_report.py` | PASS, 50 tests |
+| `python3 tests/test_release_gate.py` | PASS, 72 tests |
+| Shared release-gate checklist source binding | PASS |
+
 ## External L4 Production-Blocker Plan Snapshot
 
 This snapshot records local verification for making generated external L4 trial plans carry a machine-readable `production_claim_blockers` list. `benchmark/prepare_external_l4_trial.py` now writes blockers aligned with the release-gate production audit: clean git worktree, L3 provenance hashes, external L4 workflow trial, external L4 evidence package, saved external reviewer reports, stable GitHub release, and saved stable-release verifier report. The blocker order and evidence/next-action guidance are derived from `benchmark/release_gate.py`, so generated external L4 plans cannot drift into a weaker parallel checklist. Each blocker records required evidence, next action, planned paths, and final-gate binding, and generated English/Chinese workspace READMEs render the same table for reviewers.
