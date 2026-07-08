@@ -2,6 +2,39 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `4b017a9`
+
+This snapshot records the clean `main` verification for the oracle candidate triage milestone. `benchmark/triage_oracle_candidates.py` now emits JSON/Markdown reports with `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=ORACLE_CANDIDATE_TRIAGE`, and `final_production_signoff=false`, separating official CellProfiler examples that remain blocked on exported/pre-existing label masks from public direct-mask candidates such as CellBinDB that still require file/layout/license inspection before they can become manifest-driven oracle evidence. English and Chinese READMEs document the same non-final workflow, and the release gate allows this triage helper as a L3/external-trial compatible path because it does not alter saved measurement artifacts.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `4b017a9`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-4b017a9.json --out-md /tmp/morphojet-l3-release-report-main-4b017a9.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-4b017a9.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+- GitHub release listing: `gh release list --repo benngaihk/MorphoJet --limit 10` returned only `v0.1.0-rc.1` as a prerelease on 2026-07-02.
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Oracle candidate triage tests | PASS, 3 tests |
+| Release-gate helper tests | PASS, 69 tests |
+| Full Python unit test suite | PASS, 441 tests |
+| Oracle candidate triage CLI | PASS |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| L3 provenance compatible delta | PASS, `compatible_delta=True`, artifacts=14 |
+| English README Oracle Triage Coverage | PASS |
+| Chinese README Oracle Triage Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `49203a0`
 
 This snapshot records the clean `main` verification for the code commit that updates generated external L4 trial workspace READMEs with the current saved local-preflight verifier contract. `benchmark/prepare_external_l4_trial.py` now tells reviewers in both English and Chinese that `verify_local_evidence_preflight` requires required input-artifact summaries to remain `exists=true`, requires metadata-bound saved reviewer reports to keep matching gate entries and hash summaries, and recomputes package/source claim-scope fields plus readiness `package_name` before PASS can be accepted.
