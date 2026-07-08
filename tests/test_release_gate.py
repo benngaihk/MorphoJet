@@ -381,6 +381,42 @@ class ReleaseGateTest(unittest.TestCase):
             failures,
         )
 
+    def test_require_production_claim_rejects_unbound_saved_external_trial_report(self) -> None:
+        failures = release_gate.production_claim_contract_failures(
+            self.production_args(
+                require_production_claim=True,
+                require_clean_git=True,
+                require_l3_provenance=True,
+                external_trial_verification_report=Path("trial-verification.json"),
+            )
+        )
+
+        self.assertEqual(
+            [
+                "--require-production-claim with --external-trial-verification-report requires "
+                "--external-trial-json and --external-trial-root"
+            ],
+            failures,
+        )
+
+    def test_require_production_claim_rejects_unbound_saved_external_package_report(self) -> None:
+        failures = release_gate.production_claim_contract_failures(
+            self.production_args(
+                require_production_claim=True,
+                require_clean_git=True,
+                require_l3_provenance=True,
+                external_evidence_package_verification_report=Path("package-verification.json"),
+            )
+        )
+
+        self.assertEqual(
+            [
+                "--require-production-claim with --external-evidence-package-verification-report requires "
+                "--external-evidence-package-dir and --external-trial-json"
+            ],
+            failures,
+        )
+
     def test_production_claim_audit_defaults_to_incomplete_without_l4_or_stable_release(self) -> None:
         gates = self.production_gates(
             [

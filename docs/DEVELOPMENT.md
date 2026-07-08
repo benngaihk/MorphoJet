@@ -113,7 +113,7 @@ Use `--require-clean-git --require-l3-provenance` for any report intended to sup
 
 Saved release-gate JSON reports can be re-checked during review:
 
-Direct final-claim release-gate use must keep live GitHub release verification stable and bind saved stable-release evidence to that live tag: `benchmark/release_gate.py --require-production-claim --verify-github-release <tag>` rejects prerelease/RC gates unless `--github-release-kind stable` is supplied, and `--github-release-verification-report` is rejected unless the same command also supplies `--verify-github-release`.
+Direct final-claim release-gate use must bind saved reviewer evidence to the current final inputs. `--external-trial-verification-report` requires `--external-trial-json` and `--external-trial-root`; `--external-evidence-package-verification-report` requires `--external-evidence-package-dir` and `--external-trial-json`; live GitHub release verification rejects prerelease/RC gates unless `--github-release-kind stable` is supplied; and `--github-release-verification-report` is rejected unless the same command also supplies `--verify-github-release`.
 
 ```bash
 python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json

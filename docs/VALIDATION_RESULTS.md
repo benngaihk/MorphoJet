@@ -2,6 +2,25 @@
 
 Updated: 2026-07-09
 
+## Bound External Reviewer Production-Claim Contract Snapshot
+
+This snapshot records local verification for making direct `benchmark/release_gate.py --require-production-claim` saved external L4 reviewer reports fail closed unless they are bound to the current final evidence inputs. Saved external trial reviewer reports now require `--external-trial-json` and `--external-trial-root`; saved external evidence-package reviewer reports now require `--external-evidence-package-dir` and `--external-trial-json`.
+
+This is not a production claim. The current release-gate precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_release_gate.py` | PASS, 85 tests |
+| `python3 benchmark/release_gate.py --require-production-claim --require-clean-git --require-l3-provenance --external-trial-verification-report /tmp/morphojet-trial-verification.json --out-json /tmp/morphojet-unbound-trial-reviewer-contract.json --out-md /tmp/morphojet-unbound-trial-reviewer-contract.md` | PASS; expected exit 2 with missing `--external-trial-json` and `--external-trial-root` error |
+| `python3 benchmark/release_gate.py --require-production-claim --require-clean-git --require-l3-provenance --external-evidence-package-verification-report /tmp/morphojet-package-verification.json --out-json /tmp/morphojet-unbound-package-reviewer-contract.json --out-md /tmp/morphojet-unbound-package-reviewer-contract.md` | PASS; expected exit 2 with missing `--external-evidence-package-dir` and `--external-trial-json` error |
+| `python3 -m unittest discover -s tests` | PASS, 534 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## Bound Saved Stable Release Production-Claim Contract Snapshot
 
 This snapshot records local verification for making direct `benchmark/release_gate.py --require-production-claim` saved GitHub release report checks fail closed unless the same command also supplies live `--verify-github-release`. This closes the direct-CLI gap where a saved stable-release verifier report could be supplied without a live final tag binding and only surface later as missing stable-release evidence.
