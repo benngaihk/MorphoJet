@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## Direct Production-Claim CLI Contract Snapshot
+
+This snapshot records local verification for making direct `benchmark/release_gate.py --require-production-claim` use fail closed unless the caller also supplies the base final-gate controls: `--require-clean-git` and `--require-l3-provenance`. This closes the direct-CLI gap where the production audit would still end as incomplete, but the missing base flags were only visible after the heavier release-gate run.
+
+This is not a production claim. The current release-gate precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_release_gate.py` | PASS, 81 tests |
+| `python3 benchmark/release_gate.py --require-production-claim --out-json /tmp/morphojet-contract-negative.json --out-md /tmp/morphojet-contract-negative.md` | PASS; expected exit 2 with missing `--require-clean-git` and `--require-l3-provenance` errors |
+| `python3 -m unittest discover -s tests` | PASS, 528 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## Trial Plan Saved File Signoff Snapshot
 
 This snapshot records local verification for making saved external L4 trial-plan signoff fail closed unless `--require-plan-files` is paired with `--verify-plan-files`. Generated external L4 plans now emit the stronger command; this closes the manual-review gap where a structurally valid `trial_plan.json` could be accepted without rechecking the template hash, manifest presence, and English plus Chinese README contents.

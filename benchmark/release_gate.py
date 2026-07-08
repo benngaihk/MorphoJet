@@ -619,6 +619,17 @@ def validate_report_output_paths(args: argparse.Namespace) -> None:
         raise SystemExit("\n".join(f"ERROR: {failure}" for failure in failures))
 
 
+def production_claim_contract_failures(args: argparse.Namespace) -> list[str]:
+    if not args.require_production_claim:
+        return []
+    failures = []
+    if not args.require_clean_git:
+        failures.append("--require-production-claim requires --require-clean-git")
+    if not args.require_l3_provenance:
+        failures.append("--require-production-claim requires --require-l3-provenance")
+    return failures
+
+
 def saved_github_release_report_command(report: Path, expected_tag: str | None = None) -> list[str]:
     command = [
         "python3",
@@ -2421,6 +2432,9 @@ def main() -> int:
         help="Re-check a saved stable GitHub release verifier JSON report",
     )
     args = parser.parse_args()
+    production_claim_failures = production_claim_contract_failures(args)
+    if production_claim_failures:
+        parser.error("; ".join(production_claim_failures))
     validate_report_output_paths(args)
 
     git_status_lines = git_status_porcelain()

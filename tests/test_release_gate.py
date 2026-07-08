@@ -316,6 +316,40 @@ class ReleaseGateTest(unittest.TestCase):
             "argv": ["benchmark/release_gate.py"],
         }
 
+    def test_require_production_claim_requires_clean_git_and_l3_provenance_flags(self) -> None:
+        failures = release_gate.production_claim_contract_failures(
+            self.production_args(require_production_claim=True)
+        )
+
+        self.assertEqual(
+            [
+                "--require-production-claim requires --require-clean-git",
+                "--require-production-claim requires --require-l3-provenance",
+            ],
+            failures,
+        )
+
+    def test_require_production_claim_rejects_missing_l3_provenance_flag(self) -> None:
+        failures = release_gate.production_claim_contract_failures(
+            self.production_args(require_production_claim=True, require_clean_git=True)
+        )
+
+        self.assertEqual(
+            ["--require-production-claim requires --require-l3-provenance"],
+            failures,
+        )
+
+    def test_require_production_claim_accepts_required_base_flags(self) -> None:
+        failures = release_gate.production_claim_contract_failures(
+            self.production_args(
+                require_production_claim=True,
+                require_clean_git=True,
+                require_l3_provenance=True,
+            )
+        )
+
+        self.assertEqual([], failures)
+
     def test_production_claim_audit_defaults_to_incomplete_without_l4_or_stable_release(self) -> None:
         gates = self.production_gates(
             [
