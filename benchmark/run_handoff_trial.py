@@ -15,6 +15,9 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
+EVIDENCE_SCOPE = "EXTERNAL_L4_WORKFLOW_TRIAL"
+FINAL_PRODUCTION_SIGNOFF = False
 
 
 @dataclass
@@ -232,6 +235,9 @@ def render_markdown(payload: dict[str, Any], out_json: Path) -> str:
         "",
         f"- trial_id: `{payload['trial_id']}`",
         f"- status: `{payload['status']}`",
+        f"- claim_status: `{payload['claim_status']}`",
+        f"- evidence_scope: `{payload['evidence_scope']}`",
+        f"- final_production_signoff: `{payload['final_production_signoff']}`",
         f"- json: `{out_json}`",
         "",
     ]
@@ -368,6 +374,9 @@ def main() -> int:
         "trial_id": require(manifest, "trial_id"),
         "description": manifest.get("description", ""),
         "status": "PASS" if all(step.status == "PASS" for step in steps) else "FAIL",
+        "claim_status": CLAIM_STATUS,
+        "evidence_scope": EVIDENCE_SCOPE,
+        "final_production_signoff": FINAL_PRODUCTION_SIGNOFF,
         "metadata": build_metadata(args, variables),
         "manifest": str(args.manifest),
         "rendered_manifest": manifest,

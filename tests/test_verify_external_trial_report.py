@@ -79,6 +79,9 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
         self.assertEqual("Validate external L4 workflow trial report", payload["gate"]["name"])
         self.assertIn("External workflow trial PASS", payload["gate"]["detail"])
         self.assertEqual(expected_trial_sha, payload["input_files"]["trial_json"]["sha256"])
+        self.assertEqual("NOT_PRODUCTION_CLAIM", payload["input_files"]["trial_json"]["claim_status"])
+        self.assertEqual("EXTERNAL_L4_WORKFLOW_TRIAL", payload["input_files"]["trial_json"]["evidence_scope"])
+        self.assertFalse(payload["input_files"]["trial_json"]["final_production_signoff"])
         self.assertEqual(expected_readiness_sha, payload["input_files"]["readiness_report"]["sha256"])
         self.assertEqual("external-l4-demo", payload["input_files"]["readiness_report"]["package_name"])
         self.assertEqual(expected_artifact_files, payload["input_files"]["artifact_files"])
@@ -517,6 +520,65 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
 
         self.assertEqual(1, code)
         self.assertIn("input_files.trial_json.sha256 changed after recomputing trial validation", stderr.getvalue())
+
+    def test_saved_verification_report_rejects_source_trial_claim_scope_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+            trial = json.loads(trial_json.read_text(encoding="utf-8"))
+            trial["claim_status"] = "FINAL_PRODUCTION_CLAIM"
+            trial["evidence_scope"] = "FINAL_PRODUCTION_RELEASE_GATE"
+            trial["final_production_signoff"] = True
+            trial_json.write_text(json.dumps(trial, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_trial_report.verify_saved_external_trial_report(
+                    json_out,
+                    verify_files=True,
+                )
+
+        self.assertEqual(1, code)
+        self.assertIn("input_files.trial_json.claim_status must match source trial report", stderr.getvalue())
+        self.assertIn("input_files.trial_json.evidence_scope must match source trial report", stderr.getvalue())
+        self.assertIn(
+            "input_files.trial_json.final_production_signoff must match source trial report",
+            stderr.getvalue(),
+        )
+
+    def test_saved_verification_report_rejects_unbound_trial_claim_scope_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["input_files"]["trial_json"]["claim_status"] = "FINAL_PRODUCTION_CLAIM"
+            payload["input_files"]["trial_json"]["evidence_scope"] = "FINAL_PRODUCTION_RELEASE_GATE"
+            payload["input_files"]["trial_json"]["final_production_signoff"] = True
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_trial_report.verify_saved_external_trial_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn("input_files.trial_json.claim_status=FINAL_PRODUCTION_CLAIM", stderr.getvalue())
+        self.assertIn(
+            "input_files.trial_json.evidence_scope=FINAL_PRODUCTION_RELEASE_GATE",
+            stderr.getvalue(),
+        )
+        self.assertIn("input_files.trial_json.final_production_signoff must be false", stderr.getvalue())
 
     def test_saved_verification_report_recomputes_readiness_file_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

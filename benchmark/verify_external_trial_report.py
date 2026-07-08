@@ -20,6 +20,7 @@ SHA256_RE = re.compile(r"[0-9a-f]{64}")
 CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
 EVIDENCE_SCOPE = "EXTERNAL_L4_WORKFLOW_TRIAL_REVIEW"
 FINAL_PRODUCTION_SIGNOFF = False
+SOURCE_TRIAL_EVIDENCE_SCOPE = "EXTERNAL_L4_WORKFLOW_TRIAL"
 
 
 def is_utc_datetime(value: datetime) -> bool:
@@ -53,6 +54,21 @@ def file_summary(path: Path) -> dict[str, Any]:
     else:
         summary["size_bytes"] = None
         summary["sha256"] = None
+    return summary
+
+
+def trial_report_summary(trial_json: Path) -> dict[str, Any]:
+    summary = file_summary(trial_json)
+    trial = load_trial_payload(trial_json)
+    summary.update(
+        {
+            "claim_status": trial.get("claim_status") if isinstance(trial, dict) else None,
+            "evidence_scope": trial.get("evidence_scope") if isinstance(trial, dict) else None,
+            "final_production_signoff": (
+                trial.get("final_production_signoff") if isinstance(trial, dict) else None
+            ),
+        }
+    )
     return summary
 
 
@@ -96,7 +112,7 @@ def trial_input_files(trial_json: Path, trial_root: Path) -> dict[str, Any]:
         summary = file_summary(resolved_path)
         artifact_files.append({"source_path": artifact, **summary})
     input_files = {
-        "trial_json": file_summary(trial_json),
+        "trial_json": trial_report_summary(trial_json),
         "artifact_files": sorted(artifact_files, key=lambda entry: entry["source_path"]),
     }
     readiness_path = load_trial_readiness_report_path(trial_json)
@@ -139,7 +155,15 @@ def input_files_issues(input_files: Any, status: Any) -> list[str]:
     failures = []
     if not isinstance(input_files, dict):
         return ["input_files must be an object"]
-    failures.extend(file_summary_issues("trial_json", input_files.get("trial_json"), require_exists=status == "PASS"))
+    trial_summary = input_files.get("trial_json")
+    failures.extend(file_summary_issues("trial_json", trial_summary, require_exists=status == "PASS"))
+    if isinstance(trial_summary, dict):
+        if trial_summary.get("claim_status") != CLAIM_STATUS:
+            failures.append(f"input_files.trial_json.claim_status={trial_summary.get('claim_status')}")
+        if trial_summary.get("evidence_scope") != SOURCE_TRIAL_EVIDENCE_SCOPE:
+            failures.append(f"input_files.trial_json.evidence_scope={trial_summary.get('evidence_scope')}")
+        if trial_summary.get("final_production_signoff") is not FINAL_PRODUCTION_SIGNOFF:
+            failures.append("input_files.trial_json.final_production_signoff must be false")
     if status == "PASS" and "readiness_report" not in input_files:
         failures.append("input_files.readiness_report must be present for PASS reports")
     if "readiness_report" in input_files:
@@ -184,6 +208,16 @@ def input_file_path_binding_issues(input_files: dict[str, Any], trial_json: str,
     trial_summary = input_files.get("trial_json")
     if isinstance(trial_summary, dict) and trial_summary.get("path") != trial_json:
         failures.append("input_files.trial_json.path must match trial_json")
+    trial_payload = load_trial_payload(Path(trial_json))
+    if isinstance(trial_summary, dict) and isinstance(trial_payload, dict):
+        expected_fields = {
+            "claim_status": "claim_status",
+            "evidence_scope": "evidence_scope",
+            "final_production_signoff": "final_production_signoff",
+        }
+        for summary_key, payload_key in expected_fields.items():
+            if trial_summary.get(summary_key) != trial_payload.get(payload_key):
+                failures.append(f"input_files.trial_json.{summary_key} must match source trial report")
     readiness_summary = input_files.get("readiness_report")
     readiness_path = load_trial_readiness_report_path(Path(trial_json))
     if isinstance(readiness_summary, dict):
@@ -213,7 +247,15 @@ def input_file_path_binding_issues(input_files: dict[str, Any], trial_json: str,
 def recomputed_input_file_issues(recorded: dict[str, Any], trial_json: Path, trial_root: Path) -> list[str]:
     failures = []
     current = trial_input_files(trial_json, trial_root)
-    for field in ["path", "exists", "size_bytes", "sha256"]:
+    for field in [
+        "path",
+        "exists",
+        "size_bytes",
+        "sha256",
+        "claim_status",
+        "evidence_scope",
+        "final_production_signoff",
+    ]:
         if recorded["trial_json"].get(field) != current["trial_json"].get(field):
             failures.append(f"input_files.trial_json.{field} changed after recomputing trial validation")
     if recorded.get("readiness_report") != current.get("readiness_report"):

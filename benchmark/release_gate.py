@@ -24,6 +24,7 @@ FINAL_CLAIM_STATUS = "FINAL_PRODUCTION_CLAIM"
 NON_FINAL_CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
 FINAL_EVIDENCE_SCOPE = "FINAL_PRODUCTION_RELEASE_GATE"
 NON_FINAL_EVIDENCE_SCOPE = "RELEASE_GATE_PRECHECK"
+EXTERNAL_TRIAL_EVIDENCE_SCOPE = "EXTERNAL_L4_WORKFLOW_TRIAL"
 
 
 def is_utc_datetime(value: datetime) -> bool:
@@ -908,6 +909,12 @@ def external_trial_failures(
     failures = []
     if trial.get("status") != "PASS":
         failures.append(f"trial status is {trial.get('status')}")
+    if trial.get("claim_status") != NON_FINAL_CLAIM_STATUS:
+        failures.append(f"trial claim_status={trial.get('claim_status')}")
+    if trial.get("evidence_scope") != EXTERNAL_TRIAL_EVIDENCE_SCOPE:
+        failures.append(f"trial evidence_scope={trial.get('evidence_scope')}")
+    if trial.get("final_production_signoff") is not False:
+        failures.append("trial final_production_signoff must be false")
     failures.extend(external_trial_metadata_failures(trial.get("metadata"), trial, report_path))
     failures.extend(
         readiness_report_summary_failures(

@@ -60,6 +60,9 @@ def valid_external_trial() -> dict:
     return {
         "trial_id": "external-lab-supported-columns-handoff",
         "status": "PASS",
+        "claim_status": "NOT_PRODUCTION_CLAIM",
+        "evidence_scope": "EXTERNAL_L4_WORKFLOW_TRIAL",
+        "final_production_signoff": False,
         "metadata": {
             "schema_version": 1,
             "generator": "benchmark/run_handoff_trial.py",
@@ -534,6 +537,22 @@ class ReleaseGateTest(unittest.TestCase):
             add_artifact_provenance(trial, root)
 
             self.assertEqual([], release_gate.external_trial_failures(trial, root))
+
+    def test_external_trial_rejects_claim_scope_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial = valid_external_trial()
+            write_trial_artifacts(trial, root)
+            add_artifact_provenance(trial, root)
+            trial["claim_status"] = "FINAL_PRODUCTION_CLAIM"
+            trial["evidence_scope"] = "FINAL_PRODUCTION_RELEASE_GATE"
+            trial["final_production_signoff"] = True
+
+            failures = release_gate.external_trial_failures(trial, root)
+
+        self.assertIn("trial claim_status=FINAL_PRODUCTION_CLAIM", failures)
+        self.assertIn("trial evidence_scope=FINAL_PRODUCTION_RELEASE_GATE", failures)
+        self.assertIn("trial final_production_signoff must be false", failures)
 
     def test_external_trial_gate_detail_includes_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
