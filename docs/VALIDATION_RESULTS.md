@@ -2,6 +2,28 @@
 
 Updated: 2026-07-09
 
+## Stable Release Commit Binding Snapshot
+
+This snapshot records the hardening that makes stable GitHub release evidence bind to the same commit as the generated external L4 trial plan.
+
+`benchmark/release_gate.py` now passes the current report `metadata.git_commit` into live stable GitHub release verification as `--expect-commit`. `benchmark/prepare_external_l4_trial.py` now generates `verify_stable_release` with `--expect-commit <trial_plan git_commit>` and saved-plan verification rejects plans where the stable-release command drifts away from the plan commit. The generated English and Chinese external workspace READMEs also explain this binding, so reviewers see that the stable tag, downloaded archives, `morphojet doctor` commit prefix, saved workflow evidence, and final wrapper inputs must point to the same planned commit.
+
+This is not a production claim. It closes a stable-release evidence drift gap in the external L4 plan; the real external L4 trial, matching package, saved reviewer reports, live stable GitHub release, and saved stable-release verifier report are still required before final production signoff. The expected top-level status remains `claim_status=NOT_PRODUCTION_CLAIM` and `production_claim_status=INCOMPLETE`.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/release_gate.py benchmark/prepare_external_l4_trial.py tests/test_release_gate.py tests/test_prepare_external_l4_trial.py` | PASS |
+| `python3 -m unittest discover -s tests -p 'test_prepare_external_l4_trial.py'` | PASS, 30 tests |
+| `python3 -m unittest discover -s tests -p 'test_release_gate.py'` | PASS, 98 tests |
+| `python3 benchmark/prepare_external_l4_trial.py --workspace /tmp/morphojet-stable-release-commit-bound-plan --overwrite --verify-plan-files --require-plan-files` | PASS; generated `verify_stable_release --expect-commit a0b15f895cabec32bafc10c7edb529f9f9cbe5ba` |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths including the bilingual README contract |
+| `python3 -m unittest discover -s tests` | PASS, 576 tests |
+| `git diff --check` | PASS |
+| `python3 benchmark/release_gate.py --out-json /tmp/morphojet-stable-commit-binding-release-gate.json --out-md /tmp/morphojet-stable-commit-binding-release-gate.md` | PASS; non-final precommit report |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-stable-commit-binding-release-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+
 ## External L4 Plan Workflow Commit Binding Snapshot
 
 This snapshot records the hardening that makes generated external L4 trial plans bind saved GitHub Actions workflow evidence to an explicit commit, not only to `main`.

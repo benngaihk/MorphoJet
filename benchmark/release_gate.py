@@ -793,9 +793,9 @@ def saved_external_package_report_command(report: Path) -> list[str]:
     ]
 
 
-def live_github_release_report_command(tag: str, kind: str) -> list[str]:
+def live_github_release_report_command(tag: str, kind: str, expected_commit: str | None = None) -> list[str]:
     release_kind_flag = "--expect-stable" if kind == "stable" else "--expect-prerelease"
-    return [
+    command = [
         "python3",
         "benchmark/verify_github_release.py",
         tag,
@@ -805,6 +805,9 @@ def live_github_release_report_command(tag: str, kind: str) -> list[str]:
         "--json-out",
         normalized_path_key(github_release_verification_report_path(tag)),
     ]
+    if expected_commit:
+        command.extend(["--expect-commit", expected_commit])
+    return command
 
 
 def paths_match(recorded: object, expected: Path | None) -> bool:
@@ -2706,7 +2709,11 @@ def main() -> int:
         gates.append(
             run_command(
                 "Verify GitHub release assets",
-                live_github_release_report_command(args.verify_github_release, args.github_release_kind),
+                live_github_release_report_command(
+                    args.verify_github_release,
+                    args.github_release_kind,
+                    expected_commit=metadata["git_commit"],
+                ),
             )
         )
     gates.append(validate_cellbindb_direct_masks())

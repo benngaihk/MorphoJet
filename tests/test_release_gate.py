@@ -1450,10 +1450,15 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertIn("--require-trial-json", command)
 
     def test_live_github_release_report_command_uses_absolute_report_path(self) -> None:
-        command = release_gate.live_github_release_report_command("v0.1.0", "stable")
+        command = release_gate.live_github_release_report_command(
+            "v0.1.0",
+            "stable",
+            expected_commit="a" * 40,
+        )
 
         self.assertEqual("benngaihk/MorphoJet", command[command.index("--repo") + 1])
         self.assertEqual("--expect-stable", command[command.index("--repo") + 2])
+        self.assertEqual("a" * 40, command[command.index("--expect-commit") + 1])
         self.assertEqual(
             str(release_gate.github_release_verification_report_path("v0.1.0").resolve(strict=False)),
             command[command.index("--json-out") + 1],

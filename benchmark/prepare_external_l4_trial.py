@@ -674,6 +674,7 @@ def validate_stable_release_command_bindings(payload: dict[str, Any]) -> list[st
     elif verify_release[2] != STABLE_RELEASE_TAG:
         failures.append(f"commands.verify_stable_release tag must be {STABLE_RELEASE_TAG}")
     expect_flag("verify_stable_release", "--repo", STABLE_RELEASE_REPO, "stable release repo")
+    expect_flag("verify_stable_release", "--expect-commit", plan_git_commit, "stable release commit")
     expect_flag("verify_stable_release", "--json-out", github_release_verification, "GitHub release verifier report")
     expect_present("verify_stable_release", "--expect-stable", "stable release verification")
 
@@ -1200,6 +1201,8 @@ def plan_commands(
             STABLE_RELEASE_REPO,
             "--out-dir",
             str(github_release_dir),
+            "--expect-commit",
+            github_workflow_commit,
             "--expect-stable",
             "--json-out",
             str(github_release_verification),
@@ -1523,6 +1526,7 @@ def render_readme(plan: dict[str, Any]) -> str:
         "The saved local preflight report produced by `local_evidence_preflight` is also not final production signoff: it must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`.",
         "The saved production evidence audit produced by `audit_production_evidence` is also not final production signoff: it must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=PRODUCTION_EVIDENCE_READINESS_AUDIT`, and `final_production_signoff=false`. It must be rechecked with `--verify-report-files --require-ready` before `final_production_gate` runs.",
         "The saved GitHub Actions workflow verifier report must be generated with `--commit` and rechecked with `--expect-commit` for the `trial_plan.json git_commit`, so branch movement cannot replace the final remote-CI evidence.",
+        "The live stable release verifier command must also use `--expect-commit` for the same `trial_plan.json git_commit`, so the release tag, downloaded archives, `morphojet doctor` commit prefix, and final workflow evidence all point to the same planned commit before signoff.",
         "Chinese-community reviewers can use `README.zh-CN.md` as a first-class review entrypoint. It must preserve the same command order, non-final claim labels, pre-signoff requirements, final blockers, and package README evidence path as this English README.",
         "The saved trial-plan signoff command must pair `--require-plan-files` with `--verify-plan-files`, so a structurally valid `trial_plan.json` cannot be accepted before rechecking the template, manifest, and English plus Chinese README files.",
         "`check_readiness` also verifies the saved `trial_plan.json`, template hash, manifest presence, and both English and Chinese README files before returning READY, so readiness fails if the execution instructions or plan are weakened after workspace preparation. The saved readiness signoff command must pair `--require-ready` with `--verify-report-files`; otherwise the saved READY JSON is rejected instead of being treated as reviewer-ready evidence.",
@@ -1674,6 +1678,7 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
         "`local_evidence_preflight` 生成的 saved local preflight report 也不是最终生产签核：它必须保持 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`、`final_evidence_acceptable=false`。",
         "`audit_production_evidence` 生成的 saved production evidence audit 也不是最终生产签核：它必须保持 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=PRODUCTION_EVIDENCE_READINESS_AUDIT`、`final_production_signoff=false`。它必须在 `final_production_gate` 运行前用 `--verify-report-files --require-ready` 重新复核。",
         "Saved GitHub Actions workflow verifier report 必须用 `--commit` 生成，并用 `--expect-commit` 复核到 `trial_plan.json git_commit`，避免 main 分支移动后替换最终远端 CI 证据。",
+        "Live stable release verifier command 也必须用 `--expect-commit` 绑定同一个 `trial_plan.json git_commit`，确保 release tag、下载 archive、`morphojet doctor` commit prefix 和最终 workflow evidence 在签核前都指向同一个计划 commit。",
         "中文社区 reviewer 可以把 `README.zh-CN.md` 作为一等复核入口。它必须保留与英文 README 相同的命令顺序、非最终 claim labels、pre-signoff requirements、最终阻塞项和 package README evidence path。",
         "Saved trial-plan 签核命令必须把 `--require-plan-files` 和 `--verify-plan-files` 配对使用；这样结构正确的 `trial_plan.json` 也必须重新复核 template、manifest、英文 README 和中文 README 文件后才可被接受。",
         "`check_readiness` 在返回 READY 前也会复核 saved `trial_plan.json`、template hash、manifest 是否存在，以及英文和中文 README 文件；如果 workspace 准备后执行说明或计划被改弱，readiness 会失败。Saved readiness 签核命令必须把 `--require-ready` 和 `--verify-report-files` 配对使用；否则 saved READY JSON 会被拒绝，不能当作 reviewer-ready evidence。",
