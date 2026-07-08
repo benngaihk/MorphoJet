@@ -2,6 +2,32 @@
 
 Updated: 2026-07-08
 
+## Stable Release Saved-Report Checklist Guidance Snapshot
+
+This snapshot records the verification for strengthening the production-claim checklist guidance for `stable_github_release_saved_report`. `benchmark/release_gate.py` now tells reviewers to recheck saved stable GitHub release verifier reports with file rechecks, stable-report enforcement, git commit verification, expected final tag binding, and the production repo binding instead of a weaker repo-only saved-report instruction.
+
+Environment:
+
+- Branch: `main`
+- Verified code state: stable release saved-report checklist guidance change set
+- Release-gate command: `python3 benchmark/release_gate.py`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Release-gate tests | PASS |
+| Full Python unit test suite | PASS, 501 tests |
+| Source claim-language guard | PASS, 16 paths |
+| Release gate precheck | PASS |
+| Saved release-gate report verifier | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `clean_git_worktree`, `l3_provenance_hashes`, `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## External Workspace Reviewer-Entrypoint Markdown Guidance Snapshot
 
 This snapshot records the verification for carrying saved local preflight Markdown reviewer-entrypoint visibility into generated external L4 workspace instructions. `benchmark/prepare_external_l4_trial.py` now writes English and Chinese workspace READMEs that tell reviewers the saved local preflight Markdown renders package README `review_entrypoint_present` values in the `Review Entrypoint` input-artifact column, and `--verify-plan-files` keeps that bilingual guidance bound to the saved trial plan.

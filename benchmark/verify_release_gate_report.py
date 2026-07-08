@@ -70,7 +70,8 @@ PRODUCTION_CHECKLIST_GUIDANCE = {
         "evidence": "A saved stable GitHub release verifier report bound to the final tag, repo, commit, and assets.",
         "next_action": (
             "Save verify_github_release.py output outside the download dir, then recheck it with "
-            "--verify-report-files --require-stable-report --expect-repo benngaihk/MorphoJet."
+            "--verify-report-files --require-stable-report --verify-git-commit "
+            "--expect-tag <final-tag> --expect-repo benngaihk/MorphoJet."
         ),
     },
 }

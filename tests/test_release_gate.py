@@ -422,7 +422,11 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertIn("| stable_github_release | MISSING |", markdown)
         self.assertIn("publish the stable tag and verify it with --github-release-kind stable", markdown)
         self.assertIn("| stable_github_release_saved_report | MISSING |", markdown)
-        self.assertIn("--verify-report-files --require-stable-report --expect-repo benngaihk/MorphoJet", markdown)
+        self.assertIn(
+            "--verify-report-files --require-stable-report --verify-git-commit "
+            "--expect-tag <final-tag> --expect-repo benngaihk/MorphoJet",
+            markdown,
+        )
 
     def test_markdown_report_uses_json_production_claim_checklist(self) -> None:
         gates = self.production_gates(
