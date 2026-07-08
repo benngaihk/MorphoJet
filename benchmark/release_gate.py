@@ -633,6 +633,12 @@ def production_claim_contract_failures(args: argparse.Namespace) -> list[str]:
         failures.append(
             "--require-production-claim with --github-release-verification-report requires --verify-github-release"
         )
+    if args.external_trial_json and not args.external_trial_root:
+        failures.append("--require-production-claim with --external-trial-json requires --external-trial-root")
+    if args.external_evidence_package_dir and not args.external_trial_json:
+        failures.append(
+            "--require-production-claim with --external-evidence-package-dir requires --external-trial-json"
+        )
     if args.external_trial_verification_report and (
         not args.external_trial_json or not args.external_trial_root
     ):
