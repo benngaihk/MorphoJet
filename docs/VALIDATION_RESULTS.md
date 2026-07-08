@@ -2,6 +2,35 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `49203a0`
+
+This snapshot records the clean `main` verification for the code commit that updates generated external L4 trial workspace READMEs with the current saved local-preflight verifier contract. `benchmark/prepare_external_l4_trial.py` now tells reviewers in both English and Chinese that `verify_local_evidence_preflight` requires required input-artifact summaries to remain `exists=true`, requires metadata-bound saved reviewer reports to keep matching gate entries and hash summaries, and recomputes package/source claim-scope fields plus readiness `package_name` before PASS can be accepted.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `49203a0`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-49203a0.json --out-md /tmp/morphojet-l3-release-report-main-49203a0.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-49203a0.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| External trial workspace preparation tests | PASS, 21 tests |
+| Full Python unit test suite | PASS, 438 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| English Workspace README Local Preflight Hash Coverage | PASS |
+| Chinese Workspace README Local Preflight Hash Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `f0d6d8e`
 
 This snapshot records the clean `main` verification for the code commit that makes saved local evidence-preflight reports fail closed when required evidence hashes are removed. `benchmark/run_production_gate.py` now requires every required local-preflight input artifact to remain `exists=true` in the saved report, and requires metadata-bound saved reviewer reports to keep their input-artifact existence plus size/SHA-256 summaries. Production-wrapper regression tests cover tampering that changes the package zip summary or a bound saved reviewer report summary to `exists=false` while leaving metadata and gates intact.
