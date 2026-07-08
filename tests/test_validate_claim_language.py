@@ -51,6 +51,7 @@ class ValidateClaimLanguageTest(unittest.TestCase):
                 encoding="utf-8",
             )
             original_contract = validate_claim_language.ROOT_README_CONTRACT
+            original_shared_anchors = validate_claim_language.ROOT_README_SHARED_ANCHORS
             validate_claim_language.ROOT_README_CONTRACT = [
                 {
                     "path": readme,
@@ -73,15 +74,46 @@ class ValidateClaimLanguageTest(unittest.TestCase):
                     ],
                 },
             ]
+            validate_claim_language.ROOT_README_SHARED_ANCHORS = []
             try:
                 failures = validate_claim_language.validate_root_readme_contract()
             finally:
                 validate_claim_language.ROOT_README_CONTRACT = original_contract
+                validate_claim_language.ROOT_README_SHARED_ANCHORS = original_shared_anchors
 
         self.assertEqual(2, len(failures))
         self.assertIn("README.zh-CN.md", failures[0])
         self.assertIn("## 外部 L4 试验与生产门禁", failures[0])
         self.assertIn("python3 benchmark/run_production_gate.py", failures[1])
+
+    def test_root_readme_contract_rejects_missing_shared_bilingual_anchor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            readme = root / "README.md"
+            readme_zh = root / "README.zh-CN.md"
+            readme.write_text(
+                "Language: English | [简体中文](README.zh-CN.md)\n"
+                "--github-release-verification-report\n",
+                encoding="utf-8",
+            )
+            readme_zh.write_text("语言：[English](README.md) | 简体中文\n", encoding="utf-8")
+            original_contract = validate_claim_language.ROOT_README_CONTRACT
+            original_shared_anchors = validate_claim_language.ROOT_README_SHARED_ANCHORS
+            validate_claim_language.ROOT_README_CONTRACT = [
+                {"path": readme, "requirements": []},
+                {"path": readme_zh, "requirements": []},
+            ]
+            validate_claim_language.ROOT_README_SHARED_ANCHORS = ["--github-release-verification-report"]
+            try:
+                failures = validate_claim_language.validate_root_readme_contract()
+            finally:
+                validate_claim_language.ROOT_README_CONTRACT = original_contract
+                validate_claim_language.ROOT_README_SHARED_ANCHORS = original_shared_anchors
+
+        self.assertEqual(1, len(failures))
+        self.assertIn("README.zh-CN.md", failures[0])
+        self.assertIn("missing required shared bilingual README anchor", failures[0])
+        self.assertIn("--github-release-verification-report", failures[0])
 
     def test_accepts_guarded_claim_language(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

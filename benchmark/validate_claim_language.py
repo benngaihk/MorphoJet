@@ -60,6 +60,20 @@ ROOT_README_CONTRACT = [
         ],
     },
 ]
+ROOT_README_SHARED_ANCHORS = [
+    "claim_status=NOT_PRODUCTION_CLAIM",
+    "evidence_scope=RELEASE_GATE_PRECHECK",
+    "final_production_signoff=false",
+    "production_claim_status=INCOMPLETE",
+    "benchmark/prepare_external_l4_trial.py --workspace path/to/external-trial",
+    "benchmark/run_production_gate.py",
+    "benchmark/verify_release_gate_report.py",
+    "--external-trial-verification-report",
+    "--external-evidence-package-verification-report",
+    "--github-release-verification-report",
+    "README.md",
+    "README.zh-CN.md",
+]
 RISKY_PATTERNS = [
     re.compile(r"\bproduction[- ]ready\b", re.IGNORECASE),
     re.compile(r"\bproduction[- ]grade\b", re.IGNORECASE),
@@ -174,17 +188,25 @@ def validate_paths(paths: list[Path]) -> list[str]:
 
 def validate_root_readme_contract() -> list[str]:
     failures: list[str] = []
+    readme_texts: dict[Path, str] = {}
     for contract in ROOT_README_CONTRACT:
         path = contract["path"]
         if not isinstance(path, Path) or not path.is_file():
             failures.append(f"{display_path(path)}: missing required root README")
             continue
         text = path.read_text(encoding="utf-8")
+        readme_texts[path] = text
         for required in contract["requirements"]:
             if required not in text:
                 failures.append(
                     f"{display_path(path)}: missing required bilingual README contract text: {required}"
                 )
+    for path, text in readme_texts.items():
+        if path.name not in {"README.md", "README.zh-CN.md"}:
+            continue
+        for required in ROOT_README_SHARED_ANCHORS:
+            if required not in text:
+                failures.append(f"{display_path(path)}: missing required shared bilingual README anchor: {required}")
     return failures
 
 
