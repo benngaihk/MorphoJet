@@ -2,6 +2,32 @@
 
 Updated: 2026-07-08
 
+## Workspace Verification for Package README Reviewer Entrypoint Contract
+
+This snapshot records the verification for synchronizing generated external L4 workspace README instructions with the package README reviewer-entrypoint checks. `benchmark/prepare_external_l4_trial.py` now writes English and Chinese workspace READMEs that tell reviewers `verify_local_evidence_preflight` recomputes package README `review_entrypoint_present` values for both `README.md` and `README.zh-CN.md` before PASS can be accepted; `--verify-plan-files` keeps those bilingual instructions bound to the saved trial plan.
+
+Environment:
+
+- Branch: `main`
+- Verified code state: package README reviewer-entrypoint contract change set
+- Release-gate command: `python3 benchmark/release_gate.py`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Generated external L4 workspace tests | PASS, 26 tests |
+| Full Python unit test suite | PASS, 501 tests |
+| Source claim-language guard | PASS, 16 paths |
+| Release gate precheck | PASS |
+| Saved release-gate report verifier | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `clean_git_worktree`, `l3_provenance_hashes`, `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `e564ebe`
 
 This snapshot records the verification for generated external L4 plans that now include standalone saved trial/package reviewer-report recheck commands. `benchmark/prepare_external_l4_trial.py --verify-plan` now checks that `verify_trial_report` and `verify_package_report` point to the planned saved reviewer JSON files, preserve file rechecks and PASS enforcement, and keep package reviewer reports bound to the source trial before local preflight or final signoff treats those reports as reviewer evidence.
