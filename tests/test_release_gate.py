@@ -463,7 +463,7 @@ class ReleaseGateTest(unittest.TestCase):
             failures,
         )
 
-    def test_require_production_claim_accepts_complete_external_evidence_group(self) -> None:
+    def test_require_production_claim_rejects_external_evidence_without_saved_reviewers(self) -> None:
         failures = release_gate.production_claim_contract_failures(
             self.production_args(
                 require_production_claim=True,
@@ -472,6 +472,29 @@ class ReleaseGateTest(unittest.TestCase):
                 external_trial_json=Path("handoff_trial.json"),
                 external_trial_root=Path("external-trial"),
                 external_evidence_package_dir=Path("external-l4-package"),
+            )
+        )
+
+        self.assertEqual(
+            [
+                "--require-production-claim with external L4 evidence requires --external-trial-verification-report",
+                "--require-production-claim with external L4 evidence requires "
+                "--external-evidence-package-verification-report",
+            ],
+            failures,
+        )
+
+    def test_require_production_claim_accepts_complete_external_evidence_and_reviewer_group(self) -> None:
+        failures = release_gate.production_claim_contract_failures(
+            self.production_args(
+                require_production_claim=True,
+                require_clean_git=True,
+                require_l3_provenance=True,
+                external_trial_json=Path("handoff_trial.json"),
+                external_trial_root=Path("external-trial"),
+                external_evidence_package_dir=Path("external-l4-package"),
+                external_trial_verification_report=Path("trial-verification.json"),
+                external_evidence_package_verification_report=Path("package-verification.json"),
             )
         )
 
@@ -492,6 +515,8 @@ class ReleaseGateTest(unittest.TestCase):
 
         self.assertEqual(
             [
+                "--require-production-claim with external L4 evidence requires "
+                "--external-evidence-package-verification-report",
                 "--require-production-claim with --external-trial-verification-report requires "
                 "--external-evidence-package-verification-report"
             ],
@@ -513,6 +538,7 @@ class ReleaseGateTest(unittest.TestCase):
 
         self.assertEqual(
             [
+                "--require-production-claim with external L4 evidence requires --external-trial-verification-report",
                 "--require-production-claim with --external-evidence-package-verification-report requires "
                 "--external-trial-verification-report"
             ],

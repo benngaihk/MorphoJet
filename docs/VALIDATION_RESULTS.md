@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## Reviewed External L4 Production-Claim Contract Snapshot
+
+This snapshot records local verification for making direct `benchmark/release_gate.py --require-production-claim` external L4 evidence fail closed unless both saved external reviewer reports are supplied with the raw trial/package evidence. This keeps unreviewed-but-complete external L4 trial/package evidence from entering the final production-claim path and only surfacing later as an incomplete saved-reviewer audit.
+
+This is not a production claim. The current release-gate precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_release_gate.py` | PASS, 92 tests |
+| `python3 benchmark/release_gate.py --require-production-claim --require-clean-git --require-l3-provenance --external-trial-json /tmp/morphojet-handoff-trial.json --external-trial-root /tmp/morphojet-external-trial --external-evidence-package-dir /tmp/morphojet-external-l4-package --out-json /tmp/morphojet-external-without-reviewers-contract.json --out-md /tmp/morphojet-external-without-reviewers-contract.md` | PASS; expected exit 2 with missing saved trial/package reviewer report errors |
+| `python3 -m unittest discover -s tests` | PASS, 541 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## Paired External Reviewer Production-Claim Contract Snapshot
 
 This snapshot records local verification for making direct `benchmark/release_gate.py --require-production-claim` saved external L4 reviewer evidence fail closed unless the trial-reviewer and package-reviewer reports are supplied together. This keeps half-reviewed external L4 evidence from entering the final production-claim path and only surfacing later as an incomplete saved-reviewer audit.
