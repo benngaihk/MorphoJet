@@ -627,12 +627,12 @@ def production_claim_contract_failures(args: argparse.Namespace) -> list[str]:
         failures.append("--require-production-claim requires --require-clean-git")
     if not args.require_l3_provenance:
         failures.append("--require-production-claim requires --require-l3-provenance")
-    if args.verify_github_release and args.github_release_kind != "stable":
+    if not args.verify_github_release:
+        failures.append("--require-production-claim requires --verify-github-release")
+    elif args.github_release_kind != "stable":
         failures.append("--require-production-claim with --verify-github-release requires --github-release-kind stable")
-    if args.github_release_verification_report and not args.verify_github_release:
-        failures.append(
-            "--require-production-claim with --github-release-verification-report requires --verify-github-release"
-        )
+    if not args.github_release_verification_report:
+        failures.append("--require-production-claim requires --github-release-verification-report")
     if args.external_trial_json and not args.external_trial_root:
         failures.append("--require-production-claim with --external-trial-json requires --external-trial-root")
     if args.external_evidence_package_dir and not args.external_trial_json:

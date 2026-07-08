@@ -174,6 +174,8 @@ GitHub release verifier 会检查 tag 身份、release URL、GitHub release ID/A
 
 直接使用 `benchmark/release_gate.py --require-production-claim` 时，外部 L4 evidence 必须作为完整输入组成组绑定：`--external-trial-json` 必须同时提供 `--external-trial-root`，trial evidence 也必须同时提供 `--external-evidence-package-dir`；`--external-evidence-package-dir` 必须同时提供 `--external-trial-json`。完整 raw external L4 evidence 也必须配套 saved reviewer evidence；saved reviewer evidence 必须绑定当前最终输入并成对出现：`--external-trial-verification-report` 必须同时提供 `--external-trial-json`、`--external-trial-root` 和 `--external-evidence-package-verification-report`；`--external-evidence-package-verification-report` 必须同时提供 `--external-evidence-package-dir`、`--external-trial-json` 和 `--external-trial-verification-report`。如果使用 live `--verify-github-release <tag>`，还必须显式提供 `--github-release-kind stable`；如果 live GitHub release gate 仍是 prerelease/RC，命令会在参数合同层失败，不会进入最终生产声明路径。直接 production-claim 命令如果提供 `--github-release-verification-report`，也必须同时提供 live `--verify-github-release <tag>`，避免 saved stable report 没有绑定最终 live tag 就进入签核链。
 
+直接 final-claim 合同也把稳定 release evidence 从“可选绑定”提升为“必填输入”：`benchmark/release_gate.py --require-production-claim` 必须同时提供 live `--verify-github-release <tag>`、`--github-release-kind stable` 和 saved `--github-release-verification-report`。如果 live stable release evidence 或 saved stable-release verifier evidence 缺失，命令会先在参数合同层失败，避免后面才作为 audit blocker 暴露。
+
 ## CellProfiler 风格宽表导出
 
 MorphoJet 原生 `Objects.csv` 是长表，键为 `ImageNumber`、`ObjectSet`、`ObjectNumber` 和 `Channel`。如果下游工具需要 CellProfiler object CSV，例如 `Cells.csv`，可以把当前支持的测量子集物化为宽表：

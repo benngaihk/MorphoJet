@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## Required Stable Release Evidence Production-Claim Contract Snapshot
+
+This snapshot records local verification for making direct `benchmark/release_gate.py --require-production-claim` stable-release evidence fail closed unless both live stable release verification and a saved stable-release verifier report are supplied in the same command. This keeps a missing live stable release or missing saved stable-release verifier report from entering the final production-claim path and only surfacing later as an incomplete production audit.
+
+This is not a production claim. The current release-gate precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_release_gate.py` | PASS, 93 tests |
+| `python3 benchmark/release_gate.py --require-production-claim --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-missing-stable-release-contract.json --out-md /tmp/morphojet-missing-stable-release-contract.md` | PASS; expected exit 2 with missing `--verify-github-release` and `--github-release-verification-report` errors |
+| `python3 -m unittest discover -s tests` | PASS, 542 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## Reviewed External L4 Production-Claim Contract Snapshot
 
 This snapshot records local verification for making direct `benchmark/release_gate.py --require-production-claim` external L4 evidence fail closed unless both saved external reviewer reports are supplied with the raw trial/package evidence. This keeps unreviewed-but-complete external L4 trial/package evidence from entering the final production-claim path and only surfacing later as an incomplete saved-reviewer audit.

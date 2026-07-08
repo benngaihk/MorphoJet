@@ -318,7 +318,12 @@ class ReleaseGateTest(unittest.TestCase):
 
     def test_require_production_claim_requires_clean_git_and_l3_provenance_flags(self) -> None:
         failures = release_gate.production_claim_contract_failures(
-            self.production_args(require_production_claim=True)
+            self.production_args(
+                require_production_claim=True,
+                verify_github_release="v0.1.0",
+                github_release_kind="stable",
+                github_release_verification_report=Path("github-release-verification.json"),
+            )
         )
 
         self.assertEqual(
@@ -331,7 +336,13 @@ class ReleaseGateTest(unittest.TestCase):
 
     def test_require_production_claim_rejects_missing_l3_provenance_flag(self) -> None:
         failures = release_gate.production_claim_contract_failures(
-            self.production_args(require_production_claim=True, require_clean_git=True)
+            self.production_args(
+                require_production_claim=True,
+                require_clean_git=True,
+                verify_github_release="v0.1.0",
+                github_release_kind="stable",
+                github_release_verification_report=Path("github-release-verification.json"),
+            )
         )
 
         self.assertEqual(
@@ -345,10 +356,30 @@ class ReleaseGateTest(unittest.TestCase):
                 require_production_claim=True,
                 require_clean_git=True,
                 require_l3_provenance=True,
+                verify_github_release="v0.1.0",
+                github_release_kind="stable",
+                github_release_verification_report=Path("github-release-verification.json"),
             )
         )
 
         self.assertEqual([], failures)
+
+    def test_require_production_claim_requires_stable_release_evidence(self) -> None:
+        failures = release_gate.production_claim_contract_failures(
+            self.production_args(
+                require_production_claim=True,
+                require_clean_git=True,
+                require_l3_provenance=True,
+            )
+        )
+
+        self.assertEqual(
+            [
+                "--require-production-claim requires --verify-github-release",
+                "--require-production-claim requires --github-release-verification-report",
+            ],
+            failures,
+        )
 
     def test_require_production_claim_rejects_prerelease_live_github_gate(self) -> None:
         failures = release_gate.production_claim_contract_failures(
@@ -358,6 +389,7 @@ class ReleaseGateTest(unittest.TestCase):
                 require_l3_provenance=True,
                 verify_github_release="v0.1.0-rc.1",
                 github_release_kind="prerelease",
+                github_release_verification_report=Path("github-release-verification.json"),
             )
         )
 
@@ -376,10 +408,7 @@ class ReleaseGateTest(unittest.TestCase):
             )
         )
 
-        self.assertEqual(
-            ["--require-production-claim with --github-release-verification-report requires --verify-github-release"],
-            failures,
-        )
+        self.assertEqual(["--require-production-claim requires --verify-github-release"], failures)
 
     def test_require_production_claim_rejects_unbound_saved_external_trial_report(self) -> None:
         failures = release_gate.production_claim_contract_failures(
@@ -387,6 +416,9 @@ class ReleaseGateTest(unittest.TestCase):
                 require_production_claim=True,
                 require_clean_git=True,
                 require_l3_provenance=True,
+                verify_github_release="v0.1.0",
+                github_release_kind="stable",
+                github_release_verification_report=Path("github-release-verification.json"),
                 external_trial_verification_report=Path("trial-verification.json"),
             )
         )
@@ -405,6 +437,9 @@ class ReleaseGateTest(unittest.TestCase):
                 require_production_claim=True,
                 require_clean_git=True,
                 require_l3_provenance=True,
+                verify_github_release="v0.1.0",
+                github_release_kind="stable",
+                github_release_verification_report=Path("github-release-verification.json"),
                 external_evidence_package_verification_report=Path("package-verification.json"),
             )
         )
@@ -423,6 +458,9 @@ class ReleaseGateTest(unittest.TestCase):
                 require_production_claim=True,
                 require_clean_git=True,
                 require_l3_provenance=True,
+                verify_github_release="v0.1.0",
+                github_release_kind="stable",
+                github_release_verification_report=Path("github-release-verification.json"),
                 external_trial_json=Path("handoff_trial.json"),
             )
         )
@@ -438,6 +476,9 @@ class ReleaseGateTest(unittest.TestCase):
                 require_production_claim=True,
                 require_clean_git=True,
                 require_l3_provenance=True,
+                verify_github_release="v0.1.0",
+                github_release_kind="stable",
+                github_release_verification_report=Path("github-release-verification.json"),
                 external_evidence_package_dir=Path("external-l4-package"),
             )
         )
@@ -453,6 +494,9 @@ class ReleaseGateTest(unittest.TestCase):
                 require_production_claim=True,
                 require_clean_git=True,
                 require_l3_provenance=True,
+                verify_github_release="v0.1.0",
+                github_release_kind="stable",
+                github_release_verification_report=Path("github-release-verification.json"),
                 external_trial_json=Path("handoff_trial.json"),
                 external_trial_root=Path("external-trial"),
             )
@@ -469,6 +513,9 @@ class ReleaseGateTest(unittest.TestCase):
                 require_production_claim=True,
                 require_clean_git=True,
                 require_l3_provenance=True,
+                verify_github_release="v0.1.0",
+                github_release_kind="stable",
+                github_release_verification_report=Path("github-release-verification.json"),
                 external_trial_json=Path("handoff_trial.json"),
                 external_trial_root=Path("external-trial"),
                 external_evidence_package_dir=Path("external-l4-package"),
@@ -490,6 +537,9 @@ class ReleaseGateTest(unittest.TestCase):
                 require_production_claim=True,
                 require_clean_git=True,
                 require_l3_provenance=True,
+                verify_github_release="v0.1.0",
+                github_release_kind="stable",
+                github_release_verification_report=Path("github-release-verification.json"),
                 external_trial_json=Path("handoff_trial.json"),
                 external_trial_root=Path("external-trial"),
                 external_evidence_package_dir=Path("external-l4-package"),
@@ -506,6 +556,9 @@ class ReleaseGateTest(unittest.TestCase):
                 require_production_claim=True,
                 require_clean_git=True,
                 require_l3_provenance=True,
+                verify_github_release="v0.1.0",
+                github_release_kind="stable",
+                github_release_verification_report=Path("github-release-verification.json"),
                 external_trial_json=Path("handoff_trial.json"),
                 external_trial_root=Path("external-trial"),
                 external_evidence_package_dir=Path("external-l4-package"),
@@ -529,6 +582,9 @@ class ReleaseGateTest(unittest.TestCase):
                 require_production_claim=True,
                 require_clean_git=True,
                 require_l3_provenance=True,
+                verify_github_release="v0.1.0",
+                github_release_kind="stable",
+                github_release_verification_report=Path("github-release-verification.json"),
                 external_trial_json=Path("handoff_trial.json"),
                 external_trial_root=Path("external-trial"),
                 external_evidence_package_dir=Path("external-l4-package"),
