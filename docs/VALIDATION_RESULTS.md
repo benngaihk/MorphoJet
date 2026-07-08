@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## External L4 Combination Coverage Production-Claim Contract Snapshot
+
+This snapshot records local verification for covering every direct `benchmark/release_gate.py --require-production-claim` external L4 evidence input combination. The regression test enumerates the five final external L4 inputs and confirms that all partial groups fail fast while only the complete trial JSON, trial root, evidence package, saved trial reviewer report, and saved package reviewer report group is accepted by the CLI contract.
+
+This is not a production claim. The current release-gate precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_release_gate.py` | PASS, 96 tests |
+| direct contract enumeration over 32 external L4 input combinations | PASS; only the complete five-input group is accepted |
+| `python3 -m unittest discover -s tests` | PASS, 545 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## Bound External Trial Root Production-Claim Contract Snapshot
 
 This snapshot records local verification for making direct `benchmark/release_gate.py --require-production-claim` reject an isolated external L4 trial root unless the same command supplies the external trial JSON. This closes the partial-input gap where `--external-trial-root` alone could enter final-claim mode and only surface later as missing external L4 evidence during the production audit.

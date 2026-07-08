@@ -400,6 +400,33 @@ class ReleaseGateTest(unittest.TestCase):
             failures,
         )
 
+    def test_require_production_claim_rejects_every_partial_external_l4_evidence_group(self) -> None:
+        external_fields = [
+            "external_trial_json",
+            "external_trial_root",
+            "external_evidence_package_dir",
+            "external_trial_verification_report",
+            "external_evidence_package_verification_report",
+        ]
+        full_group = set(external_fields)
+        accepted_groups = []
+
+        for mask in range(1 << len(external_fields)):
+            overrides = {field: None for field in external_fields}
+            present = set()
+            for index, field in enumerate(external_fields):
+                if mask & (1 << index):
+                    present.add(field)
+
+            overrides.update({field: Path(field) for field in present})
+            failures = release_gate.production_claim_contract_failures(
+                self.production_claim_args(**overrides)
+            )
+            if not failures:
+                accepted_groups.append(present)
+
+        self.assertEqual([full_group], accepted_groups)
+
     def test_require_production_claim_rejects_prerelease_live_github_gate(self) -> None:
         failures = release_gate.production_claim_contract_failures(
             self.production_claim_args(
