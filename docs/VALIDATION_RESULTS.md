@@ -2,6 +2,19 @@
 
 Updated: 2026-07-09
 
+## Clean Git And L3 Provenance Precheck Snapshot
+
+This snapshot records a stronger local release-gate precheck than the default report. Running the release gate with `--require-clean-git --require-l3-provenance` from a clean worktree passed, and the saved report verifier confirmed clean-git metadata, a reachable git commit, report PASS, and the expected remaining production blockers.
+
+This is not a production claim. The stronger precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-clean-l3-release-gate.json --out-md /tmp/morphojet-clean-l3-release-gate.md` | PASS |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-clean-l3-release-gate.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE`; remaining blockers are external L4 workflow/package/saved-reviewer evidence and stable release/saved stable-release evidence |
+
 ## Markdown Production Claim Boundary Snapshot
 
 This snapshot records local verification for making release-gate Markdown reports harder to misread when they are copied into human review. `benchmark/release_gate.py` now renders a `Production Claim Boundary` section: non-final reports explicitly say they are not production signoff and repeat the current production blockers, while final candidates state that saved-report verification with production-claim PASS and `--expect-missing-checks none` is still required.
