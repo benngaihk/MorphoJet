@@ -2,6 +2,37 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `8b6f6e1`
+
+This snapshot records the verification for making the final production wrapper fail fast unless all saved verifier reports required for final signoff are supplied. `benchmark/run_production_gate.py` now requires `--external-trial-verification-report`, `--external-evidence-package-verification-report`, and `--github-release-verification-report` for actual final runs while preserving `--dry-run` command inspection and the earlier non-final `--local-evidence-preflight-only` path.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `8b6f6e1d6a78ad2c2a86c0563a2db0089527c242`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-final-wrapper-saved-reports.json --out-md /tmp/morphojet-l3-release-report-final-wrapper-saved-reports.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-final-wrapper-saved-reports.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Production wrapper/local preflight tests | PASS, 86 tests |
+| Full Python unit test suite | PASS, 493 tests |
+| Source claim-language guard | PASS, 16 paths |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Final wrapper saved-report fail-fast check | PASS |
+| Local preflight saved-report optionality | PASS |
+| English final-wrapper documentation | PASS |
+| Chinese final-wrapper documentation | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `6e76805`
 
 This snapshot records the verification for synchronizing generated external L4 workspace README instructions with the local-preflight handoff-contract checks. `benchmark/prepare_external_l4_trial.py` now writes English and Chinese workspace READMEs that tell reviewers `verify_local_evidence_preflight` recomputes package README-rendered readiness scope and the package README-rendered handoff contract binding to `rendered_manifest.json`; `--verify-plan-files` keeps those bilingual instructions bound to the saved trial plan before external execution.
