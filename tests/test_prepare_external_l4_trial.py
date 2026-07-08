@@ -721,6 +721,43 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             completed.stderr,
         )
 
+    def test_saved_trial_plan_rejects_external_evidence_command_flow_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+            payload = json.loads(plan_path.read_text(encoding="utf-8"))
+            verify_trial = payload["commands"]["verify_trial"]
+            verify_trial[verify_trial.index("--json-out") + 1] = str(workspace / "wrong-trial-review.json")
+            verify_package = payload["commands"]["verify_package"]
+            verify_package[2] = str(workspace / "wrong-package")
+            final_report = payload["commands"]["verify_final_production_report"]
+            final_report[2] = str(workspace / "wrong-production-claim.json")
+            plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("commands.verify_trial --json-out must match trial reviewer report", completed.stderr)
+        self.assertIn(
+            "commands.verify_package positional evidence package directory must match",
+            completed.stderr,
+        )
+        self.assertIn(
+            "commands.verify_final_production_report positional final production claim report must match",
+            completed.stderr,
+        )
+
     def test_saved_trial_plan_rejects_template_hash_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "external-trial"

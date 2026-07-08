@@ -271,6 +271,119 @@ def validate_pre_signoff_command_bindings(payload: dict[str, Any]) -> list[str]:
     return failures
 
 
+def validate_external_evidence_command_bindings(payload: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    commands = payload.get("commands")
+    workspace = payload.get("workspace")
+    package_name = payload.get("package_name")
+    if not isinstance(commands, dict):
+        return failures
+    if not isinstance(workspace, str) or not workspace.strip():
+        return failures
+    if not isinstance(package_name, str) or not package_name.strip():
+        return failures
+    workspace_path = Path(workspace)
+    trial_json = str(workspace_path / "handoff_trial.json")
+    trial_verification = str(workspace_path / "handoff_trial-verification.json")
+    package_out = str(workspace_path / "evidence-package")
+    package_dir = str(workspace_path / "evidence-package" / package_name)
+    package_verification = str(workspace_path / "evidence-package-verification.json")
+    readiness_json = str(workspace_path / "readiness.json")
+    preflight_json = str(workspace_path / "local-evidence-preflight.json")
+    github_release_verification = str(workspace_path / "github-release-verification.json")
+    production_claim_json = str(workspace_path / "production-claim.json")
+
+    def command(command_name: str) -> list[str]:
+        value = commands.get(command_name)
+        if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
+            failures.append(f"commands.{command_name} must be a non-empty string list before evidence binding")
+            return []
+        return value
+
+    def expect_flag(command_name: str, flag: str, expected: str, label: str) -> None:
+        values = argv_values(command(command_name), flag)
+        if len(values) != 1 or values[0] is None:
+            failures.append(f"commands.{command_name} must include exactly one {flag} value for {label}")
+        elif values[0] != expected:
+            failures.append(f"commands.{command_name} {flag} must match {label}")
+
+    def expect_positional(command_name: str, index: int, expected: str, label: str) -> None:
+        cmd = command(command_name)
+        if len(cmd) <= index:
+            failures.append(f"commands.{command_name} missing positional {label}")
+        elif cmd[index] != expected:
+            failures.append(f"commands.{command_name} positional {label} must match {expected}")
+
+    for command_name, flag in [
+        ("run_trial", "--out-json"),
+        ("package_evidence", "--trial-json"),
+        ("verify_package", "--trial-json"),
+        ("local_evidence_preflight", "--external-trial-json"),
+        ("final_production_gate", "--external-trial-json"),
+    ]:
+        expect_flag(command_name, flag, trial_json, "handoff_trial.json")
+    expect_positional("verify_trial", 2, trial_json, "handoff_trial.json")
+
+    for command_name, flag in [
+        ("verify_trial", "--trial-root"),
+        ("package_evidence", "--trial-root"),
+        ("local_evidence_preflight", "--external-trial-root"),
+        ("final_production_gate", "--external-trial-root"),
+    ]:
+        expect_flag(command_name, flag, workspace, "external trial root")
+    expect_flag("check_readiness", "--json-out", readiness_json, "readiness.json")
+    expect_flag("verify_readiness", "--verify-report", readiness_json, "readiness.json")
+    expect_flag("run_trial", "--readiness-report", readiness_json, "readiness.json")
+
+    expect_flag("package_evidence", "--out-dir", package_out, "evidence package output directory")
+    expect_flag("package_evidence", "--package-name", package_name, "evidence package name")
+    expect_positional("verify_package", 2, package_dir, "evidence package directory")
+    expect_flag("local_evidence_preflight", "--external-evidence-package-dir", package_dir, "evidence package directory")
+    expect_flag("final_production_gate", "--external-evidence-package-dir", package_dir, "evidence package directory")
+
+    expect_flag("verify_trial", "--json-out", trial_verification, "trial reviewer report")
+    expect_flag("local_evidence_preflight", "--external-trial-verification-report", trial_verification, "trial reviewer report")
+    expect_flag("final_production_gate", "--external-trial-verification-report", trial_verification, "trial reviewer report")
+
+    expect_flag("verify_package", "--json-out", package_verification, "package reviewer report")
+    expect_flag(
+        "local_evidence_preflight",
+        "--external-evidence-package-verification-report",
+        package_verification,
+        "package reviewer report",
+    )
+    expect_flag(
+        "final_production_gate",
+        "--external-evidence-package-verification-report",
+        package_verification,
+        "package reviewer report",
+    )
+
+    expect_flag("local_evidence_preflight", "--local-evidence-preflight-json", preflight_json, "local preflight report")
+    expect_flag(
+        "verify_local_evidence_preflight",
+        "--verify-local-evidence-preflight-report",
+        preflight_json,
+        "local preflight report",
+    )
+    expect_flag("verify_stable_release", "--json-out", github_release_verification, "GitHub release verifier report")
+    expect_flag(
+        "verify_stable_release_report",
+        "--verify-report",
+        github_release_verification,
+        "GitHub release verifier report",
+    )
+    expect_flag(
+        "final_production_gate",
+        "--github-release-verification-report",
+        github_release_verification,
+        "GitHub release verifier report",
+    )
+    expect_flag("final_production_gate", "--out-json", production_claim_json, "final production claim report")
+    expect_positional("verify_final_production_report", 2, production_claim_json, "final production claim report")
+    return failures
+
+
 def validate_generator_argv(payload: dict[str, Any], argv: list[str]) -> list[str]:
     failures = []
     if argv[0] != GENERATOR:
@@ -401,6 +514,7 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
                 failures.append("pre_signoff_requirements changed after plan was written")
             failures.extend(validate_pre_signoff_command_bindings(payload))
             failures.extend(validate_final_signoff_command_bindings(payload))
+            failures.extend(validate_external_evidence_command_bindings(payload))
     if verify_files:
         failures.extend(validate_plan_files(payload))
     return failures
