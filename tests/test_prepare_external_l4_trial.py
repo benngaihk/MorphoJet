@@ -199,6 +199,13 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 readme,
             )
             self.assertIn("evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW", readme)
+            self.assertIn(
+                "The saved local preflight report produced by `local_evidence_preflight` is also not final production signoff",
+                readme,
+            )
+            self.assertIn("evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT", readme)
+            self.assertIn("final_evidence_acceptable=false", readme)
+            self.assertIn("package-manifest package/source-trial scope labels", readme)
             self.assertLess(readme.index("## verify_plan"), readme.index("## validate_manifest"))
             self.assertLess(readme.index("## verify_readiness"), readme.index("## run_trial"))
             self.assertLess(
@@ -225,6 +232,10 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("production_signoff", readme_zh)
             self.assertIn("saved package verifier report 也不是最终生产签核", readme_zh)
             self.assertIn("evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW", readme_zh)
+            self.assertIn("saved local preflight report 也不是最终生产签核", readme_zh)
+            self.assertIn("evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT", readme_zh)
+            self.assertIn("final_evidence_acceptable=false", readme_zh)
+            self.assertIn("package manifest 的 package/source-trial scope labels", readme_zh)
             self.assertLess(readme_zh.index("## verify_plan"), readme_zh.index("## validate_manifest"))
             self.assertLess(readme_zh.index("## verify_readiness"), readme_zh.index("## run_trial"))
             self.assertLess(
