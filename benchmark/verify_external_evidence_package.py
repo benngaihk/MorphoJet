@@ -106,25 +106,21 @@ def readiness_package_name(path: Path) -> str | None:
 
 
 def artifact_manifest_claim_scope(path: Path) -> dict[str, Any]:
+    fields = {
+        "claim_status": None,
+        "evidence_scope": None,
+        "final_production_signoff": None,
+        "trial_claim_status": None,
+        "trial_evidence_scope": None,
+        "trial_final_production_signoff": None,
+    }
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001 - missing/malformed package files are reported elsewhere.
-        return {
-            "claim_status": None,
-            "evidence_scope": None,
-            "final_production_signoff": None,
-        }
+        return fields
     if not isinstance(payload, dict):
-        return {
-            "claim_status": None,
-            "evidence_scope": None,
-            "final_production_signoff": None,
-        }
-    return {
-        "claim_status": payload.get("claim_status"),
-        "evidence_scope": payload.get("evidence_scope"),
-        "final_production_signoff": payload.get("final_production_signoff"),
-    }
+        return fields
+    return {field: payload.get(field) for field in fields}
 
 
 def package_input_files(package_dir: Path, trial_json: Path | None = None) -> dict[str, dict[str, Any]]:
@@ -204,7 +200,14 @@ def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) 
                     elif not Path(value).is_absolute():
                         failures.append(f"input_files.package_readiness.{field} must be an absolute path")
         if name == "package_artifact_manifest" and isinstance(summary, dict):
-            for field in ["claim_status", "evidence_scope", "final_production_signoff"]:
+            for field in [
+                "claim_status",
+                "evidence_scope",
+                "final_production_signoff",
+                "trial_claim_status",
+                "trial_evidence_scope",
+                "trial_final_production_signoff",
+            ]:
                 if field not in summary:
                     failures.append(f"input_files.package_artifact_manifest.{field} must be present")
             if status == "PASS":
@@ -219,6 +222,19 @@ def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) 
                 if summary.get("final_production_signoff") is not False:
                     failures.append(
                         "input_files.package_artifact_manifest.final_production_signoff must be false"
+                    )
+                if summary.get("trial_claim_status") != CLAIM_STATUS:
+                    failures.append(
+                        f"input_files.package_artifact_manifest.trial_claim_status={summary.get('trial_claim_status')}"
+                    )
+                if summary.get("trial_evidence_scope") != SOURCE_TRIAL_EVIDENCE_SCOPE:
+                    failures.append(
+                        "input_files.package_artifact_manifest.trial_evidence_scope="
+                        f"{summary.get('trial_evidence_scope')}"
+                    )
+                if summary.get("trial_final_production_signoff") is not FINAL_PRODUCTION_SIGNOFF:
+                    failures.append(
+                        "input_files.package_artifact_manifest.trial_final_production_signoff must be false"
                     )
         if name == "source_trial_json" and isinstance(summary, dict):
             for field in ["claim_status", "evidence_scope", "final_production_signoff"]:
@@ -298,6 +314,9 @@ def recomputed_input_file_issues(recorded: dict[str, Any], package_dir: Path, tr
             "claim_status",
             "evidence_scope",
             "final_production_signoff",
+            "trial_claim_status",
+            "trial_evidence_scope",
+            "trial_final_production_signoff",
         ]:
             if recorded_summary.get(field) != current_summary.get(field):
                 failures.append(f"input_files.{name}.{field} changed after recomputing evidence package validation")
