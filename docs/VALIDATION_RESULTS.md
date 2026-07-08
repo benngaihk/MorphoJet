@@ -2,6 +2,39 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `65ed574`
+
+This snapshot records the clean `main` verification for carrying package README readiness-scope evidence into local external L4 preflight reports. `benchmark/run_production_gate.py --local-evidence-preflight-only` now records package `README.md` and `README.zh-CN.md` as required input artifacts, preserves their package claim-scope fields plus README-rendered readiness READY/non-final scope fields in JSON, renders those readiness values in the Markdown input-artifact table, binds both README paths to `external_evidence_package_dir`, and recomputes the README scope summaries during `--verify-local-evidence-preflight-files`.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `65ed574`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-65ed574.json --out-md /tmp/morphojet-l3-release-report-main-65ed574.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-65ed574.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Production wrapper tests | PASS, 82 tests |
+| Full Python unit test suite | PASS, 474 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Local Preflight English README Artifact Binding | PASS |
+| Local Preflight Chinese README Artifact Binding | PASS |
+| Local Preflight README Scope Recompute | PASS |
+| Root English README Local-Preflight Guidance | PASS |
+| Root Chinese README Local-Preflight Guidance | PASS |
+| Production Readiness Local-Preflight Guidance | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `e457e74`
 
 This snapshot records the clean `main` verification for making saved external L4 evidence-package verifier reports expose the package README readiness boundary as machine-readable evidence. `benchmark/verify_external_evidence_package.py` now copies README-rendered package claim-scope fields and readiness READY/non-final scope fields from both `README.md` and `README.zh-CN.md` into `input_files.package_readme` and `input_files.package_readme_zh`, validates those summaries for saved PASS reports, binds them back to the package READMEs, package artifact manifest, and copied `readiness.json`, and recomputes them during `--verify-report-files`.
