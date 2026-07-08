@@ -79,6 +79,9 @@ class PackageExternalTrialTest(unittest.TestCase):
             self.assertEqual("NOT_PRODUCTION_CLAIM", manifest["claim_status"])
             self.assertEqual("EXTERNAL_L4_EVIDENCE_PACKAGE", manifest["evidence_scope"])
             self.assertFalse(manifest["final_production_signoff"])
+            self.assertEqual("NOT_PRODUCTION_CLAIM", manifest["trial_claim_status"])
+            self.assertEqual("EXTERNAL_L4_WORKFLOW_TRIAL", manifest["trial_evidence_scope"])
+            self.assertFalse(manifest["trial_final_production_signoff"])
             self.assertEqual(
                 json.loads(trial_json.read_text(encoding="utf-8"))["readiness_report"],
                 manifest["readiness_report"],
@@ -233,6 +236,9 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual("Validate external L4 evidence package", payload["gate"]["name"])
         self.assertIn("External L4 evidence package PASS", payload["gate"]["detail"])
         self.assertEqual(expected_trial_sha, payload["input_files"]["source_trial_json"]["sha256"])
+        self.assertEqual("NOT_PRODUCTION_CLAIM", payload["input_files"]["source_trial_json"]["claim_status"])
+        self.assertEqual("EXTERNAL_L4_WORKFLOW_TRIAL", payload["input_files"]["source_trial_json"]["evidence_scope"])
+        self.assertFalse(payload["input_files"]["source_trial_json"]["final_production_signoff"])
         self.assertEqual(expected_zip_sha, payload["input_files"]["package_zip"]["sha256"])
         self.assertEqual(expected_manifest_sha, payload["input_files"]["package_artifact_manifest"]["sha256"])
         self.assertEqual(
@@ -895,6 +901,43 @@ class PackageExternalTrialTest(unittest.TestCase):
             stderr.getvalue(),
         )
 
+    def test_saved_package_verification_report_rejects_source_trial_claim_scope_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+            trial = json.loads(trial_json.read_text(encoding="utf-8"))
+            trial["claim_status"] = "FINAL_PRODUCTION_CLAIM"
+            trial["evidence_scope"] = "FINAL_PRODUCTION_RELEASE_GATE"
+            trial["final_production_signoff"] = True
+            trial_json.write_text(json.dumps(trial, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(
+                    json_out,
+                    verify_files=True,
+                )
+
+        self.assertEqual(1, code)
+        self.assertIn("input_files.source_trial_json.claim_status must match source trial report", stderr.getvalue())
+        self.assertIn("input_files.source_trial_json.evidence_scope must match source trial report", stderr.getvalue())
+        self.assertIn(
+            "input_files.source_trial_json.final_production_signoff must match source trial report",
+            stderr.getvalue(),
+        )
+
     def test_saved_package_verification_report_rejects_unbound_package_summary_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1005,6 +1048,40 @@ class PackageExternalTrialTest(unittest.TestCase):
 
         self.assertEqual(1, code)
         self.assertIn("input_files.source_trial_json.path must match report inputs", stderr.getvalue())
+
+    def test_saved_package_verification_report_rejects_unbound_source_trial_claim_scope_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["input_files"]["source_trial_json"]["claim_status"] = "FINAL_PRODUCTION_CLAIM"
+            payload["input_files"]["source_trial_json"]["evidence_scope"] = "FINAL_PRODUCTION_RELEASE_GATE"
+            payload["input_files"]["source_trial_json"]["final_production_signoff"] = True
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn("input_files.source_trial_json.claim_status=FINAL_PRODUCTION_CLAIM", stderr.getvalue())
+        self.assertIn(
+            "input_files.source_trial_json.evidence_scope=FINAL_PRODUCTION_RELEASE_GATE",
+            stderr.getvalue(),
+        )
+        self.assertIn("input_files.source_trial_json.final_production_signoff must be false", stderr.getvalue())
 
     def test_saved_package_verification_report_rejects_unexpected_input_file_entry(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1388,6 +1465,38 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertIn("package artifact_manifest.claim_status=PASS", gate.detail)
         self.assertIn("package artifact_manifest.evidence_scope=FINAL_PRODUCTION_CLAIM", gate.detail)
         self.assertIn("package artifact_manifest.final_production_signoff must be false", gate.detail)
+
+    def test_release_gate_rejects_package_manifest_trial_claim_scope_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+            manifest_path = package_dir / "artifact_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["trial_claim_status"] = "FINAL_PRODUCTION_CLAIM"
+            manifest["trial_evidence_scope"] = "FINAL_PRODUCTION_RELEASE_GATE"
+            manifest["trial_final_production_signoff"] = True
+            manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            zip_path = Path(result["zip"])
+            package_external_trial.zip_directory(package_dir, zip_path)
+            Path(result["sha256"]).write_text(
+                f"{release_gate.sha256_file(zip_path)}  external-l4-demo.zip\n",
+                encoding="utf-8",
+            )
+
+            gate = release_gate.validate_external_evidence_package(package_dir, trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("package artifact_manifest.trial_claim_status=FINAL_PRODUCTION_CLAIM", gate.detail)
+        self.assertIn("package artifact_manifest.trial_evidence_scope=FINAL_PRODUCTION_RELEASE_GATE", gate.detail)
+        self.assertIn("package artifact_manifest.trial_final_production_signoff must be false", gate.detail)
+        self.assertIn("package artifact_manifest.trial_claim_status must match trial claim_status", gate.detail)
 
     def test_release_gate_rejects_tampered_review_file_digest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

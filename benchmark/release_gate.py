@@ -1434,6 +1434,24 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
             failures.append("package artifact_manifest.trial_id must match trial_id")
         if artifact_manifest.get("readiness_report") != trial.get("readiness_report"):
             failures.append("package artifact_manifest.readiness_report must match trial readiness_report")
+        if artifact_manifest.get("trial_claim_status") != NON_FINAL_CLAIM_STATUS:
+            failures.append(
+                f"package artifact_manifest.trial_claim_status={artifact_manifest.get('trial_claim_status')}"
+            )
+        if artifact_manifest.get("trial_evidence_scope") != EXTERNAL_TRIAL_EVIDENCE_SCOPE:
+            failures.append(
+                f"package artifact_manifest.trial_evidence_scope={artifact_manifest.get('trial_evidence_scope')}"
+            )
+        if artifact_manifest.get("trial_final_production_signoff") is not False:
+            failures.append("package artifact_manifest.trial_final_production_signoff must be false")
+        if artifact_manifest.get("trial_claim_status") != trial.get("claim_status"):
+            failures.append("package artifact_manifest.trial_claim_status must match trial claim_status")
+        if artifact_manifest.get("trial_evidence_scope") != trial.get("evidence_scope"):
+            failures.append("package artifact_manifest.trial_evidence_scope must match trial evidence_scope")
+        if artifact_manifest.get("trial_final_production_signoff") != trial.get("final_production_signoff"):
+            failures.append(
+                "package artifact_manifest.trial_final_production_signoff must match trial final_production_signoff"
+            )
         validation_detail = artifact_manifest.get("validation_detail")
         if not isinstance(validation_detail, str) or not validation_detail.strip():
             failures.append("package artifact_manifest.validation_detail must be a non-empty string")

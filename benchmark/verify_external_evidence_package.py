@@ -20,6 +20,7 @@ SHA256_RE = re.compile(r"[0-9a-f]{64}")
 CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
 EVIDENCE_SCOPE = "EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW"
 FINAL_PRODUCTION_SIGNOFF = False
+SOURCE_TRIAL_EVIDENCE_SCOPE = "EXTERNAL_L4_WORKFLOW_TRIAL"
 PACKAGE_REVIEW_FILES = {
     "package_handoff_trial": "handoff_trial.json",
     "package_readiness": "readiness.json",
@@ -67,6 +68,24 @@ def file_summary(path: Path) -> dict[str, Any]:
     return summary
 
 
+def trial_report_summary(path: Path) -> dict[str, Any]:
+    summary = file_summary(path)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 - missing/malformed source files are reported elsewhere.
+        payload = None
+    if not isinstance(payload, dict):
+        payload = {}
+    summary.update(
+        {
+            "claim_status": payload.get("claim_status"),
+            "evidence_scope": payload.get("evidence_scope"),
+            "final_production_signoff": payload.get("final_production_signoff"),
+        }
+    )
+    return summary
+
+
 def readiness_package_name(path: Path) -> str | None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -109,7 +128,7 @@ def package_input_files(package_dir: Path, trial_json: Path | None = None) -> di
     files["package_zip"] = file_summary(package_dir.parent / f"{package_dir.name}.zip")
     files["package_zip_sha256"] = file_summary(package_dir.parent / f"{package_dir.name}.zip.sha256")
     if trial_json is not None:
-        files["source_trial_json"] = file_summary(trial_json)
+        files["source_trial_json"] = trial_report_summary(trial_json)
     return files
 
 
@@ -186,6 +205,19 @@ def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) 
                     failures.append(
                         "input_files.package_artifact_manifest.final_production_signoff must be false"
                     )
+        if name == "source_trial_json" and isinstance(summary, dict):
+            for field in ["claim_status", "evidence_scope", "final_production_signoff"]:
+                if field not in summary:
+                    failures.append(f"input_files.source_trial_json.{field} must be present")
+            if status == "PASS":
+                if summary.get("claim_status") != CLAIM_STATUS:
+                    failures.append(f"input_files.source_trial_json.claim_status={summary.get('claim_status')}")
+                if summary.get("evidence_scope") != SOURCE_TRIAL_EVIDENCE_SCOPE:
+                    failures.append(
+                        f"input_files.source_trial_json.evidence_scope={summary.get('evidence_scope')}"
+                    )
+                if summary.get("final_production_signoff") is not FINAL_PRODUCTION_SIGNOFF:
+                    failures.append("input_files.source_trial_json.final_production_signoff must be false")
     return failures
 
 
@@ -213,6 +245,21 @@ def input_file_path_binding_issues(
         expected_package_name = readiness_package_name(root / "readiness.json")
         if readiness_summary.get("package_name") != expected_package_name:
             failures.append("input_files.package_readiness.package_name must match package readiness report")
+    source_trial_summary = input_files.get("source_trial_json")
+    if isinstance(source_trial_summary, dict) and trial_json is not None:
+        try:
+            source_trial_payload = json.loads(Path(trial_json).read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001 - malformed files are covered by gate/file checks.
+            source_trial_payload = None
+        if isinstance(source_trial_payload, dict):
+            expected_fields = {
+                "claim_status": "claim_status",
+                "evidence_scope": "evidence_scope",
+                "final_production_signoff": "final_production_signoff",
+            }
+            for summary_key, payload_key in expected_fields.items():
+                if source_trial_summary.get(summary_key) != source_trial_payload.get(payload_key):
+                    failures.append(f"input_files.source_trial_json.{summary_key} must match source trial report")
     return failures
 
 
