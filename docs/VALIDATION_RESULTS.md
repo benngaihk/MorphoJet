@@ -19,6 +19,18 @@ Verification:
 | `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --run-l3 --github-workflow-verification-report /tmp/morphojet-github-workflows-894de87.json --out-json /tmp/morphojet-894de87-refreshed-l3-release-gate.json --out-md /tmp/morphojet-894de87-refreshed-l3-release-gate.md` | PASS |
 | `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-894de87-refreshed-l3-release-gate.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report` | PASS; remaining blockers are the real external L4 trial, external L4 package, saved external reviewer reports, stable GitHub release, and saved stable-release verifier report |
 
+## Current Main External L4 Workspace Plan Snapshot
+
+This snapshot records the current external L4 handoff workspace generated from commit `b1d86a916545d72ee6582c3bd7d2e239c3967fc5`.
+
+The generated plan remains non-final evidence with `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_TRIAL_PLAN`, and `final_production_signoff=false`. It preserves the template manifest, English and Chinese workspace READMEs, readiness check, trial run, saved trial reviewer report, evidence package, saved package reviewer report, local evidence preflight, stable release verification, saved workflow verification, production evidence audit, final production wrapper, and final saved-report verification commands. It also records that real external evidence is still pending and that placeholder external evidence must be replaced before a trial can count.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 benchmark/prepare_external_l4_trial.py --workspace /tmp/morphojet-b1d86a9-external-l4-workspace --overwrite --verify-plan-files --require-plan-files` | PASS; generated and rechecked the external L4 trial plan, bilingual README files, command bindings, final blockers, and required external-evidence contract |
+
 ## Final GitHub Actions Workflow Report Gate Snapshot
 
 This snapshot records local verification for making the final production-claim gate require a saved GitHub Actions workflow verifier report. Final `benchmark/release_gate.py --require-production-claim` runs now require `--github-workflow-verification-report`, and `benchmark/run_production_gate.py` passes that report through to the final release-gate JSON/Markdown so the saved production report records the remote CI evidence. The saved workflow report is rechecked against `benngaihk/MorphoJet`, branch `main`, the current git commit, `ci.yml`, and `external-l4-rehearsal.yml`.
