@@ -2,6 +2,40 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `9739bbf`
+
+This snapshot records the clean `main` verification for making external L4 readiness binding independently reviewable after trial execution. `benchmark/release_gate.py` now rejects external trial reports whose readiness summary `manifest` does not match the trial manifest, resolving relative manifests through `variables.base_dir`, or whose readiness `workspace` does not match the trial workspace. `benchmark/verify_external_trial_report.py` now records and validates the bound readiness report's workspace, manifest, package-name, size, and SHA-256 in saved reviewer reports so reviewer JSON cannot silently describe a different readiness context than the source trial.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `9739bbf`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-9739bbf.json --out-md /tmp/morphojet-l3-release-report-main-9739bbf.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-9739bbf.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Release-gate helper tests | PASS, 71 tests |
+| External trial verifier tests | PASS, 32 tests |
+| Full Python unit test suite | PASS, 453 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Release-Gate Readiness Manifest Binding | PASS |
+| Release-Gate Readiness Workspace Binding | PASS |
+| Saved Reviewer Readiness Manifest Binding | PASS |
+| Saved Reviewer Readiness Workspace Binding | PASS |
+| English README Reviewer Binding Coverage | PASS |
+| Chinese README Reviewer Binding Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `d00ee79`
 
 This snapshot records the clean `main` verification for binding external L4 handoff execution to the same saved READY readiness report workspace. `benchmark/run_handoff_trial.py` now re-verifies a supplied readiness report and fails before any trial step if the report's `manifest` does not match the current trial manifest or its `workspace` does not match the current `base_dir`/manifest directory. English and Chinese README coverage, generated external workspace README coverage, and production-readiness docs now describe that fail-fast binding.
