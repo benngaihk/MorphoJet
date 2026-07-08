@@ -2646,6 +2646,78 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(0, status)
         self.assertIn("verified_gates=True", stdout.getvalue())
 
+    def test_verify_local_evidence_preflight_report_accepts_resolved_path_alias_gates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            physical_root = root / "physical"
+            alias_root = root / "alias"
+            physical_root.mkdir()
+            try:
+                alias_root.symlink_to(physical_root, target_is_directory=True)
+            except (OSError, NotImplementedError) as exc:
+                raise unittest.SkipTest(f"directory symlinks are unavailable: {exc}") from exc
+
+            trial_json = self.write_valid_trial(physical_root)
+            package = package_external_trial.create_package(
+                trial_json,
+                physical_root,
+                physical_root / "package-out",
+                package_name="external-l4-demo",
+            )
+            trial_report = physical_root / "external-trial-verification.json"
+            package_report = physical_root / "external-package-verification.json"
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    physical_root,
+                    json_out=trial_report,
+                )
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(package["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=package_report,
+                )
+
+            alias_trial_json = alias_root / "external" / "handoff_trial.json"
+            alias_package_dir = alias_root / "package-out" / Path(package["package_dir"]).name
+            out_json = alias_root / "reports" / "preflight.json"
+            args = self.parse(
+                "--external-trial-json",
+                str(alias_trial_json),
+                "--external-trial-root",
+                str(alias_root),
+                "--external-evidence-package-dir",
+                str(alias_package_dir),
+                "--external-trial-verification-report",
+                str(alias_root / trial_report.name),
+                "--external-evidence-package-verification-report",
+                str(alias_root / package_report.name),
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(alias_root / "reports" / "preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                run_production_gate.run_local_evidence_preflight(args)
+
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            self.assertIn(str(alias_root), json.dumps(payload["gates"]))
+            self.assertNotIn(str(alias_root), json.dumps(payload["metadata"]))
+
+            with contextlib.redirect_stdout(io.StringIO()) as stdout:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                        "--verify-local-evidence-preflight-files",
+                        "--verify-local-evidence-preflight-gates",
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertIn("verified_gates=True", stdout.getvalue())
+
     def test_verify_local_evidence_preflight_report_rejects_gate_detail_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

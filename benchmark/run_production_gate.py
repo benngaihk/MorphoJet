@@ -150,6 +150,54 @@ def absolute_path_text(path: Path) -> str:
     return normalized_path_key(path)
 
 
+ABSOLUTE_PATH_TEXT_RE = re.compile(r"(?<![:/])/(?!/)[^\s`'\"<>{}\[\],;)]*")
+
+
+def gate_comparison_path_aliases(*values: object) -> dict[str, str]:
+    """Return replacements for absolute paths that resolve to the same location."""
+    candidates: set[str] = set()
+
+    def collect(value: object) -> None:
+        if isinstance(value, str):
+            if value.startswith("/"):
+                candidates.add(value)
+            candidates.update(match.group(0) for match in ABSOLUTE_PATH_TEXT_RE.finditer(value))
+        elif isinstance(value, dict):
+            for child in value.values():
+                collect(child)
+        elif isinstance(value, (list, tuple)):
+            for child in value:
+                collect(child)
+
+    for value in values:
+        collect(value)
+
+    aliases: dict[str, str] = {}
+    for candidate in candidates:
+        try:
+            resolved = normalized_path_key(Path(candidate))
+        except (OSError, RuntimeError, ValueError):
+            continue
+        if candidate == resolved:
+            continue
+        token = f"<PATH:{resolved}>"
+        aliases[candidate] = token
+        aliases[resolved] = token
+    return aliases
+
+
+def normalize_gate_comparison_value(value: object, aliases: dict[str, str]) -> object:
+    if isinstance(value, str):
+        return ABSOLUTE_PATH_TEXT_RE.sub(lambda match: aliases.get(match.group(0), match.group(0)), value)
+    if isinstance(value, list):
+        return [normalize_gate_comparison_value(item, aliases) for item in value]
+    if isinstance(value, tuple):
+        return tuple(normalize_gate_comparison_value(item, aliases) for item in value)
+    if isinstance(value, dict):
+        return {key: normalize_gate_comparison_value(child, aliases) for key, child in value.items()}
+    return value
+
+
 def path_matches_or_is_inside(root: Path, path: Path) -> bool:
     normalized_root = root.expanduser().resolve(strict=False)
     normalized_path = path.expanduser().resolve(strict=False)
@@ -1527,6 +1575,11 @@ def validate_local_evidence_preflight_gates(payload: dict) -> list[str]:
     recorded_gates = payload.get("gates")
     if not isinstance(recorded_gates, list):
         return ["gates must be a list before gate recheck"]
+    comparison_aliases = gate_comparison_path_aliases(
+        metadata,
+        recorded_gates,
+        [asdict(gate) for gate in recomputed_gates],
+    )
     if len(recorded_gates) != len(recomputed_gates):
         failures.append(f"gate count changed: {len(recorded_gates)} != {len(recomputed_gates)}")
     for index, recomputed in enumerate(recomputed_gates):
@@ -1542,9 +1595,15 @@ def validate_local_evidence_preflight_gates(payload: dict) -> list[str]:
             failures.append(
                 f"gate.status changed for {recomputed.name}: {recorded.get('status')} != {recomputed.status}"
             )
-        if recorded.get("detail") != recomputed.detail:
+        if normalize_gate_comparison_value(recorded.get("detail"), comparison_aliases) != normalize_gate_comparison_value(
+            recomputed.detail,
+            comparison_aliases,
+        ):
             failures.append(f"gate.detail changed for {recomputed.name}")
-        if recorded.get("command") != recomputed.command:
+        if normalize_gate_comparison_value(recorded.get("command"), comparison_aliases) != normalize_gate_comparison_value(
+            recomputed.command,
+            comparison_aliases,
+        ):
             failures.append(f"gate.command changed for {recomputed.name}")
     return failures
 
