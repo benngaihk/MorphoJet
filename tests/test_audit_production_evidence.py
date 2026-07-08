@@ -179,6 +179,51 @@ class AuditProductionEvidenceTest(unittest.TestCase):
             failures,
         )
 
+    def test_file_recheck_rejects_final_wrapper_command_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = root / "production-evidence-audit.json"
+            args = audit_production_evidence.parse_args(
+                [
+                    "--external-trial-json",
+                    str(root / "external" / "handoff_trial.json"),
+                    "--external-trial-root",
+                    str(root / "external"),
+                    "--external-evidence-package-dir",
+                    str(root / "evidence" / "external-l4-trial"),
+                    "--external-trial-verification-report",
+                    str(root / "reports" / "trial-review.json"),
+                    "--external-evidence-package-verification-report",
+                    str(root / "reports" / "package-review.json"),
+                    "--github-release-verification-report",
+                    str(root / "reports" / "github-release.json"),
+                    "--github-workflow-verification-report",
+                    str(root / "reports" / "github-workflows.json"),
+                    "--out-json",
+                    str(report),
+                    "--out-md",
+                    str(root / "production-evidence-audit.md"),
+                ]
+            )
+
+            with (
+                self.patch_repo_state()[0],
+                self.patch_repo_state()[1],
+                self.patch_repo_state()[2],
+                self.patch_repo_state()[3],
+            ):
+                payload = audit_production_evidence.build_payload(args)
+                payload["metadata"]["final_wrapper_command"][
+                    payload["metadata"]["final_wrapper_command"].index("--external-trial-json") + 1
+                ] = str(root / "other" / "handoff_trial.json")
+                failures = audit_production_evidence.validate_payload(
+                    payload,
+                    verify_files=True,
+                    report_path=report,
+                )
+
+        self.assertIn("metadata.final_wrapper_command changed after recomputing audit evidence", failures)
+
     def test_saved_report_verifier_rejects_final_signoff_claim(self) -> None:
         payload = {
             "schema_version": 1,

@@ -514,6 +514,19 @@ def compare_recomputed_payload(payload: dict[str, Any], recomputed: dict[str, An
     for key in ["status", "production_claim_status", "missing_or_failed_checks", "failed_checks"]:
         if payload.get(key) != recomputed.get(key):
             failures.append(f"{key} changed after recomputing audit evidence")
+    metadata = payload.get("metadata")
+    recomputed_metadata = recomputed.get("metadata")
+    if isinstance(metadata, dict) and isinstance(recomputed_metadata, dict):
+        for key in [
+            "github_release_tag",
+            "verify_live_github_release",
+            "inputs",
+            "final_wrapper_command",
+        ]:
+            if metadata.get(key) != recomputed_metadata.get(key):
+                failures.append(f"metadata.{key} changed after recomputing audit evidence")
+    else:
+        failures.append("metadata must be objects before recomputing audit evidence")
     saved_checks = payload.get("checks")
     recomputed_checks = recomputed.get("checks")
     if isinstance(saved_checks, list) and isinstance(recomputed_checks, list):
