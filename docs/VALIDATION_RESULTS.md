@@ -2,6 +2,36 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `ba16c67`
+
+This snapshot records the clean `main` verification for the code commit that updates generated external L4 trial workspaces. `benchmark/prepare_external_l4_trial.py` now writes both English and Chinese workspace READMEs that state saved local preflight reports are non-final evidence with `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`. The generated READMEs also tell reviewers that `verify_local_evidence_preflight` rehashes source/package trial files, package `artifact_manifest.json`, package `readiness.json`, zip/checksum files, reviewer reports, source/package trial claim-scope labels, package-manifest package/source-trial scope labels, and readiness `package_name` before accepting PASS; `--verify-plan-files` keeps those bilingual reviewer instructions fixed to the saved plan.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `ba16c67`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-ba16c67.json --out-md /tmp/morphojet-l3-release-report-main-ba16c67.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-ba16c67.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| External trial workspace preparation tests | PASS, 20 tests |
+| Full Python unit test suite | PASS, 434 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Generated English Workspace README Local Preflight Scope Coverage | PASS |
+| Generated Chinese Workspace README Local Preflight Scope Coverage | PASS |
+| Saved Plan README File Recheck Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `5a514f0`
 
 This snapshot records the clean `main` verification for the code commit that binds local evidence preflight reports to the source trial, packaged trial, and package artifact-manifest claim-scope labels. `benchmark/run_production_gate.py` now writes `package_artifact_manifest_json` into local preflight `input_artifacts`, copies non-final claim-scope fields from the source and packaged trial reports, copies package-level and source-trial scope fields from `artifact_manifest.json`, rejects saved preflight reports whose copied fields are tampered, and recomputes those fields during `--verify-local-evidence-preflight-files`. English and Chinese README guidance now describe the local preflight scope and saved verifier behavior for reviewers.
