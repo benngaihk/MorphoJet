@@ -12,6 +12,9 @@ from typing import Any
 from run_handoff_trial import parse_vars, render
 
 
+MIN_EXTERNAL_ACCEPTANCE_CRITERIA = 3
+
+
 def is_utc_datetime(value: datetime) -> bool:
     return value.utcoffset() == timezone.utc.utcoffset(value)
 
@@ -115,6 +118,10 @@ def validate_external_evidence(evidence: Any, issues: list[str], allow_placehold
         or not all(isinstance(item, str) and item.strip() for item in criteria)
     ):
         issues.append(f"{prefix}.acceptance_criteria must be a non-empty string list")
+    elif len(criteria) < MIN_EXTERNAL_ACCEPTANCE_CRITERIA:
+        issues.append(
+            f"{prefix}.acceptance_criteria must contain at least {MIN_EXTERNAL_ACCEPTANCE_CRITERIA} items"
+        )
     elif not allow_placeholders:
         for index, criterion in enumerate(criteria):
             if has_placeholder(criterion):

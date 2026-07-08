@@ -38,7 +38,9 @@ def valid_external_trial() -> dict:
         "signoff_statement": "Reviewed against the lab workflow acceptance criteria.",
         "manual_csv_editing": False,
         "acceptance_criteria": [
-            "Existing downstream workflow consumes MorphoJet output without manual CSV edits."
+            "Existing downstream workflow consumes MorphoJet output without manual CSV edits.",
+            "Supported CellProfiler-style columns match the expected external workflow CSV.",
+            "Downstream contract checks pass with the real batch rows and required metadata.",
         ],
     }
     manifest = {
@@ -2055,6 +2057,18 @@ class ReleaseGateTest(unittest.TestCase):
 
         self.assertIn(
             "external_evidence.acceptance_criteria[0] must replace template placeholder text",
+            release_gate.external_trial_failures(trial),
+        )
+
+    def test_external_trial_requires_three_acceptance_criteria(self) -> None:
+        trial = copy.deepcopy(valid_external_trial())
+        trial["external_evidence"]["acceptance_criteria"] = [
+            "The existing workflow consumed the generated CSV without manual edits.",
+            "The downstream contract check passed.",
+        ]
+
+        self.assertIn(
+            "external_evidence.acceptance_criteria must contain at least 3 items",
             release_gate.external_trial_failures(trial),
         )
 

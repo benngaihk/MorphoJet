@@ -229,7 +229,7 @@ python3 benchmark/check_external_l4_readiness.py \
   --json-out path/to/external-trial/readiness.json
 ```
 
-真实 L4 run 必须填完整 `external_evidence`，包括非占位 acceptance criteria、reviewer 身份或角色、UTC review 时间和 signoff statement，并使用 `--require-external-evidence`：
+真实 L4 run 必须填完整 `external_evidence`，包括至少 3 条非占位 acceptance criteria、reviewer 身份或角色、UTC review 时间和 signoff statement，并使用 `--require-external-evidence`：
 
 ```bash
 python3 benchmark/run_handoff_trial.py path/to/external-trial/external_lab_template.json \

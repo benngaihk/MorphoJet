@@ -2,6 +2,22 @@
 
 Updated: 2026-07-09
 
+## External Acceptance Criteria Enforcement Snapshot
+
+This snapshot records the hardening that makes the external L4 signoff contract enforce at least three non-placeholder acceptance criteria at runtime, not only in the generated trial plan. `benchmark/validate_handoff_manifest.py` now rejects external-evidence manifests with fewer than three acceptance criteria before readiness can become `READY`, and `benchmark/release_gate.py` now rejects saved external workflow trial reports whose `external_evidence.acceptance_criteria` list is shorter than that same threshold. This prevents a weak one-line reviewer signoff from satisfying the real external L4 trial gate or the saved trial-reviewer path.
+
+This is not a production claim. It tightens the future external L4 evidence contract; the real external L4 workflow trial, matching evidence package, saved external reviewer reports, live stable GitHub release, and saved stable-release verifier report are still required before final production signoff.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/validate_handoff_manifest.py benchmark/release_gate.py tests/test_release_gate.py tests/test_check_external_l4_readiness.py` | PASS |
+| `python3 -m unittest discover -s tests -p 'test_release_gate.py'` | PASS, 99 tests |
+| `python3 -m unittest discover -s tests -p 'test_check_external_l4_readiness.py'` | PASS, 29 tests |
+| `python3 -m unittest discover -s tests -p 'test_verify_external_trial_report.py'` | PASS, 37 tests |
+| `python3 benchmark/validate_handoff_manifest.py benchmark/handoff/external_lab_template.json --var base_dir=/tmp/morphojet-template --require-downstream-check --require-external-evidence --allow-external-evidence-placeholders` | PASS |
+
 ## Internal Rehearsal Saved Summary Verification Snapshot
 
 This snapshot records the hardening that makes internal external-L4 rehearsal summaries re-verifiable after they are saved. `benchmark/run_external_l4_rehearsal.py --verify-report` now checks the saved summary schema, non-final claim labels, clean git metadata, expected command sequence, skipped final commands, and PASS status. With `--verify-report-files`, it re-hashes the copied MorphoJet/CellProfiler inputs, generated trial plan, readiness report, trial report, saved trial/package reviewer reports, local-preflight report, package artifact manifest, and bilingual package READMEs, then checks that the saved local-preflight status and check lists still match the referenced report. `--require-report-pass` is fail-closed and requires `--verify-report-files`.

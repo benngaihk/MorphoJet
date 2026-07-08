@@ -36,7 +36,9 @@ def valid_manifest() -> dict:
             "signoff_statement": "Reviewed against the lab workflow acceptance criteria.",
             "manual_csv_editing": False,
             "acceptance_criteria": [
-                "Existing downstream workflow consumes MorphoJet output without manual CSV edits."
+                "Existing downstream workflow consumes MorphoJet output without manual CSV edits.",
+                "Supported CellProfiler-style columns match the expected external workflow CSV.",
+                "Downstream contract checks pass with the real batch rows and required metadata.",
             ],
         },
         "exports": [
@@ -302,7 +304,11 @@ class HandoffManifestValidationTest(unittest.TestCase):
 
     def test_acceptance_criteria_placeholders_are_rejected_for_real_trials(self) -> None:
         manifest = copy.deepcopy(valid_manifest())
-        manifest["external_evidence"]["acceptance_criteria"] = ["REPLACE_WITH_ACCEPTANCE_CRITERION"]
+        manifest["external_evidence"]["acceptance_criteria"] = [
+            "REPLACE_WITH_ACCEPTANCE_CRITERION",
+            "Supported CellProfiler-style columns match the expected external workflow CSV.",
+            "Downstream contract checks pass with the real batch rows and required metadata.",
+        ]
 
         issues = validate_handoff_manifest.validate_schema(
             manifest,
@@ -312,6 +318,24 @@ class HandoffManifestValidationTest(unittest.TestCase):
 
         self.assertIn(
             "external_evidence.acceptance_criteria[0] must replace template placeholder text",
+            issues,
+        )
+
+    def test_acceptance_criteria_requires_three_items_for_real_trials(self) -> None:
+        manifest = copy.deepcopy(valid_manifest())
+        manifest["external_evidence"]["acceptance_criteria"] = [
+            "Existing downstream workflow consumes MorphoJet output without manual CSV edits.",
+            "Downstream contract checks pass with the real batch rows and required metadata.",
+        ]
+
+        issues = validate_handoff_manifest.validate_schema(
+            manifest,
+            require_downstream_check=True,
+            require_external_evidence=True,
+        )
+
+        self.assertIn(
+            "external_evidence.acceptance_criteria must contain at least 3 items",
             issues,
         )
 
@@ -358,7 +382,11 @@ class HandoffManifestValidationTest(unittest.TestCase):
     def test_external_evidence_placeholders_are_allowed_for_template_validation(self) -> None:
         manifest = copy.deepcopy(valid_manifest())
         manifest["external_evidence"]["dataset_source"] = "REPLACE_WITH_SOURCE"
-        manifest["external_evidence"]["acceptance_criteria"] = ["REPLACE_WITH_ACCEPTANCE_CRITERION"]
+        manifest["external_evidence"]["acceptance_criteria"] = [
+            "REPLACE_WITH_ACCEPTANCE_CRITERION_1",
+            "REPLACE_WITH_ACCEPTANCE_CRITERION_2",
+            "REPLACE_WITH_ACCEPTANCE_CRITERION_3",
+        ]
         manifest["external_evidence"]["reviewed_at_utc"] = "REPLACE_WITH_REVIEWED_AT"
 
         issues = validate_handoff_manifest.validate_schema(

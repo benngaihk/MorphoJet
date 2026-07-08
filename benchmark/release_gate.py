@@ -40,6 +40,7 @@ GITHUB_STABLE_RELEASE_EVIDENCE_SCOPE = "GITHUB_STABLE_RELEASE_VERIFICATION"
 GITHUB_ACTIONS_WORKFLOW_EVIDENCE_SCOPE = "GITHUB_ACTIONS_WORKFLOW_VERIFICATION"
 GITHUB_ACTIONS_WORKFLOW_BRANCH = "main"
 GITHUB_ACTIONS_REQUIRED_WORKFLOWS = ["ci.yml", "external-l4-rehearsal.yml"]
+MIN_EXTERNAL_ACCEPTANCE_CRITERIA = 3
 PRODUCTION_AUDIT_PASS_STATUS = "PASS"
 PRODUCTION_AUDIT_FAIL_STATUS = "FAIL"
 PRODUCTION_AUDIT_MISSING_STATUS = "MISSING"
@@ -1500,6 +1501,10 @@ def external_trial_failures(
     ):
         failures.append("external_evidence.acceptance_criteria must be a non-empty string list")
     else:
+        if len(criteria) < MIN_EXTERNAL_ACCEPTANCE_CRITERIA:
+            failures.append(
+                f"external_evidence.acceptance_criteria must contain at least {MIN_EXTERNAL_ACCEPTANCE_CRITERIA} items"
+            )
         for index, criterion in enumerate(criteria):
             if has_placeholder(criterion):
                 failures.append(
