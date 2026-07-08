@@ -30,6 +30,18 @@ FINAL_PRODUCTION_SIGNOFF = False
 STABLE_RELEASE_TAG = "v0.1.0"
 STABLE_RELEASE_REPO = "benngaihk/MorphoJet"
 STABLE_RELEASE_URL = f"https://github.com/{STABLE_RELEASE_REPO}/releases/tag/{STABLE_RELEASE_TAG}"
+EXTERNAL_EVIDENCE_REQUIRED_FIELDS = [
+    "lab_or_org",
+    "workflow_owner",
+    "dataset_name",
+    "dataset_source",
+    "downstream_workflow",
+    "execution_environment",
+    "reviewer_name_or_role",
+    "reviewed_at_utc",
+    "signoff_statement",
+]
+EXTERNAL_EVIDENCE_MIN_ACCEPTANCE_CRITERIA = 3
 
 
 class PrepareError(Exception):
@@ -89,6 +101,45 @@ def argv_values(argv: list[str], flag: str) -> list[str | None]:
         else:
             values.append(argv[index + 1])
     return values
+
+
+def external_evidence_requirements() -> dict[str, Any]:
+    return {
+        "required_fields": list(EXTERNAL_EVIDENCE_REQUIRED_FIELDS),
+        "reviewed_at_utc": "required_utc_timestamp",
+        "signoff_statement": "required_non_placeholder",
+        "manual_csv_editing": False,
+        "acceptance_criteria_min_count": EXTERNAL_EVIDENCE_MIN_ACCEPTANCE_CRITERIA,
+        "acceptance_criteria_policy": "non_empty_non_placeholder",
+        "placeholder_policy": "all_REPLACE_WITH_values_must_be_replaced_before_trial",
+        "enforced_by": ["validate_manifest", "run_trial"],
+    }
+
+
+def validate_external_evidence_requirements(payload: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    requirements = payload.get("external_evidence_requirements")
+    expected = external_evidence_requirements()
+    if requirements != expected:
+        failures.append("external_evidence_requirements changed after plan was written")
+    if not isinstance(requirements, dict):
+        return failures
+    if requirements.get("required_fields") != EXTERNAL_EVIDENCE_REQUIRED_FIELDS:
+        failures.append("external_evidence_requirements.required_fields must match the external signoff contract")
+    if requirements.get("manual_csv_editing") is not False:
+        failures.append("external_evidence_requirements.manual_csv_editing must be false")
+    if requirements.get("acceptance_criteria_min_count") != EXTERNAL_EVIDENCE_MIN_ACCEPTANCE_CRITERIA:
+        failures.append(
+            "external_evidence_requirements.acceptance_criteria_min_count must be "
+            f"{EXTERNAL_EVIDENCE_MIN_ACCEPTANCE_CRITERIA}"
+        )
+    if requirements.get("reviewed_at_utc") != "required_utc_timestamp":
+        failures.append("external_evidence_requirements.reviewed_at_utc must require a UTC timestamp")
+    if requirements.get("placeholder_policy") != "all_REPLACE_WITH_values_must_be_replaced_before_trial":
+        failures.append("external_evidence_requirements.placeholder_policy must require replacing template placeholders")
+    if requirements.get("enforced_by") != ["validate_manifest", "run_trial"]:
+        failures.append("external_evidence_requirements.enforced_by must bind validate_manifest and run_trial")
+    return failures
 
 
 def validate_final_signoff_command_bindings(payload: dict[str, Any]) -> list[str]:
@@ -575,6 +626,7 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
             failures.extend(validate_final_signoff_command_bindings(payload))
             failures.extend(validate_external_evidence_command_bindings(payload))
             failures.extend(validate_stable_release_command_bindings(payload))
+            failures.extend(validate_external_evidence_requirements(payload))
     if verify_files:
         failures.extend(validate_plan_files(payload))
     return failures
@@ -928,9 +980,30 @@ def render_readme(plan: dict[str, Any]) -> str:
         f"- `{plan['workspace']}/morphojet/Objects.csv`",
         f"- `{plan['workspace']}/cellprofiler/Cells.csv`",
         "",
-        "Run these commands from the MorphoJet repository root:",
+        "External evidence requirements recorded in `trial_plan.json`:",
         "",
+        "| Field | Requirement |",
+        "|---|---|",
     ]
+    for field in plan["external_evidence_requirements"]["required_fields"]:
+        lines.append(f"| `{field}` | required, non-placeholder value |")
+    lines.extend(
+        [
+            f"| `manual_csv_editing` | must be `{plan['external_evidence_requirements']['manual_csv_editing']}` |",
+            "| `reviewed_at_utc` | must include a UTC timezone offset |",
+            "| `acceptance_criteria` | at least "
+            f"{plan['external_evidence_requirements']['acceptance_criteria_min_count']} non-placeholder items |",
+            "",
+            "`validate_manifest` and `run_trial` both enforce these requirements with `--require-external-evidence`, and `verify_plan` rejects a saved plan whose external evidence contract has been removed or weakened.",
+            "",
+        ]
+    )
+    lines.extend(
+        [
+            "Run these commands from the MorphoJet repository root:",
+            "",
+        ]
+    )
     for name in [
         "verify_plan",
         "validate_manifest",
@@ -1027,9 +1100,30 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
         f"- `{plan['workspace']}/morphojet/Objects.csv`",
         f"- `{plan['workspace']}/cellprofiler/Cells.csv`",
         "",
-        "请在 MorphoJet 仓库根目录按顺序运行这些命令：",
+        "`trial_plan.json` 记录的外部证据要求：",
         "",
+        "| 字段 | 要求 |",
+        "|---|---|",
     ]
+    for field in plan["external_evidence_requirements"]["required_fields"]:
+        lines.append(f"| `{field}` | 必填，且不能保留 placeholder |")
+    lines.extend(
+        [
+            f"| `manual_csv_editing` | 必须是 `{plan['external_evidence_requirements']['manual_csv_editing']}` |",
+            "| `reviewed_at_utc` | 必须包含 UTC 时区偏移 |",
+            "| `acceptance_criteria` | 至少 "
+            f"{plan['external_evidence_requirements']['acceptance_criteria_min_count']} 条非 placeholder 项 |",
+            "",
+            "`validate_manifest` 和 `run_trial` 都会通过 `--require-external-evidence` 强制这些要求；如果 saved plan 里的外部证据合同被删除或改弱，`verify_plan` 会拒绝通过。",
+            "",
+        ]
+    )
+    lines.extend(
+        [
+            "请在 MorphoJet 仓库根目录按顺序运行这些命令：",
+            "",
+        ]
+    )
     for name in [
         "verify_plan",
         "validate_manifest",
@@ -1177,6 +1271,7 @@ def prepare_workspace(
         "evidence_scope": EVIDENCE_SCOPE,
         "final_production_signoff": FINAL_PRODUCTION_SIGNOFF,
         "commands": commands,
+        "external_evidence_requirements": external_evidence_requirements(),
         "pre_signoff_requirements": pre_signoff_requirements(workspace),
         "final_signoff_requirements": final_signoff_requirements(workspace, package_slug),
     }

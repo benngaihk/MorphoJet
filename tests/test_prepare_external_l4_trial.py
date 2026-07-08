@@ -193,6 +193,31 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 "verify_stable_release",
                 pre_requirement_by_name["local_evidence_preflight_report"]["required_before"],
             )
+            evidence_requirements = plan["external_evidence_requirements"]
+            self.assertEqual(
+                [
+                    "lab_or_org",
+                    "workflow_owner",
+                    "dataset_name",
+                    "dataset_source",
+                    "downstream_workflow",
+                    "execution_environment",
+                    "reviewer_name_or_role",
+                    "reviewed_at_utc",
+                    "signoff_statement",
+                ],
+                evidence_requirements["required_fields"],
+            )
+            self.assertEqual("required_utc_timestamp", evidence_requirements["reviewed_at_utc"])
+            self.assertEqual("required_non_placeholder", evidence_requirements["signoff_statement"])
+            self.assertIs(False, evidence_requirements["manual_csv_editing"])
+            self.assertEqual(3, evidence_requirements["acceptance_criteria_min_count"])
+            self.assertEqual("non_empty_non_placeholder", evidence_requirements["acceptance_criteria_policy"])
+            self.assertEqual(
+                "all_REPLACE_WITH_values_must_be_replaced_before_trial",
+                evidence_requirements["placeholder_policy"],
+            )
+            self.assertEqual(["validate_manifest", "run_trial"], evidence_requirements["enforced_by"])
             requirements = plan["final_signoff_requirements"]
             requirement_by_name = {requirement["name"]: requirement for requirement in requirements}
             self.assertEqual(
@@ -272,6 +297,15 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("stable_github_release_saved_report", readme)
             self.assertIn("final_production_gate --github-release-verification-report", readme)
             self.assertIn("final_production_gate", readme)
+            self.assertIn("External evidence requirements recorded in `trial_plan.json`", readme)
+            self.assertIn("| `reviewer_name_or_role` | required, non-placeholder value |", readme)
+            self.assertIn("| `reviewed_at_utc` | must include a UTC timezone offset |", readme)
+            self.assertIn("| `manual_csv_editing` | must be `False` |", readme)
+            self.assertIn("| `acceptance_criteria` | at least 3 non-placeholder items |", readme)
+            self.assertIn(
+                "`verify_plan` rejects a saved plan whose external evidence contract has been removed or weakened",
+                readme,
+            )
             self.assertIn(
                 "The saved package verifier report produced by `verify_package` is also not final production signoff",
                 readme,
@@ -338,6 +372,12 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("stable_github_release_saved_report", readme_zh)
             self.assertIn("final_production_gate --github-release-verification-report", readme_zh)
             self.assertIn("production_signoff", readme_zh)
+            self.assertIn("`trial_plan.json` 记录的外部证据要求", readme_zh)
+            self.assertIn("| `reviewer_name_or_role` | 必填，且不能保留 placeholder |", readme_zh)
+            self.assertIn("| `reviewed_at_utc` | 必须包含 UTC 时区偏移 |", readme_zh)
+            self.assertIn("| `manual_csv_editing` | 必须是 `False` |", readme_zh)
+            self.assertIn("| `acceptance_criteria` | 至少 3 条非 placeholder 项 |", readme_zh)
+            self.assertIn("外部证据合同被删除或改弱，`verify_plan` 会拒绝通过", readme_zh)
             self.assertIn("saved package verifier report 也不是最终生产签核", readme_zh)
             self.assertIn("evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW", readme_zh)
             self.assertIn("saved local preflight report 也不是最终生产签核", readme_zh)
@@ -795,6 +835,50 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
         )
         self.assertIn("commands.verify_stable_release_report --expect-tag must be v0.1.0", completed.stderr)
         self.assertIn("commands.final_production_gate --github-release-tag must be v0.1.0", completed.stderr)
+
+    def test_saved_trial_plan_rejects_external_evidence_requirement_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+            payload = json.loads(plan_path.read_text(encoding="utf-8"))
+            payload["external_evidence_requirements"]["required_fields"].remove("reviewer_name_or_role")
+            payload["external_evidence_requirements"]["manual_csv_editing"] = True
+            payload["external_evidence_requirements"]["acceptance_criteria_min_count"] = 1
+            payload["external_evidence_requirements"]["reviewed_at_utc"] = "optional"
+            payload["external_evidence_requirements"]["placeholder_policy"] = "allow_placeholders"
+            payload["external_evidence_requirements"]["enforced_by"] = ["validate_manifest"]
+            plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("external_evidence_requirements changed after plan was written", completed.stderr)
+        self.assertIn(
+            "external_evidence_requirements.required_fields must match the external signoff contract",
+            completed.stderr,
+        )
+        self.assertIn("external_evidence_requirements.manual_csv_editing must be false", completed.stderr)
+        self.assertIn("external_evidence_requirements.acceptance_criteria_min_count must be 3", completed.stderr)
+        self.assertIn("external_evidence_requirements.reviewed_at_utc must require a UTC timestamp", completed.stderr)
+        self.assertIn(
+            "external_evidence_requirements.placeholder_policy must require replacing template placeholders",
+            completed.stderr,
+        )
+        self.assertIn(
+            "external_evidence_requirements.enforced_by must bind validate_manifest and run_trial",
+            completed.stderr,
+        )
 
     def test_saved_trial_plan_rejects_template_hash_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -53,6 +53,7 @@
   - [x] Saved trial-plan verification checks pre-signoff readiness and local-preflight rows against command flags and values.
   - [x] Saved trial-plan verification checks external trial, package, reviewer-report, release-report, and final-report command path flow.
   - [x] Saved trial-plan verification checks stable release tag/repo/report identity and final-wrapper tag binding.
+  - [x] Saved trial-plan verification checks external evidence reviewer/signoff requirements and renders them in English/Chinese workspace READMEs.
   - [ ] External workflow trial.
 
 - Multi-channel and plate/well/site metadata polish: object-level metadata export is available behind `measure --include-object-metadata`, the external L4 template/readiness checker can require `Plate`, `Well`, and `Site`, the wide-export bridge can carry those declared metadata columns through to downstream CSVs, and local preflight now preserves the README-rendered handoff contract for review; remaining work is external L4 confirmation that the handoff shape matches real lab systems.
