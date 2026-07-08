@@ -2,6 +2,36 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `e564ebe`
+
+This snapshot records the verification for generated external L4 plans that now include standalone saved trial/package reviewer-report recheck commands. `benchmark/prepare_external_l4_trial.py --verify-plan` now checks that `verify_trial_report` and `verify_package_report` point to the planned saved reviewer JSON files, preserve file rechecks and PASS enforcement, and keep package reviewer reports bound to the source trial before local preflight or final signoff treats those reports as reviewer evidence.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `e564ebec83b614d7f24dada6e65cfd5dfdb609d3`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-saved-reviewer-rechecks.json --out-md /tmp/morphojet-l3-release-report-saved-reviewer-rechecks.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-saved-reviewer-rechecks.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Generated external L4 workspace tests | PASS, 26 tests |
+| Saved reviewer-report recheck command binding test | PASS |
+| Full Python unit test suite | PASS, 498 tests |
+| Source claim-language guard | PASS, 16 paths |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| English saved reviewer-report recheck documentation | PASS |
+| Chinese saved reviewer-report recheck documentation | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `b2b75d4`
 
 This snapshot records the verification for saved trial-plan checks that bind external evidence reviewer/signoff requirements into the generated plan and English/Chinese workspace READMEs. `benchmark/prepare_external_l4_trial.py --verify-plan` now rejects saved plans whose external evidence contract removes required reviewer/signoff fields, weakens UTC review timestamp handling, permits manual CSV editing, lowers the acceptance-criteria requirement, permits placeholders, or drops enforcement by both manifest validation and trial execution.
