@@ -323,6 +323,44 @@ def validate_pre_signoff_command_bindings(payload: dict[str, Any]) -> list[str]:
                     "pre_signoff_requirements.local_evidence_preflight_report planned_path must match "
                     f"{command_name} {flag}"
                 )
+    saved_reviewer_bindings = [
+        (
+            "external_l4_trial_saved_reviewer_report",
+            "verify_trial_report",
+            "--external-trial-verification-report",
+        ),
+        (
+            "external_l4_package_saved_reviewer_report",
+            "verify_package_report",
+            "--external-evidence-package-verification-report",
+        ),
+    ]
+    for requirement_name, verification_step, preflight_flag in saved_reviewer_bindings:
+        requirement = requirement_by_name.get(requirement_name)
+        if requirement is None:
+            failures.append(f"pre_signoff_requirements missing {requirement_name}")
+            continue
+        if requirement.get("verification_step") != verification_step:
+            failures.append(f"pre_signoff_requirements.{requirement_name} verification_step must be {verification_step}")
+        elif verification_step not in commands:
+            failures.append(f"pre_signoff_requirements.{requirement_name} verification_step missing commands.{verification_step}")
+        if requirement.get("required_before") != "local_evidence_preflight":
+            failures.append(f"pre_signoff_requirements.{requirement_name} required_before must be local_evidence_preflight")
+        elif "local_evidence_preflight" not in commands:
+            failures.append(f"pre_signoff_requirements.{requirement_name} required_before missing commands.local_evidence_preflight")
+        planned_path = requirement.get("planned_path")
+        for command_name, flag in [
+            (verification_step, "--verify-report"),
+            ("local_evidence_preflight", preflight_flag),
+        ]:
+            values = command_values(command_name, flag)
+            if len(values) != 1 or values[0] is None:
+                failures.append(f"commands.{command_name} must include exactly one {flag} value")
+            elif planned_path != values[0]:
+                failures.append(
+                    f"pre_signoff_requirements.{requirement_name} planned_path must match "
+                    f"{command_name} {flag}"
+                )
     return failures
 
 
@@ -1032,6 +1070,20 @@ def pre_signoff_requirements(workspace: Path) -> list[dict[str, str]]:
             "verification_step": "verify_local_evidence_preflight",
             "required_before": "verify_stable_release",
         },
+        {
+            "name": "external_l4_trial_saved_reviewer_report",
+            "status": "PENDING_EXTERNAL_REVIEW",
+            "planned_path": str(workspace / "handoff_trial-verification.json"),
+            "verification_step": "verify_trial_report",
+            "required_before": "local_evidence_preflight",
+        },
+        {
+            "name": "external_l4_package_saved_reviewer_report",
+            "status": "PENDING_EXTERNAL_REVIEW",
+            "planned_path": str(workspace / "evidence-package-verification.json"),
+            "verification_step": "verify_package_report",
+            "required_before": "local_evidence_preflight",
+        },
     ]
 
 
@@ -1048,6 +1100,7 @@ def render_readme(plan: dict[str, Any]) -> str:
         f"trial_plan.json final_production_signoff: `{plan['final_production_signoff']}`",
         "The saved package verifier report produced by `verify_package` is also not final production signoff: `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW`, `final_production_signoff=false`.",
         "The saved local preflight report produced by `local_evidence_preflight` is also not final production signoff: it must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`.",
+        "Chinese-community reviewers can use `README.zh-CN.md` as a first-class review entrypoint. It must preserve the same command order, non-final claim labels, pre-signoff requirements, final blockers, and package README evidence path as this English README.",
         "`check_readiness` also verifies the saved `trial_plan.json`, template hash, manifest presence, and both English and Chinese README files before returning READY, so readiness fails if the execution instructions or plan are weakened after workspace preparation.",
         "`check_readiness` also enforces any `required_object_metadata_columns` declared in the manifest. If the template keeps `Plate`, `Well`, and `Site`, generate MorphoJet `Objects.csv` with `measure --include-object-metadata` so those columns are present before the external trial runs.",
         "`run_trial` re-verifies the saved READY report and refuses to execute if its manifest or workspace does not match the current trial manifest and `base_dir`. It also passes declared object metadata columns through to the wide CSV and allows those same columns during supported-subset comparison.",
@@ -1171,6 +1224,7 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
         f"trial_plan.json final_production_signoff：`{plan['final_production_signoff']}`",
         "`verify_package` 生成的 saved package verifier report 也不是最终生产签核：`claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW`、`final_production_signoff=false`。",
         "`local_evidence_preflight` 生成的 saved local preflight report 也不是最终生产签核：它必须保持 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`、`final_evidence_acceptable=false`。",
+        "中文社区 reviewer 可以把 `README.zh-CN.md` 作为一等复核入口。它必须保留与英文 README 相同的命令顺序、非最终 claim labels、pre-signoff requirements、最终阻塞项和 package README evidence path。",
         "`check_readiness` 在返回 READY 前也会复核 saved `trial_plan.json`、template hash、manifest 是否存在，以及英文和中文 README 文件；如果 workspace 准备后执行说明或计划被改弱，readiness 会失败。",
         "`check_readiness` 也会强制检查 manifest 里的 `required_object_metadata_columns`。如果模板保留 `Plate`、`Well`、`Site`，请用 `measure --include-object-metadata` 生成 MorphoJet `Objects.csv`，确保外部 trial 运行前这些列已经存在。",
         "`run_trial` 会重新复核 saved READY report，并且在 report 的 manifest 或 workspace 与当前 trial manifest 和 `base_dir` 不一致时拒绝执行。它也会把声明过的 object metadata columns 带进宽表，并在 supported-subset comparison 中允许这些同一批列。",

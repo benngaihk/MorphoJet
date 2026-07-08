@@ -45,6 +45,7 @@ ROOT_README_CONTRACT = [
         "requirements": [
             "语言：[English](README.md) | 简体中文",
             "## 外部 L4 试验与生产门禁",
+            "## 中文社区验证入口",
             "## 当前里程碑状态",
             "python3 benchmark/prepare_external_l4_trial.py --workspace path/to/external-trial",
             "python3 benchmark/run_production_gate.py",

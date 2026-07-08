@@ -208,6 +208,30 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 "verify_stable_release",
                 pre_requirement_by_name["local_evidence_preflight_report"]["required_before"],
             )
+            self.assertEqual(
+                str((workspace / "handoff_trial-verification.json").resolve()),
+                pre_requirement_by_name["external_l4_trial_saved_reviewer_report"]["planned_path"],
+            )
+            self.assertEqual(
+                "verify_trial_report",
+                pre_requirement_by_name["external_l4_trial_saved_reviewer_report"]["verification_step"],
+            )
+            self.assertEqual(
+                "local_evidence_preflight",
+                pre_requirement_by_name["external_l4_trial_saved_reviewer_report"]["required_before"],
+            )
+            self.assertEqual(
+                str((workspace / "evidence-package-verification.json").resolve()),
+                pre_requirement_by_name["external_l4_package_saved_reviewer_report"]["planned_path"],
+            )
+            self.assertEqual(
+                "verify_package_report",
+                pre_requirement_by_name["external_l4_package_saved_reviewer_report"]["verification_step"],
+            )
+            self.assertEqual(
+                "local_evidence_preflight",
+                pre_requirement_by_name["external_l4_package_saved_reviewer_report"]["required_before"],
+            )
             evidence_requirements = plan["external_evidence_requirements"]
             self.assertEqual(
                 [
@@ -338,6 +362,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 "The saved local preflight report produced by `local_evidence_preflight` is also not final production signoff",
                 readme,
             )
+            self.assertIn("Chinese-community reviewers can use `README.zh-CN.md`", readme)
+            self.assertIn("same command order, non-final claim labels, pre-signoff requirements", readme)
             self.assertIn("evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT", readme)
             self.assertIn("final_evidence_acceptable=false", readme)
             self.assertIn("`check_readiness` also verifies the saved `trial_plan.json`", readme)
@@ -413,6 +439,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("saved package verifier report 也不是最终生产签核", readme_zh)
             self.assertIn("evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW", readme_zh)
             self.assertIn("saved local preflight report 也不是最终生产签核", readme_zh)
+            self.assertIn("中文社区 reviewer 可以把 `README.zh-CN.md` 作为一等复核入口", readme_zh)
+            self.assertIn("相同的命令顺序、非最终 claim labels、pre-signoff requirements", readme_zh)
             self.assertIn("evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT", readme_zh)
             self.assertIn("final_evidence_acceptable=false", readme_zh)
             self.assertIn("`check_readiness` 在返回 READY 前也会复核 saved `trial_plan.json`", readme_zh)
@@ -766,12 +794,15 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             plan_path = workspace / "trial_plan.json"
             payload = json.loads(plan_path.read_text(encoding="utf-8"))
             payload["pre_signoff_requirements"][0]["required_before"] = "verify_stable_release"
+            payload["pre_signoff_requirements"][2]["required_before"] = "verify_stable_release"
             check_readiness = payload["commands"]["check_readiness"]
             check_readiness[check_readiness.index("--json-out") + 1] = str(workspace / "wrong-readiness.json")
             local_preflight = payload["commands"]["local_evidence_preflight"]
             local_preflight[local_preflight.index("--local-evidence-preflight-json") + 1] = str(
                 workspace / "wrong-preflight.json"
             )
+            trial_report = payload["commands"]["verify_trial_report"]
+            trial_report[trial_report.index("--verify-report") + 1] = str(workspace / "wrong-trial-review.json")
             plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
             completed = subprocess.run(
@@ -799,6 +830,16 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
         self.assertIn(
             "pre_signoff_requirements.local_evidence_preflight_report planned_path must match "
             "local_evidence_preflight --local-evidence-preflight-json",
+            completed.stderr,
+        )
+        self.assertIn(
+            "pre_signoff_requirements.external_l4_trial_saved_reviewer_report required_before must be "
+            "local_evidence_preflight",
+            completed.stderr,
+        )
+        self.assertIn(
+            "pre_signoff_requirements.external_l4_trial_saved_reviewer_report planned_path must match "
+            "verify_trial_report --verify-report",
             completed.stderr,
         )
 
