@@ -101,6 +101,18 @@ class PackageExternalTrialTest(unittest.TestCase):
                 (package_dir / "README.md").read_text(encoding="utf-8"),
             )
             self.assertIn(
+                f"- readiness_claim_status: `{readiness_report['claim_status']}`",
+                (package_dir / "README.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                f"- readiness_evidence_scope: `{readiness_report['evidence_scope']}`",
+                (package_dir / "README.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                f"- readiness_final_production_signoff: `{readiness_report['final_production_signoff']}`",
+                (package_dir / "README.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
                 f"- readiness_workspace: `{readiness_report['workspace']}`",
                 (package_dir / "README.md").read_text(encoding="utf-8"),
             )
@@ -118,6 +130,18 @@ class PackageExternalTrialTest(unittest.TestCase):
             )
             self.assertIn(
                 "- readiness_package_name: `external-l4-demo`",
+                (package_dir / "README.zh-CN.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                f"- readiness_claim_status: `{readiness_report['claim_status']}`",
+                (package_dir / "README.zh-CN.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                f"- readiness_evidence_scope: `{readiness_report['evidence_scope']}`",
+                (package_dir / "README.zh-CN.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                f"- readiness_final_production_signoff: `{readiness_report['final_production_signoff']}`",
                 (package_dir / "README.zh-CN.md").read_text(encoding="utf-8"),
             )
             self.assertIn(
@@ -1955,6 +1979,87 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual("FAIL", gate.status)
         self.assertIn("package README missing signoff field: readiness_workspace", gate.detail)
         self.assertIn("package README missing signoff field: readiness_manifest", gate.detail)
+
+    def test_release_gate_rejects_package_readme_missing_readiness_claim_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+            manifest = json.loads((package_dir / "artifact_manifest.json").read_text(encoding="utf-8"))
+            readiness_report = manifest["readiness_report"]
+            readme_path = package_dir / "README.md"
+            readme_path.write_text(
+                readme_path.read_text(encoding="utf-8")
+                .replace(f"- readiness_claim_status: `{readiness_report['claim_status']}`\n", "")
+                .replace(f"- readiness_evidence_scope: `{readiness_report['evidence_scope']}`\n", "")
+                .replace(
+                    "- readiness_final_production_signoff: "
+                    f"`{readiness_report['final_production_signoff']}`\n",
+                    "",
+                ),
+                encoding="utf-8",
+            )
+            zip_path = Path(result["zip"])
+            package_external_trial.zip_directory(package_dir, zip_path)
+            Path(result["sha256"]).write_text(
+                f"{release_gate.sha256_file(zip_path)}  external-l4-demo.zip\n",
+                encoding="utf-8",
+            )
+
+            gate = release_gate.validate_external_evidence_package(package_dir, trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("package README missing signoff field: readiness_claim_status", gate.detail)
+        self.assertIn("package README missing signoff field: readiness_evidence_scope", gate.detail)
+        self.assertIn("package README missing signoff field: readiness_final_production_signoff", gate.detail)
+
+    def test_release_gate_rejects_package_chinese_readme_missing_readiness_claim_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+            manifest = json.loads((package_dir / "artifact_manifest.json").read_text(encoding="utf-8"))
+            readiness_report = manifest["readiness_report"]
+            readme_path = package_dir / "README.zh-CN.md"
+            readme_path.write_text(
+                readme_path.read_text(encoding="utf-8")
+                .replace(f"- readiness_claim_status: `{readiness_report['claim_status']}`\n", "")
+                .replace(f"- readiness_evidence_scope: `{readiness_report['evidence_scope']}`\n", "")
+                .replace(
+                    "- readiness_final_production_signoff: "
+                    f"`{readiness_report['final_production_signoff']}`\n",
+                    "",
+                ),
+                encoding="utf-8",
+            )
+            zip_path = Path(result["zip"])
+            package_external_trial.zip_directory(package_dir, zip_path)
+            Path(result["sha256"]).write_text(
+                f"{release_gate.sha256_file(zip_path)}  external-l4-demo.zip\n",
+                encoding="utf-8",
+            )
+
+            gate = release_gate.validate_external_evidence_package(package_dir, trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("package Chinese README missing signoff field: readiness_claim_status", gate.detail)
+        self.assertIn("package Chinese README missing signoff field: readiness_evidence_scope", gate.detail)
+        self.assertIn(
+            "package Chinese README missing signoff field: readiness_final_production_signoff",
+            gate.detail,
+        )
 
     def test_release_gate_rejects_package_readme_missing_validation_detail_text(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

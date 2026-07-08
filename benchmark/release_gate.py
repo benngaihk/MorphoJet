@@ -1295,6 +1295,16 @@ def external_package_readme_common_required_fields(trial: dict, artifact_manifes
         "trial_git_commit": f"- trial_git_commit: `{metadata.get('git_commit')}`",
         "trial_generated_at_utc": f"- trial_generated_at_utc: `{metadata.get('generated_at_utc')}`",
         "readiness_status": f"- readiness_status: `{trial.get('readiness_report', {}).get('status')}`",
+        "readiness_claim_status": (
+            f"- readiness_claim_status: `{trial.get('readiness_report', {}).get('claim_status')}`"
+        ),
+        "readiness_evidence_scope": (
+            f"- readiness_evidence_scope: `{trial.get('readiness_report', {}).get('evidence_scope')}`"
+        ),
+        "readiness_final_production_signoff": (
+            "- readiness_final_production_signoff: "
+            f"`{trial.get('readiness_report', {}).get('final_production_signoff')}`"
+        ),
         "readiness_generated_at_utc": (
             f"- readiness_generated_at_utc: `{trial.get('readiness_report', {}).get('generated_at_utc')}`"
         ),
