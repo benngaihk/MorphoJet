@@ -37,7 +37,7 @@ python3 benchmark/inspect_cellbindb_direct_masks.py \
   --md-out benchmark/results/cellbindb/direct-mask-inspection.md
 ```
 
-This report is also deliberately non-final: it records `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=CELLBINDB_DIRECT_MASK_INSPECTION`, and `final_production_signoff=false`. It checks the local ZIP against recorded size/checksum metadata, verifies the candidate source/license metadata is present, confirms at least 1,000 sample groups, and inspects image/instance-mask pairs for matching dimensions, integer masks, background label 0, and positive labels. Use `--sample-limit N` for quick local triage; use `--full --verify-md5 --require-pass` for saved evidence.
+This report is also deliberately non-final: it records `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=CELLBINDB_DIRECT_MASK_INSPECTION`, and `final_production_signoff=false`. It checks the local ZIP against recorded size/checksum metadata, verifies the candidate source/license metadata is present, confirms at least 1,000 sample groups, and inspects image/instance-mask pairs for matching dimensions, integer masks, background label 0, and positive labels. Use `--sample-limit N` for quick local triage; use `--full --verify-md5 --require-pass` for saved evidence. `benchmark/release_gate.py` runs the same full MD5-backed inspection as a standard release gate before validating the saved L3 artifacts, so future L3 prechecks fail closed if the CellBinDB input-mask contract drifts.
 
 Scan the local pinned examples checkout for measured objects, image counts, and missing label exports:
 

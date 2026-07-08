@@ -92,6 +92,7 @@ REQUIRED_PRODUCTION_GATE_NAMES = {
     "Validate claim language",
     "Validate handoff manifests",
     "Validate external lab handoff template",
+    "Validate CellBinDB direct-mask inspection",
     "Validate existing CellBinDB L3 artifacts",
     "Validate CellBinDB L3 provenance",
     "Validate CellBinDB workflow bridge artifacts",

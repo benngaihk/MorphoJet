@@ -88,7 +88,7 @@ python3 benchmark/inspect_cellbindb_direct_masks.py \
   --md-out benchmark/results/cellbindb/direct-mask-inspection.md
 ```
 
-这个报告同样是非最终证据，会写入 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=CELLBINDB_DIRECT_MASK_INSPECTION`、`final_production_signoff=false`。它会检查 archive size/checksum 元数据、image 与 instance-mask 配对数量、尺寸一致、背景 label `0`、正整数 labels，以及 source/license 元数据，然后才把 CellBinDB 作为 direct-mask oracle 输入。
+这个报告同样是非最终证据，会写入 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=CELLBINDB_DIRECT_MASK_INSPECTION`、`final_production_signoff=false`。它会检查 archive size/checksum 元数据、image 与 instance-mask 配对数量、尺寸一致、背景 label `0`、正整数 labels，以及 source/license 元数据，然后才把 CellBinDB 作为 direct-mask oracle 输入。`benchmark/release_gate.py` 也会把同一套 full + MD5 direct-mask inspection 作为标准 gate 运行，所以 L3 release precheck 会在输入 mask 合同漂移时失败。
 
 发布候选前的完整门禁：
 
@@ -102,7 +102,7 @@ python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --
 python3 benchmark/release_gate.py
 ```
 
-Release-gate JSON 和 Markdown 报告会记录运行时间、git commit、工作区是否 dirty、调用参数、顶层 `claim_status`、`evidence_scope`、`final_production_signoff`、`production_claim_status` 和 `missing_or_failed_checks`；JSON 还会写入 `production_claim_checklist`，Markdown 报告会渲染同一份 checklist，把每个 audit check 对应到必须提交的 evidence 和 reviewer 下一步动作。非最终报告会标记为 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=RELEASE_GATE_PRECHECK`、`final_production_signoff=false`；只有带 `--require-production-claim`、整体 PASS、且 production audit 完整通过的报告，才会标记为 `claim_status=FINAL_PRODUCTION_CLAIM`、`evidence_scope=FINAL_PRODUCTION_RELEASE_GATE`、`final_production_signoff=true`。Saved report verifier 会拒绝缺失或被篡改的 checklist rows 和 claim-scope labels。Claim-language guard 也会默认扫描顶层 Markdown、递归 `docs/` 和 `corpus/` 文档，包括 `README.zh-CN.md` 和 `MORPHOJET-FEASIBILITY.md`，拒绝没有否定或条件语境保护的中文“生产级 / 生产就绪 / 替代 CellProfiler / 取代 CellProfiler”表述。在真实外部 L4 workflow trial、匹配 evidence package、外部 trial/package saved reviewer reports、稳定 GitHub release、以及 saved stable-release verifier report 都进入同一份生产声明门禁之前，`production_claim_status` 应保持 `INCOMPLETE`。
+Release-gate JSON 和 Markdown 报告会记录运行时间、git commit、工作区是否 dirty、调用参数、顶层 `claim_status`、`evidence_scope`、`final_production_signoff`、`production_claim_status` 和 `missing_or_failed_checks`；JSON 还会写入 `production_claim_checklist`，Markdown 报告会渲染同一份 checklist，把每个 audit check 对应到必须提交的 evidence 和 reviewer 下一步动作。非最终报告会标记为 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=RELEASE_GATE_PRECHECK`、`final_production_signoff=false`；只有带 `--require-production-claim`、整体 PASS、且 production audit 完整通过的报告，才会标记为 `claim_status=FINAL_PRODUCTION_CLAIM`、`evidence_scope=FINAL_PRODUCTION_RELEASE_GATE`、`final_production_signoff=true`。标准 gate 集合包含 full CellBinDB direct-mask inspection、已有 L3 artifacts、workflow bridge artifacts 和 handoff trial artifacts。Saved report verifier 会拒绝缺失或被篡改的 checklist rows 和 claim-scope labels。Claim-language guard 也会默认扫描顶层 Markdown、递归 `docs/` 和 `corpus/` 文档，包括 `README.zh-CN.md` 和 `MORPHOJET-FEASIBILITY.md`，拒绝没有否定或条件语境保护的中文“生产级 / 生产就绪 / 替代 CellProfiler / 取代 CellProfiler”表述。在真实外部 L4 workflow trial、匹配 evidence package、外部 trial/package saved reviewer reports、稳定 GitHub release、以及 saved stable-release verifier report 都进入同一份生产声明门禁之前，`production_claim_status` 应保持 `INCOMPLETE`。
 
 审查已保存的 release-gate JSON：
 

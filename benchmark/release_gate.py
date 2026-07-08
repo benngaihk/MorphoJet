@@ -125,6 +125,54 @@ def validate_l3_artifacts() -> Gate:
     )
 
 
+def validate_cellbindb_direct_masks() -> Gate:
+    started = time.perf_counter()
+    try:
+        import inspect_cellbindb_direct_masks
+
+        payload = inspect_cellbindb_direct_masks.build_payload(
+            ROOT / "benchmark/data/cellbindb/CellBinDB.zip",
+            ROOT / "benchmark/data/cellbindb/zenodo_metadata.json",
+            ROOT / "benchmark/cellprofiler/public_corpora.json",
+            "cellbindb",
+            None,
+            1000,
+            True,
+            [
+                "benchmark/inspect_cellbindb_direct_masks.py",
+                "--full",
+                "--verify-md5",
+                "--require-pass",
+            ],
+        )
+        summary = payload["summary"]
+        issues = summary.get("issues") or []
+        status = "FAIL" if payload.get("status") != "PASS" or issues else "PASS"
+        detail = "; ".join(issues) if issues else (
+            "CellBinDB direct-mask inspection PASS: "
+            f"samples={summary.get('inspected_sample_groups')}/{summary.get('total_sample_groups')}, "
+            f"semantic_masks={summary.get('samples_with_semantic_masks')}, "
+            f"positive_labels={summary.get('inspected_positive_label_count')}, "
+            f"md5={payload.get('zip', {}).get('observed_md5')}"
+        )
+    except Exception as exc:  # noqa: BLE001 - report exact release gate failure.
+        status = "FAIL"
+        detail = f"{type(exc).__name__}: {exc}"
+    return Gate(
+        name="Validate CellBinDB direct-mask inspection",
+        command=[
+            "python3",
+            "benchmark/inspect_cellbindb_direct_masks.py",
+            "--full",
+            "--verify-md5",
+            "--require-pass",
+        ],
+        status=status,
+        elapsed_seconds=time.perf_counter() - started,
+        detail=detail,
+    )
+
+
 def validate_l3_provenance_artifact() -> Gate:
     started = time.perf_counter()
     path = ROOT / "benchmark/results/cellbindb/oracle-full/provenance.json"
@@ -1768,6 +1816,7 @@ def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], me
         "Validate claim language",
         "Validate handoff manifests",
         "Validate external lab handoff template",
+        "Validate CellBinDB direct-mask inspection",
         "Validate existing CellBinDB L3 artifacts",
         "Validate CellBinDB workflow bridge artifacts",
         "Validate CellBinDB handoff trial artifacts",
@@ -1784,7 +1833,7 @@ def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], me
         {
             "name": "standard_code_and_artifact_gates",
             "status": "PASS" if all(status == "PASS" for status in standard_statuses) else "FAIL",
-            "detail": "Standard Rust, Python, manifest, L3 artifact, workflow bridge, and handoff gates.",
+            "detail": "Standard Rust, Python, manifest, direct-mask, L3 artifact, workflow bridge, and handoff gates.",
         },
         {
             "name": "l3_provenance_hashes",
@@ -2212,6 +2261,7 @@ def main() -> int:
                 live_github_release_report_command(args.verify_github_release, args.github_release_kind),
             )
         )
+    gates.append(validate_cellbindb_direct_masks())
     gates.append(validate_l3_artifacts())
     if args.require_l3_provenance:
         gates.append(validate_l3_provenance_artifact())
