@@ -2,6 +2,40 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `d453c0e`
+
+This snapshot records the clean `main` verification for making packaged external L4 evidence README files expose the copied readiness report's READY status, non-final claim-scope labels, UTC generation time, package name, workspace, and manifest in both English and Chinese. `benchmark/package_external_trial.py` now renders those readiness fields in `README.md` and `README.zh-CN.md`, and `benchmark/release_gate.py` rejects either package README when the readiness claim-scope lines are missing, so human reviewers can audit the package boundary without opening `readiness.json` first.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `d453c0e`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-d453c0e.json --out-md /tmp/morphojet-l3-release-report-main-d453c0e.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-d453c0e.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| External evidence package tests | PASS, 76 tests |
+| Release gate helper tests | PASS, 71 tests |
+| Full Python unit test suite | PASS, 470 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| English Package README Readiness Claim-Scope Coverage | PASS |
+| Chinese Package README Readiness Claim-Scope Coverage | PASS |
+| Release-Gate README Scope Rejection | PASS |
+| Root English README Scope Guidance | PASS |
+| Root Chinese README Scope Guidance | PASS |
+| Production Readiness Scope Guidance | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `17ed1ff`
 
 This snapshot records the clean `main` verification for making saved external L4 evidence-package reviewer reports expose and recheck the packaged readiness report's READY status, non-final claim-scope labels, UTC generation time, package name, workspace, and manifest. `benchmark/verify_external_evidence_package.py` now copies those readiness fields into `input_files.package_readiness`, validates them for saved PASS package-reviewer reports, binds them back to the packaged `readiness.json`, and recomputes them during `--verify-report-files` so package reviewer JSON carries the readiness boundary without requiring reviewers to open the package readiness report first.
