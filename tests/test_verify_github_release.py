@@ -422,17 +422,38 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             payload = json.loads(report.read_text(encoding="utf-8"))
 
             with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
-                status = verify_github_release.verify_saved_github_release_report(
-                    report,
-                    require_report_pass=True,
-                    require_stable_report=True,
-                    verify_files=True,
-                )
+                with patch.object(verify_github_release, "git_commit", return_value=self.FULL_COMMIT):
+                    status = verify_github_release.verify_saved_github_release_report(
+                        report,
+                        require_report_pass=True,
+                        require_stable_report=True,
+                        verify_files=True,
+                        verify_git_commit=True,
+                        expect_tag="v0.1.0",
+                        expect_repo="benngaihk/MorphoJet",
+                    )
 
         self.assertEqual(0, status)
         self.assertEqual("NOT_PRODUCTION_CLAIM", payload["claim_status"])
         self.assertEqual("GITHUB_STABLE_RELEASE_VERIFICATION", payload["evidence_scope"])
         self.assertFalse(payload["final_production_signoff"])
+
+    def test_require_stable_report_requires_file_git_tag_and_repo_rechecks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                status = verify_github_release.verify_saved_github_release_report(
+                    report,
+                    require_report_pass=True,
+                    require_stable_report=True,
+                )
+
+        self.assertEqual(1, status)
+        self.assertIn("--require-stable-report requires --verify-report-files", stderr.getvalue())
+        self.assertIn("--require-stable-report requires --verify-git-commit", stderr.getvalue())
+        self.assertIn("--require-stable-report requires --expect-tag", stderr.getvalue())
+        self.assertIn("--require-stable-report requires --expect-repo", stderr.getvalue())
 
     def test_saved_release_report_rejects_claim_scope_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

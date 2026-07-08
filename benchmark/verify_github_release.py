@@ -870,6 +870,15 @@ def verify_saved_github_release_report(
         expect_repo=expect_repo,
         report_path=report,
     )
+    if require_stable_report:
+        if not verify_files:
+            failures.append("--require-stable-report requires --verify-report-files")
+        if not verify_git_commit:
+            failures.append("--require-stable-report requires --verify-git-commit")
+        if not expect_tag:
+            failures.append("--require-stable-report requires --expect-tag")
+        if not expect_repo:
+            failures.append("--require-stable-report requires --expect-repo")
     if verify_git_commit:
         failures.extend(git_commit_verification_issues(payload.get("expected_commit"), expect_tag))
     if not failures and verify_files:
