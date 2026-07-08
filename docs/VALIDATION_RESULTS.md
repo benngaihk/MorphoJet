@@ -2,6 +2,37 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `c854c7e`
+
+This snapshot records the verification for rendering the external L4 handoff contract in evidence-package READMEs. Evidence packages now show `morphojet_objects_csv`, `required_object_metadata_columns`, and each export's object set, channels, metadata columns, output CSV, expected CellProfiler CSV, and comparison artifact paths in both `README.md` and `README.zh-CN.md`; release gate checks those README fields so the review package cannot silently lose the downstream CSV contract.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `c854c7ef669c32fde8146654da52b2016a220cfc`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-package-contract.json --out-md /tmp/morphojet-l3-release-report-package-contract.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-package-contract.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| External L4 package tests | PASS, 79 tests |
+| Release-gate helper tests | PASS, 72 tests |
+| Full Python unit test suite | PASS, 488 tests |
+| Source claim-language guard | PASS, 16 paths |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| English evidence-package handoff contract rendering | PASS |
+| Chinese evidence-package handoff contract rendering | PASS |
+| Release-gate package README contract checks | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `8140c1a`
 
 This snapshot records the verification for carrying declared object metadata through the CellProfiler-style wide handoff bridge. `benchmark/materialize_morphojet_cellprofiler_wide.py` now accepts `--metadata-columns`, preserves those columns in the wide CSV, and rejects per-object metadata values that differ across channel rows. The handoff runner and release-gate rendered-manifest command checks pass declared metadata columns into the materializer, allow the same columns during CellProfiler subset comparison, and the downstream wide-contract checker can require them. Because this milestone touched the L3 handoff materializer/comparer path, the full CellBinDB L3 workflow was rerun instead of relying on old provenance.
