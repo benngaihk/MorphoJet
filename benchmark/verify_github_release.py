@@ -871,6 +871,8 @@ def verify_saved_github_release_report(
         report_path=report,
     )
     if require_stable_report:
+        if not require_report_pass:
+            failures.append("--require-stable-report requires --require-report-pass")
         if not verify_files:
             failures.append("--require-stable-report requires --verify-report-files")
         if not verify_git_commit:

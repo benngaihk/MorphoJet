@@ -2,6 +2,25 @@
 
 Updated: 2026-07-08
 
+## Stable Release Saved Report PASS Signoff Snapshot
+
+This snapshot records local verification for making `benchmark/verify_github_release.py --require-stable-report` require `--require-report-pass` in addition to file rechecks, git commit/tag verification, expected tag, and expected repo. This closes the manual-review gap where a stable-looking saved report could be rechecked with strong identity bindings but without requiring the saved verifier report status itself to be `PASS`.
+
+This is not a production claim. Saved GitHub release verifier reports remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=GITHUB_STABLE_RELEASE_VERIFICATION`, and `final_production_signoff=false`; production remains incomplete until a live stable release, the saved stable-release report, external L4 evidence, saved external reviewer reports, and the final production wrapper pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_verify_github_release.py` | PASS, 63 tests |
+| `python3 tests/test_run_production_gate.py` | PASS, 92 tests |
+| `python3 tests/test_release_gate.py` | PASS, 78 tests |
+| `python3 -m unittest discover -s tests` | PASS, 520 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## Stable Release Saved Report Signoff Snapshot
 
 This snapshot records local verification for making `benchmark/verify_github_release.py --require-stable-report` fail closed unless saved stable-release report review also uses `--verify-report-files`, `--verify-git-commit`, `--expect-tag`, and `--expect-repo`. The final wrapper, direct release gate, and generated external L4 plans already use that stronger command; this change prevents manual saved stable-release report review from accepting a stable-looking JSON without file rehashing, git/tag verification, and final repo/tag binding.
