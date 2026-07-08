@@ -2,6 +2,28 @@
 
 Updated: 2026-07-09
 
+## Current Main Clean L3 And Workflow Evidence Snapshot
+
+This snapshot records the current `main` commit after the external saved-reviewer commit-binding hardening was merged and pushed. It saves fresh GitHub Actions workflow evidence for the current commit, then rechecks clean git metadata, existing CellBinDB L3 provenance hashes, and that saved workflow report in one release-gate report.
+
+This is not a production claim. It proves that the current committed tree still has clean local metadata, valid L3 provenance, and remote workflow evidence for `ci.yml` plus `external-l4-rehearsal.yml`. The expected top-level status remains `claim_status=NOT_PRODUCTION_CLAIM` and `production_claim_status=INCOMPLETE`; the remaining production blockers are the real external L4 workflow trial, matching evidence package, saved external reviewer reports, live stable GitHub release, and saved stable-release verifier report.
+
+Evidence:
+
+- Commit: `8edfd2ffc07c728ea68ce6a9ff1f36bb07637e6f`
+- Saved GitHub workflow report: `/tmp/morphojet-main-8edfd2f-github-workflows.json`
+- Saved release-gate report: `/tmp/morphojet-main-8edfd2f-l3-workflow-release-gate.json`
+- Release-gate generated at: `2026-07-08T23:29:50.945063+00:00`
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 benchmark/verify_github_workflows.py --repo benngaihk/MorphoJet --branch main --commit 8edfd2ffc07c728ea68ce6a9ff1f36bb07637e6f --workflow ci.yml --workflow external-l4-rehearsal.yml --json-out /tmp/morphojet-main-8edfd2f-github-workflows.json` | PASS |
+| `python3 benchmark/verify_github_workflows.py --verify-report /tmp/morphojet-main-8edfd2f-github-workflows.json --require-report-pass --expect-repo benngaihk/MorphoJet --expect-branch main --expect-commit 8edfd2ffc07c728ea68ce6a9ff1f36bb07637e6f --expect-workflow ci.yml --expect-workflow external-l4-rehearsal.yml` | PASS |
+| `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --github-workflow-verification-report /tmp/morphojet-main-8edfd2f-github-workflows.json --out-json /tmp/morphojet-main-8edfd2f-l3-workflow-release-gate.json --out-md /tmp/morphojet-main-8edfd2f-l3-workflow-release-gate.md` | PASS |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-main-8edfd2f-l3-workflow-release-gate.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+
 ## External Saved Reviewer Commit Binding Snapshot
 
 This snapshot records the hardening that makes saved external L4 trial/package reviewer reports bind to the same final commit as the generated external L4 trial plan, saved workflow evidence, and stable-release evidence.
