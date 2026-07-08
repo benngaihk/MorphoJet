@@ -2,6 +2,37 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `ceea662`
+
+This snapshot records the verification for carrying evidence-package README handoff contracts through saved local evidence preflight reports. `benchmark/run_production_gate.py --local-evidence-preflight-only` now copies the README-rendered handoff contract into `input_artifacts.package_readme.handoff_contract` and `input_artifacts.package_readme_zh.handoff_contract`, renders a Markdown handoff-contract table for reviewers, rejects saved-report tampering against the package README files and `rendered_manifest.json`, and recomputes the same contract during file rechecks.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `ceea6622f33bdf6d6d0109a4fe63e97b1578209d`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-local-preflight-contract.json --out-md /tmp/morphojet-l3-release-report-local-preflight-contract.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-local-preflight-contract.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Production wrapper/local preflight tests | PASS, 84 tests |
+| Full Python unit test suite | PASS, 491 tests |
+| Source claim-language guard | PASS, 16 paths |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Local preflight README handoff-contract summaries | PASS |
+| Local preflight README handoff-contract tamper rejection | PASS |
+| English local-preflight documentation | PASS |
+| Chinese local-preflight documentation | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `5fde170`
 
 This snapshot records the verification for binding evidence-package README handoff contracts into saved package verifier reports. `benchmark/verify_external_evidence_package.py` now parses the README-rendered handoff contract into `input_files.package_readme.handoff_contract` and `input_files.package_readme_zh.handoff_contract`, checks those summaries against the package READMEs and `rendered_manifest.json`, and rejects saved-report tampering.
