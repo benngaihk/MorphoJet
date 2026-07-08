@@ -179,6 +179,7 @@ Release-gate 测试会枚举 live tag、stable-kind flag 和 saved stable-releas
 
 同一个 direct final-claim 合同现在也要求外部 L4 evidence group 在重型 audit 前已经出现：`--external-trial-json`、`--external-trial-root`、`--external-evidence-package-dir`、`--external-trial-verification-report` 和 `--external-evidence-package-verification-report` 都是 `--require-production-claim` 的必填输入。只提供部分输入时，仍会继续使用上面的更细绑定错误指出缺哪一边，包括拒绝单独提供 `--external-trial-root` 而没有同一命令里的 `--external-trial-json`。
 Release-gate 测试会枚举这 5 个外部 L4 输入的全部 32 种组合，只接受完整五件套，防止 partial final-claim evidence group 以后静默回归。
+Release-gate 测试也会枚举完整 direct final-claim 合同的全部 1024 种组合：clean git、L3 provenance、stable-release evidence 和 external L4 evidence。只有完整十条件合同会被接受。
 
 ## CellProfiler 风格宽表导出
 

@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## Complete Final-Claim Contract Combination Coverage Snapshot
+
+This snapshot records local verification for covering every direct `benchmark/release_gate.py --require-production-claim` final evidence contract combination. The regression test enumerates clean-git enforcement, L3 provenance, the stable-release evidence group, and the external L4 evidence group across 1024 combinations, then confirms that every partial contract fails fast while only the complete ten-condition contract is accepted by argument validation.
+
+This is not a production claim. The current release-gate precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_release_gate.py` | PASS, 98 tests |
+| direct contract enumeration over 1024 final-claim input combinations | PASS; only the complete ten-condition contract is accepted |
+| `python3 -m unittest discover -s tests` | PASS, 547 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## Stable Release Combination Coverage Production-Claim Contract Snapshot
 
 This snapshot records local verification for covering every direct `benchmark/release_gate.py --require-production-claim` stable-release evidence input combination. The regression test enumerates the live GitHub release tag, stable-kind flag, and saved stable-release verifier report inputs and confirms that all partial groups fail fast while only the complete stable-release evidence group is accepted by the CLI contract.

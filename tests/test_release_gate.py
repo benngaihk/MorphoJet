@@ -412,6 +412,67 @@ class ReleaseGateTest(unittest.TestCase):
 
         self.assertEqual([full_group], accepted_groups)
 
+    def test_require_production_claim_rejects_every_partial_final_evidence_contract(self) -> None:
+        required_fields = [
+            "require_clean_git",
+            "require_l3_provenance",
+            "verify_github_release",
+            "github_release_kind_stable",
+            "github_release_verification_report",
+            "external_trial_json",
+            "external_trial_root",
+            "external_evidence_package_dir",
+            "external_trial_verification_report",
+            "external_evidence_package_verification_report",
+        ]
+        full_contract = set(required_fields)
+        accepted_groups = []
+
+        for mask in range(1 << len(required_fields)):
+            present = set()
+            overrides = {
+                "require_clean_git": False,
+                "require_l3_provenance": False,
+                "verify_github_release": None,
+                "github_release_kind": "prerelease",
+                "github_release_verification_report": None,
+                "external_trial_json": None,
+                "external_trial_root": None,
+                "external_evidence_package_dir": None,
+                "external_trial_verification_report": None,
+                "external_evidence_package_verification_report": None,
+            }
+            for index, field in enumerate(required_fields):
+                if mask & (1 << index):
+                    present.add(field)
+            if "require_clean_git" in present:
+                overrides["require_clean_git"] = True
+            if "require_l3_provenance" in present:
+                overrides["require_l3_provenance"] = True
+            if "verify_github_release" in present:
+                overrides["verify_github_release"] = "v0.1.0"
+            if "github_release_kind_stable" in present:
+                overrides["github_release_kind"] = "stable"
+            if "github_release_verification_report" in present:
+                overrides["github_release_verification_report"] = Path("github-release-verification.json")
+            for field in [
+                "external_trial_json",
+                "external_trial_root",
+                "external_evidence_package_dir",
+                "external_trial_verification_report",
+                "external_evidence_package_verification_report",
+            ]:
+                if field in present:
+                    overrides[field] = Path(field)
+
+            failures = release_gate.production_claim_contract_failures(
+                self.production_args(require_production_claim=True, **overrides)
+            )
+            if not failures:
+                accepted_groups.append(present)
+
+        self.assertEqual([full_contract], accepted_groups)
+
     def test_require_production_claim_requires_external_l4_evidence_group(self) -> None:
         failures = release_gate.production_claim_contract_failures(
             self.production_claim_args(
