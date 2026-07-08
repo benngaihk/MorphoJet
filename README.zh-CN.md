@@ -67,6 +67,15 @@ python3 benchmark/summarize.py benchmark/results/smoke
 ```
 
 真实 CellProfiler oracle 基准见 [docs/BENCHMARK.md](docs/BENCHMARK.md)。
+把公开数据源推进到 oracle 路径之前，先生成非最终的候选集 triage 报告，方便中文社区 reviewer 复核为什么某个数据源能进入或还不能进入 M0 direct-mask 合同：
+
+```bash
+python3 benchmark/triage_oracle_candidates.py \
+  --json-out benchmark/results/cellprofiler/oracle-candidate-triage.json \
+  --md-out benchmark/results/cellprofiler/oracle-candidate-triage.md
+```
+
+这个报告会写入 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=ORACLE_CANDIDATE_TRIAGE`、`final_production_signoff=false`。它会把仍需导出 label masks 的官方 CellProfiler examples，与 CellBinDB 这类仍需检查文件布局、license、mask background=0 和正整数 instance labels 的 direct-mask 候选分开，不能被当作最终生产签核。
 
 发布候选前的完整门禁：
 

@@ -91,6 +91,15 @@ python3 benchmark/summarize.py benchmark/results/smoke
 ```
 
 Real CellProfiler oracle benchmark setup is documented in [docs/BENCHMARK.md](docs/BENCHMARK.md).
+Before promoting a public source into the oracle path, generate a non-final candidate triage report:
+
+```bash
+python3 benchmark/triage_oracle_candidates.py \
+  --json-out benchmark/results/cellprofiler/oracle-candidate-triage.json \
+  --md-out benchmark/results/cellprofiler/oracle-candidate-triage.md
+```
+
+The report records `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=ORACLE_CANDIDATE_TRIAGE`, and `final_production_signoff=false`. It separates official CellProfiler examples that still need exported label masks from public direct-mask candidates such as CellBinDB that still require file/layout/license inspection before they can become manifest-driven oracle evidence.
 
 Before a release candidate, run:
 

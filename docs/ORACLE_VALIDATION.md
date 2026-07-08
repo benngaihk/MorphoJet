@@ -16,6 +16,16 @@ The tracked candidate catalog is `benchmark/cellprofiler/candidates.json`.
 
 Current finding: official CellProfiler examples provide public images and measurement pipelines, but the inspected candidates segment objects inside CellProfiler and do not provide pre-existing label masks. They are useful public oracle candidates only after a mask-export bridge is added, or after a separate public label-mask dataset is selected.
 
+Generate a machine-readable candidate triage report before promoting any public source into the manifest-driven oracle path:
+
+```bash
+python3 benchmark/triage_oracle_candidates.py \
+  --json-out benchmark/results/cellprofiler/oracle-candidate-triage.json \
+  --md-out benchmark/results/cellprofiler/oracle-candidate-triage.md
+```
+
+The triage report is deliberately non-final evidence: it records `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=ORACLE_CANDIDATE_TRIAGE`, and `final_production_signoff=false`. It classifies current official CellProfiler examples as `BLOCKED` for M0 direct-mask use because they do not ship pre-existing label masks. It classifies CellBinDB entries as `NEEDS_INSPECTION` because the catalog declares direct-mask potential, but a reviewer still has to inspect the downloaded files for matching image/mask dimensions, background value 0, positive integer instance labels, license terms, and the CellProfiler measurement-only object-table materialization path.
+
 Scan the local pinned examples checkout for measured objects, image counts, and missing label exports:
 
 ```bash
