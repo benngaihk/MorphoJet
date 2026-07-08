@@ -34,6 +34,21 @@ class RunProductionGateTest(unittest.TestCase):
     def test_github_release_repo_reuses_release_gate_contract(self) -> None:
         self.assertIs(release_gate.GITHUB_RELEASE_REPO, run_production_gate.GITHUB_RELEASE_REPO)
 
+    def test_external_scope_dicts_reuse_release_gate_contracts(self) -> None:
+        self.assertEqual(
+            release_gate.non_final_claim_scope(release_gate.EXTERNAL_TRIAL_EVIDENCE_SCOPE),
+            run_production_gate.TRIAL_CLAIM_SCOPE,
+        )
+        self.assertEqual(
+            release_gate.external_package_manifest_claim_scope(),
+            run_production_gate.PACKAGE_MANIFEST_CLAIM_SCOPE,
+        )
+        self.assertEqual(release_gate.external_readiness_scope(), run_production_gate.PACKAGE_READINESS_SCOPE)
+        self.assertEqual(
+            release_gate.LOCAL_PREFLIGHT_EVIDENCE_SCOPE,
+            run_production_gate.LOCAL_PREFLIGHT_EVIDENCE_SCOPE,
+        )
+
     def write_valid_trial(self, root: Path, package_name: str | None = None) -> Path:
         trial = valid_external_trial()
         trial["readiness_report"]["package_name"] = package_name

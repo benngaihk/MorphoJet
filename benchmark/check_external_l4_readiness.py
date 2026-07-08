@@ -14,6 +14,7 @@ from typing import Any
 import check_cellprofiler_wide_contract
 import materialize_morphojet_cellprofiler_wide
 import prepare_external_l4_trial
+import release_gate
 import run_handoff_trial
 import validate_handoff_manifest
 
@@ -21,9 +22,9 @@ import validate_handoff_manifest
 CHECKER = "benchmark/check_external_l4_readiness.py"
 MANIFEST_NAME = "external_manifest.json"
 PLAN_NAME = "trial_plan.json"
-CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
-EVIDENCE_SCOPE = "EXTERNAL_L4_READINESS_PRECHECK"
-FINAL_PRODUCTION_SIGNOFF = False
+CLAIM_STATUS = release_gate.NON_FINAL_CLAIM_STATUS
+EVIDENCE_SCOPE = release_gate.EXTERNAL_READINESS_EVIDENCE_SCOPE
+FINAL_PRODUCTION_SIGNOFF = release_gate.NON_FINAL_PRODUCTION_SIGNOFF
 
 
 def is_utc_datetime(value: datetime) -> bool:

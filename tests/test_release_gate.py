@@ -16,6 +16,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "benchmark"))
 
 import release_gate  # noqa: E402
+import check_external_l4_readiness  # noqa: E402
+import prepare_external_l4_trial  # noqa: E402
+import run_handoff_trial  # noqa: E402
+import verify_external_evidence_package  # noqa: E402
+import verify_external_trial_report  # noqa: E402
+import verify_github_release  # noqa: E402
 
 
 def valid_external_trial() -> dict:
@@ -188,6 +194,57 @@ def add_artifact_provenance(trial: dict, root: Path) -> None:
 
 
 class ReleaseGateTest(unittest.TestCase):
+    def test_external_claim_scope_contracts_are_shared(self) -> None:
+        self.assertEqual(
+            release_gate.non_final_claim_scope(release_gate.EXTERNAL_TRIAL_PLAN_EVIDENCE_SCOPE),
+            {
+                "claim_status": prepare_external_l4_trial.CLAIM_STATUS,
+                "evidence_scope": prepare_external_l4_trial.EVIDENCE_SCOPE,
+                "final_production_signoff": prepare_external_l4_trial.FINAL_PRODUCTION_SIGNOFF,
+            },
+        )
+        self.assertEqual(
+            release_gate.non_final_claim_scope(release_gate.EXTERNAL_TRIAL_EVIDENCE_SCOPE),
+            {
+                "claim_status": run_handoff_trial.CLAIM_STATUS,
+                "evidence_scope": run_handoff_trial.EVIDENCE_SCOPE,
+                "final_production_signoff": run_handoff_trial.FINAL_PRODUCTION_SIGNOFF,
+            },
+        )
+        self.assertEqual(
+            release_gate.external_readiness_scope(),
+            {
+                "status": release_gate.EXTERNAL_READINESS_STATUS,
+                "claim_status": check_external_l4_readiness.CLAIM_STATUS,
+                "evidence_scope": check_external_l4_readiness.EVIDENCE_SCOPE,
+                "final_production_signoff": check_external_l4_readiness.FINAL_PRODUCTION_SIGNOFF,
+            },
+        )
+        self.assertEqual(
+            release_gate.non_final_claim_scope(release_gate.EXTERNAL_TRIAL_REVIEW_EVIDENCE_SCOPE),
+            {
+                "claim_status": verify_external_trial_report.CLAIM_STATUS,
+                "evidence_scope": verify_external_trial_report.EVIDENCE_SCOPE,
+                "final_production_signoff": verify_external_trial_report.FINAL_PRODUCTION_SIGNOFF,
+            },
+        )
+        self.assertEqual(
+            release_gate.non_final_claim_scope(release_gate.EXTERNAL_PACKAGE_REVIEW_EVIDENCE_SCOPE),
+            {
+                "claim_status": verify_external_evidence_package.CLAIM_STATUS,
+                "evidence_scope": verify_external_evidence_package.EVIDENCE_SCOPE,
+                "final_production_signoff": verify_external_evidence_package.FINAL_PRODUCTION_SIGNOFF,
+            },
+        )
+        self.assertEqual(
+            release_gate.non_final_claim_scope(release_gate.GITHUB_STABLE_RELEASE_EVIDENCE_SCOPE),
+            {
+                "claim_status": verify_github_release.CLAIM_STATUS,
+                "evidence_scope": verify_github_release.EVIDENCE_SCOPE,
+                "final_production_signoff": verify_github_release.FINAL_PRODUCTION_SIGNOFF,
+            },
+        )
+
     def production_args(self, **overrides: object) -> Namespace:
         values = {
             "require_clean_git": False,

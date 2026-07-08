@@ -24,7 +24,17 @@ FINAL_CLAIM_STATUS = "FINAL_PRODUCTION_CLAIM"
 NON_FINAL_CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
 FINAL_EVIDENCE_SCOPE = "FINAL_PRODUCTION_RELEASE_GATE"
 NON_FINAL_EVIDENCE_SCOPE = "RELEASE_GATE_PRECHECK"
+FINAL_PRODUCTION_SIGNOFF = True
+NON_FINAL_PRODUCTION_SIGNOFF = False
+EXTERNAL_TRIAL_PLAN_EVIDENCE_SCOPE = "EXTERNAL_L4_TRIAL_PLAN"
 EXTERNAL_TRIAL_EVIDENCE_SCOPE = "EXTERNAL_L4_WORKFLOW_TRIAL"
+EXTERNAL_TRIAL_REVIEW_EVIDENCE_SCOPE = "EXTERNAL_L4_WORKFLOW_TRIAL_REVIEW"
+EXTERNAL_PACKAGE_EVIDENCE_SCOPE = "EXTERNAL_L4_EVIDENCE_PACKAGE"
+EXTERNAL_PACKAGE_REVIEW_EVIDENCE_SCOPE = "EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW"
+EXTERNAL_READINESS_STATUS = "READY"
+EXTERNAL_READINESS_EVIDENCE_SCOPE = "EXTERNAL_L4_READINESS_PRECHECK"
+LOCAL_PREFLIGHT_EVIDENCE_SCOPE = "LOCAL_EXTERNAL_L4_PREFLIGHT"
+GITHUB_STABLE_RELEASE_EVIDENCE_SCOPE = "GITHUB_STABLE_RELEASE_VERIFICATION"
 PRODUCTION_AUDIT_CHECK_NAMES = [
     "clean_git_worktree",
     "standard_code_and_artifact_gates",
@@ -65,6 +75,30 @@ REQUIRED_PRODUCTION_GATE_NAMES = frozenset(
         "Verify saved stable GitHub release report",
     ]
 )
+
+
+def non_final_claim_scope(evidence_scope: str) -> dict[str, object]:
+    return {
+        "claim_status": NON_FINAL_CLAIM_STATUS,
+        "evidence_scope": evidence_scope,
+        "final_production_signoff": NON_FINAL_PRODUCTION_SIGNOFF,
+    }
+
+
+def external_readiness_scope() -> dict[str, object]:
+    return {
+        "status": EXTERNAL_READINESS_STATUS,
+        **non_final_claim_scope(EXTERNAL_READINESS_EVIDENCE_SCOPE),
+    }
+
+
+def external_package_manifest_claim_scope() -> dict[str, object]:
+    return {
+        **non_final_claim_scope(EXTERNAL_PACKAGE_EVIDENCE_SCOPE),
+        "trial_claim_status": NON_FINAL_CLAIM_STATUS,
+        "trial_evidence_scope": EXTERNAL_TRIAL_EVIDENCE_SCOPE,
+        "trial_final_production_signoff": NON_FINAL_PRODUCTION_SIGNOFF,
+    }
 
 
 def is_utc_datetime(value: datetime) -> bool:
@@ -947,14 +981,12 @@ def readiness_report_summary_failures(
     sha256 = summary.get("sha256")
     if not isinstance(sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", sha256):
         failures.append("readiness_report.sha256 must be a SHA-256 digest")
-    if summary.get("status") != "READY":
-        failures.append(f"readiness_report.status={summary.get('status')}")
-    if summary.get("claim_status") != "NOT_PRODUCTION_CLAIM":
-        failures.append(f"readiness_report.claim_status={summary.get('claim_status')}")
-    if summary.get("evidence_scope") != "EXTERNAL_L4_READINESS_PRECHECK":
-        failures.append(f"readiness_report.evidence_scope={summary.get('evidence_scope')}")
-    if summary.get("final_production_signoff") is not False:
-        failures.append("readiness_report.final_production_signoff must be false")
+    for field, expected in external_readiness_scope().items():
+        if summary.get(field) != expected:
+            if field == "final_production_signoff":
+                failures.append("readiness_report.final_production_signoff must be false")
+            else:
+                failures.append(f"readiness_report.{field}={summary.get(field)}")
     generated_at = summary.get("generated_at_utc")
     parsed_readiness_at = None
     if not isinstance(generated_at, str) or not generated_at.strip():
@@ -1079,7 +1111,7 @@ def external_trial_failures(
         failures.append(f"trial claim_status={trial.get('claim_status')}")
     if trial.get("evidence_scope") != EXTERNAL_TRIAL_EVIDENCE_SCOPE:
         failures.append(f"trial evidence_scope={trial.get('evidence_scope')}")
-    if trial.get("final_production_signoff") is not False:
+    if trial.get("final_production_signoff") is not NON_FINAL_PRODUCTION_SIGNOFF:
         failures.append("trial final_production_signoff must be false")
     failures.extend(external_trial_metadata_failures(trial.get("metadata"), trial, report_path))
     failures.extend(
@@ -1642,14 +1674,12 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
             failures.append(f"package artifact_manifest.schema_version={artifact_manifest.get('schema_version')}")
         if artifact_manifest.get("generator") != "benchmark/package_external_trial.py":
             failures.append(f"package artifact_manifest.generator={artifact_manifest.get('generator')}")
-        if artifact_manifest.get("claim_status") != "NOT_PRODUCTION_CLAIM":
-            failures.append(f"package artifact_manifest.claim_status={artifact_manifest.get('claim_status')}")
-        if artifact_manifest.get("evidence_scope") != "EXTERNAL_L4_EVIDENCE_PACKAGE":
-            failures.append(f"package artifact_manifest.evidence_scope={artifact_manifest.get('evidence_scope')}")
-        if artifact_manifest.get("final_production_signoff") is not False:
-            failures.append(
-                "package artifact_manifest.final_production_signoff must be false"
-            )
+        for field, expected in non_final_claim_scope(EXTERNAL_PACKAGE_EVIDENCE_SCOPE).items():
+            if artifact_manifest.get(field) != expected:
+                if field == "final_production_signoff":
+                    failures.append("package artifact_manifest.final_production_signoff must be false")
+                else:
+                    failures.append(f"package artifact_manifest.{field}={artifact_manifest.get(field)}")
         failures.extend(package_artifact_manifest_argv_failures(artifact_manifest, package_dir, trial_json))
         packaged_at = artifact_manifest.get("packaged_at_utc")
         if not isinstance(packaged_at, str) or not packaged_at.strip():
@@ -1675,7 +1705,7 @@ def validate_external_evidence_package(package_dir: Path, trial_json: Path | Non
             failures.append(
                 f"package artifact_manifest.trial_evidence_scope={artifact_manifest.get('trial_evidence_scope')}"
             )
-        if artifact_manifest.get("trial_final_production_signoff") is not False:
+        if artifact_manifest.get("trial_final_production_signoff") is not NON_FINAL_PRODUCTION_SIGNOFF:
             failures.append("package artifact_manifest.trial_final_production_signoff must be false")
         if artifact_manifest.get("trial_claim_status") != trial.get("claim_status"):
             failures.append("package artifact_manifest.trial_claim_status must match trial claim_status")

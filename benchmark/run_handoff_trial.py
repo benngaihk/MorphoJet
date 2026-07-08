@@ -13,11 +13,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import release_gate
+
 
 ROOT = Path(__file__).resolve().parents[1]
-CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
-EVIDENCE_SCOPE = "EXTERNAL_L4_WORKFLOW_TRIAL"
-FINAL_PRODUCTION_SIGNOFF = False
+CLAIM_STATUS = release_gate.NON_FINAL_CLAIM_STATUS
+EVIDENCE_SCOPE = release_gate.EXTERNAL_TRIAL_EVIDENCE_SCOPE
+FINAL_PRODUCTION_SIGNOFF = release_gate.NON_FINAL_PRODUCTION_SIGNOFF
 
 
 @dataclass

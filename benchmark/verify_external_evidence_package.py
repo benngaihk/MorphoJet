@@ -17,13 +17,13 @@ import release_gate
 SCHEMA_VERSION = 1
 VERIFIER = "benchmark/verify_external_evidence_package.py"
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
-CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
-EVIDENCE_SCOPE = "EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW"
-FINAL_PRODUCTION_SIGNOFF = False
-SOURCE_TRIAL_EVIDENCE_SCOPE = "EXTERNAL_L4_WORKFLOW_TRIAL"
-READINESS_STATUS = "READY"
-READINESS_CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
-READINESS_EVIDENCE_SCOPE = "EXTERNAL_L4_READINESS_PRECHECK"
+CLAIM_STATUS = release_gate.NON_FINAL_CLAIM_STATUS
+EVIDENCE_SCOPE = release_gate.EXTERNAL_PACKAGE_REVIEW_EVIDENCE_SCOPE
+FINAL_PRODUCTION_SIGNOFF = release_gate.NON_FINAL_PRODUCTION_SIGNOFF
+SOURCE_TRIAL_EVIDENCE_SCOPE = release_gate.EXTERNAL_TRIAL_EVIDENCE_SCOPE
+READINESS_STATUS = release_gate.EXTERNAL_READINESS_STATUS
+READINESS_CLAIM_STATUS = release_gate.NON_FINAL_CLAIM_STATUS
+READINESS_EVIDENCE_SCOPE = release_gate.EXTERNAL_READINESS_EVIDENCE_SCOPE
 PACKAGE_REVIEW_FILES = {
     "package_handoff_trial": "handoff_trial.json",
     "package_readiness": "readiness.json",
@@ -348,12 +348,11 @@ def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) 
                     failures.append(f"{label}.handoff_contract must be a non-empty object")
                 if summary.get("review_entrypoint_present") is not True:
                     failures.append(f"{label}.review_entrypoint_present must be true")
-                if summary.get("claim_status") != "NOT_PRODUCTION_CLAIM":
-                    failures.append(f"{label}.claim_status={summary.get('claim_status')}")
-                if summary.get("evidence_scope") != "EXTERNAL_L4_EVIDENCE_PACKAGE":
-                    failures.append(f"{label}.evidence_scope={summary.get('evidence_scope')}")
-                if summary.get("final_production_signoff") is not False:
-                    failures.append(f"{label}.final_production_signoff must be false")
+                for field, expected in release_gate.non_final_claim_scope(
+                    release_gate.EXTERNAL_PACKAGE_EVIDENCE_SCOPE
+                ).items():
+                    if summary.get(field) != expected:
+                        failures.append(f"{label}.{field}={summary.get(field)}")
                 if summary.get("readiness_status") != READINESS_STATUS:
                     failures.append(f"{label}.readiness_status={summary.get('readiness_status')}")
                 if summary.get("readiness_claim_status") != READINESS_CLAIM_STATUS:
@@ -401,31 +400,9 @@ def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) 
                 if field not in summary:
                     failures.append(f"input_files.package_artifact_manifest.{field} must be present")
             if status == "PASS":
-                if summary.get("claim_status") != "NOT_PRODUCTION_CLAIM":
-                    failures.append(
-                        f"input_files.package_artifact_manifest.claim_status={summary.get('claim_status')}"
-                    )
-                if summary.get("evidence_scope") != "EXTERNAL_L4_EVIDENCE_PACKAGE":
-                    failures.append(
-                        f"input_files.package_artifact_manifest.evidence_scope={summary.get('evidence_scope')}"
-                    )
-                if summary.get("final_production_signoff") is not False:
-                    failures.append(
-                        "input_files.package_artifact_manifest.final_production_signoff must be false"
-                    )
-                if summary.get("trial_claim_status") != CLAIM_STATUS:
-                    failures.append(
-                        f"input_files.package_artifact_manifest.trial_claim_status={summary.get('trial_claim_status')}"
-                    )
-                if summary.get("trial_evidence_scope") != SOURCE_TRIAL_EVIDENCE_SCOPE:
-                    failures.append(
-                        "input_files.package_artifact_manifest.trial_evidence_scope="
-                        f"{summary.get('trial_evidence_scope')}"
-                    )
-                if summary.get("trial_final_production_signoff") is not FINAL_PRODUCTION_SIGNOFF:
-                    failures.append(
-                        "input_files.package_artifact_manifest.trial_final_production_signoff must be false"
-                    )
+                for field, expected in release_gate.external_package_manifest_claim_scope().items():
+                    if summary.get(field) != expected:
+                        failures.append(f"input_files.package_artifact_manifest.{field}={summary.get(field)}")
         if name == "source_trial_json" and isinstance(summary, dict):
             for field in ["claim_status", "evidence_scope", "final_production_signoff"]:
                 if field not in summary:

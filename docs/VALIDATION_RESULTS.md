@@ -2,6 +2,28 @@
 
 Updated: 2026-07-08
 
+## External Evidence Claim-Scope Source Snapshot
+
+This snapshot records local verification for making external L4 trial-plan, readiness, trial, package, saved reviewer, saved stable-release, and local-preflight claim-scope labels reuse `benchmark/release_gate.py` as the canonical source. The external trial runner, readiness checker, trial/package reviewer verifiers, GitHub release verifier, evidence packager, and final production wrapper no longer carry separate handwritten non-final claim labels for those evidence stages; generation and validation now share the same `NOT_PRODUCTION_CLAIM`, evidence-scope, and false final-signoff contracts.
+
+This is not a production claim. The current release-gate report must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE` until real external L4 trial/package evidence, saved reviewer reports, live stable release evidence, and saved stable-release verifier evidence are present in one final passing report.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_release_gate.py` | PASS, 75 tests |
+| `python3 tests/test_run_production_gate.py` | PASS, 91 tests |
+| `python3 tests/test_verify_external_trial_report.py` | PASS, 34 tests |
+| `python3 tests/test_package_external_trial.py` | PASS, 81 tests |
+| `python3 tests/test_check_external_l4_readiness.py` | PASS, 27 tests |
+| `python3 -m unittest discover -s tests` | PASS, 513 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS |
+| `git diff --check` | PASS |
+| Shared external evidence claim-scope contracts | PASS |
+
 ## Saved Release-Gate Claim-Scope Source Snapshot
 
 This snapshot records local verification for making `benchmark/verify_release_gate_report.py` reuse `benchmark/release_gate.py` as the source for final/non-final claim labels, evidence-scope labels, and the saved GitHub release verifier report path. The saved release-gate verifier no longer carries separate handwritten `FINAL_PRODUCTION_CLAIM`, `NOT_PRODUCTION_CLAIM`, `FINAL_PRODUCTION_RELEASE_GATE`, `RELEASE_GATE_PRECHECK`, or GitHub release verification report path contracts.

@@ -26,7 +26,7 @@ DEFAULT_OUT_JSON = Path("benchmark/results/release-gate/production-claim.json")
 DEFAULT_OUT_MD = Path("benchmark/results/release-gate/production-claim.md")
 DEFAULT_LOCAL_PREFLIGHT_JSON = Path("benchmark/results/release-gate/local-evidence-preflight.json")
 DEFAULT_LOCAL_PREFLIGHT_MD = Path("benchmark/results/release-gate/local-evidence-preflight.md")
-LOCAL_PREFLIGHT_EVIDENCE_SCOPE = "LOCAL_EXTERNAL_L4_PREFLIGHT"
+LOCAL_PREFLIGHT_EVIDENCE_SCOPE = release_gate.LOCAL_PREFLIGHT_EVIDENCE_SCOPE
 LOCAL_PREFLIGHT_VALIDATED_CHECKS = [
     "external_l4_workflow_trial",
     "external_l4_evidence_package",
@@ -68,24 +68,10 @@ LOCAL_PREFLIGHT_OPTIONAL_GATE_NAMES = {
     "Verify saved external L4 evidence package report",
 }
 TRIAL_CLAIM_SCOPE = {
-    "claim_status": "NOT_PRODUCTION_CLAIM",
-    "evidence_scope": "EXTERNAL_L4_WORKFLOW_TRIAL",
-    "final_production_signoff": False,
+    **release_gate.non_final_claim_scope(release_gate.EXTERNAL_TRIAL_EVIDENCE_SCOPE),
 }
-PACKAGE_MANIFEST_CLAIM_SCOPE = {
-    "claim_status": "NOT_PRODUCTION_CLAIM",
-    "evidence_scope": "EXTERNAL_L4_EVIDENCE_PACKAGE",
-    "final_production_signoff": False,
-    "trial_claim_status": "NOT_PRODUCTION_CLAIM",
-    "trial_evidence_scope": "EXTERNAL_L4_WORKFLOW_TRIAL",
-    "trial_final_production_signoff": False,
-}
-PACKAGE_READINESS_SCOPE = {
-    "status": "READY",
-    "claim_status": "NOT_PRODUCTION_CLAIM",
-    "evidence_scope": "EXTERNAL_L4_READINESS_PRECHECK",
-    "final_production_signoff": False,
-}
+PACKAGE_MANIFEST_CLAIM_SCOPE = release_gate.external_package_manifest_claim_scope()
+PACKAGE_READINESS_SCOPE = release_gate.external_readiness_scope()
 GITHUB_RELEASE_REPO = release_gate.GITHUB_RELEASE_REPO
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 
@@ -415,7 +401,7 @@ def build_local_evidence_preflight_payload(args: argparse.Namespace, gates: list
     return {
         "schema_version": 1,
         "status": "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL",
-        "claim_status": "NOT_PRODUCTION_CLAIM",
+        "claim_status": release_gate.NON_FINAL_CLAIM_STATUS,
         "evidence_scope": LOCAL_PREFLIGHT_EVIDENCE_SCOPE,
         "final_evidence_acceptable": False,
         "validated_checks": local_preflight_validated_checks(saved_reviewer_reports),
@@ -1031,7 +1017,7 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
         failures.append(f"schema_version={payload.get('schema_version')}")
     if payload.get("status") not in {"PASS", "FAIL"}:
         failures.append(f"status={payload.get('status')}")
-    if payload.get("claim_status") != "NOT_PRODUCTION_CLAIM":
+    if payload.get("claim_status") != release_gate.NON_FINAL_CLAIM_STATUS:
         failures.append(f"claim_status={payload.get('claim_status')}")
     if payload.get("evidence_scope") != LOCAL_PREFLIGHT_EVIDENCE_SCOPE:
         failures.append(f"evidence_scope={payload.get('evidence_scope')}")
@@ -1324,9 +1310,7 @@ def package_readme_artifact_scope_issues(name: str, artifact: dict) -> list[str]
     failures = []
     if artifact.get("exists"):
         package_scope = {
-            "claim_status": "NOT_PRODUCTION_CLAIM",
-            "evidence_scope": "EXTERNAL_L4_EVIDENCE_PACKAGE",
-            "final_production_signoff": False,
+            **release_gate.non_final_claim_scope(release_gate.EXTERNAL_PACKAGE_EVIDENCE_SCOPE),
         }
         readiness_scope = {
             "readiness_status": PACKAGE_READINESS_SCOPE["status"],

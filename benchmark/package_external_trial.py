@@ -378,9 +378,7 @@ def create_package(
     artifact_manifest = {
         "schema_version": 1,
         "generator": PACKAGER,
-        "claim_status": "NOT_PRODUCTION_CLAIM",
-        "evidence_scope": "EXTERNAL_L4_EVIDENCE_PACKAGE",
-        "final_production_signoff": False,
+        **release_gate.non_final_claim_scope(release_gate.EXTERNAL_PACKAGE_EVIDENCE_SCOPE),
         "packaged_at_utc": datetime.now(timezone.utc).isoformat(),
         "argv": packager_argv(trial_json, trial_root, out_dir, name, overwrite),
         "trial_id": trial["trial_id"],
