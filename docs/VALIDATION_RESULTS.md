@@ -2,6 +2,35 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `c0ab0ef`
+
+This snapshot records the verification for binding generated final signoff requirements to the exact final production wrapper arguments they satisfy. `benchmark/prepare_external_l4_trial.py` now records separate `required_for` values for `--external-trial-json`, `--external-evidence-package-dir`, `--external-trial-verification-report`, `--external-evidence-package-verification-report`, `--github-release-tag`, and `--github-release-verification-report`; the generated English and Chinese external-workspace READMEs render the same mapping so reviewers can trace every final artifact to the wrapper input it must satisfy.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `c0ab0eff12db8c5b9cc1623cd344ea5acd477e88`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-final-signoff-flags.json --out-md /tmp/morphojet-l3-release-report-final-signoff-flags.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-final-signoff-flags.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Generated external L4 workspace tests | PASS, 21 tests |
+| Full Python unit test suite | PASS, 493 tests |
+| Source claim-language guard | PASS, 16 paths |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| English final-signoff wrapper-argument mapping | PASS |
+| Chinese final-signoff wrapper-argument mapping | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `8b6f6e1`
 
 This snapshot records the verification for making the final production wrapper fail fast unless all saved verifier reports required for final signoff are supplied. `benchmark/run_production_gate.py` now requires `--external-trial-verification-report`, `--external-evidence-package-verification-report`, and `--github-release-verification-report` for actual final runs while preserving `--dry-run` command inspection and the earlier non-final `--local-evidence-preflight-only` path.
