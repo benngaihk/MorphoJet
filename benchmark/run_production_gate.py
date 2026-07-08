@@ -594,14 +594,7 @@ def saved_reviewer_report_gates(
     if args.external_trial_verification_report:
         gate = saved_verifier_gate(
             "Verify saved external L4 trial report",
-            [
-                sys.executable,
-                "benchmark/verify_external_trial_report.py",
-                "--verify-report",
-                str(args.external_trial_verification_report),
-                "--verify-report-files",
-                "--require-report-pass",
-            ],
+            release_gate.saved_external_trial_report_command(args.external_trial_verification_report),
             verify_external_trial_report.verify_saved_external_trial_report,
             args.external_trial_verification_report,
         )
@@ -616,15 +609,7 @@ def saved_reviewer_report_gates(
     if args.external_evidence_package_verification_report:
         gate = saved_verifier_gate(
             "Verify saved external L4 evidence package report",
-            [
-                sys.executable,
-                "benchmark/verify_external_evidence_package.py",
-                "--verify-report",
-                str(args.external_evidence_package_verification_report),
-                "--verify-report-files",
-                "--require-report-pass",
-                "--require-trial-json",
-            ],
+            release_gate.saved_external_package_report_command(args.external_evidence_package_verification_report),
             verify_external_evidence_package.verify_saved_external_evidence_package_report,
             args.external_evidence_package_verification_report,
             verifier_kwargs={

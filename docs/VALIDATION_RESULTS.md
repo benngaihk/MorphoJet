@@ -2,6 +2,25 @@
 
 Updated: 2026-07-08
 
+## Final Wrapper External Reviewer Command Source Snapshot
+
+This snapshot records local verification for making `benchmark/run_production_gate.py` record saved external L4 trial and evidence-package reviewer gates with `benchmark/release_gate.py`'s canonical saved external reviewer command builders. The final production wrapper no longer carries parallel handwritten commands for `Verify saved external L4 trial report` or `Verify saved external L4 evidence package report`; it records the same file recheck, PASS enforcement, and package source-trial binding command flags that direct release-gate reports use.
+
+This is not a production claim. The current release-gate report must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE` until real external L4 trial/package evidence, saved reviewer reports, live stable release evidence, and saved stable-release verifier evidence are present in one final passing report.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_release_gate.py` | PASS, 74 tests |
+| `python3 tests/test_run_production_gate.py` | PASS, 90 tests |
+| `python3 -m unittest discover -s tests` | PASS, 509 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS |
+| `git diff --check` | PASS |
+| Shared saved external reviewer verifier commands | PASS |
+
 ## Final Wrapper Stable-Release Command Source Snapshot
 
 This snapshot records local verification for making `benchmark/run_production_gate.py` record the saved stable GitHub release verifier gate with `benchmark/release_gate.py`'s canonical `saved_github_release_report_command`. The final production wrapper no longer carries a parallel handwritten command for `Verify saved stable GitHub release report`; it records the same file recheck, PASS enforcement, stable-report enforcement, git commit verification, expected tag, and production repo binding that direct release-gate reports use. This reduces the risk that the final wrapper and direct release gate could accept or document different saved stable-release verifier commands.

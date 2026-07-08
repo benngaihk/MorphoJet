@@ -554,6 +554,29 @@ def saved_github_release_report_command(report: Path, expected_tag: str | None =
     return command
 
 
+def saved_external_trial_report_command(report: Path) -> list[str]:
+    return [
+        "python3",
+        "benchmark/verify_external_trial_report.py",
+        "--verify-report",
+        normalized_path_key(report),
+        "--verify-report-files",
+        "--require-report-pass",
+    ]
+
+
+def saved_external_package_report_command(report: Path) -> list[str]:
+    return [
+        "python3",
+        "benchmark/verify_external_evidence_package.py",
+        "--verify-report",
+        normalized_path_key(report),
+        "--verify-report-files",
+        "--require-report-pass",
+        "--require-trial-json",
+    ]
+
+
 def live_github_release_report_command(tag: str, kind: str) -> list[str]:
     release_kind_flag = "--expect-stable" if kind == "stable" else "--expect-prerelease"
     return [
@@ -2427,14 +2450,7 @@ def main() -> int:
     if args.external_trial_verification_report:
         gate = run_command(
             "Verify saved external L4 trial report",
-            [
-                "python3",
-                "benchmark/verify_external_trial_report.py",
-                "--verify-report",
-                normalized_path_key(args.external_trial_verification_report),
-                "--verify-report-files",
-                "--require-report-pass",
-            ],
+            saved_external_trial_report_command(args.external_trial_verification_report),
         )
         gates.append(
             gate_with_binding_failures(
@@ -2447,15 +2463,7 @@ def main() -> int:
     if args.external_evidence_package_verification_report:
         gate = run_command(
             "Verify saved external L4 evidence package report",
-            [
-                "python3",
-                "benchmark/verify_external_evidence_package.py",
-                "--verify-report",
-                normalized_path_key(args.external_evidence_package_verification_report),
-                "--verify-report-files",
-                "--require-report-pass",
-                "--require-trial-json",
-            ],
+            saved_external_package_report_command(args.external_evidence_package_verification_report),
         )
         gates.append(
             gate_with_binding_failures(

@@ -844,6 +844,23 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertEqual("benngaihk/MorphoJet", command[command.index("--expect-repo") + 1])
         self.assertNotIn("--expect-tag", command)
 
+    def test_saved_external_trial_report_command_requires_file_recheck_and_pass(self) -> None:
+        report = Path("external/handoff_trial-verification.json")
+        command = release_gate.saved_external_trial_report_command(report)
+
+        self.assertEqual(str(report.resolve(strict=False)), command[command.index("--verify-report") + 1])
+        self.assertIn("--verify-report-files", command)
+        self.assertIn("--require-report-pass", command)
+
+    def test_saved_external_package_report_command_requires_source_trial_binding(self) -> None:
+        report = Path("external/evidence-package-verification.json")
+        command = release_gate.saved_external_package_report_command(report)
+
+        self.assertEqual(str(report.resolve(strict=False)), command[command.index("--verify-report") + 1])
+        self.assertIn("--verify-report-files", command)
+        self.assertIn("--require-report-pass", command)
+        self.assertIn("--require-trial-json", command)
+
     def test_live_github_release_report_command_uses_absolute_report_path(self) -> None:
         command = release_gate.live_github_release_report_command("v0.1.0", "stable")
 
