@@ -1106,6 +1106,11 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
             not isinstance(github_release_tag, str) or not github_release_tag.strip()
         ):
             failures.append("metadata.github_release_tag must be null or a non-empty string")
+        elif isinstance(github_release_tag, str) and not release_gate.is_stable_release_tag(github_release_tag):
+            failures.append(
+                "metadata.github_release_tag must be a stable release tag "
+                f"like {release_gate.DEFAULT_STABLE_RELEASE_TAG}"
+            )
         if metadata.get("local_evidence_preflight_only") is not True:
             failures.append("metadata.local_evidence_preflight_only must be true")
 
