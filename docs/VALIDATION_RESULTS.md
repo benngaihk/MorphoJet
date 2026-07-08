@@ -2,6 +2,25 @@
 
 Updated: 2026-07-08
 
+## Final Wrapper Stable-Release Command Source Snapshot
+
+This snapshot records local verification for making `benchmark/run_production_gate.py` record the saved stable GitHub release verifier gate with `benchmark/release_gate.py`'s canonical `saved_github_release_report_command`. The final production wrapper no longer carries a parallel handwritten command for `Verify saved stable GitHub release report`; it records the same file recheck, PASS enforcement, stable-report enforcement, git commit verification, expected tag, and production repo binding that direct release-gate reports use. This reduces the risk that the final wrapper and direct release gate could accept or document different saved stable-release verifier commands.
+
+This is not a production claim. The current release-gate report must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE` until the real external L4 workflow evidence chain and stable release evidence are present in one final passing report.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_run_production_gate.py` | PASS, 89 tests |
+| `python3 tests/test_release_gate.py` | PASS, 72 tests |
+| `python3 -m unittest discover -s tests` | PASS, 506 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS |
+| `git diff --check` | PASS |
+| Shared saved stable-release verifier command | PASS |
+
 ## Production Release Repo Identity Source Snapshot
 
 This snapshot records local verification for making the production GitHub release repository identity flow from `benchmark/release_gate.py` into the final production wrapper, saved release-gate verifier, external L4 trial-plan generator, and GitHub release verifier default. `benchmark/run_production_gate.py`, `benchmark/verify_release_gate_report.py`, `benchmark/prepare_external_l4_trial.py`, and `benchmark/verify_github_release.py` now reuse `release_gate.GITHUB_RELEASE_REPO` instead of carrying separate handwritten production repo strings for final stable-release validation. This keeps live release checks, saved stable-release report rechecks, generated external L4 workspace commands, and final production-report verification bound to the same production repository identity.

@@ -1236,6 +1236,10 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(1, len(gates))
         self.assertEqual("Verify saved stable GitHub release report", gates[0].name)
         self.assertEqual("PASS", gates[0].status)
+        self.assertEqual(
+            release_gate.saved_github_release_report_command(github_report, expected_tag="v0.1.0"),
+            gates[0].command,
+        )
         self.assertIn("--require-stable-report", gates[0].command)
         self.assertIn("--verify-git-commit", gates[0].command)
         self.assertIn("--expect-tag", gates[0].command)

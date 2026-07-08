@@ -644,20 +644,10 @@ def saved_reviewer_report_gates(
     if include_github_release and args.github_release_verification_report:
         gate = saved_verifier_gate(
             "Verify saved stable GitHub release report",
-            [
-                sys.executable,
-                "benchmark/verify_github_release.py",
-                "--verify-report",
-                str(args.github_release_verification_report),
-                "--verify-report-files",
-                "--require-report-pass",
-                "--require-stable-report",
-                "--verify-git-commit",
-                "--expect-tag",
-                args.github_release_tag,
-                "--expect-repo",
-                GITHUB_RELEASE_REPO,
-            ],
+            release_gate.saved_github_release_report_command(
+                args.github_release_verification_report,
+                expected_tag=args.github_release_tag,
+            ),
             verify_github_release.verify_saved_github_release_report,
             args.github_release_verification_report,
             verifier_kwargs={
