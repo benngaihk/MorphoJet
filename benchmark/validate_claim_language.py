@@ -71,9 +71,26 @@ ROOT_README_SHARED_ANCHORS = [
     "--external-trial-verification-report",
     "--external-evidence-package-verification-report",
     "--github-release-verification-report",
+    "--github-workflow-verification-report",
+    "--production-evidence-audit-report",
     "README.md",
     "README.zh-CN.md",
 ]
+PRODUCTION_READINESS_CONTRACT = {
+    "path": ROOT / "docs" / "PRODUCTION_READINESS.md",
+    "requirements": [
+        "final_production_gate --external-trial-json",
+        "--external-evidence-package-dir",
+        "--external-trial-verification-report",
+        "--external-evidence-package-verification-report",
+        "--github-release-tag",
+        "--github-release-verification-report",
+        "--github-workflow-verification-report",
+        "--production-evidence-audit-report",
+        "five saved final-input report arguments",
+        "reruns that signoff-mode recheck before invoking the release gate",
+    ],
+}
 RISKY_PATTERNS = [
     re.compile(r"\bproduction[- ]ready\b", re.IGNORECASE),
     re.compile(r"\bproduction[- ]grade\b", re.IGNORECASE),
@@ -210,6 +227,19 @@ def validate_root_readme_contract() -> list[str]:
     return failures
 
 
+def validate_production_readiness_contract() -> list[str]:
+    failures: list[str] = []
+    path = PRODUCTION_READINESS_CONTRACT["path"]
+    if not isinstance(path, Path) or not path.is_file():
+        failures.append(f"{display_path(path)}: missing production readiness document")
+        return failures
+    text = path.read_text(encoding="utf-8")
+    for required in PRODUCTION_READINESS_CONTRACT["requirements"]:
+        if required not in text:
+            failures.append(f"{display_path(path)}: missing required production readiness contract text: {required}")
+    return failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("paths", nargs="*", type=Path, help="Markdown files or directories to scan")
@@ -218,6 +248,7 @@ def main() -> int:
     failures = validate_paths(paths)
     if not args.paths:
         failures.extend(validate_root_readme_contract())
+        failures.extend(validate_production_readiness_contract())
     if failures:
         for failure in failures:
             print(f"FAIL: {failure}", file=sys.stderr)

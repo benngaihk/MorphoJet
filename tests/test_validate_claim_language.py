@@ -115,6 +115,35 @@ class ValidateClaimLanguageTest(unittest.TestCase):
         self.assertIn("missing required shared bilingual README anchor", failures[0])
         self.assertIn("--github-release-verification-report", failures[0])
 
+    def test_production_readiness_contract_requires_final_wrapper_audit_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "PRODUCTION_READINESS.md"
+            path.write_text(
+                "final_production_gate --external-trial-json\n"
+                "--external-evidence-package-dir\n"
+                "--external-trial-verification-report\n"
+                "--external-evidence-package-verification-report\n"
+                "--github-release-tag\n"
+                "--github-release-verification-report\n"
+                "--github-workflow-verification-report\n"
+                "five saved final-input report arguments\n"
+                "reruns that signoff-mode recheck before invoking the release gate\n",
+                encoding="utf-8",
+            )
+            original_contract = validate_claim_language.PRODUCTION_READINESS_CONTRACT
+            validate_claim_language.PRODUCTION_READINESS_CONTRACT = {
+                "path": path,
+                "requirements": original_contract["requirements"],
+            }
+            try:
+                failures = validate_claim_language.validate_production_readiness_contract()
+            finally:
+                validate_claim_language.PRODUCTION_READINESS_CONTRACT = original_contract
+
+        self.assertEqual(1, len(failures))
+        self.assertIn("PRODUCTION_READINESS.md", failures[0])
+        self.assertIn("--production-evidence-audit-report", failures[0])
+
     def test_accepts_guarded_claim_language(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "README.md"
