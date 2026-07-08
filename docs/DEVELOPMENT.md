@@ -94,6 +94,8 @@ This runs the standard code gates, requires a clean git worktree, uses the pinne
 
 The long-running CellBinDB L3 gate is also available as `.github/workflows/cellbindb-l3.yml`. It runs weekly and through `workflow_dispatch`, delegates to `benchmark/run_cellbindb_l3_validation.sh`, and uploads the L3 release-gate, parity, impact, provenance, workflow-bridge, and handoff-trial reports as a 30-day GitHub artifact. Use this workflow as recurring regression evidence for the public L3 oracle path; it remains non-final evidence and does not replace the external L4 workflow, stable release, or final production-claim gates.
 
+The external-L4 internal rehearsal is available as `.github/workflows/external-l4-rehearsal.yml`. It runs on `main` pushes, weekly, and through `workflow_dispatch`, delegates to `benchmark/run_external_l4_rehearsal.py` in `${RUNNER_TEMP}`, and uploads the rehearsal summary, generated plan, bilingual workspace READMEs, readiness report, trial report, saved trial/package verifier reports, local preflight report, and evidence package as a 30-day artifact. Use this workflow to catch drift in the external-L4 evidence-chain mechanics; it remains non-final rehearsal evidence and does not replace real external reviewer signoff, stable GitHub release verification, or the final production-claim gate.
+
 ```bash
 python3 benchmark/fetch_zenodo_file.py \
   --record 15370205 \

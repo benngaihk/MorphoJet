@@ -2086,6 +2086,7 @@ def is_l3_provenance_compatible_path(path: str) -> bool:
     return (
         is_doc_path(path)
         or path == ".github/workflows/cellbindb-l3.yml"
+        or path == ".github/workflows/external-l4-rehearsal.yml"
         or path.startswith("tests/")
         or path == "benchmark/check_external_l4_readiness.py"
         or path == "benchmark/inspect_cellbindb_direct_masks.py"
@@ -2095,6 +2096,7 @@ def is_l3_provenance_compatible_path(path: str) -> bool:
         or path == "benchmark/package_external_trial.py"
         or path == "benchmark/prepare_external_l4_trial.py"
         or path == "benchmark/run_handoff_trial.py"
+        or path == "benchmark/run_external_l4_rehearsal.py"
         or path == "benchmark/run_production_gate.py"
         or path == "benchmark/triage_oracle_candidates.py"
         or path == "benchmark/validate_claim_language.py"
@@ -2111,6 +2113,7 @@ def is_external_trial_compatible_path(path: str) -> bool:
     return (
         is_doc_path(path)
         or path == ".github/workflows/cellbindb-l3.yml"
+        or path == ".github/workflows/external-l4-rehearsal.yml"
         or path.startswith("tests/")
         or path == "benchmark/check_external_l4_readiness.py"
         or path == "benchmark/inspect_cellbindb_direct_masks.py"
@@ -2118,6 +2121,7 @@ def is_external_trial_compatible_path(path: str) -> bool:
         or path == "benchmark/handoff/external_lab_template.json"
         or path == "benchmark/package_external_trial.py"
         or path == "benchmark/prepare_external_l4_trial.py"
+        or path == "benchmark/run_external_l4_rehearsal.py"
         or path == "benchmark/run_production_gate.py"
         or path == "benchmark/triage_oracle_candidates.py"
         or path == "benchmark/validate_claim_language.py"

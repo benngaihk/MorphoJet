@@ -1,0 +1,71 @@
+name: External L4 Internal Rehearsal
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "43 7 * * 2"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-l4-internal-rehearsal
+  cancel-in-progress: false
+
+jobs:
+  rehearsal:
+    name: Run internal external-L4 rehearsal
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run internal rehearsal
+        shell: bash
+        run: |
+          set -euo pipefail
+          workspace="${RUNNER_TEMP}/morphojet-external-l4-rehearsal"
+          python3 benchmark/run_external_l4_rehearsal.py \
+            --workspace "${workspace}" \
+            --overwrite
+
+      - name: Write rehearsal summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          summary="${RUNNER_TEMP}/morphojet-external-l4-rehearsal/external-l4-rehearsal-summary.md"
+          {
+            echo "## External L4 internal rehearsal"
+            echo
+            if [[ -f "${summary}" ]]; then
+              cat "${summary}"
+            else
+              echo "No rehearsal Markdown summary was produced."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload rehearsal evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-l4-internal-rehearsal-${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            ${{ runner.temp }}/morphojet-external-l4-rehearsal/external-l4-rehearsal-summary.json
+            ${{ runner.temp }}/morphojet-external-l4-rehearsal/external-l4-rehearsal-summary.md
+            ${{ runner.temp }}/morphojet-external-l4-rehearsal/trial_plan.json
+            ${{ runner.temp }}/morphojet-external-l4-rehearsal/README.md
+            ${{ runner.temp }}/morphojet-external-l4-rehearsal/README.zh-CN.md
+            ${{ runner.temp }}/morphojet-external-l4-rehearsal/readiness.json
+            ${{ runner.temp }}/morphojet-external-l4-rehearsal/handoff_trial.json
+            ${{ runner.temp }}/morphojet-external-l4-rehearsal/handoff_trial.md
+            ${{ runner.temp }}/morphojet-external-l4-rehearsal/handoff_trial-verification.json
+            ${{ runner.temp }}/morphojet-external-l4-rehearsal/evidence-package-verification.json
+            ${{ runner.temp }}/morphojet-external-l4-rehearsal/local-evidence-preflight.json
+            ${{ runner.temp }}/morphojet-external-l4-rehearsal/local-evidence-preflight.md
+            ${{ runner.temp }}/morphojet-external-l4-rehearsal/evidence-package/**
