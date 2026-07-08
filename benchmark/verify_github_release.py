@@ -472,6 +472,8 @@ def release_metadata_issues(payload: dict[str, Any], status: Any, repo: Any) -> 
             failures.append(f"release_api_url must be a GitHub release API URL: {api_url}")
         if isinstance(repo, str) and repo.strip() and not api_url.startswith(expected_release_api_url_prefix(repo)):
             failures.append(f"release_api_url does not match repo: {api_url}")
+        if isinstance(database_id, int) and database_id > 0 and api_url.rsplit("/", 1)[-1] != str(database_id):
+            failures.append(f"release_api_url does not match release_database_id: {api_url}")
     is_immutable = payload.get("is_immutable")
     if not isinstance(is_immutable, bool):
         failures.append("is_immutable must be a boolean")

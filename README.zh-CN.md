@@ -134,7 +134,7 @@ python3 benchmark/release_gate.py --verify-github-release v0.1.0-rc.1
 python3 benchmark/release_gate.py --verify-github-release v0.1.0 --github-release-kind stable
 ```
 
-GitHub release verifier 会检查 tag 身份、release URL、GitHub release ID/API 身份、作者、target commit-ish、UTC 时间戳、draft/prerelease/immutable 状态、稳定 semver tag、发布资产集合、下载文件 checksum、archive 内容，并要求当前机器兼容的 archive 能通过 `morphojet doctor` 且 commit 前缀匹配。Direct release gate 的 live GitHub release verification 会绑定生产仓库 `benngaihk/MorphoJet`；Saved GitHub release verifier report 会标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=GITHUB_STABLE_RELEASE_VERIFICATION`、`final_production_signoff=false`；复核 saved report 时可用 `--expect-repo benngaihk/MorphoJet` 防止其他仓库的 release 报告进入签核链。
+GitHub release verifier 会检查 tag 身份、release URL、GitHub release ID/API 身份、作者、target commit-ish、UTC 时间戳、draft/prerelease/immutable 状态、稳定 semver tag、发布资产集合、下载文件 checksum、archive 内容，并要求 saved release API URL 与记录的 release database ID 匹配、当前机器兼容的 archive 能通过 `morphojet doctor` 且 commit 前缀匹配。Direct release gate 的 live GitHub release verification 会绑定生产仓库 `benngaihk/MorphoJet`；Saved GitHub release verifier report 会标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=GITHUB_STABLE_RELEASE_VERIFICATION`、`final_production_signoff=false`；复核 saved report 时可用 `--expect-repo benngaihk/MorphoJet` 防止其他仓库的 release 报告进入签核链。
 
 ## CellProfiler 风格宽表导出
 

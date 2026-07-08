@@ -615,6 +615,20 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn("is_immutable must be a boolean", failures)
         self.assertIn("target_commitish must be a non-empty string", failures)
 
+    def test_saved_release_report_rejects_release_api_url_database_id_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["release_api_url"] = "https://api.github.com/repos/benngaihk/MorphoJet/releases/456"
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn(
+            "release_api_url does not match release_database_id: "
+            "https://api.github.com/repos/benngaihk/MorphoJet/releases/456",
+            failures,
+        )
+
     def test_saved_release_report_rejects_non_utc_release_timestamps(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = self.valid_report(Path(tmp))
