@@ -704,6 +704,7 @@ def validate_stable_release_command_bindings(payload: dict[str, Any]) -> list[st
         production_evidence_audit,
         "production evidence audit",
     )
+    expect_present("verify_production_evidence_audit", "--verify-report-files", "production evidence audit file recheck")
     expect_present("verify_production_evidence_audit", "--require-ready", "production evidence audit readiness")
 
     expect_flag("final_production_gate", "--github-release-tag", STABLE_RELEASE_TAG, "final stable release tag")
@@ -1236,6 +1237,7 @@ def plan_commands(
             "benchmark/audit_production_evidence.py",
             "--verify-report",
             str(production_evidence_audit_json),
+            "--verify-report-files",
             "--require-ready",
         ],
         "final_production_gate": [
@@ -1468,7 +1470,7 @@ def render_readme(plan: dict[str, Any]) -> str:
         f"trial_plan.json final_production_signoff: `{plan['final_production_signoff']}`",
         "The saved package verifier report produced by `verify_package` is also not final production signoff: `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW`, `final_production_signoff=false`.",
         "The saved local preflight report produced by `local_evidence_preflight` is also not final production signoff: it must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`.",
-        "The saved production evidence audit produced by `audit_production_evidence` is also not final production signoff: it must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=PRODUCTION_EVIDENCE_READINESS_AUDIT`, and `final_production_signoff=false`. It must be rechecked with `--require-ready` before `final_production_gate` runs.",
+        "The saved production evidence audit produced by `audit_production_evidence` is also not final production signoff: it must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=PRODUCTION_EVIDENCE_READINESS_AUDIT`, and `final_production_signoff=false`. It must be rechecked with `--verify-report-files --require-ready` before `final_production_gate` runs.",
         "Chinese-community reviewers can use `README.zh-CN.md` as a first-class review entrypoint. It must preserve the same command order, non-final claim labels, pre-signoff requirements, final blockers, and package README evidence path as this English README.",
         "The saved trial-plan signoff command must pair `--require-plan-files` with `--verify-plan-files`, so a structurally valid `trial_plan.json` cannot be accepted before rechecking the template, manifest, and English plus Chinese README files.",
         "`check_readiness` also verifies the saved `trial_plan.json`, template hash, manifest presence, and both English and Chinese README files before returning READY, so readiness fails if the execution instructions or plan are weakened after workspace preparation. The saved readiness signoff command must pair `--require-ready` with `--verify-report-files`; otherwise the saved READY JSON is rejected instead of being treated as reviewer-ready evidence.",
@@ -1617,7 +1619,7 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
         f"trial_plan.json final_production_signoff：`{plan['final_production_signoff']}`",
         "`verify_package` 生成的 saved package verifier report 也不是最终生产签核：`claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW`、`final_production_signoff=false`。",
         "`local_evidence_preflight` 生成的 saved local preflight report 也不是最终生产签核：它必须保持 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`、`final_evidence_acceptable=false`。",
-        "`audit_production_evidence` 生成的 saved production evidence audit 也不是最终生产签核：它必须保持 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=PRODUCTION_EVIDENCE_READINESS_AUDIT`、`final_production_signoff=false`。它必须在 `final_production_gate` 运行前用 `--require-ready` 重新复核。",
+        "`audit_production_evidence` 生成的 saved production evidence audit 也不是最终生产签核：它必须保持 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=PRODUCTION_EVIDENCE_READINESS_AUDIT`、`final_production_signoff=false`。它必须在 `final_production_gate` 运行前用 `--verify-report-files --require-ready` 重新复核。",
         "中文社区 reviewer 可以把 `README.zh-CN.md` 作为一等复核入口。它必须保留与英文 README 相同的命令顺序、非最终 claim labels、pre-signoff requirements、最终阻塞项和 package README evidence path。",
         "Saved trial-plan 签核命令必须把 `--require-plan-files` 和 `--verify-plan-files` 配对使用；这样结构正确的 `trial_plan.json` 也必须重新复核 template、manifest、英文 README 和中文 README 文件后才可被接受。",
         "`check_readiness` 在返回 READY 前也会复核 saved `trial_plan.json`、template hash、manifest 是否存在，以及英文和中文 README 文件；如果 workspace 准备后执行说明或计划被改弱，readiness 会失败。Saved readiness 签核命令必须把 `--require-ready` 和 `--verify-report-files` 配对使用；否则 saved READY JSON 会被拒绝，不能当作 reviewer-ready evidence。",

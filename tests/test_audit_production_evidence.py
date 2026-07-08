@@ -66,66 +66,79 @@ class AuditProductionEvidenceTest(unittest.TestCase):
         self.assertEqual([], audit_production_evidence.validate_payload(payload))
 
     def test_all_audited_evidence_passes_and_renders_final_wrapper_command(self) -> None:
-        args = audit_production_evidence.parse_args(
-            [
-                "--external-trial-json",
-                "external/handoff_trial.json",
-                "--external-trial-root",
-                "external",
-                "--external-evidence-package-dir",
-                "evidence/external-l4-trial",
-                "--external-trial-verification-report",
-                "reports/trial-review.json",
-                "--external-evidence-package-verification-report",
-                "reports/package-review.json",
-                "--github-release-verification-report",
-                "reports/github-release.json",
-                "--github-workflow-verification-report",
-                "reports/github-workflows.json",
-                "--verify-live-github-release",
-            ]
-        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = root / "production-evidence-audit.json"
+            args = audit_production_evidence.parse_args(
+                [
+                    "--external-trial-json",
+                    str(root / "external" / "handoff_trial.json"),
+                    "--external-trial-root",
+                    str(root / "external"),
+                    "--external-evidence-package-dir",
+                    str(root / "evidence" / "external-l4-trial"),
+                    "--external-trial-verification-report",
+                    str(root / "reports" / "trial-review.json"),
+                    "--external-evidence-package-verification-report",
+                    str(root / "reports" / "package-review.json"),
+                    "--github-release-verification-report",
+                    str(root / "reports" / "github-release.json"),
+                    "--github-workflow-verification-report",
+                    str(root / "reports" / "github-workflows.json"),
+                    "--verify-live-github-release",
+                    "--out-json",
+                    str(report),
+                    "--out-md",
+                    str(root / "production-evidence-audit.md"),
+                ]
+            )
 
-        with (
-            self.patch_repo_state()[0],
-            self.patch_repo_state()[1],
-            self.patch_repo_state()[2],
-            self.patch_repo_state()[3],
-            patch.object(
-                audit_production_evidence.release_gate,
-                "validate_external_trial_report",
-                return_value=pass_gate("Validate external L4 workflow trial report"),
-            ),
-            patch.object(
-                audit_production_evidence.release_gate,
-                "validate_external_evidence_package",
-                return_value=pass_gate("Validate external L4 evidence package"),
-            ),
-            patch.object(
-                audit_production_evidence,
-                "external_saved_reviewer_gates",
-                return_value=[
-                    pass_gate("Verify saved external L4 trial report"),
-                    pass_gate("Verify saved external L4 evidence package report"),
-                ],
-            ),
-            patch.object(
-                audit_production_evidence,
-                "verify_saved_github_workflow_gate",
-                return_value=pass_gate("Verify saved GitHub Actions workflow report"),
-            ),
-            patch.object(
-                audit_production_evidence,
-                "live_github_release_gate",
-                return_value=pass_gate("Verify GitHub release assets"),
-            ),
-            patch.object(
-                audit_production_evidence,
-                "verify_saved_github_release_gate",
-                return_value=pass_gate("Verify saved stable GitHub release report"),
-            ),
-        ):
-            payload = audit_production_evidence.build_payload(args)
+            with (
+                self.patch_repo_state()[0],
+                self.patch_repo_state()[1],
+                self.patch_repo_state()[2],
+                self.patch_repo_state()[3],
+                patch.object(
+                    audit_production_evidence.release_gate,
+                    "validate_external_trial_report",
+                    return_value=pass_gate("Validate external L4 workflow trial report"),
+                ),
+                patch.object(
+                    audit_production_evidence.release_gate,
+                    "validate_external_evidence_package",
+                    return_value=pass_gate("Validate external L4 evidence package"),
+                ),
+                patch.object(
+                    audit_production_evidence,
+                    "external_saved_reviewer_gates",
+                    return_value=[
+                        pass_gate("Verify saved external L4 trial report"),
+                        pass_gate("Verify saved external L4 evidence package report"),
+                    ],
+                ),
+                patch.object(
+                    audit_production_evidence,
+                    "verify_saved_github_workflow_gate",
+                    return_value=pass_gate("Verify saved GitHub Actions workflow report"),
+                ),
+                patch.object(
+                    audit_production_evidence,
+                    "live_github_release_gate",
+                    return_value=pass_gate("Verify GitHub release assets"),
+                ),
+                patch.object(
+                    audit_production_evidence,
+                    "verify_saved_github_release_gate",
+                    return_value=pass_gate("Verify saved stable GitHub release report"),
+                ),
+            ):
+                payload = audit_production_evidence.build_payload(args)
+                failures = audit_production_evidence.validate_payload(
+                    payload,
+                    require_ready=True,
+                    verify_files=True,
+                    report_path=report,
+                )
 
         self.assertEqual("PASS", payload["status"])
         self.assertEqual("PASS", payload["production_claim_status"])
@@ -133,7 +146,38 @@ class AuditProductionEvidenceTest(unittest.TestCase):
         command = payload["metadata"]["final_wrapper_command"]
         self.assertIn("benchmark/run_production_gate.py", command)
         self.assertIn("--github-workflow-verification-report", command)
-        self.assertEqual([], audit_production_evidence.validate_payload(payload, require_ready=True))
+        self.assertEqual([], failures)
+
+    def test_require_ready_requires_file_recheck(self) -> None:
+        args = audit_production_evidence.parse_args([])
+        with self.patch_repo_state()[0], self.patch_repo_state()[1], self.patch_repo_state()[2], self.patch_repo_state()[3]:
+            payload = audit_production_evidence.build_payload(args)
+
+        failures = audit_production_evidence.validate_payload(payload, require_ready=True)
+
+        self.assertIn("--require-ready requires --verify-report-files", failures)
+
+    def test_file_recheck_rejects_audit_argv_tampering(self) -> None:
+        args = audit_production_evidence.parse_args([])
+        with self.patch_repo_state()[0], self.patch_repo_state()[1], self.patch_repo_state()[2], self.patch_repo_state()[3]:
+            payload = audit_production_evidence.build_payload(args)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "audit.json"
+            payload["metadata"]["argv"][payload["metadata"]["argv"].index("--out-json") + 1] = str(
+                Path(tmp) / "other-audit.json"
+            )
+
+            failures = audit_production_evidence.validate_payload(
+                payload,
+                verify_files=True,
+                report_path=report,
+            )
+
+        self.assertIn(
+            f"metadata.argv --out-json must match verified audit report path: {Path(tmp) / 'other-audit.json'}",
+            failures,
+        )
 
     def test_saved_report_verifier_rejects_final_signoff_claim(self) -> None:
         payload = {

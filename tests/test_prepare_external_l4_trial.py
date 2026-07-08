@@ -454,7 +454,10 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("audit_production_evidence", readme)
             self.assertIn("verify_production_evidence_audit", readme)
             self.assertIn("PRODUCTION_EVIDENCE_READINESS_AUDIT", readme)
-            self.assertIn("It must be rechecked with `--require-ready` before `final_production_gate` runs", readme)
+            self.assertIn(
+                "It must be rechecked with `--verify-report-files --require-ready` before `final_production_gate` runs",
+                readme,
+            )
             self.assertIn("final_production_gate", readme)
             self.assertIn("## production_claim_blockers", readme)
             self.assertIn("| Blocker | Status | Required Evidence | Next Action | Planned Paths | Final Gate Binding |", readme)
@@ -572,7 +575,10 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("audit_production_evidence", readme_zh)
             self.assertIn("verify_production_evidence_audit", readme_zh)
             self.assertIn("PRODUCTION_EVIDENCE_READINESS_AUDIT", readme_zh)
-            self.assertIn("必须在 `final_production_gate` 运行前用 `--require-ready` 重新复核", readme_zh)
+            self.assertIn(
+                "必须在 `final_production_gate` 运行前用 `--verify-report-files --require-ready` 重新复核",
+                readme_zh,
+            )
             self.assertIn("production_signoff", readme_zh)
             self.assertIn("## production_claim_blockers", readme_zh)
             self.assertIn("| 阻塞项 | 状态 | 必需证据 | 下一步 | 计划路径 | Final gate binding |", readme_zh)
@@ -1169,6 +1175,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             production_evidence_audit[production_evidence_audit.index("--github-release-tag") + 1] = "v0.1.0-rc.1"
             verify_production_evidence_audit = payload["commands"]["verify_production_evidence_audit"]
             verify_production_evidence_audit.remove("--require-ready")
+            verify_production_evidence_audit.remove("--verify-report-files")
             final_gate = payload["commands"]["final_production_gate"]
             final_gate[final_gate.index("--github-release-tag") + 1] = "v0.1.0-rc.1"
             plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -1200,6 +1207,10 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
         )
         self.assertIn(
             "commands.verify_production_evidence_audit must include exactly one --require-ready",
+            completed.stderr,
+        )
+        self.assertIn(
+            "commands.verify_production_evidence_audit must include exactly one --verify-report-files",
             completed.stderr,
         )
         self.assertIn("commands.final_production_gate --github-release-tag must be v0.1.0", completed.stderr)

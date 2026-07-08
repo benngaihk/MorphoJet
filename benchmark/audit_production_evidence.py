@@ -231,24 +231,28 @@ def check_rows(gate_map: dict[str, release_gate.Gate]) -> list[dict[str, str]]:
 
 def input_paths(args: argparse.Namespace) -> dict[str, str | None]:
     return {
-        "external_trial_json": str(args.external_trial_json) if args.external_trial_json else None,
-        "external_trial_root": str(args.external_trial_root) if args.external_trial_root else None,
-        "external_evidence_package_dir": str(args.external_evidence_package_dir)
+        "external_trial_json": absolute_path_text(args.external_trial_json) if args.external_trial_json else None,
+        "external_trial_root": absolute_path_text(args.external_trial_root) if args.external_trial_root else None,
+        "external_evidence_package_dir": absolute_path_text(args.external_evidence_package_dir)
         if args.external_evidence_package_dir
         else None,
-        "external_trial_verification_report": str(args.external_trial_verification_report)
+        "external_trial_verification_report": absolute_path_text(args.external_trial_verification_report)
         if args.external_trial_verification_report
         else None,
-        "external_evidence_package_verification_report": str(args.external_evidence_package_verification_report)
+        "external_evidence_package_verification_report": absolute_path_text(args.external_evidence_package_verification_report)
         if args.external_evidence_package_verification_report
         else None,
-        "github_release_verification_report": str(args.github_release_verification_report)
+        "github_release_verification_report": absolute_path_text(args.github_release_verification_report)
         if args.github_release_verification_report
         else None,
-        "github_workflow_verification_report": str(args.github_workflow_verification_report)
+        "github_workflow_verification_report": absolute_path_text(args.github_workflow_verification_report)
         if args.github_workflow_verification_report
         else None,
     }
+
+
+def absolute_path_text(path: Path) -> str:
+    return str(path.expanduser().resolve(strict=False))
 
 
 def final_wrapper_command(args: argparse.Namespace) -> list[str] | None:
@@ -267,19 +271,19 @@ def final_wrapper_command(args: argparse.Namespace) -> list[str] | None:
         sys.executable,
         AUDITOR.replace("audit_production_evidence.py", "run_production_gate.py"),
         "--external-trial-json",
-        str(args.external_trial_json),
+        absolute_path_text(args.external_trial_json),
         "--external-trial-root",
-        str(args.external_trial_root),
+        absolute_path_text(args.external_trial_root),
         "--external-evidence-package-dir",
-        str(args.external_evidence_package_dir),
+        absolute_path_text(args.external_evidence_package_dir),
         "--external-trial-verification-report",
-        str(args.external_trial_verification_report),
+        absolute_path_text(args.external_trial_verification_report),
         "--external-evidence-package-verification-report",
-        str(args.external_evidence_package_verification_report),
+        absolute_path_text(args.external_evidence_package_verification_report),
         "--github-release-verification-report",
-        str(args.github_release_verification_report),
+        absolute_path_text(args.github_release_verification_report),
         "--github-workflow-verification-report",
-        str(args.github_workflow_verification_report),
+        absolute_path_text(args.github_workflow_verification_report),
         "--github-release-tag",
         args.github_release_tag,
     ]
@@ -392,7 +396,10 @@ def canonical_argv(args: argparse.Namespace) -> list[str]:
         ("--out-md", args.out_md),
     ]:
         if value is not None:
-            argv.extend([flag, str(value)])
+            if isinstance(value, Path):
+                argv.extend([flag, absolute_path_text(value)])
+            else:
+                argv.extend([flag, str(value)])
     if args.verify_live_github_release:
         argv.append("--verify-live-github-release")
     if args.require_ready:
@@ -400,10 +407,163 @@ def canonical_argv(args: argparse.Namespace) -> list[str]:
     return argv
 
 
-def validate_payload(payload: object, require_ready: bool = False) -> list[str]:
+def argv_values(argv: list[str], flag: str) -> list[str | None]:
+    values: list[str | None] = []
+    for index, item in enumerate(argv):
+        if item != flag:
+            continue
+        if index + 1 >= len(argv) or argv[index + 1].startswith("--"):
+            values.append(None)
+        else:
+            values.append(argv[index + 1])
+    return values
+
+
+def normalized_path(path: Path) -> str:
+    return str(path.expanduser().resolve(strict=False))
+
+
+def audit_report_argv_issues(
+    argv: list[str],
+    metadata: dict[str, Any],
+    report_path: Path | None = None,
+) -> list[str]:
+    failures: list[str] = []
+    if not argv:
+        return ["metadata.argv must be non-empty"]
+    if argv[0] != AUDITOR:
+        failures.append(f"metadata.argv[0]={argv[0]}")
+    if "--verify-report" in argv:
+        failures.append("metadata.argv must not include --verify-report for a generated audit report")
+    for flag in ["--verify-live-github-release", "--require-ready"]:
+        if argv.count(flag) > 1:
+            failures.append(f"metadata.argv has duplicate {flag}")
+    if bool(metadata.get("verify_live_github_release")) != ("--verify-live-github-release" in argv):
+        failures.append("metadata.verify_live_github_release must match metadata.argv --verify-live-github-release")
+
+    github_release_tag = metadata.get("github_release_tag")
+    tag_values = argv_values(argv, "--github-release-tag")
+    if len(tag_values) != 1:
+        failures.append("metadata.argv must include exactly one --github-release-tag")
+    elif tag_values[0] is None:
+        failures.append("metadata.argv --github-release-tag must include a value")
+    elif github_release_tag != tag_values[0]:
+        failures.append(f"metadata.github_release_tag must match metadata.argv --github-release-tag {tag_values[0]}")
+
+    inputs = metadata.get("inputs")
+    if not isinstance(inputs, dict):
+        failures.append("metadata.inputs must be an object")
+        inputs = {}
+    path_flags = [
+        ("--external-trial-json", "external_trial_json"),
+        ("--external-trial-root", "external_trial_root"),
+        ("--external-evidence-package-dir", "external_evidence_package_dir"),
+        ("--external-trial-verification-report", "external_trial_verification_report"),
+        ("--external-evidence-package-verification-report", "external_evidence_package_verification_report"),
+        ("--github-release-verification-report", "github_release_verification_report"),
+        ("--github-workflow-verification-report", "github_workflow_verification_report"),
+    ]
+    for flag, input_key in path_flags:
+        expected = inputs.get(input_key)
+        values = argv_values(argv, flag)
+        if expected is None:
+            if values:
+                failures.append(f"metadata.argv must not include {flag} when metadata.inputs.{input_key} is null")
+            continue
+        if not isinstance(expected, str) or not expected.strip():
+            failures.append(f"metadata.inputs.{input_key} must be a non-empty string or null")
+            continue
+        if len(values) != 1:
+            failures.append(f"metadata.argv must include exactly one {flag}")
+            continue
+        value = values[0]
+        if value is None:
+            failures.append(f"metadata.argv {flag} must include a value")
+            continue
+        if not Path(value).is_absolute():
+            failures.append(f"metadata.argv {flag} must use an absolute path: {value}")
+        if normalized_path(Path(value)) != normalized_path(Path(expected)):
+            failures.append(f"metadata.inputs.{input_key} must match metadata.argv {flag} {value}")
+
+    for flag in ["--out-json", "--out-md"]:
+        values = argv_values(argv, flag)
+        if len(values) != 1:
+            failures.append(f"metadata.argv must include exactly one {flag}")
+            continue
+        value = values[0]
+        if value is None:
+            failures.append(f"metadata.argv {flag} must include a value")
+            continue
+        if not Path(value).is_absolute():
+            failures.append(f"metadata.argv {flag} must use an absolute path: {value}")
+        if flag == "--out-json" and report_path is not None:
+            if normalized_path(Path(value)) != normalized_path(report_path):
+                failures.append(f"metadata.argv --out-json must match verified audit report path: {value}")
+    return failures
+
+
+def replay_args_from_metadata(metadata: dict[str, Any]) -> argparse.Namespace:
+    argv = metadata["argv"]
+    args = parse_args(argv[1:])
+    args.verify_report = None
+    return args
+
+
+def compare_recomputed_payload(payload: dict[str, Any], recomputed: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    for key in ["status", "production_claim_status", "missing_or_failed_checks", "failed_checks"]:
+        if payload.get(key) != recomputed.get(key):
+            failures.append(f"{key} changed after recomputing audit evidence")
+    saved_checks = payload.get("checks")
+    recomputed_checks = recomputed.get("checks")
+    if isinstance(saved_checks, list) and isinstance(recomputed_checks, list):
+        saved_statuses = [
+            (item.get("name"), item.get("status")) for item in saved_checks if isinstance(item, dict)
+        ]
+        recomputed_statuses = [
+            (item.get("name"), item.get("status")) for item in recomputed_checks if isinstance(item, dict)
+        ]
+        if saved_statuses != recomputed_statuses:
+            failures.append("check statuses changed after recomputing audit evidence")
+    else:
+        failures.append("checks must be lists before recomputing audit evidence")
+    return failures
+
+
+def verify_saved_files(payload: dict[str, Any], report_path: Path | None = None) -> list[str]:
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, dict):
+        return ["metadata must be an object before file recheck"]
+    argv = metadata.get("argv")
+    if not isinstance(argv, list) or not all(isinstance(item, str) for item in argv):
+        return ["metadata.argv must be a string list before file recheck"]
+    failures = audit_report_argv_issues(argv, metadata, report_path=report_path)
+    git_commit = metadata.get("git_commit")
+    if git_commit != release_gate.git_commit():
+        failures.append(f"metadata.git_commit does not match current git commit: {git_commit}")
+    if payload.get("production_claim_status") == READY_STATUS:
+        if metadata.get("git_dirty") is not False:
+            failures.append("metadata.git_dirty must be false for ready audit reports")
+        if metadata.get("git_status") != []:
+            failures.append("metadata.git_status must be empty for ready audit reports")
+    if failures:
+        return failures
+    replay_args = replay_args_from_metadata(metadata)
+    recomputed = build_payload(replay_args)
+    return compare_recomputed_payload(payload, recomputed)
+
+
+def validate_payload(
+    payload: object,
+    require_ready: bool = False,
+    verify_files: bool = False,
+    report_path: Path | None = None,
+) -> list[str]:
     failures: list[str] = []
     if not isinstance(payload, dict):
         return ["production evidence audit report must be a JSON object"]
+    if require_ready and not verify_files:
+        failures.append("--require-ready requires --verify-report-files")
     if payload.get("schema_version") != 1:
         failures.append(f"schema_version={payload.get('schema_version')}")
     if payload.get("auditor") != AUDITOR:
@@ -456,6 +616,8 @@ def validate_payload(payload: object, require_ready: bool = False) -> list[str]:
         failures.append("metadata must be an object")
     elif not isinstance(metadata.get("argv"), list) or not all(isinstance(item, str) for item in metadata["argv"]):
         failures.append("metadata.argv must be a string list")
+    if verify_files and not failures:
+        failures.extend(verify_saved_files(payload, report_path=report_path))
     if require_ready:
         if payload.get("status") != "PASS":
             failures.append(f"status is not PASS: {payload.get('status')}")
@@ -466,13 +628,18 @@ def validate_payload(payload: object, require_ready: bool = False) -> list[str]:
     return failures
 
 
-def verify_report(path: Path, require_ready: bool = False) -> int:
+def verify_report(path: Path, require_ready: bool = False, verify_files: bool = False) -> int:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:  # noqa: BLE001 - report parse failure.
         print(f"FAIL: cannot read audit report: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
-    failures = validate_payload(payload, require_ready=require_ready)
+    failures = validate_payload(
+        payload,
+        require_ready=require_ready,
+        verify_files=verify_files,
+        report_path=path,
+    )
     if failures:
         for failure in failures:
             print(f"FAIL: {failure}", file=sys.stderr)
@@ -498,6 +665,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--out-json", type=Path, default=DEFAULT_OUT_JSON)
     parser.add_argument("--out-md", type=Path, default=DEFAULT_OUT_MD)
     parser.add_argument("--require-ready", action="store_true")
+    parser.add_argument("--verify-report-files", action="store_true", help="Recompute audit gates from saved metadata paths")
     parser.add_argument("--verify-report", type=Path)
     args = parser.parse_args(argv)
     if args.github_release_tag and not release_gate.is_stable_release_tag(args.github_release_tag):
@@ -510,7 +678,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.verify_report:
-        return verify_report(args.verify_report, require_ready=args.require_ready)
+        return verify_report(
+            args.verify_report,
+            require_ready=args.require_ready,
+            verify_files=args.verify_report_files,
+        )
     payload = build_payload(args)
     write_reports(args, payload)
     print(f"wrote {args.out_json}")
