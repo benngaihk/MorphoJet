@@ -105,6 +105,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             "verify_github_release": None,
             "github_release_kind": "prerelease",
             "github_release_verification_report": None,
+            "github_workflow_verification_report": None,
             "require_production_claim": False,
             "out_json": Path("release-gate.json"),
             "out_md": Path("release-gate.md"),
@@ -136,6 +137,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             "external_trial_verification_report": None,
             "external_evidence_package_verification_report": None,
             "github_release_verification_report": None,
+            "github_workflow_verification_report": None,
         }
 
     def valid_payload(self) -> dict:
@@ -186,6 +188,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                 "Verify saved external L4 evidence package report",
                 "Verify GitHub release assets",
                 "Verify saved stable GitHub release report",
+                "Verify saved GitHub Actions workflow report",
             ]
         )
         with tempfile.TemporaryDirectory() as tmp:
@@ -193,6 +196,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             trial_report = root / "review" / "trial-verification.json"
             package_report = root / "review" / "package-verification.json"
             github_report = root / "review" / "github-release-verification.json"
+            github_workflow_report = root / "review" / "github-workflow-verification.json"
             for gate in gates:
                 if gate.name == "Verify GitHub release assets":
                     gate.command = verify_release_gate_report.live_github_release_gate_command("v0.1.0", "stable")
@@ -204,6 +208,11 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                     gate.command = verify_release_gate_report.saved_github_release_report_command(
                         str(github_report),
                         "v0.1.0",
+                    )
+                elif gate.name == "Verify saved GitHub Actions workflow report":
+                    gate.command = verify_release_gate_report.saved_github_workflow_report_command(
+                        str(github_workflow_report),
+                        release_gate.git_commit(),
                     )
             trial_json = root / "external" / "handoff_trial.json"
             trial_root = root / "external"
@@ -221,6 +230,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                     verify_github_release="v0.1.0",
                     github_release_kind="stable",
                     github_release_verification_report=github_report,
+                    github_workflow_verification_report=github_workflow_report,
                     out_json=root / "report.json",
                     out_md=root / "report.md",
                 ),
@@ -249,6 +259,8 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                         "stable",
                         "--github-release-verification-report",
                         str(github_report),
+                        "--github-workflow-verification-report",
+                        str(github_workflow_report),
                     ],
                     "verify_github_release": "v0.1.0",
                     "github_release_kind": "stable",
@@ -261,6 +273,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                     "external_trial_verification_report": str(trial_report),
                     "external_evidence_package_verification_report": str(package_report),
                     "github_release_verification_report": str(github_report),
+                    "github_workflow_verification_report": str(github_workflow_report),
                 },
             )
 
@@ -270,6 +283,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
         trial_report = root / "trial-verification.json"
         package_report = root / "package-verification.json"
         github_report = root / "github-release-verification.json"
+        github_workflow_report = root / "github-workflow-verification.json"
         payload["metadata"].update(
             {
                 "argv": [
@@ -280,6 +294,8 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                     str(package_report),
                     "--github-release-verification-report",
                     str(github_report),
+                    "--github-workflow-verification-report",
+                    str(github_workflow_report),
                     "--verify-github-release",
                     "v0.1.0",
                     "--github-release-kind",
@@ -288,6 +304,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                 "external_trial_verification_report": str(trial_report),
                 "external_evidence_package_verification_report": str(package_report),
                 "github_release_verification_report": str(github_report),
+                "github_workflow_verification_report": str(github_workflow_report),
                 "verify_github_release": "v0.1.0",
                 "github_release_kind": "stable",
             }
@@ -313,6 +330,16 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                     "command": release_gate.saved_github_release_report_command(
                         github_report,
                         expected_tag="v0.1.0",
+                    ),
+                    "status": "PASS",
+                    "elapsed_seconds": 0.0,
+                    "detail": "ok",
+                },
+                {
+                    "name": "Verify saved GitHub Actions workflow report",
+                    "command": release_gate.saved_github_workflow_report_command(
+                        github_workflow_report,
+                        expected_commit=payload["metadata"]["git_commit"],
                     ),
                     "status": "PASS",
                     "elapsed_seconds": 0.0,
@@ -374,7 +401,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
 
     def test_rejects_production_claim_checklist_status_drift(self) -> None:
         payload = self.valid_payload()
-        payload["production_claim_checklist"][3]["status"] = "PASS"
+        payload["production_claim_checklist"][4]["status"] = "PASS"
 
         failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
 
@@ -382,7 +409,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
 
     def test_rejects_production_claim_checklist_next_action_tampering(self) -> None:
         payload = self.valid_payload()
-        payload["production_claim_checklist"][3]["next_action"] = "No action needed for this check."
+        payload["production_claim_checklist"][4]["next_action"] = "No action needed for this check."
 
         failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
 
@@ -467,6 +494,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                 self.valid_payload(),
                 expected_missing_checks=[
                     "clean_git_worktree",
+                    "github_actions_workflow_verification",
                     "l3_provenance_hashes",
                     "external_l4_workflow_trial",
                     "external_l4_evidence_package",
@@ -491,7 +519,8 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
 
         self.assertIn(
             "missing_or_failed_checks does not match expected checks: "
-            "['clean_git_worktree', 'l3_provenance_hashes', 'external_l4_workflow_trial', "
+            "['clean_git_worktree', 'github_actions_workflow_verification', "
+            "'l3_provenance_hashes', 'external_l4_workflow_trial', "
             "'external_l4_evidence_package', 'external_l4_saved_reviewer_reports', "
             "'stable_github_release', 'stable_github_release_saved_report'] != "
             "['external_l4_workflow_trial', 'external_l4_evidence_package', "
@@ -573,6 +602,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             "verify_github_release",
             "github_release_kind_stable",
             "github_release_verification_report",
+            "github_workflow_verification_report",
             "external_trial_json",
             "external_trial_root",
             "external_evidence_package_dir",
@@ -601,6 +631,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             metadata["github_release_kind"] = "stable" if "github_release_kind_stable" in present else "prerelease"
             for field in [
                 "github_release_verification_report",
+                "github_workflow_verification_report",
                 "external_trial_json",
                 "external_trial_root",
                 "external_evidence_package_dir",
@@ -630,6 +661,8 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                 argv.extend(["--github-release-kind", "stable"])
             if metadata["github_release_verification_report"]:
                 argv.extend(["--github-release-verification-report", metadata["github_release_verification_report"]])
+            if metadata["github_workflow_verification_report"]:
+                argv.extend(["--github-workflow-verification-report", metadata["github_workflow_verification_report"]])
             metadata["argv"] = argv
 
             failures = verify_release_gate_report.validate_release_gate_report_payload(

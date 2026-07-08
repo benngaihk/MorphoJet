@@ -207,6 +207,8 @@ class RunProductionGateTest(unittest.TestCase):
                 "evidence/package-verification.json",
                 "--github-release-verification-report",
                 "github/verification.json",
+                "--github-workflow-verification-report",
+                "github/workflows.json",
             )
         )
 
@@ -232,6 +234,11 @@ class RunProductionGateTest(unittest.TestCase):
             "github/verification.json",
             command[command.index("--github-release-verification-report") + 1],
         )
+        self.assertIn("--github-workflow-verification-report", command)
+        self.assertEqual(
+            "github/workflows.json",
+            command[command.index("--github-workflow-verification-report") + 1],
+        )
         self.assertIn("--verify-github-release", command)
         self.assertIn("v0.1.0", command)
         self.assertIn("--github-release-kind", command)
@@ -244,11 +251,13 @@ class RunProductionGateTest(unittest.TestCase):
             "--external-trial-verification-report",
             "--external-evidence-package-verification-report",
             "--github-release-verification-report",
+            "--github-workflow-verification-report",
         ]
         report_values = {
             "--external-trial-verification-report": "external/trial-verification.json",
             "--external-evidence-package-verification-report": "evidence/package-verification.json",
             "--github-release-verification-report": "github/verification.json",
+            "--github-workflow-verification-report": "github/workflows.json",
         }
         accepted_groups = []
 
@@ -439,6 +448,8 @@ class RunProductionGateTest(unittest.TestCase):
                     "missing/package-verification.json",
                     "--github-release-verification-report",
                     "missing/github-release-verification.json",
+                    "--github-workflow-verification-report",
+                    "missing/github-workflow-verification.json",
                     "--github-release-tag",
                     "v0.1.0",
                     "--dry-run",
@@ -477,6 +488,7 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("--external-trial-verification-report", stderr.getvalue())
         self.assertIn("--external-evidence-package-verification-report", stderr.getvalue())
         self.assertIn("--github-release-verification-report", stderr.getvalue())
+        self.assertIn("--github-workflow-verification-report", stderr.getvalue())
 
     def test_local_preflight_does_not_require_saved_verifier_reports(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -497,7 +509,8 @@ class RunProductionGateTest(unittest.TestCase):
             trial_report = root / "trial-verification.json"
             package_report = root / "package-verification.json"
             github_report = root / "github-verification.json"
-            for report in [trial_report, package_report, github_report]:
+            github_workflow_report = root / "github-workflows.json"
+            for report in [trial_report, package_report, github_report, github_workflow_report]:
                 report.write_text("{}\n", encoding="utf-8")
             out_json = root / "reports" / "production-claim.json"
             out_md = root / "reports" / "production-claim.md"
@@ -531,6 +544,8 @@ class RunProductionGateTest(unittest.TestCase):
                         str(package_report),
                         "--github-release-verification-report",
                         str(github_report),
+                        "--github-workflow-verification-report",
+                        str(github_workflow_report),
                         "--out-json",
                         str(out_json),
                         "--out-md",
@@ -563,7 +578,8 @@ class RunProductionGateTest(unittest.TestCase):
             trial_report = root / "trial-verification.json"
             package_report = root / "package-verification.json"
             github_report = root / "github-verification.json"
-            for report in [trial_report, package_report, github_report]:
+            github_workflow_report = root / "github-workflows.json"
+            for report in [trial_report, package_report, github_report, github_workflow_report]:
                 report.write_text("{}\n", encoding="utf-8")
             with (
                 patch.object(run_production_gate, "saved_reviewer_report_gates", return_value=[]),
@@ -595,6 +611,8 @@ class RunProductionGateTest(unittest.TestCase):
                         str(package_report),
                         "--github-release-verification-report",
                         str(github_report),
+                        "--github-workflow-verification-report",
+                        str(github_workflow_report),
                     ]
                 )
 
@@ -613,7 +631,8 @@ class RunProductionGateTest(unittest.TestCase):
             trial_report = root / "trial-verification.json"
             package_report = root / "package-verification.json"
             github_report = root / "github-verification.json"
-            for report in [trial_report, package_report, github_report]:
+            github_workflow_report = root / "github-workflows.json"
+            for report in [trial_report, package_report, github_workflow_report, github_report]:
                 report.write_text("{}\n", encoding="utf-8")
             with (
                 patch.object(run_production_gate, "saved_reviewer_report_gates", return_value=[]),
@@ -645,6 +664,8 @@ class RunProductionGateTest(unittest.TestCase):
                         str(package_report),
                         "--github-release-verification-report",
                         str(github_report),
+                        "--github-workflow-verification-report",
+                        str(github_workflow_report),
                     ]
                 )
 
@@ -803,6 +824,8 @@ class RunProductionGateTest(unittest.TestCase):
                     "evidence/package-verification.json",
                     "--github-release-verification-report",
                     "github/verification.json",
+                    "--github-workflow-verification-report",
+                    "github/workflows.json",
                     "--github-release-tag",
                     "v0.1.0",
                     "--out-json",

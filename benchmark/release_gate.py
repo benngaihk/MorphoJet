@@ -37,6 +37,9 @@ EXTERNAL_READINESS_STATUS = "READY"
 EXTERNAL_READINESS_EVIDENCE_SCOPE = "EXTERNAL_L4_READINESS_PRECHECK"
 LOCAL_PREFLIGHT_EVIDENCE_SCOPE = "LOCAL_EXTERNAL_L4_PREFLIGHT"
 GITHUB_STABLE_RELEASE_EVIDENCE_SCOPE = "GITHUB_STABLE_RELEASE_VERIFICATION"
+GITHUB_ACTIONS_WORKFLOW_EVIDENCE_SCOPE = "GITHUB_ACTIONS_WORKFLOW_VERIFICATION"
+GITHUB_ACTIONS_WORKFLOW_BRANCH = "main"
+GITHUB_ACTIONS_REQUIRED_WORKFLOWS = ["ci.yml", "external-l4-rehearsal.yml"]
 PRODUCTION_AUDIT_PASS_STATUS = "PASS"
 PRODUCTION_AUDIT_FAIL_STATUS = "FAIL"
 PRODUCTION_AUDIT_MISSING_STATUS = "MISSING"
@@ -62,6 +65,7 @@ PRODUCTION_PATH_METADATA_KEYS = frozenset(
         "external_trial_verification_report",
         "external_evidence_package_verification_report",
         "github_release_verification_report",
+        "github_workflow_verification_report",
     ]
 )
 RELEASE_GATE_ARGV_PATH_FLAGS = frozenset(
@@ -74,11 +78,13 @@ RELEASE_GATE_ARGV_PATH_FLAGS = frozenset(
         "--external-trial-verification-report",
         "--external-evidence-package-verification-report",
         "--github-release-verification-report",
+        "--github-workflow-verification-report",
     ]
 )
 PRODUCTION_AUDIT_CHECK_NAMES = [
     "clean_git_worktree",
     "standard_code_and_artifact_gates",
+    "github_actions_workflow_verification",
     "l3_provenance_hashes",
     "external_l4_workflow_trial",
     "external_l4_evidence_package",
@@ -107,6 +113,7 @@ REQUIRED_PRODUCTION_GATE_NAMES = frozenset(
     [
         "Require clean git worktree",
         *PRODUCTION_STANDARD_GATE_NAMES,
+        "Verify saved GitHub Actions workflow report",
         "Validate CellBinDB L3 provenance",
         "Validate external L4 workflow trial report",
         "Validate external L4 evidence package",
@@ -569,6 +576,11 @@ def protected_report_input_path_entries(args: argparse.Namespace) -> dict[Path, 
         getattr(args, "github_release_verification_report", None),
         "--github-release-verification-report",
     )
+    add_protected_path(
+        paths,
+        getattr(args, "github_workflow_verification_report", None),
+        "--github-workflow-verification-report",
+    )
     verify_github_release = getattr(args, "verify_github_release", None)
     if verify_github_release:
         add_protected_path(
@@ -633,6 +645,8 @@ def production_claim_contract_failures(args: argparse.Namespace) -> list[str]:
         failures.append("--require-production-claim with --verify-github-release requires --github-release-kind stable")
     if not args.github_release_verification_report:
         failures.append("--require-production-claim requires --github-release-verification-report")
+    if not args.github_workflow_verification_report:
+        failures.append("--require-production-claim requires --github-workflow-verification-report")
     if not any(
         [
             args.external_trial_json,
@@ -734,6 +748,25 @@ def saved_github_release_report_command(report: Path, expected_tag: str | None =
     ]
     if expected_tag:
         command.extend(["--expect-tag", expected_tag])
+    return command
+
+
+def saved_github_workflow_report_command(report: Path, expected_commit: str | None = None) -> list[str]:
+    command = [
+        "python3",
+        "benchmark/verify_github_workflows.py",
+        "--verify-report",
+        normalized_path_key(report),
+        "--require-report-pass",
+        "--expect-repo",
+        GITHUB_RELEASE_REPO,
+        "--expect-branch",
+        GITHUB_ACTIONS_WORKFLOW_BRANCH,
+    ]
+    if expected_commit:
+        command.extend(["--expect-commit", expected_commit])
+    for workflow in GITHUB_ACTIONS_REQUIRED_WORKFLOWS:
+        command.extend(["--expect-workflow", workflow])
     return command
 
 
@@ -2196,6 +2229,16 @@ def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], me
             "detail": "Standard Rust, Python, manifest, direct-mask, L3 artifact, workflow bridge, and handoff gates.",
         },
         {
+            "name": "github_actions_workflow_verification",
+            "status": production_audit_status(gates, "Verify saved GitHub Actions workflow report")
+            if args.github_workflow_verification_report
+            else PRODUCTION_AUDIT_MISSING_STATUS,
+            "detail": (
+                "Requires a saved GitHub Actions workflow verification report for the final commit, "
+                "repo, branch, and required workflows."
+            ),
+        },
+        {
             "name": "l3_provenance_hashes",
             "status": production_audit_status(gates, "Validate CellBinDB L3 provenance")
             if args.require_l3_provenance
@@ -2273,6 +2316,16 @@ PRODUCTION_CHECKLIST_GUIDANCE = {
     "standard_code_and_artifact_gates": {
         "evidence": "Rust, Python, manifest, L3 artifact, workflow bridge, and handoff gates are PASS.",
         "next_action": "Fix the failing standard gate detail, then regenerate the release-gate report.",
+    },
+    "github_actions_workflow_verification": {
+        "evidence": (
+            "A saved GitHub Actions workflow verifier report for the final commit showing ci.yml and "
+            "external-l4-rehearsal.yml PASS on main."
+        ),
+        "next_action": (
+            "After pushing the final commit, run verify_github_workflows.py, save the JSON report, "
+            "and supply --github-workflow-verification-report."
+        ),
     },
     "l3_provenance_hashes": {
         "evidence": "CellBinDB L3 provenance exists, was not generated with --skip-cellprofiler, and hashes match.",
@@ -2467,6 +2520,7 @@ def build_metadata(args: argparse.Namespace, git_status_lines: list[str]) -> dic
             args.external_evidence_package_verification_report
         ),
         "github_release_verification_report": optional_absolute_path(args.github_release_verification_report),
+        "github_workflow_verification_report": optional_absolute_path(args.github_workflow_verification_report),
     }
 
 
@@ -2548,6 +2602,11 @@ def main() -> int:
         "--github-release-verification-report",
         type=Path,
         help="Re-check a saved stable GitHub release verifier JSON report",
+    )
+    parser.add_argument(
+        "--github-workflow-verification-report",
+        type=Path,
+        help="Re-check a saved GitHub Actions workflow verifier JSON report for the final commit",
     )
     args = parser.parse_args()
     production_claim_failures = production_claim_contract_failures(args)
@@ -2696,6 +2755,16 @@ def main() -> int:
             run_command(
                 "Verify saved stable GitHub release report",
                 command,
+            )
+        )
+    if args.github_workflow_verification_report:
+        gates.append(
+            run_command(
+                "Verify saved GitHub Actions workflow report",
+                saved_github_workflow_report_command(
+                    args.github_workflow_verification_report,
+                    expected_commit=metadata["git_commit"],
+                ),
             )
         )
 

@@ -19,6 +19,7 @@ import release_gate
 import verify_external_evidence_package
 import verify_external_trial_report
 import verify_github_release
+import verify_github_workflows
 import verify_release_gate_report
 
 
@@ -106,6 +107,7 @@ def require_final_gate_args(args: argparse.Namespace, require_saved_reports: boo
             "external_trial_verification_report",
             "external_evidence_package_verification_report",
             "github_release_verification_report",
+            "github_workflow_verification_report",
         ]:
             if getattr(args, name) is None:
                 missing.append("--" + name.replace("_", "-"))
@@ -139,6 +141,11 @@ def validate_existing_inputs(args: argparse.Namespace) -> None:
         raise ProductionGateError(
             "--github-release-verification-report is not a file: "
             f"{args.github_release_verification_report}"
+        )
+    if args.github_workflow_verification_report and not args.github_workflow_verification_report.is_file():
+        raise ProductionGateError(
+            "--github-workflow-verification-report is not a file: "
+            f"{args.github_workflow_verification_report}"
         )
 
 
@@ -279,6 +286,7 @@ def protected_input_path_entries(args: argparse.Namespace) -> dict[Path, str]:
             "--external-evidence-package-verification-report",
         ),
         (args.github_release_verification_report, "--github-release-verification-report"),
+        (args.github_workflow_verification_report, "--github-workflow-verification-report"),
     ]:
         if path is not None:
             paths[path] = label
@@ -370,6 +378,13 @@ def build_release_gate_command(args: argparse.Namespace) -> list[str]:
             [
                 "--github-release-verification-report",
                 str(args.github_release_verification_report),
+            ]
+        )
+    if args.github_workflow_verification_report:
+        command.extend(
+            [
+                "--github-workflow-verification-report",
+                str(args.github_workflow_verification_report),
             ]
         )
     if args.run_l3:
@@ -620,6 +635,23 @@ def github_release_report_binding_failures(report: Path, args: argparse.Namespac
     return failures
 
 
+def github_workflow_report_binding_failures(report: Path) -> list[str]:
+    payload = load_saved_reviewer_payload(report)
+    failures = []
+    expected_commit = release_gate.git_commit()
+    if payload.get("repo") != GITHUB_RELEASE_REPO:
+        failures.append(
+            f"saved GitHub workflow report repo does not match production repo: {payload.get('repo')} != {GITHUB_RELEASE_REPO}"
+        )
+    if payload.get("branch") != release_gate.GITHUB_ACTIONS_WORKFLOW_BRANCH:
+        failures.append("saved GitHub workflow report branch does not match main")
+    if payload.get("commit") != expected_commit:
+        failures.append("saved GitHub workflow report commit does not match current git commit")
+    if payload.get("workflows") != release_gate.GITHUB_ACTIONS_REQUIRED_WORKFLOWS:
+        failures.append("saved GitHub workflow report workflows do not match required workflow list")
+    return failures
+
+
 def saved_reviewer_report_gates(
     args: argparse.Namespace,
     include_github_release: bool = False,
@@ -682,6 +714,31 @@ def saved_reviewer_report_gates(
             gate_with_binding_failures(
                 gate,
                 github_release_report_binding_failures(args.github_release_verification_report, args)
+                if gate.status == "PASS"
+                else [],
+            )
+        )
+    if include_github_release and args.github_workflow_verification_report:
+        gate = saved_verifier_gate(
+            "Verify saved GitHub Actions workflow report",
+            release_gate.saved_github_workflow_report_command(
+                args.github_workflow_verification_report,
+                expected_commit=release_gate.git_commit(),
+            ),
+            verify_github_workflows.verify_saved_report,
+            args.github_workflow_verification_report,
+            verifier_kwargs={
+                "require_report_pass": True,
+                "expect_repo": GITHUB_RELEASE_REPO,
+                "expect_branch": release_gate.GITHUB_ACTIONS_WORKFLOW_BRANCH,
+                "expect_commit": release_gate.git_commit(),
+                "expect_workflows": release_gate.GITHUB_ACTIONS_REQUIRED_WORKFLOWS,
+            },
+        )
+        gates.append(
+            gate_with_binding_failures(
+                gate,
+                github_workflow_report_binding_failures(args.github_workflow_verification_report)
                 if gate.status == "PASS"
                 else [],
             )
@@ -912,6 +969,7 @@ def canonical_wrapper_argv(args: argparse.Namespace, resolve_paths: bool = False
             args.external_evidence_package_verification_report,
         ),
         ("--github-release-verification-report", args.github_release_verification_report),
+        ("--github-workflow-verification-report", args.github_workflow_verification_report),
         ("--github-release-tag", args.github_release_tag),
         ("--out-json", args.out_json),
         ("--out-md", args.out_md),
@@ -947,6 +1005,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--external-trial-verification-report", type=Path)
     parser.add_argument("--external-evidence-package-verification-report", type=Path)
     parser.add_argument("--github-release-verification-report", type=Path)
+    parser.add_argument("--github-workflow-verification-report", type=Path)
     parser.add_argument(
         "--github-release-tag",
         help=f"Stable non-RC release tag, e.g. {release_gate.DEFAULT_STABLE_RELEASE_TAG}",
@@ -1008,6 +1067,10 @@ def main(argv: list[str] | None = None) -> int:
             if args.github_release_verification_report:
                 raise ProductionGateError(
                     "--github-release-verification-report is not used with --local-evidence-preflight-only"
+                )
+            if args.github_workflow_verification_report:
+                raise ProductionGateError(
+                    "--github-workflow-verification-report is not used with --local-evidence-preflight-only"
                 )
             validate_report_output_paths(
                 args,

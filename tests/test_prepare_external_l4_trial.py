@@ -365,6 +365,10 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 "PENDING_STABLE_RELEASE",
                 blocker_by_name["stable_github_release"]["status"],
             )
+            self.assertEqual(
+                "PENDING_REMOTE_CI_VERIFICATION",
+                blocker_by_name["github_actions_workflow_verification"]["status"],
+            )
             self.assertIn(
                 str((workspace / "handoff_trial.json").resolve()),
                 blocker_by_name["external_l4_workflow_trial"]["planned_paths"],
@@ -1167,9 +1171,10 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
             plan_path = workspace / "trial_plan.json"
             payload = json.loads(plan_path.read_text(encoding="utf-8"))
+            blocker_by_name = {blocker["name"]: blocker for blocker in payload["production_claim_blockers"]}
             payload["production_claim_blockers"][0]["name"] = "external_l4_workflow_trial"
-            payload["production_claim_blockers"][1]["status"] = "PASS"
-            payload["production_claim_blockers"][2]["planned_paths"] = []
+            blocker_by_name["l3_provenance_hashes"]["status"] = "PASS"
+            blocker_by_name["external_l4_workflow_trial"]["planned_paths"] = []
             payload["production_claim_blockers"].pop()
             plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 

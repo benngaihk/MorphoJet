@@ -183,7 +183,13 @@ def validate_production_claim_blockers(payload: dict[str, Any]) -> list[str]:
         name = blocker.get("name")
         if name not in expected_names:
             failures.append(f"production_claim_blockers contains unexpected blocker: {name}")
-        if blocker.get("status") not in {"PENDING_FINAL_GATE", "PENDING_EXTERNAL_EVIDENCE", "PENDING_EXTERNAL_REVIEW", "PENDING_STABLE_RELEASE"}:
+        if blocker.get("status") not in {
+            "PENDING_FINAL_GATE",
+            "PENDING_EXTERNAL_EVIDENCE",
+            "PENDING_EXTERNAL_REVIEW",
+            "PENDING_STABLE_RELEASE",
+            "PENDING_REMOTE_CI_VERIFICATION",
+        }:
             failures.append(f"production_claim_blockers.{name} has invalid status")
         if not isinstance(blocker.get("required_evidence"), str) or not blocker["required_evidence"].strip():
             failures.append(f"production_claim_blockers.{name} required_evidence must be a non-empty string")
@@ -501,6 +507,19 @@ def validate_external_evidence_command_bindings(payload: dict[str, Any]) -> list
         "local preflight report",
     )
     expect_flag("verify_stable_release", "--json-out", github_release_verification, "GitHub release verifier report")
+    github_workflow_verification = str(Path(workspace) / "github-workflow-verification.json")
+    expect_flag(
+        "verify_github_workflows",
+        "--json-out",
+        github_workflow_verification,
+        "GitHub workflow verifier report",
+    )
+    expect_flag(
+        "verify_github_workflows_report",
+        "--verify-report",
+        github_workflow_verification,
+        "GitHub workflow verifier report",
+    )
     expect_flag(
         "verify_stable_release_report",
         "--verify-report",
@@ -512,6 +531,12 @@ def validate_external_evidence_command_bindings(payload: dict[str, Any]) -> list
         "--github-release-verification-report",
         github_release_verification,
         "GitHub release verifier report",
+    )
+    expect_flag(
+        "final_production_gate",
+        "--github-workflow-verification-report",
+        github_workflow_verification,
+        "GitHub workflow verifier report",
     )
     expect_flag("final_production_gate", "--out-json", production_claim_json, "final production claim report")
     expect_positional("verify_final_production_report", 2, production_claim_json, "final production claim report")
@@ -527,6 +552,7 @@ def validate_stable_release_command_bindings(payload: dict[str, Any]) -> list[st
     if not isinstance(workspace, str) or not workspace.strip():
         return failures
     github_release_verification = str(Path(workspace) / "github-release-verification.json")
+    github_workflow_verification = str(Path(workspace) / "github-workflow-verification.json")
 
     def command(command_name: str) -> list[str]:
         value = commands.get(command_name)
@@ -556,6 +582,10 @@ def validate_stable_release_command_bindings(payload: dict[str, Any]) -> list[st
     expect_flag("verify_stable_release", "--json-out", github_release_verification, "GitHub release verifier report")
     expect_present("verify_stable_release", "--expect-stable", "stable release verification")
 
+    expect_flag("verify_github_workflows", "--repo", STABLE_RELEASE_REPO, "GitHub workflow repo")
+    expect_flag("verify_github_workflows", "--branch", "main", "GitHub workflow branch")
+    expect_flag("verify_github_workflows", "--json-out", github_workflow_verification, "GitHub workflow report")
+
     expect_flag("verify_stable_release_report", "--verify-report", github_release_verification, "GitHub release verifier report")
     expect_flag("verify_stable_release_report", "--expect-tag", STABLE_RELEASE_TAG, "stable release tag")
     expect_flag("verify_stable_release_report", "--expect-repo", STABLE_RELEASE_REPO, "stable release repo")
@@ -567,12 +597,32 @@ def validate_stable_release_command_bindings(payload: dict[str, Any]) -> list[st
     ]:
         expect_present("verify_stable_release_report", flag, label)
 
+    expect_flag(
+        "verify_github_workflows_report",
+        "--verify-report",
+        github_workflow_verification,
+        "GitHub workflow verifier report",
+    )
+    expect_flag("verify_github_workflows_report", "--expect-repo", STABLE_RELEASE_REPO, "GitHub workflow repo")
+    expect_flag("verify_github_workflows_report", "--expect-branch", "main", "GitHub workflow branch")
+    for workflow in ["ci.yml", "external-l4-rehearsal.yml"]:
+        values = argv_values(command("verify_github_workflows_report"), "--expect-workflow")
+        if workflow not in values:
+            failures.append(f"commands.verify_github_workflows_report missing --expect-workflow {workflow}")
+    expect_present("verify_github_workflows_report", "--require-report-pass", "saved GitHub workflow PASS enforcement")
+
     expect_flag("final_production_gate", "--github-release-tag", STABLE_RELEASE_TAG, "final stable release tag")
     expect_flag(
         "final_production_gate",
         "--github-release-verification-report",
         github_release_verification,
         "GitHub release verifier report",
+    )
+    expect_flag(
+        "final_production_gate",
+        "--github-workflow-verification-report",
+        github_workflow_verification,
+        "GitHub workflow verifier report",
     )
     return failures
 
@@ -735,6 +785,8 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
         "verify_local_evidence_preflight",
         "verify_stable_release",
         "verify_stable_release_report",
+        "verify_github_workflows",
+        "verify_github_workflows_report",
         "final_production_gate",
         "verify_final_production_report",
     ]
@@ -871,6 +923,7 @@ def plan_commands(
     preflight_md = workspace / "local-evidence-preflight.md"
     github_release_dir = workspace / "github-release"
     github_release_verification = workspace / "github-release-verification.json"
+    github_workflow_verification = workspace / "github-workflow-verification.json"
     production_claim_json = workspace / "production-claim.json"
     production_claim_md = workspace / "production-claim.md"
     readiness_json = workspace / "readiness.json"
@@ -1029,6 +1082,31 @@ def plan_commands(
             "--expect-repo",
             STABLE_RELEASE_REPO,
         ],
+        "verify_github_workflows": [
+            "python3",
+            "benchmark/verify_github_workflows.py",
+            "--repo",
+            STABLE_RELEASE_REPO,
+            "--branch",
+            "main",
+            "--json-out",
+            str(github_workflow_verification),
+        ],
+        "verify_github_workflows_report": [
+            "python3",
+            "benchmark/verify_github_workflows.py",
+            "--verify-report",
+            str(github_workflow_verification),
+            "--require-report-pass",
+            "--expect-repo",
+            STABLE_RELEASE_REPO,
+            "--expect-branch",
+            "main",
+            "--expect-workflow",
+            "ci.yml",
+            "--expect-workflow",
+            "external-l4-rehearsal.yml",
+        ],
         "final_production_gate": [
             "python3",
             "benchmark/run_production_gate.py",
@@ -1044,6 +1122,8 @@ def plan_commands(
             str(package_verification),
             "--github-release-verification-report",
             str(github_release_verification),
+            "--github-workflow-verification-report",
+            str(github_workflow_verification),
             "--github-release-tag",
             STABLE_RELEASE_TAG,
             "--out-json",
@@ -1115,6 +1195,14 @@ def final_gate_requirement_bindings(workspace: Path, package_name: str) -> list[
             "verification_step": "verify_stable_release_report",
             "final_gate_flag": "--github-release-verification-report",
             "final_gate_value": str(workspace / "github-release-verification.json"),
+        },
+        {
+            "name": "github_actions_workflow_verification",
+            "status": "PENDING_REMOTE_CI_VERIFICATION",
+            "planned_path": str(workspace / "github-workflow-verification.json"),
+            "verification_step": "verify_github_workflows_report",
+            "final_gate_flag": "--github-workflow-verification-report",
+            "final_gate_value": str(workspace / "github-workflow-verification.json"),
         },
     ]
 
@@ -1188,6 +1276,7 @@ def production_claim_blockers(workspace: Path, package_name: str) -> list[dict[s
         ],
         "stable_github_release": ["stable_github_release"],
         "stable_github_release_saved_report": ["stable_github_release_saved_report"],
+        "github_actions_workflow_verification": ["github_actions_workflow_verification"],
     }
     blocker_bindings: dict[str, dict[str, Any]] = {
         "clean_git_worktree": {
@@ -1294,6 +1383,8 @@ def render_readme(plan: dict[str, Any]) -> str:
         "verify_local_evidence_preflight",
         "verify_stable_release",
         "verify_stable_release_report",
+        "verify_github_workflows",
+        "verify_github_workflows_report",
         "final_production_gate",
         "verify_final_production_report",
     ]:
@@ -1345,7 +1436,7 @@ def render_readme(plan: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
-            "The final production gate still requires the completed external trial, evidence package, saved reviewer reports, a live stable release verification, and a saved stable release verifier report in one passing report.",
+            "The final production gate still requires the completed external trial, evidence package, saved reviewer reports, a live stable release verification, a saved stable release verifier report, and a saved GitHub Actions workflow verifier report in one passing report.",
             "The final verification command re-checks that saved production-claim report before signoff.",
             "",
             "## production_claim_blockers",
@@ -1489,7 +1580,7 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
-            "最终生产门禁仍然要求同一份通过报告里同时包含已完成的外部 trial、evidence package、saved reviewer reports、live stable release verification，以及 saved stable release verifier report。",
+            "最终生产门禁仍然要求同一份通过报告里同时包含已完成的外部 trial、evidence package、saved reviewer reports、live stable release verification、saved stable release verifier report，以及 saved GitHub Actions workflow verifier report。",
             "最终报告复核命令会在签核前重新检查保存的 production-claim report。",
             "",
             "## production_claim_blockers",

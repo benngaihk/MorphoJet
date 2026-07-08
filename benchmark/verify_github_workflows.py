@@ -188,6 +188,8 @@ def validate_report_payload(
     payload: Any,
     report_path: Path | None = None,
     require_report_pass: bool = False,
+    expect_repo: str | None = None,
+    expect_branch: str | None = None,
     expect_commit: str | None = None,
     expect_workflows: list[str] | None = None,
 ) -> list[str]:
@@ -227,8 +229,12 @@ def validate_report_payload(
     workflows = payload.get("workflows")
     if not isinstance(repo, str) or not repo.strip():
         failures.append("repo must be a non-empty string")
+    if expect_repo is not None and repo != expect_repo:
+        failures.append(f"repo does not match expected repo: {repo} != {expect_repo}")
     if not isinstance(branch, str) or not branch.strip():
         failures.append("branch must be a non-empty string")
+    if expect_branch is not None and branch != expect_branch:
+        failures.append(f"branch does not match expected branch: {branch} != {expect_branch}")
     if not isinstance(commit, str) or not commit.strip():
         failures.append("commit must be a non-empty string")
     if expect_commit is not None and commit != expect_commit:
@@ -289,6 +295,8 @@ def validate_report_payload(
 def verify_saved_report(
     report: Path,
     require_report_pass: bool = False,
+    expect_repo: str | None = None,
+    expect_branch: str | None = None,
     expect_commit: str | None = None,
     expect_workflows: list[str] | None = None,
 ) -> int:
@@ -301,6 +309,8 @@ def verify_saved_report(
         payload,
         report_path=report,
         require_report_pass=require_report_pass,
+        expect_repo=expect_repo,
+        expect_branch=expect_branch,
         expect_commit=expect_commit,
         expect_workflows=expect_workflows,
     )
@@ -322,6 +332,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--verify-report", type=Path)
     parser.add_argument("--require-report-pass", action="store_true")
+    parser.add_argument("--expect-repo")
+    parser.add_argument("--expect-branch")
     parser.add_argument("--expect-commit")
     parser.add_argument("--expect-workflow", action="append", dest="expect_workflows")
     return parser.parse_args(argv)
@@ -333,6 +345,8 @@ def main(argv: list[str] | None = None) -> int:
         return verify_saved_report(
             args.verify_report,
             require_report_pass=args.require_report_pass,
+            expect_repo=args.expect_repo,
+            expect_branch=args.expect_branch,
             expect_commit=args.expect_commit,
             expect_workflows=args.expect_workflows,
         )

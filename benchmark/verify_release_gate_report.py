@@ -169,6 +169,7 @@ def validate_metadata_argv(metadata: Any, report_path: Path | None = None) -> li
         "external_trial_verification_report": "--external-trial-verification-report",
         "external_evidence_package_verification_report": "--external-evidence-package-verification-report",
         "github_release_verification_report": "--github-release-verification-report",
+        "github_workflow_verification_report": "--github-workflow-verification-report",
         "verify_github_release": "--verify-github-release",
     }
     for metadata_key, flag in required_path_flags.items():
@@ -231,6 +232,7 @@ def validate_production_claim_metadata(metadata: Any) -> list[str]:
         "external_trial_verification_report",
         "external_evidence_package_verification_report",
         "github_release_verification_report",
+        "github_workflow_verification_report",
     ]:
         value = metadata.get(key)
         if not isinstance(value, str) or not value.strip():
@@ -267,6 +269,10 @@ def validate_gate_entry(gate: Any) -> list[str]:
 
 def saved_github_release_report_command(report: str, expected_tag: str | None = None) -> list[str]:
     return release_gate.saved_github_release_report_command(Path(report), expected_tag=expected_tag)
+
+
+def saved_github_workflow_report_command(report: str, expected_commit: str | None = None) -> list[str]:
+    return release_gate.saved_github_workflow_report_command(Path(report), expected_commit=expected_commit)
 
 
 def github_release_verification_report_path(tag: str) -> str:
@@ -327,6 +333,15 @@ def validate_saved_reviewer_gate_command(gate: dict, metadata: Any) -> list[str]
                 report,
                 expected_tag if isinstance(expected_tag, str) and expected_tag.strip() else None,
             )
+    elif name == "Verify saved GitHub Actions workflow report":
+        metadata_key = "github_workflow_verification_report"
+        report = metadata.get(metadata_key)
+        expected_commit = metadata.get("git_commit")
+        if isinstance(report, str) and report.strip():
+            expected = saved_github_workflow_report_command(
+                report,
+                expected_commit if isinstance(expected_commit, str) and expected_commit.strip() else None,
+            )
     if metadata_key is not None and expected is None:
         failures.append(f"gate command for {name} requires metadata.{metadata_key}")
     elif expected is not None and command != expected:
@@ -338,6 +353,7 @@ SAVED_REVIEWER_METADATA_TO_GATE = {
     "external_trial_verification_report": "Verify saved external L4 trial report",
     "external_evidence_package_verification_report": "Verify saved external L4 evidence package report",
     "github_release_verification_report": "Verify saved stable GitHub release report",
+    "github_workflow_verification_report": "Verify saved GitHub Actions workflow report",
 }
 
 EVIDENCE_METADATA_TO_GATE = {

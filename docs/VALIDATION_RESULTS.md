@@ -2,6 +2,22 @@
 
 Updated: 2026-07-09
 
+## Final GitHub Actions Workflow Report Gate Snapshot
+
+This snapshot records local verification for making the final production-claim gate require a saved GitHub Actions workflow verifier report. Final `benchmark/release_gate.py --require-production-claim` runs now require `--github-workflow-verification-report`, and `benchmark/run_production_gate.py` passes that report through to the final release-gate JSON/Markdown so the saved production report records the remote CI evidence. The saved workflow report is rechecked against `benngaihk/MorphoJet`, branch `main`, the current git commit, `ci.yml`, and `external-l4-rehearsal.yml`.
+
+This is not a production claim. The report remains `claim_status=NOT_PRODUCTION_CLAIM` until the real external L4 evidence chain, saved external reviewer reports, stable release evidence, saved stable-release report, saved workflow report, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_verify_github_workflows.py` | PASS, 6 tests |
+| `python3 tests/test_release_gate.py` | PASS, 98 tests |
+| `python3 tests/test_run_production_gate.py` | PASS, 97 tests |
+| `python3 tests/test_prepare_external_l4_trial.py` | PASS, 30 tests |
+| `python3 -m py_compile benchmark/verify_github_workflows.py benchmark/release_gate.py benchmark/run_production_gate.py benchmark/prepare_external_l4_trial.py` | PASS |
+
 ## Clean Git And L3 Provenance Precheck Snapshot
 
 This snapshot records a stronger local release-gate precheck than the default report. Running the release gate with `--require-clean-git --require-l3-provenance` from a clean worktree passed, and the saved report verifier confirmed clean-git metadata, a reachable git commit, report PASS, and the expected remaining production blockers.
@@ -123,7 +139,7 @@ Verification:
 
 ## Complete Final-Claim Contract Combination Coverage Snapshot
 
-This snapshot records local verification for covering every direct `benchmark/release_gate.py --require-production-claim` final evidence contract combination. The regression test enumerates clean-git enforcement, L3 provenance, the stable-release evidence group, and the external L4 evidence group across 1024 combinations, then confirms that every partial contract fails fast while only the complete ten-condition contract is accepted by argument validation.
+This snapshot records local verification for covering every direct `benchmark/release_gate.py --require-production-claim` final evidence contract combination. The regression test enumerates clean-git enforcement, L3 provenance, the stable-release evidence group, saved workflow evidence, and the external L4 evidence group across 2048 combinations, then confirms that every partial contract fails fast while only the complete eleven-condition contract is accepted by argument validation.
 
 This is not a production claim. The current release-gate precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
 
@@ -132,7 +148,7 @@ Verification:
 | Gate | Result |
 |---|---:|
 | `python3 tests/test_release_gate.py` | PASS, 98 tests |
-| direct contract enumeration over 1024 final-claim input combinations | PASS; only the complete ten-condition contract is accepted |
+| direct contract enumeration over 2048 final-claim input combinations | PASS; only the complete eleven-condition contract is accepted |
 | `python3 -m unittest discover -s tests` | PASS, 547 tests |
 | `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
 | `python3 benchmark/release_gate.py` | PASS |
