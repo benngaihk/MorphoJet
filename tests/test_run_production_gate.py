@@ -239,6 +239,38 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("benchmark/results/release-gate/production-claim.json", command)
         self.assertIn("benchmark/results/release-gate/production-claim.md", command)
 
+    def test_final_gate_requires_complete_saved_report_group_for_actual_runs(self) -> None:
+        report_flags = [
+            "--external-trial-verification-report",
+            "--external-evidence-package-verification-report",
+            "--github-release-verification-report",
+        ]
+        report_values = {
+            "--external-trial-verification-report": "external/trial-verification.json",
+            "--external-evidence-package-verification-report": "evidence/package-verification.json",
+            "--github-release-verification-report": "github/verification.json",
+        }
+        accepted_groups = []
+
+        for mask in range(1 << len(report_flags)):
+            present = set()
+            argv = []
+            for index, flag in enumerate(report_flags):
+                if mask & (1 << index):
+                    present.add(flag)
+                    argv.extend([flag, report_values[flag]])
+            args = self.parse(*argv)
+            try:
+                run_production_gate.require_final_gate_args(args, require_saved_reports=True)
+            except run_production_gate.ProductionGateError:
+                continue
+            accepted_groups.append(present)
+
+        self.assertEqual([set(report_flags)], accepted_groups)
+
+    def test_final_gate_allows_missing_saved_reports_for_dry_run_or_local_preflight(self) -> None:
+        run_production_gate.require_final_gate_args(self.parse(), require_saved_reports=False)
+
     def test_builds_final_report_verification_command(self) -> None:
         args = self.parse("--out-json", "reports/final-production.json")
 

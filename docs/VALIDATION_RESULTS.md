@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## Final Wrapper Saved Report Contract Coverage Snapshot
+
+This snapshot records local verification for the final production wrapper's saved reviewer/verifier input contract. Actual non-dry-run final wrapper runs require the external trial reviewer report, external evidence-package reviewer report, and stable GitHub release verifier report together; dry-run and local-preflight modes remain explicitly non-final and may omit those saved reports.
+
+This is not a production claim. The current release-gate precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_run_production_gate.py` | PASS, 96 tests |
+| final wrapper saved-report group enumeration over 8 combinations | PASS; actual final mode accepts only the complete saved trial/package/GitHub report group |
+| `python3 -m unittest discover -s tests` | PASS, 550 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## Saved Final Report Contract Combination Coverage Snapshot
 
 This snapshot records local verification for covering saved final production-claim report metadata and `metadata.argv` combinations. The verifier regression test starts from a complete production PASS report, enumerates the clean-git, L3 provenance, production-claim flag, stable-release evidence, and external L4 evidence metadata/argv contract across 2048 combinations, and confirms that every partial saved final contract is rejected while only the complete saved contract passes final saved-report signoff.

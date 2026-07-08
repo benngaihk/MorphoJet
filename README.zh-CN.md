@@ -181,6 +181,7 @@ Release-gate 测试会枚举 live tag、stable-kind flag 和 saved stable-releas
 Release-gate 测试会枚举这 5 个外部 L4 输入的全部 32 种组合，只接受完整五件套，防止 partial final-claim evidence group 以后静默回归。
 Release-gate 测试也会枚举完整 direct final-claim 合同的全部 1024 种组合：clean git、L3 provenance、stable-release evidence 和 external L4 evidence。只有完整十条件合同会被接受。
 Saved final-report verifier 也用同样规则检查 production PASS metadata 和 `metadata.argv`：verifier 测试会枚举保存报告里的完整 final 合同，拒绝 partial clean-git、L3 provenance、stable-release 或 external L4 metadata/argv bundle。
+Final production wrapper 也有 saved reviewer/verifier 输入的回归覆盖：真实非 dry-run final command 必须同时提供 `--external-trial-verification-report`、`--external-evidence-package-verification-report` 和 `--github-release-verification-report`，而 dry-run 和 local-preflight mode 仍明确保持非最终路径。
 
 ## CellProfiler 风格宽表导出
 
