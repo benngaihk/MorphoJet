@@ -335,6 +335,7 @@ python3 benchmark/run_production_gate.py \
 - L3 public direct-mask benchmark PASS。
 - 已验证的 `v0.1.0-rc.1` prerelease。
 - L4-preflight handoff harness。
+- `main` 上 commit `894de87ca8402b084abfa06db956a16ffb0806e5` 已保存并复核 GitHub workflow PASS 报告，覆盖 `ci.yml` 和 `external-l4-rehearsal.yml`；同一 commit 也已用 `--require-clean-git --require-l3-provenance --run-l3` 刷新完整 CellBinDB L3 release-gate 报告，并复核为 PASS。
 - 每周和手动触发的 GitHub scheduled CellBinDB L3 workflow，用于持续刷新公开 oracle 路径的 L3 回归证据。
 - 外部 L4 trial、evidence package、local evidence preflight、GitHub release saved-report verification、final production gate 和 final report verification 的审计脚手架；local preflight 也会写入可机器复核的 `skipped_final_checklist`，并绑定 source/package trial 与 package manifest 的 claim-scope 字段，防止把预检误读成最终生产证据。
 

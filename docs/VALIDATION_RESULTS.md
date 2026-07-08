@@ -2,6 +2,23 @@
 
 Updated: 2026-07-09
 
+## Current Main L3 Provenance And Workflow Snapshot
+
+This snapshot records the post-bilingual-release-archive validation for commit `894de87ca8402b084abfa06db956a16ffb0806e5` on `main`.
+
+The remote GitHub workflow verifier passed for `benngaihk/MorphoJet`, branch `main`, commit `894de87ca8402b084abfa06db956a16ffb0806e5`, with both `ci.yml` and `external-l4-rehearsal.yml` passing. The local release gate was then rerun with a clean worktree, `--require-l3-provenance`, `--run-l3`, and the saved workflow report. The first sandboxed attempt failed because Docker daemon access was denied before CellProfiler could run; the elevated rerun completed the full CellBinDB L3 path, refreshed the CellProfiler/MorphoJet oracle artifacts, and wrote a saved release-gate report that passed verification.
+
+This is not a production claim. The refreshed report remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 benchmark/verify_github_workflows.py --commit 894de87ca8402b084abfa06db956a16ffb0806e5 --json-out /tmp/morphojet-github-workflows-894de87.json` | PASS |
+| `python3 benchmark/verify_github_workflows.py --verify-report /tmp/morphojet-github-workflows-894de87.json --require-report-pass --expect-repo benngaihk/MorphoJet --expect-branch main --expect-commit 894de87ca8402b084abfa06db956a16ffb0806e5 --expect-workflow ci.yml --expect-workflow external-l4-rehearsal.yml` | PASS |
+| `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --run-l3 --github-workflow-verification-report /tmp/morphojet-github-workflows-894de87.json --out-json /tmp/morphojet-894de87-refreshed-l3-release-gate.json --out-md /tmp/morphojet-894de87-refreshed-l3-release-gate.md` | PASS |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-894de87-refreshed-l3-release-gate.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report` | PASS; remaining blockers are the real external L4 trial, external L4 package, saved external reviewer reports, stable GitHub release, and saved stable-release verifier report |
+
 ## Final GitHub Actions Workflow Report Gate Snapshot
 
 This snapshot records local verification for making the final production-claim gate require a saved GitHub Actions workflow verifier report. Final `benchmark/release_gate.py --require-production-claim` runs now require `--github-workflow-verification-report`, and `benchmark/run_production_gate.py` passes that report through to the final release-gate JSON/Markdown so the saved production report records the remote CI evidence. The saved workflow report is rechecked against `benngaihk/MorphoJet`, branch `main`, the current git commit, `ci.yml`, and `external-l4-rehearsal.yml`.
