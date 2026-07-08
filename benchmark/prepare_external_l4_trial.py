@@ -91,6 +91,98 @@ def argv_values(argv: list[str], flag: str) -> list[str | None]:
     return values
 
 
+def validate_final_signoff_command_bindings(payload: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    commands = payload.get("commands")
+    requirements = payload.get("final_signoff_requirements")
+    if not isinstance(commands, dict) or not isinstance(requirements, list):
+        return failures
+    final_gate = commands.get("final_production_gate")
+    if not isinstance(final_gate, list) or not all(isinstance(item, str) and item for item in final_gate):
+        return failures
+    requirement_by_name: dict[str, dict[str, Any]] = {}
+    for requirement in requirements:
+        if not isinstance(requirement, dict):
+            continue
+        name = requirement.get("name")
+        if isinstance(name, str):
+            requirement_by_name[name] = requirement
+
+    flag_bindings = [
+        ("external_l4_workflow_trial", "--external-trial-json", "verify_trial"),
+        ("external_l4_evidence_package", "--external-evidence-package-dir", "verify_package"),
+        ("external_l4_trial_saved_reviewer_report", "--external-trial-verification-report", "verify_trial"),
+        (
+            "external_l4_package_saved_reviewer_report",
+            "--external-evidence-package-verification-report",
+            "verify_package",
+        ),
+        ("stable_github_release_saved_report", "--github-release-verification-report", "verify_stable_release_report"),
+    ]
+    for requirement_name, flag, verification_step in flag_bindings:
+        requirement = requirement_by_name.get(requirement_name)
+        if requirement is None:
+            failures.append(f"final_signoff_requirements missing {requirement_name}")
+            continue
+        expected_required_for = f"final_production_gate {flag}"
+        if requirement.get("required_for") != expected_required_for:
+            failures.append(f"final_signoff_requirements.{requirement_name} required_for must be {expected_required_for}")
+        if requirement.get("verification_step") != verification_step:
+            failures.append(f"final_signoff_requirements.{requirement_name} verification_step must be {verification_step}")
+        elif verification_step not in commands:
+            failures.append(f"final_signoff_requirements.{requirement_name} verification_step missing commands.{verification_step}")
+        flag_values = argv_values(final_gate, flag)
+        if len(flag_values) != 1 or flag_values[0] is None:
+            failures.append(f"commands.final_production_gate must include exactly one {flag} value")
+        elif requirement.get("planned_path") != flag_values[0]:
+            failures.append(f"final_signoff_requirements.{requirement_name} planned_path must match final_production_gate {flag}")
+
+    stable_requirement = requirement_by_name.get("stable_github_release")
+    if stable_requirement is None:
+        failures.append("final_signoff_requirements missing stable_github_release")
+    else:
+        expected_required_for = "final_production_gate --github-release-tag"
+        if stable_requirement.get("required_for") != expected_required_for:
+            failures.append(f"final_signoff_requirements.stable_github_release required_for must be {expected_required_for}")
+        if stable_requirement.get("verification_step") != "verify_stable_release":
+            failures.append("final_signoff_requirements.stable_github_release verification_step must be verify_stable_release")
+        elif "verify_stable_release" not in commands:
+            failures.append("final_signoff_requirements.stable_github_release verification_step missing commands.verify_stable_release")
+        tag_values = argv_values(final_gate, "--github-release-tag")
+        if len(tag_values) != 1 or tag_values[0] is None:
+            failures.append("commands.final_production_gate must include exactly one --github-release-tag value")
+        elif tag_values[0] != STABLE_RELEASE_TAG:
+            failures.append(f"commands.final_production_gate --github-release-tag must be {STABLE_RELEASE_TAG}")
+        if stable_requirement.get("planned_path") != STABLE_RELEASE_URL:
+            failures.append(f"final_signoff_requirements.stable_github_release planned_path must be {STABLE_RELEASE_URL}")
+
+    final_report_requirement = requirement_by_name.get("final_production_claim_report")
+    if final_report_requirement is None:
+        failures.append("final_signoff_requirements missing final_production_claim_report")
+    else:
+        if final_report_requirement.get("required_for") != "production_signoff":
+            failures.append("final_signoff_requirements.final_production_claim_report required_for must be production_signoff")
+        if final_report_requirement.get("verification_step") != "verify_final_production_report":
+            failures.append(
+                "final_signoff_requirements.final_production_claim_report verification_step must be "
+                "verify_final_production_report"
+            )
+        elif "verify_final_production_report" not in commands:
+            failures.append(
+                "final_signoff_requirements.final_production_claim_report verification_step missing "
+                "commands.verify_final_production_report"
+            )
+        out_values = argv_values(final_gate, "--out-json")
+        if len(out_values) != 1 or out_values[0] is None:
+            failures.append("commands.final_production_gate must include exactly one --out-json value")
+        elif final_report_requirement.get("planned_path") != out_values[0]:
+            failures.append(
+                "final_signoff_requirements.final_production_claim_report planned_path must match "
+                "final_production_gate --out-json"
+            )
+    return failures
+
+
 def validate_generator_argv(payload: dict[str, Any], argv: list[str]) -> list[str]:
     failures = []
     if argv[0] != GENERATOR:
@@ -219,6 +311,7 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
             expected_pre_signoff = pre_signoff_requirements(Path(workspace))
             if payload.get("pre_signoff_requirements") != expected_pre_signoff:
                 failures.append("pre_signoff_requirements changed after plan was written")
+            failures.extend(validate_final_signoff_command_bindings(payload))
     if verify_files:
         failures.extend(validate_plan_files(payload))
     return failures

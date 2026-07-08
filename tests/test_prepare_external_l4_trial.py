@@ -619,6 +619,41 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
         self.assertNotEqual(0, completed.returncode)
         self.assertIn("final_signoff_requirements changed after plan was written", completed.stderr)
 
+    def test_saved_trial_plan_rejects_final_signoff_command_binding_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+            payload = json.loads(plan_path.read_text(encoding="utf-8"))
+            payload["final_signoff_requirements"][0]["required_for"] = "final_production_gate --out-json"
+            final_gate = payload["commands"]["final_production_gate"]
+            final_gate[final_gate.index("--external-trial-json") + 1] = str(workspace / "wrong-trial.json")
+            plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn(
+            "final_signoff_requirements.external_l4_workflow_trial required_for must be "
+            "final_production_gate --external-trial-json",
+            completed.stderr,
+        )
+        self.assertIn(
+            "final_signoff_requirements.external_l4_workflow_trial planned_path must match "
+            "final_production_gate --external-trial-json",
+            completed.stderr,
+        )
+
     def test_saved_trial_plan_rejects_pre_signoff_requirement_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "external-trial"
