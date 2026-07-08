@@ -264,6 +264,11 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("metadata-bound saved reviewer reports", readme)
             self.assertIn("matching gate entries and hash summaries", readme)
             self.assertIn("package-manifest package/source-trial scope labels", readme)
+            self.assertIn("packaged readiness READY status", readme)
+            self.assertIn("claim_status=NOT_PRODUCTION_CLAIM", readme)
+            self.assertIn("evidence_scope=EXTERNAL_L4_READINESS_PRECHECK", readme)
+            self.assertIn("final_production_signoff=false", readme)
+            self.assertIn("UTC generation time", readme)
             self.assertLess(readme.index("## verify_plan"), readme.index("## validate_manifest"))
             self.assertLess(readme.index("## verify_readiness"), readme.index("## run_trial"))
             self.assertLess(
@@ -306,6 +311,11 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("metadata 绑定的 saved reviewer reports", readme_zh)
             self.assertIn("对应 gate entries 和 hash summaries", readme_zh)
             self.assertIn("package manifest 的 package/source-trial scope labels", readme_zh)
+            self.assertIn("packaged readiness 的 READY 状态", readme_zh)
+            self.assertIn("claim_status=NOT_PRODUCTION_CLAIM", readme_zh)
+            self.assertIn("evidence_scope=EXTERNAL_L4_READINESS_PRECHECK", readme_zh)
+            self.assertIn("final_production_signoff=false", readme_zh)
+            self.assertIn("UTC 生成时间", readme_zh)
             self.assertLess(readme_zh.index("## verify_plan"), readme_zh.index("## validate_manifest"))
             self.assertLess(readme_zh.index("## verify_readiness"), readme_zh.index("## run_trial"))
             self.assertLess(
