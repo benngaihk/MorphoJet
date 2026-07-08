@@ -2,6 +2,44 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `5d656ea`
+
+This snapshot records the clean `main` verification for the CellBinDB direct-mask inspection milestone. `benchmark/inspect_cellbindb_direct_masks.py` now writes JSON/Markdown reports with `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=CELLBINDB_DIRECT_MASK_INSPECTION`, and `final_production_signoff=false`, checks the local CellBinDB ZIP against recorded size/checksum metadata, verifies source/license metadata, and inspects image/instance-mask pairs for matching dimensions, integer masks, background label 0, and positive object labels. English and Chinese READMEs document the same saved inspection workflow.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `5d656ea`
+- Full direct-mask inspection command: `python3 benchmark/inspect_cellbindb_direct_masks.py --full --verify-md5 --require-pass --json-out /tmp/morphojet-cellbindb-direct-mask-inspection-full.json --md-out /tmp/morphojet-cellbindb-direct-mask-inspection-full.md`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-5d656ea.json --out-md /tmp/morphojet-l3-release-report-main-5d656ea.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-5d656ea.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| CellBinDB direct-mask inspection tests | PASS, 3 tests |
+| Release-gate helper tests | PASS, 69 tests |
+| Full Python unit test suite | PASS, 444 tests |
+| CellBinDB direct-mask full inspection | PASS |
+| CellBinDB ZIP MD5 | PASS, `e770f1287619eb45e74d131430e20fe5` |
+| CellBinDB sample groups inspected | PASS, 1,044 / 1,044 |
+| CellBinDB semantic mask coverage | PASS, 1,044 / 1,044 |
+| CellBinDB positive object labels inspected | PASS, 107,936 |
+| CellBinDB failed sample groups | PASS, 0 |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| L3 provenance compatible delta | PASS, `compatible_delta=True`, artifacts=14 |
+| English README Direct-Mask Inspection Coverage | PASS |
+| Chinese README Direct-Mask Inspection Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `4b017a9`
 
 This snapshot records the clean `main` verification for the oracle candidate triage milestone. `benchmark/triage_oracle_candidates.py` now emits JSON/Markdown reports with `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=ORACLE_CANDIDATE_TRIAGE`, and `final_production_signoff=false`, separating official CellProfiler examples that remain blocked on exported/pre-existing label masks from public direct-mask candidates such as CellBinDB that still require file/layout/license inspection before they can become manifest-driven oracle evidence. English and Chinese READMEs document the same non-final workflow, and the release gate allows this triage helper as a L3/external-trial compatible path because it does not alter saved measurement artifacts.
