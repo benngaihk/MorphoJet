@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## Stable Release Combination Coverage Production-Claim Contract Snapshot
+
+This snapshot records local verification for covering every direct `benchmark/release_gate.py --require-production-claim` stable-release evidence input combination. The regression test enumerates the live GitHub release tag, stable-kind flag, and saved stable-release verifier report inputs and confirms that all partial groups fail fast while only the complete stable-release evidence group is accepted by the CLI contract.
+
+This is not a production claim. The current release-gate precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_release_gate.py` | PASS, 97 tests |
+| direct contract enumeration over 8 stable-release input combinations | PASS; only the complete live tag, stable-kind flag, and saved verifier report group is accepted |
+| `python3 -m unittest discover -s tests` | PASS, 546 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## External L4 Combination Coverage Production-Claim Contract Snapshot
 
 This snapshot records local verification for covering every direct `benchmark/release_gate.py --require-production-claim` external L4 evidence input combination. The regression test enumerates the five final external L4 inputs and confirms that all partial groups fail fast while only the complete trial JSON, trial root, evidence package, saved trial reviewer report, and saved package reviewer report group is accepted by the CLI contract.

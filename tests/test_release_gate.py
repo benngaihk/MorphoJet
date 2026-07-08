@@ -378,6 +378,40 @@ class ReleaseGateTest(unittest.TestCase):
             failures,
         )
 
+    def test_require_production_claim_rejects_every_partial_stable_release_evidence_group(self) -> None:
+        release_fields = [
+            "verify_github_release",
+            "github_release_kind_stable",
+            "github_release_verification_report",
+        ]
+        full_group = set(release_fields)
+        accepted_groups = []
+
+        for mask in range(1 << len(release_fields)):
+            present = set()
+            overrides = {
+                "verify_github_release": None,
+                "github_release_kind": "prerelease",
+                "github_release_verification_report": None,
+            }
+            for index, field in enumerate(release_fields):
+                if mask & (1 << index):
+                    present.add(field)
+            if "verify_github_release" in present:
+                overrides["verify_github_release"] = "v0.1.0"
+            if "github_release_kind_stable" in present:
+                overrides["github_release_kind"] = "stable"
+            if "github_release_verification_report" in present:
+                overrides["github_release_verification_report"] = Path("github-release-verification.json")
+
+            failures = release_gate.production_claim_contract_failures(
+                self.production_claim_args(**overrides)
+            )
+            if not failures:
+                accepted_groups.append(present)
+
+        self.assertEqual([full_group], accepted_groups)
+
     def test_require_production_claim_requires_external_l4_evidence_group(self) -> None:
         failures = release_gate.production_claim_contract_failures(
             self.production_claim_args(
