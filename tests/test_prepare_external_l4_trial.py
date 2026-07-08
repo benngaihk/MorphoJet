@@ -35,6 +35,9 @@ def temporary_cwd(path: Path):
 
 
 class PrepareExternalL4TrialTest(unittest.TestCase):
+    def test_stable_release_repo_reuses_release_gate_contract(self) -> None:
+        self.assertIs(release_gate.GITHUB_RELEASE_REPO, prepare_external_l4_trial.STABLE_RELEASE_REPO)
+
     def test_prepare_workspace_writes_manifest_plan_and_commands(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "external-trial"

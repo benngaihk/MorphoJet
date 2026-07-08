@@ -86,7 +86,7 @@ PACKAGE_READINESS_SCOPE = {
     "evidence_scope": "EXTERNAL_L4_READINESS_PRECHECK",
     "final_production_signoff": False,
 }
-GITHUB_RELEASE_REPO = "benngaihk/MorphoJet"
+GITHUB_RELEASE_REPO = release_gate.GITHUB_RELEASE_REPO
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 
 

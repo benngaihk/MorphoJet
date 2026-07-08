@@ -18,6 +18,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "benchmark"))
 
+import release_gate  # noqa: E402
 import verify_github_release  # noqa: E402
 
 
@@ -34,6 +35,9 @@ def temporary_cwd(path: Path):
 class VerifyGithubReleaseTest(unittest.TestCase):
     FULL_COMMIT = "a" * 40
     DOCTOR_COMMIT = "a" * 12
+
+    def test_default_repo_reuses_release_gate_contract(self) -> None:
+        self.assertIs(release_gate.GITHUB_RELEASE_REPO, verify_github_release.DEFAULT_REPO)
 
     def test_prerelease_expectation(self) -> None:
         self.assertEqual(

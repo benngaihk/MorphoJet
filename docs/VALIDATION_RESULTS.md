@@ -2,6 +2,27 @@
 
 Updated: 2026-07-08
 
+## Production Release Repo Identity Source Snapshot
+
+This snapshot records local verification for making the production GitHub release repository identity flow from `benchmark/release_gate.py` into the final production wrapper, saved release-gate verifier, external L4 trial-plan generator, and GitHub release verifier default. `benchmark/run_production_gate.py`, `benchmark/verify_release_gate_report.py`, `benchmark/prepare_external_l4_trial.py`, and `benchmark/verify_github_release.py` now reuse `release_gate.GITHUB_RELEASE_REPO` instead of carrying separate handwritten production repo strings for final stable-release validation. This keeps live release checks, saved stable-release report rechecks, generated external L4 workspace commands, and final production-report verification bound to the same production repository identity.
+
+This is not a production claim. The current release-gate report must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE` until the real external L4 workflow evidence chain and stable release evidence are present in one final passing report.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_verify_release_gate_report.py` | PASS, 50 tests |
+| `python3 tests/test_prepare_external_l4_trial.py` | PASS, 28 tests |
+| `python3 tests/test_run_production_gate.py` | PASS, 89 tests |
+| `python3 tests/test_verify_github_release.py` | PASS, 61 tests |
+| `python3 -m unittest discover -s tests` | PASS, 506 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS |
+| `git diff --check` | PASS |
+| Shared production GitHub release repo identity | PASS |
+
 ## External L4 Final-Gate Binding Source Snapshot
 
 This snapshot records local verification for making generated external L4 trial plans derive final signoff requirements, production blocker planned paths, and final production wrapper flag bindings from one shared `final_gate_requirement_bindings` helper in `benchmark/prepare_external_l4_trial.py`. The saved plan format is unchanged, but `final_signoff_requirements`, `production_claim_blockers`, and `--verify-plan` command-binding checks now use the same planned path and final-gate flag metadata for external trial JSON, evidence package directory, saved trial/package reviewer reports, stable release tag, and saved stable-release verifier report. This reduces the risk that a real external L4 workspace can render one final signoff path while validating or documenting a different final production wrapper argument.

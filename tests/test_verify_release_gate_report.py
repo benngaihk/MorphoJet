@@ -31,6 +31,10 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             release_gate.REQUIRED_PRODUCTION_GATE_NAMES,
             verify_release_gate_report.REQUIRED_PRODUCTION_GATE_NAMES,
         )
+        self.assertIs(
+            release_gate.GITHUB_RELEASE_REPO,
+            verify_release_gate_report.GITHUB_RELEASE_REPO,
+        )
 
     def production_args(self, **overrides: object) -> Namespace:
         values = {

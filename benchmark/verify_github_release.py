@@ -16,10 +16,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import release_gate
 from verify_release_archive import verify
 
 
 VERIFIER = "benchmark/verify_github_release.py"
+DEFAULT_REPO = release_gate.GITHUB_RELEASE_REPO
 CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
 EVIDENCE_SCOPE = "GITHUB_STABLE_RELEASE_VERIFICATION"
 FINAL_PRODUCTION_SIGNOFF = False
@@ -917,7 +919,7 @@ def verify_saved_github_release_report(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("tag", nargs="?")
-    parser.add_argument("--repo", default="benngaihk/MorphoJet")
+    parser.add_argument("--repo", default=DEFAULT_REPO)
     parser.add_argument("--out-dir", type=Path)
     parser.add_argument("--expect-commit")
     parser.add_argument("--expect-prerelease", action="store_true")

@@ -31,6 +31,9 @@ class RunProductionGateTest(unittest.TestCase):
     FULL_COMMIT = "a" * 40
     DOCTOR_COMMIT = "a" * 12
 
+    def test_github_release_repo_reuses_release_gate_contract(self) -> None:
+        self.assertIs(release_gate.GITHUB_RELEASE_REPO, run_production_gate.GITHUB_RELEASE_REPO)
+
     def write_valid_trial(self, root: Path, package_name: str | None = None) -> Path:
         trial = valid_external_trial()
         trial["readiness_report"]["package_name"] = package_name
