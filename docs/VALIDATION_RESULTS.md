@@ -2,6 +2,36 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `1b665e8`
+
+This snapshot records the verification for saved trial-plan checks that bind the external evidence command flow across generated execution, review, packaging, preflight, stable-release, and final-wrapper commands. `benchmark/prepare_external_l4_trial.py --verify-plan` now checks that trial JSON, package directory, trial/package reviewer reports, GitHub release verifier reports, and final production-claim report paths stay consistent across all generated commands that produce or consume those artifacts.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `1b665e8e61175b57bf107a71f7d67a13109383e6`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-evidence-command-flow.json --out-md /tmp/morphojet-l3-release-report-evidence-command-flow.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-evidence-command-flow.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Generated external L4 workspace tests | PASS, 24 tests |
+| External evidence command-flow tamper test | PASS |
+| Full Python unit test suite | PASS, 496 tests |
+| Source claim-language guard | PASS, 16 paths |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| English evidence-flow binding documentation | PASS |
+| Chinese evidence-flow binding documentation | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `24923e3`
 
 This snapshot records the verification for saved trial-plan checks that bind pre-signoff requirements back to the generated readiness, trial, and local-preflight commands. `benchmark/prepare_external_l4_trial.py --verify-plan` now checks that the readiness planned path matches `check_readiness --json-out`, `verify_readiness --verify-report`, and `run_trial --readiness-report`, and that the local-preflight planned path matches `local_evidence_preflight --local-evidence-preflight-json` plus `verify_local_evidence_preflight --verify-local-evidence-preflight-report`.
