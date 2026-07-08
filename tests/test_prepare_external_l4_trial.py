@@ -113,6 +113,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             )
             self.assertIn("--verify-report-files", verify_trial_report)
             self.assertIn("--require-report-pass", verify_trial_report)
+            self.assertEqual(plan["git_commit"], verify_trial_report[verify_trial_report.index("--expect-commit") + 1])
             verify_package_report = plan["commands"]["verify_package_report"]
             self.assertEqual(
                 str((workspace / "evidence-package-verification.json").resolve()),
@@ -121,6 +122,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("--verify-report-files", verify_package_report)
             self.assertIn("--require-report-pass", verify_package_report)
             self.assertIn("--require-trial-json", verify_package_report)
+            self.assertEqual(plan["git_commit"], verify_package_report[verify_package_report.index("--expect-commit") + 1])
             self.assertEqual(str(workspace.resolve()), plan["commands"]["check_readiness"][3])
             self.assertEqual(plan["package_name"], plan["commands"]["check_readiness"][5])
             verify_readiness = plan["commands"]["verify_readiness"]
@@ -525,8 +527,9 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("`measure --include-object-metadata`", readme)
             self.assertIn("passes declared object metadata columns through to the wide CSV", readme)
             self.assertIn("`verify_trial_report` and `verify_package_report` re-check", readme)
-            self.assertIn("PASS enforcement before local preflight or final signoff", readme)
+            self.assertIn("PASS enforcement, and `--expect-commit <trial_plan git_commit>`", readme)
             self.assertIn("must pair `--require-report-pass` with `--verify-report-files`", readme)
+            self.assertIn("preserve the expected commit binding", readme)
             self.assertIn("rejected instead of being treated as signed evidence", readme)
             self.assertIn("required input-artifact summaries to remain `exists=true`", readme)
             self.assertIn("package `README.md`", readme)
@@ -641,8 +644,9 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("`measure --include-object-metadata`", readme_zh)
             self.assertIn("把声明过的 object metadata columns 带进宽表", readme_zh)
             self.assertIn("`verify_trial_report` 和 `verify_package_report`", readme_zh)
+            self.assertIn("`--expect-commit <trial_plan git_commit>`", readme_zh)
             self.assertIn("local preflight 或最终签核", readme_zh)
-            self.assertIn("必须把 `--require-report-pass` 和 `--verify-report-files` 配对使用", readme_zh)
+            self.assertIn("必须把 `--require-report-pass`、`--verify-report-files` 和 expected commit binding 一起保留", readme_zh)
             self.assertIn("不能当作已签核证据", readme_zh)
             self.assertIn("input-artifact summaries 保持 `exists=true`", readme_zh)
             self.assertIn("package `README.md`", readme_zh)

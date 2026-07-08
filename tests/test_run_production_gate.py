@@ -1285,14 +1285,21 @@ class RunProductionGateTest(unittest.TestCase):
             gates = run_production_gate.saved_reviewer_report_gates(args)
 
         gate_by_name = {gate.name: gate for gate in gates}
+        expected_commit = release_gate.git_commit()
         self.assertEqual("PASS", gate_by_name["Verify saved external L4 trial report"].status)
         self.assertEqual(
-            release_gate.saved_external_trial_report_command(trial_report),
+            release_gate.saved_external_trial_report_command(
+                trial_report,
+                expected_commit=expected_commit,
+            ),
             gate_by_name["Verify saved external L4 trial report"].command,
         )
         self.assertEqual("PASS", gate_by_name["Verify saved external L4 evidence package report"].status)
         self.assertEqual(
-            release_gate.saved_external_package_report_command(package_report),
+            release_gate.saved_external_package_report_command(
+                package_report,
+                expected_commit=expected_commit,
+            ),
             gate_by_name["Verify saved external L4 evidence package report"].command,
         )
 

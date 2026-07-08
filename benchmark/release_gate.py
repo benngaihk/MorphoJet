@@ -776,8 +776,8 @@ def saved_github_workflow_report_command(report: Path, expected_commit: str | No
     return command
 
 
-def saved_external_trial_report_command(report: Path) -> list[str]:
-    return [
+def saved_external_trial_report_command(report: Path, expected_commit: str | None = None) -> list[str]:
+    command = [
         "python3",
         "benchmark/verify_external_trial_report.py",
         "--verify-report",
@@ -785,10 +785,13 @@ def saved_external_trial_report_command(report: Path) -> list[str]:
         "--verify-report-files",
         "--require-report-pass",
     ]
+    if expected_commit:
+        command.extend(["--expect-commit", expected_commit])
+    return command
 
 
-def saved_external_package_report_command(report: Path) -> list[str]:
-    return [
+def saved_external_package_report_command(report: Path, expected_commit: str | None = None) -> list[str]:
+    command = [
         "python3",
         "benchmark/verify_external_evidence_package.py",
         "--verify-report",
@@ -797,6 +800,9 @@ def saved_external_package_report_command(report: Path) -> list[str]:
         "--require-report-pass",
         "--require-trial-json",
     ]
+    if expected_commit:
+        command.extend(["--expect-commit", expected_commit])
+    return command
 
 
 def live_github_release_report_command(tag: str, kind: str, expected_commit: str | None = None) -> list[str]:
@@ -2354,10 +2360,10 @@ PRODUCTION_CHECKLIST_GUIDANCE = {
         "next_action": "Package the accepted external trial and supply --external-evidence-package-dir.",
     },
     "external_l4_saved_reviewer_reports": {
-        "evidence": "Saved external trial and evidence-package verifier reports rechecked with file hashing.",
+        "evidence": "Saved external trial and evidence-package verifier reports rechecked with file hashing and expected commit binding.",
         "next_action": (
             "Run verify_external_trial_report.py and verify_external_evidence_package.py, then recheck "
-            "both saved reports with --verify-report-files --require-report-pass."
+            "both saved reports with --verify-report-files --require-report-pass --expect-commit <final-commit>."
         ),
     },
     "stable_github_release": {
@@ -2735,7 +2741,10 @@ def main() -> int:
     if args.external_trial_verification_report:
         gate = run_command(
             "Verify saved external L4 trial report",
-            saved_external_trial_report_command(args.external_trial_verification_report),
+            saved_external_trial_report_command(
+                args.external_trial_verification_report,
+                expected_commit=metadata["git_commit"],
+            ),
         )
         gates.append(
             gate_with_binding_failures(
@@ -2748,7 +2757,10 @@ def main() -> int:
     if args.external_evidence_package_verification_report:
         gate = run_command(
             "Verify saved external L4 evidence package report",
-            saved_external_package_report_command(args.external_evidence_package_verification_report),
+            saved_external_package_report_command(
+                args.external_evidence_package_verification_report,
+                expected_commit=metadata["git_commit"],
+            ),
         )
         gates.append(
             gate_with_binding_failures(

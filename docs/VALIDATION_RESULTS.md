@@ -2,6 +2,32 @@
 
 Updated: 2026-07-09
 
+## External Saved Reviewer Commit Binding Snapshot
+
+This snapshot records the hardening that makes saved external L4 trial/package reviewer reports bind to the same final commit as the generated external L4 trial plan, saved workflow evidence, and stable-release evidence.
+
+`benchmark/verify_external_trial_report.py --verify-report` now accepts `--expect-commit` and rejects saved trial reviewer reports whose recomputed source trial `metadata.git_commit` does not match the supplied final commit. `benchmark/verify_external_evidence_package.py --verify-report` now applies the same `--expect-commit` check to the packaged `handoff_trial.json`, the optional source `trial_json`, and the `trial_git_commit` fields rendered in both package `README.md` and `README.zh-CN.md`. `benchmark/release_gate.py`, `benchmark/run_production_gate.py`, `benchmark/verify_release_gate_report.py`, and generated external L4 trial plans now pass the current final commit into saved external reviewer report review. Generated English and Chinese external workspace READMEs also state that `verify_trial_report` and `verify_package_report` must preserve `--expect-commit <trial_plan git_commit>`.
+
+This is not a production claim. It closes an external saved-reviewer report substitution gap; the real external L4 trial, matching package, saved reviewer reports, live stable GitHub release, and saved stable-release verifier report are still required before final production signoff. The expected top-level status remains `claim_status=NOT_PRODUCTION_CLAIM` and `production_claim_status=INCOMPLETE`.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/verify_external_trial_report.py benchmark/verify_external_evidence_package.py benchmark/release_gate.py benchmark/run_production_gate.py benchmark/verify_release_gate_report.py benchmark/prepare_external_l4_trial.py` | PASS |
+| `python3 -m unittest discover -s tests -p 'test_verify_external_trial_report.py'` | PASS, 37 tests |
+| `python3 -m unittest discover -s tests -p 'test_package_external_trial.py'` | PASS, 84 tests |
+| `python3 -m unittest discover -s tests -p 'test_release_gate.py'` | PASS, 98 tests |
+| `python3 -m unittest discover -s tests -p 'test_prepare_external_l4_trial.py'` | PASS, 30 tests |
+| `python3 -m unittest discover -s tests -p 'test_run_production_gate.py'` | PASS, 98 tests |
+| `python3 -m unittest discover -s tests -p 'test_verify_release_gate_report.py'` | PASS, 55 tests |
+| `python3 benchmark/prepare_external_l4_trial.py --workspace /tmp/morphojet-external-saved-reviewer-commit-plan --overwrite --verify-plan-files --require-plan-files` | PASS; generated `verify_trial_report --expect-commit 9db4cc9d73f8580eb0d355b81d245f55481b49d9` and `verify_package_report --expect-commit 9db4cc9d73f8580eb0d355b81d245f55481b49d9` |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths including the bilingual README contract |
+| `python3 -m unittest discover -s tests` | PASS, 583 tests |
+| `git diff --check` | PASS |
+| `python3 benchmark/release_gate.py --out-json /tmp/morphojet-external-saved-reviewer-commit-release-gate.json --out-md /tmp/morphojet-external-saved-reviewer-commit-release-gate.md` | PASS; non-final precommit report |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-external-saved-reviewer-commit-release-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+
 ## Saved Stable Release Report Commit Binding Snapshot
 
 This snapshot records the hardening that makes saved stable GitHub release verifier reports bind to the same final commit as the generated external L4 trial plan and saved GitHub workflow evidence.

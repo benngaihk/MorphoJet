@@ -197,22 +197,30 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             package_report = root / "review" / "package-verification.json"
             github_report = root / "review" / "github-release-verification.json"
             github_workflow_report = root / "review" / "github-workflow-verification.json"
+            current_commit = release_gate.git_commit()
             for gate in gates:
                 if gate.name == "Verify GitHub release assets":
                     gate.command = verify_release_gate_report.live_github_release_gate_command("v0.1.0", "stable")
                 elif gate.name == "Verify saved external L4 trial report":
-                    gate.command = release_gate.saved_external_trial_report_command(trial_report)
+                    gate.command = release_gate.saved_external_trial_report_command(
+                        trial_report,
+                        expected_commit=current_commit,
+                    )
                 elif gate.name == "Verify saved external L4 evidence package report":
-                    gate.command = release_gate.saved_external_package_report_command(package_report)
+                    gate.command = release_gate.saved_external_package_report_command(
+                        package_report,
+                        expected_commit=current_commit,
+                    )
                 elif gate.name == "Verify saved stable GitHub release report":
                     gate.command = verify_release_gate_report.saved_github_release_report_command(
                         str(github_report),
                         "v0.1.0",
+                        current_commit,
                     )
                 elif gate.name == "Verify saved GitHub Actions workflow report":
                     gate.command = verify_release_gate_report.saved_github_workflow_report_command(
                         str(github_workflow_report),
-                        release_gate.git_commit(),
+                        current_commit,
                     )
             trial_json = root / "external" / "handoff_trial.json"
             trial_root = root / "external"
@@ -237,7 +245,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                 gates,
                 {
                     **self.production_metadata(),
-                    "git_commit": release_gate.git_commit(),
+                    "git_commit": current_commit,
                     "argv": [
                         "benchmark/release_gate.py",
                         "--require-clean-git",
@@ -313,14 +321,20 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             [
                 {
                     "name": "Verify saved external L4 trial report",
-                    "command": release_gate.saved_external_trial_report_command(trial_report),
+                    "command": release_gate.saved_external_trial_report_command(
+                        trial_report,
+                        expected_commit=payload["metadata"]["git_commit"],
+                    ),
                     "status": "PASS",
                     "elapsed_seconds": 0.0,
                     "detail": "ok",
                 },
                 {
                     "name": "Verify saved external L4 evidence package report",
-                    "command": release_gate.saved_external_package_report_command(package_report),
+                    "command": release_gate.saved_external_package_report_command(
+                        package_report,
+                        expected_commit=payload["metadata"]["git_commit"],
+                    ),
                     "status": "PASS",
                     "elapsed_seconds": 0.0,
                     "detail": "ok",
@@ -330,6 +344,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                     "command": release_gate.saved_github_release_report_command(
                         github_report,
                         expected_tag="v0.1.0",
+                        expected_commit=payload["metadata"]["git_commit"],
                     ),
                     "status": "PASS",
                     "elapsed_seconds": 0.0,

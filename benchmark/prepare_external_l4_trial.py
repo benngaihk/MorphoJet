@@ -467,11 +467,14 @@ def validate_external_evidence_command_bindings(payload: dict[str, Any]) -> list
     commands = payload.get("commands")
     workspace = payload.get("workspace")
     package_name = payload.get("package_name")
+    plan_git_commit = payload.get("git_commit")
     if not isinstance(commands, dict):
         return failures
     if not isinstance(workspace, str) or not workspace.strip():
         return failures
     if not isinstance(package_name, str) or not package_name.strip():
+        return failures
+    if not isinstance(plan_git_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", plan_git_commit):
         return failures
     workspace_path = Path(workspace)
     trial_json = str(workspace_path / "handoff_trial.json")
@@ -759,11 +762,14 @@ def validate_saved_reviewer_report_command_bindings(payload: dict[str, Any]) -> 
     commands = payload.get("commands")
     workspace = payload.get("workspace")
     package_name = payload.get("package_name")
+    plan_git_commit = payload.get("git_commit")
     if not isinstance(commands, dict):
         return failures
     if not isinstance(workspace, str) or not workspace.strip():
         return failures
     if not isinstance(package_name, str) or not package_name.strip():
+        return failures
+    if not isinstance(plan_git_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", plan_git_commit):
         return failures
     workspace_path = Path(workspace)
     trial_json = str(workspace_path / "handoff_trial.json")
@@ -790,6 +796,7 @@ def validate_saved_reviewer_report_command_bindings(payload: dict[str, Any]) -> 
             failures.append(f"commands.{command_name} must include exactly one {flag} for {label}")
 
     expect_flag("verify_trial_report", "--verify-report", trial_verification, "trial reviewer report")
+    expect_flag("verify_trial_report", "--expect-commit", plan_git_commit, "trial reviewer report commit")
     for flag, label in [
         ("--verify-report-files", "trial saved reviewer file recheck"),
         ("--require-report-pass", "trial saved reviewer PASS enforcement"),
@@ -797,6 +804,7 @@ def validate_saved_reviewer_report_command_bindings(payload: dict[str, Any]) -> 
         expect_present("verify_trial_report", flag, label)
 
     expect_flag("verify_package_report", "--verify-report", package_verification, "package reviewer report")
+    expect_flag("verify_package_report", "--expect-commit", plan_git_commit, "package reviewer report commit")
     for flag, label in [
         ("--verify-report-files", "package saved reviewer file recheck"),
         ("--require-report-pass", "package saved reviewer PASS enforcement"),
@@ -1133,6 +1141,8 @@ def plan_commands(
             str(trial_verification),
             "--verify-report-files",
             "--require-report-pass",
+            "--expect-commit",
+            github_workflow_commit,
         ],
         "package_evidence": [
             "python3",
@@ -1163,6 +1173,8 @@ def plan_commands(
             "--verify-report-files",
             "--require-report-pass",
             "--require-trial-json",
+            "--expect-commit",
+            github_workflow_commit,
         ],
         "local_evidence_preflight": [
             "python3",
@@ -1536,7 +1548,7 @@ def render_readme(plan: dict[str, Any]) -> str:
         "`check_readiness` also verifies the saved `trial_plan.json`, template hash, manifest presence, and both English and Chinese README files before returning READY, so readiness fails if the execution instructions or plan are weakened after workspace preparation. The saved readiness signoff command must pair `--require-ready` with `--verify-report-files`; otherwise the saved READY JSON is rejected instead of being treated as reviewer-ready evidence.",
         "`check_readiness` also enforces any `required_object_metadata_columns` declared in the manifest. If the template keeps `Plate`, `Well`, and `Site`, generate MorphoJet `Objects.csv` with `measure --include-object-metadata` so those columns are present before the external trial runs.",
         "`run_trial` re-verifies the saved READY report and refuses to execute if its manifest or workspace does not match the current trial manifest and `base_dir`. It also passes declared object metadata columns through to the wide CSV and allows those same columns during supported-subset comparison.",
-        "`verify_trial_report` and `verify_package_report` re-check the saved reviewer reports with file hashing and PASS enforcement before local preflight or final signoff can treat those reports as reviewer evidence. Their saved-report signoff commands must pair `--require-report-pass` with `--verify-report-files`; otherwise the saved reviewer JSON is rejected instead of being treated as signed evidence.",
+        "`verify_trial_report` and `verify_package_report` re-check the saved reviewer reports with file hashing, PASS enforcement, and `--expect-commit <trial_plan git_commit>` before local preflight or final signoff can treat those reports as reviewer evidence. Their saved-report signoff commands must pair `--require-report-pass` with `--verify-report-files` and preserve the expected commit binding; otherwise the saved reviewer JSON is rejected instead of being treated as signed evidence.",
         "`verify_local_evidence_preflight` rejects non-stable saved `github_release_tag` values, requires clean saved git metadata when `--require-local-evidence-preflight-pass` is used, rehashes the source trial JSON, packaged trial JSON, package `artifact_manifest.json`, package `readiness.json`, package `README.md`, package `README.zh-CN.md`, zip, checksum, and reviewer reports; it also requires required input-artifact summaries to remain `exists=true`, only treats saved reviewer reports as validated when both saved reviewer verifier gates pass, requires metadata-bound saved reviewer reports to keep matching gate entries and hash summaries, and recomputes the source/package trial claim-scope labels, package-manifest package/source-trial scope labels, packaged readiness READY status, `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_READINESS_PRECHECK`, `final_production_signoff=false`, UTC generation time, `package_name`, workspace, manifest, package README-rendered readiness scope, package README-rendered handoff contract binding to `rendered_manifest.json`, and package README `review_entrypoint_present` values for both `README.md` and `README.zh-CN.md` before PASS can be accepted. The saved local preflight Markdown also renders those values in the `Review Entrypoint` input-artifact column.",
         "Replace all `REPLACE_WITH` values in the manifest and place the real input files before running the trial.",
         "",
@@ -1689,7 +1701,7 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
         "`check_readiness` 在返回 READY 前也会复核 saved `trial_plan.json`、template hash、manifest 是否存在，以及英文和中文 README 文件；如果 workspace 准备后执行说明或计划被改弱，readiness 会失败。Saved readiness 签核命令必须把 `--require-ready` 和 `--verify-report-files` 配对使用；否则 saved READY JSON 会被拒绝，不能当作 reviewer-ready evidence。",
         "`check_readiness` 也会强制检查 manifest 里的 `required_object_metadata_columns`。如果模板保留 `Plate`、`Well`、`Site`，请用 `measure --include-object-metadata` 生成 MorphoJet `Objects.csv`，确保外部 trial 运行前这些列已经存在。",
         "`run_trial` 会重新复核 saved READY report，并且在 report 的 manifest 或 workspace 与当前 trial manifest 和 `base_dir` 不一致时拒绝执行。它也会把声明过的 object metadata columns 带进宽表，并在 supported-subset comparison 中允许这些同一批列。",
-        "`verify_trial_report` 和 `verify_package_report` 会用 file hashing 和 PASS enforcement 重新复核 saved reviewer reports；local preflight 或最终签核只有在这些复核通过后，才可把它们当成 reviewer evidence。它们的 saved-report 签核命令必须把 `--require-report-pass` 和 `--verify-report-files` 配对使用；否则 saved reviewer JSON 会被拒绝，不能当作已签核证据。",
+        "`verify_trial_report` 和 `verify_package_report` 会用 file hashing、PASS enforcement 和 `--expect-commit <trial_plan git_commit>` 重新复核 saved reviewer reports；local preflight 或最终签核只有在这些复核通过后，才可把它们当成 reviewer evidence。它们的 saved-report 签核命令必须把 `--require-report-pass`、`--verify-report-files` 和 expected commit binding 一起保留；否则 saved reviewer JSON 会被拒绝，不能当作已签核证据。",
         "`verify_local_evidence_preflight` 会拒绝非稳定版 saved `github_release_tag`，并在使用 `--require-local-evidence-preflight-pass` 时要求 saved git metadata 干净，然后重新 hash source trial JSON、package 内 trial JSON、package `artifact_manifest.json`、package `readiness.json`、package `README.md`、package `README.zh-CN.md`、zip、checksum 和 reviewer reports；它还要求必需的 input-artifact summaries 保持 `exists=true`；只有两条 saved reviewer verifier gates 都 PASS 时，它才会把 saved reviewer reports 当作 validated，并且仍要求 metadata 绑定的 saved reviewer reports 保留对应 gate entries 和 hash summaries，再重新计算 source/package trial claim-scope labels、package manifest 的 package/source-trial scope labels、packaged readiness 的 READY 状态、`claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=EXTERNAL_L4_READINESS_PRECHECK`、`final_production_signoff=false`、UTC 生成时间、`package_name`、workspace、manifest、package README 渲染出的 readiness scope、package README 渲染出的 handoff contract 与 `rendered_manifest.json` 的绑定，以及 `README.md` 和 `README.zh-CN.md` 的 package README `review_entrypoint_present` 值，全部通过后才可接受 PASS。Saved local preflight Markdown 也会在 `Review Entrypoint` input-artifact 列渲染这些值。",
         "运行 trial 前，请替换 manifest 中所有 `REPLACE_WITH` 值，并放入真实输入文件。",
         "",

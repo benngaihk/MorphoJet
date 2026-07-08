@@ -267,8 +267,16 @@ def validate_gate_entry(gate: Any) -> list[str]:
     return failures
 
 
-def saved_github_release_report_command(report: str, expected_tag: str | None = None) -> list[str]:
-    return release_gate.saved_github_release_report_command(Path(report), expected_tag=expected_tag)
+def saved_github_release_report_command(
+    report: str,
+    expected_tag: str | None = None,
+    expected_commit: str | None = None,
+) -> list[str]:
+    return release_gate.saved_github_release_report_command(
+        Path(report),
+        expected_tag=expected_tag,
+        expected_commit=expected_commit,
+    )
 
 
 def saved_github_workflow_report_command(report: str, expected_commit: str | None = None) -> list[str]:
@@ -317,21 +325,31 @@ def validate_saved_reviewer_gate_command(gate: dict, metadata: Any) -> list[str]
     if name == "Verify saved external L4 trial report":
         metadata_key = "external_trial_verification_report"
         report = metadata.get(metadata_key)
+        expected_commit = metadata.get("git_commit")
         if isinstance(report, str) and report.strip():
-            expected = release_gate.saved_external_trial_report_command(Path(report))
+            expected = release_gate.saved_external_trial_report_command(
+                Path(report),
+                expected_commit if isinstance(expected_commit, str) and expected_commit.strip() else None,
+            )
     elif name == "Verify saved external L4 evidence package report":
         metadata_key = "external_evidence_package_verification_report"
         report = metadata.get(metadata_key)
+        expected_commit = metadata.get("git_commit")
         if isinstance(report, str) and report.strip():
-            expected = release_gate.saved_external_package_report_command(Path(report))
+            expected = release_gate.saved_external_package_report_command(
+                Path(report),
+                expected_commit if isinstance(expected_commit, str) and expected_commit.strip() else None,
+            )
     elif name == "Verify saved stable GitHub release report":
         metadata_key = "github_release_verification_report"
         report = metadata.get(metadata_key)
         expected_tag = metadata.get("verify_github_release")
+        expected_commit = metadata.get("git_commit")
         if isinstance(report, str) and report.strip():
             expected = saved_github_release_report_command(
                 report,
                 expected_tag if isinstance(expected_tag, str) and expected_tag.strip() else None,
+                expected_commit if isinstance(expected_commit, str) and expected_commit.strip() else None,
             )
     elif name == "Verify saved GitHub Actions workflow report":
         metadata_key = "github_workflow_verification_report"

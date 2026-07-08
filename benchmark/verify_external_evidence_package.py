@@ -79,11 +79,13 @@ def trial_report_summary(path: Path) -> dict[str, Any]:
         payload = None
     if not isinstance(payload, dict):
         payload = {}
+    metadata = payload.get("metadata")
     summary.update(
         {
             "claim_status": payload.get("claim_status"),
             "evidence_scope": payload.get("evidence_scope"),
             "final_production_signoff": payload.get("final_production_signoff"),
+            "git_commit": metadata.get("git_commit") if isinstance(metadata, dict) else None,
         }
     )
     return summary
@@ -136,6 +138,7 @@ def readme_scope_summary(path: Path) -> dict[str, Any]:
         "readiness_package_name": None,
         "readiness_workspace": None,
         "readiness_manifest": None,
+        "trial_git_commit": None,
         "review_entrypoint_present": False,
         "handoff_contract": {},
     }
@@ -241,6 +244,7 @@ def artifact_manifest_claim_scope(path: Path) -> dict[str, Any]:
 
 def package_input_files(package_dir: Path, trial_json: Path | None = None) -> dict[str, dict[str, Any]]:
     files = {key: file_summary(package_dir / filename) for key, filename in PACKAGE_REVIEW_FILES.items()}
+    files["package_handoff_trial"] = trial_report_summary(package_dir / "handoff_trial.json")
     files["package_artifact_manifest"].update(
         artifact_manifest_claim_scope(package_dir / "artifact_manifest.json")
     )
@@ -343,6 +347,9 @@ def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) 
         if name in {"package_readme", "package_readme_zh"} and isinstance(summary, dict):
             label = f"input_files.{name}"
             if summary.get("exists"):
+                trial_git_commit = summary.get("trial_git_commit")
+                if not isinstance(trial_git_commit, str) or not release_gate.is_git_commit(trial_git_commit):
+                    failures.append(f"{label}.trial_git_commit={trial_git_commit}")
                 handoff_contract = summary.get("handoff_contract")
                 if not isinstance(handoff_contract, dict) or not handoff_contract:
                     failures.append(f"{label}.handoff_contract must be a non-empty object")
@@ -403,11 +410,32 @@ def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) 
                 for field, expected in release_gate.external_package_manifest_claim_scope().items():
                     if summary.get(field) != expected:
                         failures.append(f"input_files.package_artifact_manifest.{field}={summary.get(field)}")
+        if name == "package_handoff_trial" and isinstance(summary, dict):
+            for field in ["claim_status", "evidence_scope", "final_production_signoff", "git_commit"]:
+                if field not in summary:
+                    failures.append(f"input_files.package_handoff_trial.{field} must be present")
+            if status == "PASS":
+                git_commit = summary.get("git_commit")
+                if not isinstance(git_commit, str) or not release_gate.is_git_commit(git_commit):
+                    failures.append(f"input_files.package_handoff_trial.git_commit={git_commit}")
+                if summary.get("claim_status") != CLAIM_STATUS:
+                    failures.append(f"input_files.package_handoff_trial.claim_status={summary.get('claim_status')}")
+                if summary.get("evidence_scope") != SOURCE_TRIAL_EVIDENCE_SCOPE:
+                    failures.append(
+                        f"input_files.package_handoff_trial.evidence_scope={summary.get('evidence_scope')}"
+                    )
+                if summary.get("final_production_signoff") is not FINAL_PRODUCTION_SIGNOFF:
+                    failures.append("input_files.package_handoff_trial.final_production_signoff must be false")
         if name == "source_trial_json" and isinstance(summary, dict):
             for field in ["claim_status", "evidence_scope", "final_production_signoff"]:
                 if field not in summary:
                     failures.append(f"input_files.source_trial_json.{field} must be present")
+            if "git_commit" not in summary:
+                failures.append("input_files.source_trial_json.git_commit must be present")
             if status == "PASS":
+                git_commit = summary.get("git_commit")
+                if not isinstance(git_commit, str) or not release_gate.is_git_commit(git_commit):
+                    failures.append(f"input_files.source_trial_json.git_commit={git_commit}")
                 if summary.get("claim_status") != CLAIM_STATUS:
                     failures.append(f"input_files.source_trial_json.claim_status={summary.get('claim_status')}")
                 if summary.get("evidence_scope") != SOURCE_TRIAL_EVIDENCE_SCOPE:
@@ -523,6 +551,25 @@ def input_file_path_binding_issues(
             for summary_key, payload_key in expected_fields.items():
                 if source_trial_summary.get(summary_key) != source_trial_payload.get(payload_key):
                     failures.append(f"input_files.source_trial_json.{summary_key} must match source trial report")
+            metadata = source_trial_payload.get("metadata")
+            expected_git_commit = metadata.get("git_commit") if isinstance(metadata, dict) else None
+            if source_trial_summary.get("git_commit") != expected_git_commit:
+                failures.append("input_files.source_trial_json.git_commit must match source trial report metadata.git_commit")
+    package_trial_summary = input_files.get("package_handoff_trial")
+    if isinstance(package_trial_summary, dict):
+        try:
+            package_trial_payload = json.loads((root / "handoff_trial.json").read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001 - malformed files are covered by gate/file checks.
+            package_trial_payload = None
+        if isinstance(package_trial_payload, dict):
+            metadata = package_trial_payload.get("metadata")
+            expected_git_commit = metadata.get("git_commit") if isinstance(metadata, dict) else None
+            if package_trial_summary.get("git_commit") != expected_git_commit:
+                failures.append("input_files.package_handoff_trial.git_commit must match packaged trial metadata.git_commit")
+            for readme_name in ["package_readme", "package_readme_zh"]:
+                readme_summary = input_files.get(readme_name)
+                if isinstance(readme_summary, dict) and readme_summary.get("trial_git_commit") != expected_git_commit:
+                    failures.append(f"input_files.{readme_name}.trial_git_commit must match packaged trial metadata.git_commit")
     return failures
 
 
@@ -547,6 +594,7 @@ def recomputed_input_file_issues(recorded: dict[str, Any], package_dir: Path, tr
             "claim_status",
             "evidence_scope",
             "final_production_signoff",
+            "git_commit",
             "trial_claim_status",
             "trial_evidence_scope",
             "trial_final_production_signoff",
@@ -558,6 +606,7 @@ def recomputed_input_file_issues(recorded: dict[str, Any], package_dir: Path, tr
             "readiness_package_name",
             "readiness_workspace",
             "readiness_manifest",
+            "trial_git_commit",
             "review_entrypoint_present",
             "handoff_contract",
         ]:
@@ -812,6 +861,7 @@ def verify_saved_external_evidence_package_report(
     require_report_pass: bool = False,
     verify_files: bool = False,
     require_trial_json: bool = False,
+    expect_commit: str | None = None,
 ) -> int:
     try:
         payload = json.loads(report.read_text(encoding="utf-8"))
@@ -826,6 +876,30 @@ def verify_saved_external_evidence_package_report(
     )
     if require_report_pass and not verify_files:
         failures.append("--require-report-pass requires --verify-report-files")
+    if expect_commit is not None:
+        if not release_gate.is_git_commit(expect_commit):
+            failures.append(f"--expect-commit must be a full git commit: {expect_commit}")
+        if not verify_files:
+            failures.append("--expect-commit requires --verify-report-files")
+        input_files = payload.get("input_files")
+        if isinstance(input_files, dict):
+            commit_fields = [
+                ("package_handoff_trial", "git_commit"),
+                ("package_readme", "trial_git_commit"),
+                ("package_readme_zh", "trial_git_commit"),
+            ]
+            if payload.get("trial_json") is not None:
+                commit_fields.append(("source_trial_json", "git_commit"))
+            for summary_name, field in commit_fields:
+                summary = input_files.get(summary_name)
+                actual = summary.get(field) if isinstance(summary, dict) else None
+                if actual != expect_commit:
+                    failures.append(
+                        f"input_files.{summary_name}.{field} does not match --expect-commit: "
+                        f"{actual} != {expect_commit}"
+                    )
+        else:
+            failures.append("input_files must be present for --expect-commit")
     if not failures and verify_files:
         package_dir = Path(payload["package_dir"])
         trial_json = Path(payload["trial_json"]) if payload.get("trial_json") is not None else None
@@ -874,6 +948,10 @@ def main() -> int:
         help="With --verify-report, require the saved package reviewer report to be bound to a source trial JSON",
     )
     parser.add_argument(
+        "--expect-commit",
+        help="With --verify-report, require the saved package reviewer report to bind this full git commit",
+    )
+    parser.add_argument(
         "--allow-fail-report",
         action="store_true",
         help="Write/print a FAIL report but exit 0; intended only for diagnostics",
@@ -885,6 +963,7 @@ def main() -> int:
             require_report_pass=args.require_report_pass,
             verify_files=args.verify_report_files,
             require_trial_json=args.require_trial_json,
+            expect_commit=args.expect_commit,
         )
     if args.package_dir is None:
         parser.error("package_dir is required unless --verify-report is used")

@@ -243,6 +243,54 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
 
         self.assertEqual(0, code)
 
+    def test_saved_verification_report_can_require_expected_commit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            trial = json.loads(trial_json.read_text(encoding="utf-8"))
+            expected_commit = trial["metadata"]["git_commit"]
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = verify_external_trial_report.verify_saved_external_trial_report(
+                    json_out,
+                    require_report_pass=True,
+                    verify_files=True,
+                    expect_commit=expected_commit,
+                )
+
+        self.assertEqual(0, code)
+
+    def test_saved_verification_report_rejects_expected_commit_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            json_out = root / "external-trial-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=json_out,
+                )
+
+            stderr = StringIO()
+            with redirect_stdout(StringIO()), redirect_stderr(stderr):
+                code = verify_external_trial_report.verify_saved_external_trial_report(
+                    json_out,
+                    require_report_pass=True,
+                    verify_files=True,
+                    expect_commit="0" * 40,
+                )
+
+        self.assertEqual(1, code)
+        self.assertIn("input_files.trial_json.git_commit does not match --expect-commit", stderr.getvalue())
+
     def test_require_report_pass_requires_file_recheck(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

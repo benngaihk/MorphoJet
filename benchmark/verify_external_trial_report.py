@@ -63,6 +63,7 @@ def file_summary(path: Path) -> dict[str, Any]:
 def trial_report_summary(trial_json: Path) -> dict[str, Any]:
     summary = file_summary(trial_json)
     trial = load_trial_payload(trial_json)
+    metadata = trial.get("metadata") if isinstance(trial, dict) else None
     summary.update(
         {
             "claim_status": trial.get("claim_status") if isinstance(trial, dict) else None,
@@ -70,6 +71,7 @@ def trial_report_summary(trial_json: Path) -> dict[str, Any]:
             "final_production_signoff": (
                 trial.get("final_production_signoff") if isinstance(trial, dict) else None
             ),
+            "git_commit": metadata.get("git_commit") if isinstance(metadata, dict) else None,
         }
     )
     return summary
@@ -190,6 +192,9 @@ def input_files_issues(input_files: Any, status: Any) -> list[str]:
             failures.append(f"input_files.trial_json.evidence_scope={trial_summary.get('evidence_scope')}")
         if trial_summary.get("final_production_signoff") is not FINAL_PRODUCTION_SIGNOFF:
             failures.append("input_files.trial_json.final_production_signoff must be false")
+        git_commit = trial_summary.get("git_commit")
+        if status == "PASS" and (not isinstance(git_commit, str) or not release_gate.is_git_commit(git_commit)):
+            failures.append(f"input_files.trial_json.git_commit={git_commit}")
     if status == "PASS" and "readiness_report" not in input_files:
         failures.append("input_files.readiness_report must be present for PASS reports")
     if "readiness_report" in input_files:
@@ -270,6 +275,10 @@ def input_file_path_binding_issues(input_files: dict[str, Any], trial_json: str,
         for summary_key, payload_key in expected_fields.items():
             if trial_summary.get(summary_key) != trial_payload.get(payload_key):
                 failures.append(f"input_files.trial_json.{summary_key} must match source trial report")
+        metadata = trial_payload.get("metadata")
+        expected_git_commit = metadata.get("git_commit") if isinstance(metadata, dict) else None
+        if trial_summary.get("git_commit") != expected_git_commit:
+            failures.append("input_files.trial_json.git_commit must match source trial report metadata.git_commit")
     readiness_summary = input_files.get("readiness_report")
     readiness_path = load_trial_readiness_report_path(Path(trial_json))
     if isinstance(readiness_summary, dict):
@@ -322,6 +331,7 @@ def recomputed_input_file_issues(recorded: dict[str, Any], trial_json: Path, tri
         "claim_status",
         "evidence_scope",
         "final_production_signoff",
+        "git_commit",
     ]:
         if recorded["trial_json"].get(field) != current["trial_json"].get(field):
             failures.append(f"input_files.trial_json.{field} changed after recomputing trial validation")
@@ -543,6 +553,7 @@ def verify_saved_external_trial_report(
     report: Path,
     require_report_pass: bool = False,
     verify_files: bool = False,
+    expect_commit: str | None = None,
 ) -> int:
     try:
         payload = json.loads(report.read_text(encoding="utf-8"))
@@ -556,6 +567,19 @@ def verify_saved_external_trial_report(
     )
     if require_report_pass and not verify_files:
         failures.append("--require-report-pass requires --verify-report-files")
+    if expect_commit is not None:
+        if not release_gate.is_git_commit(expect_commit):
+            failures.append(f"--expect-commit must be a full git commit: {expect_commit}")
+        if not verify_files:
+            failures.append("--expect-commit requires --verify-report-files")
+        input_files = payload.get("input_files")
+        trial_summary = input_files.get("trial_json") if isinstance(input_files, dict) else None
+        trial_commit = trial_summary.get("git_commit") if isinstance(trial_summary, dict) else None
+        if trial_commit != expect_commit:
+            failures.append(
+                "input_files.trial_json.git_commit does not match --expect-commit: "
+                f"{trial_commit} != {expect_commit}"
+            )
     if not failures and verify_files:
         trial_json = Path(payload["trial_json"])
         trial_root = Path(payload["trial_root"])
@@ -596,6 +620,10 @@ def main() -> int:
         help="Reject saved verifier reports that are not PASS; requires --verify-report-files",
     )
     parser.add_argument(
+        "--expect-commit",
+        help="With --verify-report, require the saved trial reviewer report to bind this full git commit",
+    )
+    parser.add_argument(
         "--allow-fail-report",
         action="store_true",
         help="Write/print a FAIL report but exit 0; intended only for diagnostics",
@@ -606,6 +634,7 @@ def main() -> int:
             args.verify_report,
             require_report_pass=args.require_report_pass,
             verify_files=args.verify_report_files,
+            expect_commit=args.expect_commit,
         )
     if args.trial_json is None:
         parser.error("trial_json is required unless --verify-report is used")

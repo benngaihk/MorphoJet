@@ -689,12 +689,21 @@ def saved_reviewer_report_gates(
     include_github_release: bool = False,
 ) -> list[release_gate.Gate]:
     gates = []
+    expected_commit = release_gate.git_commit()
     if args.external_trial_verification_report:
         gate = saved_verifier_gate(
             "Verify saved external L4 trial report",
-            release_gate.saved_external_trial_report_command(args.external_trial_verification_report),
+            release_gate.saved_external_trial_report_command(
+                args.external_trial_verification_report,
+                expected_commit=expected_commit,
+            ),
             verify_external_trial_report.verify_saved_external_trial_report,
             args.external_trial_verification_report,
+            verifier_kwargs={
+                "require_report_pass": True,
+                "verify_files": True,
+                "expect_commit": expected_commit,
+            },
         )
         gates.append(
             gate_with_binding_failures(
@@ -707,13 +716,17 @@ def saved_reviewer_report_gates(
     if args.external_evidence_package_verification_report:
         gate = saved_verifier_gate(
             "Verify saved external L4 evidence package report",
-            release_gate.saved_external_package_report_command(args.external_evidence_package_verification_report),
+            release_gate.saved_external_package_report_command(
+                args.external_evidence_package_verification_report,
+                expected_commit=expected_commit,
+            ),
             verify_external_evidence_package.verify_saved_external_evidence_package_report,
             args.external_evidence_package_verification_report,
             verifier_kwargs={
                 "require_report_pass": True,
                 "verify_files": True,
                 "require_trial_json": True,
+                "expect_commit": expected_commit,
             },
         )
         gates.append(

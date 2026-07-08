@@ -623,6 +623,69 @@ class PackageExternalTrialTest(unittest.TestCase):
 
         self.assertEqual(0, code)
 
+    def test_saved_package_verification_report_can_require_expected_commit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            trial = json.loads(trial_json.read_text(encoding="utf-8"))
+            expected_commit = trial["metadata"]["git_commit"]
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(
+                    json_out,
+                    require_report_pass=True,
+                    verify_files=True,
+                    require_trial_json=True,
+                    expect_commit=expected_commit,
+                )
+
+        self.assertEqual(0, code)
+
+    def test_saved_package_verification_report_rejects_expected_commit_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+
+            stderr = StringIO()
+            with redirect_stdout(StringIO()), redirect_stderr(stderr):
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(
+                    json_out,
+                    require_report_pass=True,
+                    verify_files=True,
+                    require_trial_json=True,
+                    expect_commit="0" * 40,
+                )
+
+        self.assertEqual(1, code)
+        self.assertIn("package_handoff_trial.git_commit does not match --expect-commit", stderr.getvalue())
+        self.assertIn("package_readme_zh.trial_git_commit does not match --expect-commit", stderr.getvalue())
+
     def test_saved_package_require_report_pass_requires_file_recheck(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
