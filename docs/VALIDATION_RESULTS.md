@@ -2,6 +2,41 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `951366a`
+
+This snapshot records the verification for optional object-level image-table metadata export. `measure --include-object-metadata` can now repeat metadata such as `Plate`, `Well`, and `Site` on every `Objects.csv` row while the default object CSV schema remains unchanged. Because this milestone touched core output and CLI code, the full CellBinDB L3 workflow was rerun instead of relying on old provenance.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `951366a532168eb153a308bef0b55e755ae19d2b`
+- Full L3 rerun command: `benchmark/run_cellbindb_l3_validation.sh`
+- Clean release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-object-metadata.json --out-md /tmp/morphojet-l3-release-report-object-metadata.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-object-metadata.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Rust formatting | PASS |
+| Rust test suite | PASS, 36 tests |
+| Rust Clippy | PASS |
+| Full Python unit test suite | PASS, 479 tests |
+| Source claim-language guard | PASS, 16 paths |
+| Whitespace diff check | PASS |
+| Full CellBinDB L3 rerun | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Default `Objects.csv` schema unchanged | PASS |
+| Optional object metadata export | PASS |
+| English object-metadata README documentation | PASS |
+| Chinese object-metadata README documentation | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Remote Workflow Activation Snapshot for `cd0b9e6`
 
 This snapshot records remote GitHub state after the scheduled CellBinDB L3 workflow was pushed to `main`. The local checkout and `origin/main` both resolved to `cd0b9e6cf827535c960168ba3c7714dede08d1b4`, and GitHub Actions listed the new workflow as active.
