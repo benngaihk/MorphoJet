@@ -44,6 +44,7 @@
   - [x] External L4 manifest/readiness contract for required object metadata columns.
   - [x] CellProfiler-style wide export carries declared object metadata columns.
   - [x] Evidence-package READMEs render and gate-check the handoff contract for reviewers.
+  - [x] Saved package verifier reports bind README handoff contracts to the rendered manifest.
   - [ ] External workflow trial.
 
 - Multi-channel and plate/well/site metadata polish: object-level metadata export is available behind `measure --include-object-metadata`, the external L4 template/readiness checker can require `Plate`, `Well`, and `Site`, and the wide-export bridge can carry those declared metadata columns through to downstream CSVs; remaining work is external L4 confirmation that the handoff shape matches real lab systems.

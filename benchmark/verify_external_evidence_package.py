@@ -136,6 +136,7 @@ def readme_scope_summary(path: Path) -> dict[str, Any]:
         "readiness_package_name": None,
         "readiness_workspace": None,
         "readiness_manifest": None,
+        "handoff_contract": {},
     }
     try:
         text = path.read_text(encoding="utf-8")
@@ -143,13 +144,59 @@ def readme_scope_summary(path: Path) -> dict[str, Any]:
         return fields
     values = dict(fields)
     for line in text.splitlines():
-        match = re.fullmatch(r"- ([A-Za-z0-9_]+): `(.+)`", line)
+        match = re.fullmatch(r"- ([A-Za-z0-9_.\[\]]+): `(.+)`", line)
         if not match:
             continue
         key, raw_value = match.groups()
         if key in values:
             values[key] = parse_readme_value(raw_value)
+        if is_handoff_contract_key(key):
+            values["handoff_contract"][key] = raw_value
     return values
+
+
+def is_handoff_contract_key(key: str) -> bool:
+    return (
+        key == "morphojet_objects_csv"
+        or key == "required_object_metadata_columns"
+        or key.startswith("export[")
+    )
+
+
+def rendered_manifest_contract_summary(path: Path) -> dict[str, str]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 - package file validation reports malformed files elsewhere.
+        payload = None
+    if not isinstance(payload, dict):
+        return {}
+    fields = {
+        "morphojet_objects_csv": str(payload.get("morphojet_objects_csv")),
+        "required_object_metadata_columns": format_manifest_list(
+            payload.get("required_object_metadata_columns", [])
+        ),
+    }
+    top_level_metadata = payload.get("required_object_metadata_columns", [])
+    for index, export in enumerate(payload.get("exports", [])):
+        if not isinstance(export, dict):
+            continue
+        metadata_columns = export.get("required_object_metadata_columns", top_level_metadata)
+        fields[f"export[{index}].name"] = str(export.get("name"))
+        fields[f"export[{index}].object_set"] = str(export.get("object_set"))
+        fields[f"export[{index}].channels"] = format_manifest_list(export.get("channels", []))
+        fields[f"export[{index}].required_object_metadata_columns"] = format_manifest_list(metadata_columns)
+        fields[f"export[{index}].out_csv"] = str(export.get("out_csv"))
+        for key in ["expected_cellprofiler_csv", "comparison_report", "comparison_json"]:
+            if key in export:
+                fields[f"export[{index}].{key}"] = str(export.get(key))
+    return fields
+
+
+def format_manifest_list(value: Any) -> str:
+    if not isinstance(value, list):
+        return "none"
+    items = [str(item) for item in value if isinstance(item, str) and item.strip()]
+    return ", ".join(items) if items else "none"
 
 
 def artifact_manifest_claim_scope(path: Path) -> dict[str, Any]:
@@ -274,6 +321,9 @@ def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) 
         if name in {"package_readme", "package_readme_zh"} and isinstance(summary, dict):
             label = f"input_files.{name}"
             if summary.get("exists"):
+                handoff_contract = summary.get("handoff_contract")
+                if not isinstance(handoff_contract, dict) or not handoff_contract:
+                    failures.append(f"{label}.handoff_contract must be a non-empty object")
                 if summary.get("claim_status") != "NOT_PRODUCTION_CLAIM":
                     failures.append(f"{label}.claim_status={summary.get('claim_status')}")
                 if summary.get("evidence_scope") != "EXTERNAL_L4_EVIDENCE_PACKAGE":
@@ -404,6 +454,7 @@ def input_file_path_binding_issues(
                 failures.append(f"input_files.package_readiness.{field} must match package readiness report")
     readiness_path = root / "readiness.json"
     expected_readiness = readiness_report_summary(readiness_path)
+    expected_contract = rendered_manifest_contract_summary(root / "rendered_manifest.json")
     expected_manifest_scope = artifact_manifest_claim_scope(root / "artifact_manifest.json")
     for readme_name, readme_file in [
         ("package_readme", root / "README.md"),
@@ -428,6 +479,10 @@ def input_file_path_binding_issues(
         ]:
             if readme_summary.get(field) != expected_readme.get(field):
                 failures.append(f"input_files.{readme_name}.{field} must match package README")
+        if readme_summary.get("handoff_contract") != expected_readme.get("handoff_contract"):
+            failures.append(f"input_files.{readme_name}.handoff_contract must match package README")
+        if readme_summary.get("handoff_contract") != expected_contract:
+            failures.append(f"input_files.{readme_name}.handoff_contract must match rendered manifest")
         readme_to_manifest = {
             "claim_status": "claim_status",
             "evidence_scope": "evidence_scope",
@@ -500,6 +555,7 @@ def recomputed_input_file_issues(recorded: dict[str, Any], package_dir: Path, tr
             "readiness_package_name",
             "readiness_workspace",
             "readiness_manifest",
+            "handoff_contract",
         ]:
             if recorded_summary.get(field) != current_summary.get(field):
                 failures.append(f"input_files.{name}.{field} changed after recomputing evidence package validation")
