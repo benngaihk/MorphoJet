@@ -1387,6 +1387,9 @@ def external_package_readme_failures(readme: str, trial: dict, artifact_manifest
         "language_switch": "Language: English | [简体中文](README.zh-CN.md)",
         "validation_detail": "This package was created only after the external trial report passed",
         "not_final_signoff": "not a final production signoff by itself",
+        "reviewer_entrypoint": "Chinese-community reviewers can use `README.zh-CN.md` as a first-class review entrypoint",
+        "package_verifier": "`verify_external_evidence_package.py`",
+        "stable_release_report": "saved stable-release verifier report",
         "revalidation_command": "python3 benchmark/release_gate.py --external-trial-json",
     }
     failures = []
@@ -1409,6 +1412,9 @@ def external_package_chinese_readme_failures(readme: str, trial: dict, artifact_
         "language_switch": "Language: [English](README.md) | 简体中文",
         "validation_detail": "这个 evidence package 只在外部 trial report 通过",
         "not_final_signoff": "它本身不是最终生产签核",
+        "reviewer_entrypoint": "中文社区 reviewer 可以把 `README.zh-CN.md` 作为这个 evidence package 的一等复核入口",
+        "package_verifier": "`verify_external_evidence_package.py`",
+        "stable_release_report": "saved stable-release verifier report",
         "revalidation_command": "python3 benchmark/release_gate.py --external-trial-json",
     }
     failures = []

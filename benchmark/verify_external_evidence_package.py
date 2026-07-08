@@ -136,6 +136,7 @@ def readme_scope_summary(path: Path) -> dict[str, Any]:
         "readiness_package_name": None,
         "readiness_workspace": None,
         "readiness_manifest": None,
+        "review_entrypoint_present": False,
         "handoff_contract": {},
     }
     try:
@@ -152,7 +153,28 @@ def readme_scope_summary(path: Path) -> dict[str, Any]:
             values[key] = parse_readme_value(raw_value)
         if is_handoff_contract_key(key):
             values["handoff_contract"][key] = raw_value
+    values["review_entrypoint_present"] = readme_review_entrypoint_present(path.name, text)
     return values
+
+
+def readme_review_entrypoint_present(filename: str, text: str) -> bool:
+    if filename == "README.zh-CN.md":
+        required = [
+            "## 中文 reviewer 入口",
+            "中文社区 reviewer 可以把 `README.zh-CN.md` 作为这个 evidence package 的一等复核入口。",
+            "`verify_external_evidence_package.py`",
+            "final production wrapper",
+            "saved stable-release verifier report",
+        ]
+    else:
+        required = [
+            "## Reviewer Entry Point",
+            "Chinese-community reviewers can use `README.zh-CN.md` as a first-class review entrypoint",
+            "`verify_external_evidence_package.py`",
+            "final production wrapper",
+            "saved stable-release verifier report",
+        ]
+    return all(snippet in text for snippet in required)
 
 
 def is_handoff_contract_key(key: str) -> bool:
@@ -324,6 +346,8 @@ def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) 
                 handoff_contract = summary.get("handoff_contract")
                 if not isinstance(handoff_contract, dict) or not handoff_contract:
                     failures.append(f"{label}.handoff_contract must be a non-empty object")
+                if summary.get("review_entrypoint_present") is not True:
+                    failures.append(f"{label}.review_entrypoint_present must be true")
                 if summary.get("claim_status") != "NOT_PRODUCTION_CLAIM":
                     failures.append(f"{label}.claim_status={summary.get('claim_status')}")
                 if summary.get("evidence_scope") != "EXTERNAL_L4_EVIDENCE_PACKAGE":
@@ -481,6 +505,8 @@ def input_file_path_binding_issues(
                 failures.append(f"input_files.{readme_name}.{field} must match package README")
         if readme_summary.get("handoff_contract") != expected_readme.get("handoff_contract"):
             failures.append(f"input_files.{readme_name}.handoff_contract must match package README")
+        if readme_summary.get("review_entrypoint_present") != expected_readme.get("review_entrypoint_present"):
+            failures.append(f"input_files.{readme_name}.review_entrypoint_present must match package README")
         if readme_summary.get("handoff_contract") != expected_contract:
             failures.append(f"input_files.{readme_name}.handoff_contract must match rendered manifest")
         readme_to_manifest = {
@@ -555,6 +581,7 @@ def recomputed_input_file_issues(recorded: dict[str, Any], package_dir: Path, tr
             "readiness_package_name",
             "readiness_workspace",
             "readiness_manifest",
+            "review_entrypoint_present",
             "handoff_contract",
         ]:
             if recorded_summary.get(field) != current_summary.get(field):

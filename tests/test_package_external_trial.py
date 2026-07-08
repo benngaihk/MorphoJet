@@ -97,6 +97,14 @@ class PackageExternalTrialTest(unittest.TestCase):
                 (package_dir / "README.md").read_text(encoding="utf-8"),
             )
             self.assertIn(
+                "Chinese-community reviewers can use `README.zh-CN.md` as a first-class review entrypoint",
+                (package_dir / "README.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "saved stable-release verifier report",
+                (package_dir / "README.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
                 "- readiness_package_name: `external-l4-demo`",
                 (package_dir / "README.md").read_text(encoding="utf-8"),
             )
@@ -138,6 +146,14 @@ class PackageExternalTrialTest(unittest.TestCase):
             )
             self.assertIn(
                 "它本身不是最终生产签核",
+                (package_dir / "README.zh-CN.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "中文社区 reviewer 可以把 `README.zh-CN.md` 作为这个 evidence package 的一等复核入口",
+                (package_dir / "README.zh-CN.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "saved stable-release verifier report",
                 (package_dir / "README.zh-CN.md").read_text(encoding="utf-8"),
             )
             self.assertIn(
@@ -361,6 +377,7 @@ class PackageExternalTrialTest(unittest.TestCase):
             self.assertEqual("NOT_PRODUCTION_CLAIM", payload["input_files"][readme_key]["claim_status"])
             self.assertEqual("EXTERNAL_L4_EVIDENCE_PACKAGE", payload["input_files"][readme_key]["evidence_scope"])
             self.assertFalse(payload["input_files"][readme_key]["final_production_signoff"])
+            self.assertTrue(payload["input_files"][readme_key]["review_entrypoint_present"])
             self.assertEqual("READY", payload["input_files"][readme_key]["readiness_status"])
             self.assertEqual("NOT_PRODUCTION_CLAIM", payload["input_files"][readme_key]["readiness_claim_status"])
             self.assertEqual(
@@ -605,6 +622,41 @@ class PackageExternalTrialTest(unittest.TestCase):
                 )
 
         self.assertEqual(0, code)
+
+    def test_saved_package_verification_report_rejects_readme_reviewer_entrypoint_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+            readme_path = Path(result["package_dir"]) / "README.zh-CN.md"
+            readme_path.write_text(
+                readme_path.read_text(encoding="utf-8").replace("## 中文 reviewer 入口", "## 复核说明"),
+                encoding="utf-8",
+            )
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(
+                    json_out,
+                    verify_files=True,
+                )
+
+        self.assertEqual(1, code)
+        self.assertIn(
+            "input_files.package_readme_zh.review_entrypoint_present must match package README",
+            stderr.getvalue(),
+        )
 
     def test_saved_package_verification_report_rejects_handoff_contract_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1906,6 +1958,7 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertIn("package Chinese README missing signoff field: trial_id", gate.detail)
         self.assertIn("package Chinese README missing signoff field: validation_detail", gate.detail)
         self.assertIn("package Chinese README missing signoff field: final_production_signoff", gate.detail)
+        self.assertIn("package Chinese README missing signoff field: reviewer_entrypoint", gate.detail)
 
     def test_release_gate_rejects_package_manifest_claim_boundary_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

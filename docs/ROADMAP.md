@@ -57,6 +57,7 @@
   - [x] Generated external L4 plans include standalone saved trial/package reviewer-report recheck commands before local preflight and final signoff.
   - [x] Saved trial-plan verification marks saved reviewer-report rechecks as local-preflight prerequisites.
   - [x] Root and generated external L4 READMEs now expose a Chinese-community review entrypoint, and the source-doc guard requires it to remain present.
+  - [x] Evidence-package READMEs now expose a package-level Chinese reviewer entrypoint, and saved package verifier reports record plus recheck that entrypoint.
   - [ ] External workflow trial.
 
 - Multi-channel and plate/well/site metadata polish: object-level metadata export is available behind `measure --include-object-metadata`, the external L4 template/readiness checker can require `Plate`, `Well`, and `Site`, the wide-export bridge can carry those declared metadata columns through to downstream CSVs, and local preflight now preserves the README-rendered handoff contract for review; remaining work is external L4 confirmation that the handoff shape matches real lab systems.
