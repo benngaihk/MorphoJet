@@ -142,6 +142,51 @@ def validate_external_evidence_requirements(payload: dict[str, Any]) -> list[str
     return failures
 
 
+def validate_production_claim_blockers(payload: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    workspace = payload.get("workspace")
+    package_name = payload.get("package_name")
+    if not isinstance(workspace, str) or not workspace.strip():
+        return failures
+    if not isinstance(package_name, str) or not package_name.strip():
+        return failures
+    expected = production_claim_blockers(Path(workspace), package_name)
+    if payload.get("production_claim_blockers") != expected:
+        failures.append("production_claim_blockers changed after plan was written")
+    blockers = payload.get("production_claim_blockers")
+    if not isinstance(blockers, list):
+        failures.append("production_claim_blockers must be a list")
+        return failures
+    expected_names = [blocker["name"] for blocker in expected]
+    actual_names = [blocker.get("name") for blocker in blockers if isinstance(blocker, dict)]
+    if actual_names != expected_names:
+        failures.append("production_claim_blockers must preserve the release-gate blocker order")
+    for blocker in blockers:
+        if not isinstance(blocker, dict):
+            failures.append("production_claim_blockers entries must be objects")
+            continue
+        name = blocker.get("name")
+        if name not in expected_names:
+            failures.append(f"production_claim_blockers contains unexpected blocker: {name}")
+        if blocker.get("status") not in {"PENDING_FINAL_GATE", "PENDING_EXTERNAL_EVIDENCE", "PENDING_EXTERNAL_REVIEW", "PENDING_STABLE_RELEASE"}:
+            failures.append(f"production_claim_blockers.{name} has invalid status")
+        if not isinstance(blocker.get("required_evidence"), str) or not blocker["required_evidence"].strip():
+            failures.append(f"production_claim_blockers.{name} required_evidence must be a non-empty string")
+        if not isinstance(blocker.get("next_action"), str) or not blocker["next_action"].strip():
+            failures.append(f"production_claim_blockers.{name} next_action must be a non-empty string")
+        planned_paths = blocker.get("planned_paths")
+        if not isinstance(planned_paths, list) or not planned_paths or not all(
+            isinstance(path, str) and path.strip() for path in planned_paths
+        ):
+            failures.append(f"production_claim_blockers.{name} planned_paths must be a non-empty string list")
+        final_gate_bindings = blocker.get("final_gate_bindings")
+        if not isinstance(final_gate_bindings, list) or not final_gate_bindings or not all(
+            isinstance(binding, str) and binding.strip() for binding in final_gate_bindings
+        ):
+            failures.append(f"production_claim_blockers.{name} final_gate_bindings must be a non-empty string list")
+    return failures
+
+
 def validate_final_signoff_command_bindings(payload: dict[str, Any]) -> list[str]:
     failures: list[str] = []
     commands = payload.get("commands")
@@ -727,6 +772,7 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
             failures.extend(validate_stable_release_command_bindings(payload))
             failures.extend(validate_saved_reviewer_report_command_bindings(payload))
             failures.extend(validate_external_evidence_requirements(payload))
+            failures.extend(validate_production_claim_blockers(payload))
     if verify_files:
         failures.extend(validate_plan_files(payload))
     return failures
@@ -1087,6 +1133,74 @@ def pre_signoff_requirements(workspace: Path) -> list[dict[str, str]]:
     ]
 
 
+def production_claim_blockers(workspace: Path, package_name: str) -> list[dict[str, Any]]:
+    package_dir = workspace / "evidence-package" / package_name
+    return [
+        {
+            "name": "clean_git_worktree",
+            "status": "PENDING_FINAL_GATE",
+            "required_evidence": "Final release-gate report generated from a clean git worktree.",
+            "next_action": "Run the final production wrapper from a clean main checkout.",
+            "planned_paths": [str(workspace / "production-claim.json")],
+            "final_gate_bindings": ["run_production_gate.py --require-clean-git"],
+        },
+        {
+            "name": "l3_provenance_hashes",
+            "status": "PENDING_FINAL_GATE",
+            "required_evidence": "CellBinDB L3 provenance hashes verified in the final release-gate report.",
+            "next_action": "Keep L3 artifacts current and let the final wrapper run release gate with L3 provenance enforcement.",
+            "planned_paths": [str(workspace / "production-claim.json")],
+            "final_gate_bindings": ["run_production_gate.py --require-l3-provenance"],
+        },
+        {
+            "name": "external_l4_workflow_trial",
+            "status": "PENDING_EXTERNAL_EVIDENCE",
+            "required_evidence": "Real external handoff_trial.json PASS report with no manual CSV edits and signed L4 evidence.",
+            "next_action": "Run readiness, then run the generated run_trial command with --require-external-evidence.",
+            "planned_paths": [str(workspace / "handoff_trial.json")],
+            "final_gate_bindings": ["final_production_gate --external-trial-json"],
+        },
+        {
+            "name": "external_l4_evidence_package",
+            "status": "PENDING_EXTERNAL_EVIDENCE",
+            "required_evidence": "Evidence package created by package_external_trial.py and bound to the external trial report.",
+            "next_action": "Package the accepted external trial and run the generated package verifier command.",
+            "planned_paths": [str(package_dir)],
+            "final_gate_bindings": ["final_production_gate --external-evidence-package-dir"],
+        },
+        {
+            "name": "external_l4_saved_reviewer_reports",
+            "status": "PENDING_EXTERNAL_REVIEW",
+            "required_evidence": "Saved external trial and evidence-package verifier reports rechecked with file hashing.",
+            "next_action": "Run verify_trial_report and verify_package_report before local preflight or final signoff.",
+            "planned_paths": [
+                str(workspace / "handoff_trial-verification.json"),
+                str(workspace / "evidence-package-verification.json"),
+            ],
+            "final_gate_bindings": [
+                "final_production_gate --external-trial-verification-report",
+                "final_production_gate --external-evidence-package-verification-report",
+            ],
+        },
+        {
+            "name": "stable_github_release",
+            "status": "PENDING_STABLE_RELEASE",
+            "required_evidence": f"Live non-prerelease GitHub release for {STABLE_RELEASE_TAG} from {STABLE_RELEASE_REPO}.",
+            "next_action": "Publish the stable tag after L4 evidence is accepted, then run verify_stable_release.",
+            "planned_paths": [STABLE_RELEASE_URL],
+            "final_gate_bindings": ["final_production_gate --github-release-tag"],
+        },
+        {
+            "name": "stable_github_release_saved_report",
+            "status": "PENDING_STABLE_RELEASE",
+            "required_evidence": "Saved stable GitHub release verifier report bound to the final tag, repo, commit, and assets.",
+            "next_action": "Run verify_stable_release_report with file rechecks, stable-report enforcement, git commit, tag, and repo binding.",
+            "planned_paths": [str(workspace / "github-release-verification.json")],
+            "final_gate_bindings": ["final_production_gate --github-release-verification-report"],
+        },
+    ]
+
+
 def render_readme(plan: dict[str, Any]) -> str:
     commands = plan["commands"]
     lines = [
@@ -1205,6 +1319,25 @@ def render_readme(plan: dict[str, Any]) -> str:
             "",
             "The final production gate still requires the completed external trial, evidence package, saved reviewer reports, a live stable release verification, and a saved stable release verifier report in one passing report.",
             "The final verification command re-checks that saved production-claim report before signoff.",
+            "",
+            "## production_claim_blockers",
+            "",
+            "| Blocker | Status | Required Evidence | Next Action | Planned Paths | Final Gate Binding |",
+            "|---|---:|---|---|---|---|",
+        ]
+    )
+    for blocker in plan.get("production_claim_blockers", []):
+        lines.append(
+            "| "
+            f"{blocker['name']} | "
+            f"{blocker['status']} | "
+            f"{blocker['required_evidence']} | "
+            f"{blocker['next_action']} | "
+            f"{', '.join(blocker['planned_paths'])} | "
+            f"{', '.join(blocker['final_gate_bindings'])} |"
+        )
+    lines.extend(
+        [
             "",
         ]
     )
@@ -1330,6 +1463,25 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
             "最终生产门禁仍然要求同一份通过报告里同时包含已完成的外部 trial、evidence package、saved reviewer reports、live stable release verification，以及 saved stable release verifier report。",
             "最终报告复核命令会在签核前重新检查保存的 production-claim report。",
             "",
+            "## production_claim_blockers",
+            "",
+            "| 阻塞项 | 状态 | 必需证据 | 下一步 | 计划路径 | Final gate binding |",
+            "|---|---:|---|---|---|---|",
+        ]
+    )
+    for blocker in plan.get("production_claim_blockers", []):
+        lines.append(
+            "| "
+            f"{blocker['name']} | "
+            f"{blocker['status']} | "
+            f"{blocker['required_evidence']} | "
+            f"{blocker['next_action']} | "
+            f"{', '.join(blocker['planned_paths'])} | "
+            f"{', '.join(blocker['final_gate_bindings'])} |"
+        )
+    lines.extend(
+        [
+            "",
         ]
     )
     return "\n".join(lines)
@@ -1413,6 +1565,7 @@ def prepare_workspace(
         "external_evidence_requirements": external_evidence_requirements(),
         "pre_signoff_requirements": pre_signoff_requirements(workspace),
         "final_signoff_requirements": final_signoff_requirements(workspace, package_slug),
+        "production_claim_blockers": production_claim_blockers(workspace, package_slug),
     }
     write_json(workspace / PLAN_NAME, plan)
     (workspace / README_NAME).write_text(render_readme(plan), encoding="utf-8")

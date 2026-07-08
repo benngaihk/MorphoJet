@@ -326,6 +326,46 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 "verify_final_production_report",
                 requirement_by_name["final_production_claim_report"]["verification_step"],
             )
+            blockers = plan["production_claim_blockers"]
+            self.assertEqual(
+                [
+                    "clean_git_worktree",
+                    "l3_provenance_hashes",
+                    "external_l4_workflow_trial",
+                    "external_l4_evidence_package",
+                    "external_l4_saved_reviewer_reports",
+                    "stable_github_release",
+                    "stable_github_release_saved_report",
+                ],
+                [blocker["name"] for blocker in blockers],
+            )
+            blocker_by_name = {blocker["name"]: blocker for blocker in blockers}
+            self.assertEqual("PENDING_FINAL_GATE", blocker_by_name["clean_git_worktree"]["status"])
+            self.assertEqual("PENDING_FINAL_GATE", blocker_by_name["l3_provenance_hashes"]["status"])
+            self.assertEqual(
+                "PENDING_EXTERNAL_EVIDENCE",
+                blocker_by_name["external_l4_workflow_trial"]["status"],
+            )
+            self.assertEqual(
+                "PENDING_EXTERNAL_REVIEW",
+                blocker_by_name["external_l4_saved_reviewer_reports"]["status"],
+            )
+            self.assertEqual(
+                "PENDING_STABLE_RELEASE",
+                blocker_by_name["stable_github_release"]["status"],
+            )
+            self.assertIn(
+                str((workspace / "handoff_trial.json").resolve()),
+                blocker_by_name["external_l4_workflow_trial"]["planned_paths"],
+            )
+            self.assertIn(
+                str((workspace / "evidence-package-verification.json").resolve()),
+                blocker_by_name["external_l4_saved_reviewer_reports"]["planned_paths"],
+            )
+            self.assertIn(
+                "final_production_gate --github-release-verification-report",
+                blocker_by_name["stable_github_release_saved_report"]["final_gate_bindings"],
+            )
             readme = (workspace / "README.md").read_text(encoding="utf-8")
             self.assertIn("Language: English | [简体中文](README.zh-CN.md)", readme)
             self.assertIn("## pre_signoff_requirements", readme)
@@ -344,6 +384,11 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("stable_github_release_saved_report", readme)
             self.assertIn("final_production_gate --github-release-verification-report", readme)
             self.assertIn("final_production_gate", readme)
+            self.assertIn("## production_claim_blockers", readme)
+            self.assertIn("| Blocker | Status | Required Evidence | Next Action | Planned Paths | Final Gate Binding |", readme)
+            self.assertIn("clean_git_worktree", readme)
+            self.assertIn("l3_provenance_hashes", readme)
+            self.assertIn("external_l4_saved_reviewer_reports", readme)
             self.assertIn("External evidence requirements recorded in `trial_plan.json`", readme)
             self.assertIn("| `reviewer_name_or_role` | required, non-placeholder value |", readme)
             self.assertIn("| `reviewed_at_utc` | must include a UTC timezone offset |", readme)
@@ -434,6 +479,11 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("stable_github_release_saved_report", readme_zh)
             self.assertIn("final_production_gate --github-release-verification-report", readme_zh)
             self.assertIn("production_signoff", readme_zh)
+            self.assertIn("## production_claim_blockers", readme_zh)
+            self.assertIn("| 阻塞项 | 状态 | 必需证据 | 下一步 | 计划路径 | Final gate binding |", readme_zh)
+            self.assertIn("clean_git_worktree", readme_zh)
+            self.assertIn("l3_provenance_hashes", readme_zh)
+            self.assertIn("external_l4_saved_reviewer_reports", readme_zh)
             self.assertIn("`trial_plan.json` 记录的外部证据要求", readme_zh)
             self.assertIn("| `reviewer_name_or_role` | 必填，且不能保留 placeholder |", readme_zh)
             self.assertIn("| `reviewed_at_utc` | 必须包含 UTC 时区偏移 |", readme_zh)
@@ -990,6 +1040,39 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
         )
         self.assertIn(
             "external_evidence_requirements.enforced_by must bind validate_manifest and run_trial",
+            completed.stderr,
+        )
+
+    def test_saved_trial_plan_rejects_production_blocker_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+            payload = json.loads(plan_path.read_text(encoding="utf-8"))
+            payload["production_claim_blockers"][0]["name"] = "external_l4_workflow_trial"
+            payload["production_claim_blockers"][1]["status"] = "PASS"
+            payload["production_claim_blockers"][2]["planned_paths"] = []
+            payload["production_claim_blockers"].pop()
+            plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("production_claim_blockers changed after plan was written", completed.stderr)
+        self.assertIn("production_claim_blockers must preserve the release-gate blocker order", completed.stderr)
+        self.assertIn("production_claim_blockers.l3_provenance_hashes has invalid status", completed.stderr)
+        self.assertIn(
+            "production_claim_blockers.external_l4_workflow_trial planned_paths must be a non-empty string list",
             completed.stderr,
         )
 
