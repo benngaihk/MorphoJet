@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "benchmark"))
 
 import prepare_external_l4_trial  # noqa: E402
+import release_gate  # noqa: E402
 
 
 TEMPLATE = ROOT / "benchmark/handoff/external_lab_template.json"
@@ -327,19 +328,17 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 requirement_by_name["final_production_claim_report"]["verification_step"],
             )
             blockers = plan["production_claim_blockers"]
-            self.assertEqual(
-                [
-                    "clean_git_worktree",
-                    "l3_provenance_hashes",
-                    "external_l4_workflow_trial",
-                    "external_l4_evidence_package",
-                    "external_l4_saved_reviewer_reports",
-                    "stable_github_release",
-                    "stable_github_release_saved_report",
-                ],
-                [blocker["name"] for blocker in blockers],
-            )
+            self.assertEqual(release_gate.PRODUCTION_FINAL_BLOCKER_NAMES, [blocker["name"] for blocker in blockers])
             blocker_by_name = {blocker["name"]: blocker for blocker in blockers}
+            for name, blocker in blocker_by_name.items():
+                self.assertEqual(
+                    release_gate.PRODUCTION_CHECKLIST_GUIDANCE[name]["evidence"],
+                    blocker["required_evidence"],
+                )
+                self.assertEqual(
+                    release_gate.PRODUCTION_CHECKLIST_GUIDANCE[name]["next_action"],
+                    blocker["next_action"],
+                )
             self.assertEqual("PENDING_FINAL_GATE", blocker_by_name["clean_git_worktree"]["status"])
             self.assertEqual("PENDING_FINAL_GATE", blocker_by_name["l3_provenance_hashes"]["status"])
             self.assertEqual(

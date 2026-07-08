@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import release_gate
 import validate_handoff_manifest
 
 
@@ -1135,44 +1136,29 @@ def pre_signoff_requirements(workspace: Path) -> list[dict[str, str]]:
 
 def production_claim_blockers(workspace: Path, package_name: str) -> list[dict[str, Any]]:
     package_dir = workspace / "evidence-package" / package_name
-    return [
-        {
-            "name": "clean_git_worktree",
+    plan_bindings: dict[str, dict[str, Any]] = {
+        "clean_git_worktree": {
             "status": "PENDING_FINAL_GATE",
-            "required_evidence": "Final release-gate report generated from a clean git worktree.",
-            "next_action": "Run the final production wrapper from a clean main checkout.",
             "planned_paths": [str(workspace / "production-claim.json")],
             "final_gate_bindings": ["run_production_gate.py --require-clean-git"],
         },
-        {
-            "name": "l3_provenance_hashes",
+        "l3_provenance_hashes": {
             "status": "PENDING_FINAL_GATE",
-            "required_evidence": "CellBinDB L3 provenance hashes verified in the final release-gate report.",
-            "next_action": "Keep L3 artifacts current and let the final wrapper run release gate with L3 provenance enforcement.",
             "planned_paths": [str(workspace / "production-claim.json")],
             "final_gate_bindings": ["run_production_gate.py --require-l3-provenance"],
         },
-        {
-            "name": "external_l4_workflow_trial",
+        "external_l4_workflow_trial": {
             "status": "PENDING_EXTERNAL_EVIDENCE",
-            "required_evidence": "Real external handoff_trial.json PASS report with no manual CSV edits and signed L4 evidence.",
-            "next_action": "Run readiness, then run the generated run_trial command with --require-external-evidence.",
             "planned_paths": [str(workspace / "handoff_trial.json")],
             "final_gate_bindings": ["final_production_gate --external-trial-json"],
         },
-        {
-            "name": "external_l4_evidence_package",
+        "external_l4_evidence_package": {
             "status": "PENDING_EXTERNAL_EVIDENCE",
-            "required_evidence": "Evidence package created by package_external_trial.py and bound to the external trial report.",
-            "next_action": "Package the accepted external trial and run the generated package verifier command.",
             "planned_paths": [str(package_dir)],
             "final_gate_bindings": ["final_production_gate --external-evidence-package-dir"],
         },
-        {
-            "name": "external_l4_saved_reviewer_reports",
+        "external_l4_saved_reviewer_reports": {
             "status": "PENDING_EXTERNAL_REVIEW",
-            "required_evidence": "Saved external trial and evidence-package verifier reports rechecked with file hashing.",
-            "next_action": "Run verify_trial_report and verify_package_report before local preflight or final signoff.",
             "planned_paths": [
                 str(workspace / "handoff_trial-verification.json"),
                 str(workspace / "evidence-package-verification.json"),
@@ -1182,23 +1168,32 @@ def production_claim_blockers(workspace: Path, package_name: str) -> list[dict[s
                 "final_production_gate --external-evidence-package-verification-report",
             ],
         },
-        {
-            "name": "stable_github_release",
+        "stable_github_release": {
             "status": "PENDING_STABLE_RELEASE",
-            "required_evidence": f"Live non-prerelease GitHub release for {STABLE_RELEASE_TAG} from {STABLE_RELEASE_REPO}.",
-            "next_action": "Publish the stable tag after L4 evidence is accepted, then run verify_stable_release.",
             "planned_paths": [STABLE_RELEASE_URL],
             "final_gate_bindings": ["final_production_gate --github-release-tag"],
         },
-        {
-            "name": "stable_github_release_saved_report",
+        "stable_github_release_saved_report": {
             "status": "PENDING_STABLE_RELEASE",
-            "required_evidence": "Saved stable GitHub release verifier report bound to the final tag, repo, commit, and assets.",
-            "next_action": "Run verify_stable_release_report with file rechecks, stable-report enforcement, git commit, tag, and repo binding.",
             "planned_paths": [str(workspace / "github-release-verification.json")],
             "final_gate_bindings": ["final_production_gate --github-release-verification-report"],
         },
-    ]
+    }
+    blockers: list[dict[str, Any]] = []
+    for name in release_gate.PRODUCTION_FINAL_BLOCKER_NAMES:
+        guidance = release_gate.PRODUCTION_CHECKLIST_GUIDANCE[name]
+        binding = plan_bindings[name]
+        blockers.append(
+            {
+                "name": name,
+                "status": binding["status"],
+                "required_evidence": guidance["evidence"],
+                "next_action": guidance["next_action"],
+                "planned_paths": binding["planned_paths"],
+                "final_gate_bindings": binding["final_gate_bindings"],
+            }
+        )
+    return blockers
 
 
 def render_readme(plan: dict[str, Any]) -> str:

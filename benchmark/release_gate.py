@@ -25,6 +25,19 @@ NON_FINAL_CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
 FINAL_EVIDENCE_SCOPE = "FINAL_PRODUCTION_RELEASE_GATE"
 NON_FINAL_EVIDENCE_SCOPE = "RELEASE_GATE_PRECHECK"
 EXTERNAL_TRIAL_EVIDENCE_SCOPE = "EXTERNAL_L4_WORKFLOW_TRIAL"
+PRODUCTION_AUDIT_CHECK_NAMES = [
+    "clean_git_worktree",
+    "standard_code_and_artifact_gates",
+    "l3_provenance_hashes",
+    "external_l4_workflow_trial",
+    "external_l4_evidence_package",
+    "external_l4_saved_reviewer_reports",
+    "stable_github_release",
+    "stable_github_release_saved_report",
+]
+PRODUCTION_FINAL_BLOCKER_NAMES = [
+    name for name in PRODUCTION_AUDIT_CHECK_NAMES if name != "standard_code_and_artifact_gates"
+]
 
 
 def is_utc_datetime(value: datetime) -> bool:
@@ -2011,6 +2024,8 @@ def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], me
             "detail": "Requires a saved stable GitHub release verifier report bound to the final repo and tag.",
         },
     ]
+    if [check["name"] for check in checks] != PRODUCTION_AUDIT_CHECK_NAMES:
+        raise AssertionError("production audit check order drifted from PRODUCTION_AUDIT_CHECK_NAMES")
     status = "PASS" if all(check["status"] == "PASS" for check in checks) else "INCOMPLETE"
     missing_or_failed_checks = [check["name"] for check in checks if check["status"] != "PASS"]
     return {

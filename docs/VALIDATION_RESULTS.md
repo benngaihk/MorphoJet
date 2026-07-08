@@ -4,7 +4,7 @@ Updated: 2026-07-08
 
 ## External L4 Production-Blocker Plan Snapshot
 
-This snapshot records local verification for making generated external L4 trial plans carry a machine-readable `production_claim_blockers` list. `benchmark/prepare_external_l4_trial.py` now writes blockers aligned with the release-gate production audit: clean git worktree, L3 provenance hashes, external L4 workflow trial, external L4 evidence package, saved external reviewer reports, stable GitHub release, and saved stable-release verifier report. Each blocker records required evidence, next action, planned paths, and final-gate binding, and generated English/Chinese workspace READMEs render the same table for reviewers.
+This snapshot records local verification for making generated external L4 trial plans carry a machine-readable `production_claim_blockers` list. `benchmark/prepare_external_l4_trial.py` now writes blockers aligned with the release-gate production audit: clean git worktree, L3 provenance hashes, external L4 workflow trial, external L4 evidence package, saved external reviewer reports, stable GitHub release, and saved stable-release verifier report. The blocker order and evidence/next-action guidance are derived from `benchmark/release_gate.py`, so generated external L4 plans cannot drift into a weaker parallel checklist. Each blocker records required evidence, next action, planned paths, and final-gate binding, and generated English/Chinese workspace READMEs render the same table for reviewers.
 
 `--verify-plan` now rejects saved plans whose production-blocker list is deleted, reordered, weakened, or disconnected from the expected workspace paths. This is not external L4 evidence and not a production claim; it makes the real external L4 execution plan fail closed before reviewers run or sign off an incomplete production chain.
 
@@ -13,7 +13,9 @@ Verification:
 | Gate | Result |
 |---|---:|
 | `python3 tests/test_prepare_external_l4_trial.py` | PASS, 27 tests |
+| `python3 tests/test_release_gate.py` | PASS, 72 tests |
 | Production-blocker tamper rejection | PASS |
+| Release-gate blocker guidance binding | PASS |
 
 ## Root Chinese README Maintenance Contract Snapshot
 
