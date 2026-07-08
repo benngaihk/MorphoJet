@@ -2,6 +2,24 @@
 
 Updated: 2026-07-08
 
+## Local Preflight Signoff Recheck Snapshot
+
+This snapshot records local verification for making `--require-local-evidence-preflight-pass` fail closed unless the saved local evidence preflight report is also verified with `--verify-local-evidence-preflight-files` and `--verify-local-evidence-preflight-gates`. Generated external L4 trial plans already use the stronger command; this change prevents a manual signoff command from accepting a structurally valid saved preflight JSON without rehashing the evidence files and rerunning the recorded external L4/package/reviewer gates.
+
+This is not a production claim. Local evidence preflight reports must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`; production remains incomplete until the real external L4 evidence chain, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_run_production_gate.py` | PASS, 92 tests |
+| `python3 tests/test_prepare_external_l4_trial.py` | PASS, 28 tests |
+| `python3 -m unittest discover -s tests` | PASS, 519 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## Release-Gate Path Contract Source Snapshot
 
 This snapshot records local verification for making saved release-gate production evidence metadata keys and path-valued `metadata.argv` flags reuse `benchmark/release_gate.py` as the canonical source. The release-gate writer and saved report verifier now share the same path contract for external L4 evidence, saved reviewer reports, saved GitHub release verifier reports, and explicit `--out-json` / `--out-md` outputs, so report writing and report review cannot drift on which paths must be canonicalized or absolute.

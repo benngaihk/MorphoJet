@@ -1691,7 +1691,15 @@ def verify_local_evidence_preflight_report(
         print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
     failures = validate_local_evidence_preflight_payload(payload)
-    if not failures and require_pass and payload.get("status") != "PASS":
+    if require_pass and not verify_files:
+        failures.append(
+            "--require-local-evidence-preflight-pass requires --verify-local-evidence-preflight-files"
+        )
+    if require_pass and not verify_gates:
+        failures.append(
+            "--require-local-evidence-preflight-pass requires --verify-local-evidence-preflight-gates"
+        )
+    if require_pass and payload.get("status") != "PASS":
         failures.append(f"local evidence preflight status is not PASS: {payload.get('status')}")
     if not failures and verify_files:
         failures.extend(validate_local_evidence_preflight_files(payload))

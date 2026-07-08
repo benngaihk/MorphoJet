@@ -3446,7 +3446,40 @@ class RunProductionGateTest(unittest.TestCase):
 
         self.assertEqual(0, default_status)
         self.assertEqual(1, required_status)
+        self.assertIn(
+            "--require-local-evidence-preflight-pass requires --verify-local-evidence-preflight-files",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "--require-local-evidence-preflight-pass requires --verify-local-evidence-preflight-gates",
+            stderr.getvalue(),
+        )
         self.assertIn("local evidence preflight status is not PASS", stderr.getvalue())
+
+    def test_require_local_evidence_preflight_pass_requires_file_and_gate_rechecks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, out_json, _trial_json, _package_dir = self.write_local_preflight(root)
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                        "--require-local-evidence-preflight-pass",
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertEqual(1, verify_status)
+        self.assertIn(
+            "--require-local-evidence-preflight-pass requires --verify-local-evidence-preflight-files",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "--require-local-evidence-preflight-pass requires --verify-local-evidence-preflight-gates",
+            stderr.getvalue(),
+        )
 
     def test_main_preflight_only_does_not_print_final_release_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
