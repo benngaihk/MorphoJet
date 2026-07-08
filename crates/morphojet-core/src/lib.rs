@@ -7,4 +7,7 @@ pub use measure::{
     measure_rows, measure_rows_with_options, ImageMeasurement, MeasureOptions, MeasureResult,
     ObjectMeasurement,
 };
-pub use output::{write_image_csv, write_measurement_csvs_atomic, write_object_csv};
+pub use output::{
+    write_image_csv, write_measurement_csvs_atomic, write_measurement_csvs_atomic_with_options,
+    write_object_csv, write_object_csv_with_options, CsvOutputOptions,
+};

@@ -49,6 +49,11 @@ const OBJECT_COLUMNS: &[&str] = &[
     "AreaShape_Solidity",
 ];
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CsvOutputOptions {
+    pub include_object_metadata: bool,
+}
+
 pub fn write_image_csv(path: impl AsRef<Path>, results: &[MeasureResult]) -> Result<()> {
     let path = path.as_ref();
     let metadata_columns = image_metadata_columns(results);
@@ -72,6 +77,14 @@ pub fn write_measurement_csvs_atomic(
     out_dir: impl AsRef<Path>,
     results: &[MeasureResult],
 ) -> Result<()> {
+    write_measurement_csvs_atomic_with_options(out_dir, results, CsvOutputOptions::default())
+}
+
+pub fn write_measurement_csvs_atomic_with_options(
+    out_dir: impl AsRef<Path>,
+    results: &[MeasureResult],
+    options: CsvOutputOptions,
+) -> Result<()> {
     let out_dir = out_dir.as_ref();
     std::fs::create_dir_all(out_dir)
         .with_context(|| format!("failed to create output directory {}", out_dir.display()))?;
@@ -92,7 +105,7 @@ pub fn write_measurement_csvs_atomic(
         let staging_image = staging_dir.join("Image.csv");
         let staging_objects = staging_dir.join("Objects.csv");
         write_image_csv(&staging_image, results)?;
-        write_object_csv(&staging_objects, results)?;
+        write_object_csv_with_options(&staging_objects, results, options)?;
         std::fs::rename(&staging_image, &final_image)
             .with_context(|| "failed to publish Image.csv")?;
         std::fs::rename(&staging_objects, &final_objects)
@@ -128,13 +141,36 @@ fn ensure_publish_target(path: &Path) -> Result<()> {
 }
 
 pub fn write_object_csv(path: impl AsRef<Path>, results: &[MeasureResult]) -> Result<()> {
+    write_object_csv_with_options(path, results, CsvOutputOptions::default())
+}
+
+pub fn write_object_csv_with_options(
+    path: impl AsRef<Path>,
+    results: &[MeasureResult],
+    options: CsvOutputOptions,
+) -> Result<()> {
     let path = path.as_ref();
+    let metadata_columns = if options.include_object_metadata {
+        object_metadata_columns(results)?
+    } else {
+        Vec::new()
+    };
     let mut writer = Writer::from_path(path)
         .with_context(|| format!("failed to create object CSV {}", path.display()))?;
-    writer.write_record(OBJECT_COLUMNS)?;
+    let mut header = OBJECT_COLUMNS
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>();
+    header.extend(metadata_columns.iter().cloned());
+    writer.write_record(header)?;
     for result in results {
         for object in &result.objects {
-            write_object_record(&mut writer, object)?;
+            write_object_record(
+                &mut writer,
+                object,
+                &metadata_columns,
+                &result.image.metadata,
+            )?;
         }
     }
     writer.flush()?;
@@ -147,6 +183,19 @@ fn image_metadata_columns(results: &[MeasureResult]) -> Vec<String> {
         columns.extend(result.image.metadata.keys().cloned());
     }
     columns.into_iter().collect()
+}
+
+fn object_metadata_columns(results: &[MeasureResult]) -> Result<Vec<String>> {
+    let mut columns = BTreeSet::new();
+    for result in results {
+        for column in result.image.metadata.keys() {
+            if OBJECT_COLUMNS.contains(&column.as_str()) {
+                anyhow::bail!("metadata column uses reserved object output name: {column}");
+            }
+            columns.insert(column.clone());
+        }
+    }
+    Ok(columns.into_iter().collect())
 }
 
 fn staging_dir_name() -> String {
@@ -183,8 +232,10 @@ fn write_image_record(
 fn write_object_record(
     writer: &mut Writer<std::fs::File>,
     object: &ObjectMeasurement,
+    metadata_columns: &[String],
+    metadata: &std::collections::BTreeMap<String, String>,
 ) -> Result<()> {
-    writer.write_record([
+    let mut record = vec![
         object.image_number.to_string(),
         object.object_number.to_string(),
         object.channel.clone().unwrap_or_default(),
@@ -215,7 +266,11 @@ fn write_object_record(
         format_float(object.major_axis_length),
         format_float(object.minor_axis_length),
         format_float(object.solidity),
-    ])?;
+    ];
+    for column in metadata_columns {
+        record.push(metadata.get(column).cloned().unwrap_or_default());
+    }
+    writer.write_record(record)?;
     Ok(())
 }
 

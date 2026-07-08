@@ -1,7 +1,8 @@
 use image::{GrayImage, ImageBuffer, Luma, RgbImage};
 use morphojet_core::{
     measure_rows, measure_rows_with_options, read_image_table, write_image_csv,
-    write_measurement_csvs_atomic, write_object_csv, MeasureOptions,
+    write_measurement_csvs_atomic, write_object_csv, write_object_csv_with_options,
+    CsvOutputOptions, MeasureOptions,
 };
 use std::fs;
 
@@ -53,6 +54,79 @@ fn measures_two_labeled_objects() {
     assert!(object_csv.contains("AreaShape_Area"));
     assert!(object_csv.contains("Intensity_IntegratedIntensity"));
     assert!(object_csv.contains("AreaShape_Solidity"));
+    assert!(!object_csv.contains("Plate"));
+}
+
+#[test]
+fn optional_object_csv_metadata_repeats_image_table_metadata_per_object() {
+    let dir = tempfile::tempdir().unwrap();
+    let image_path = dir.path().join("image.tif");
+    let mask_path = dir.path().join("mask.tif");
+    let table_path = dir.path().join("images.csv");
+
+    let image = GrayImage::from_vec(3, 2, vec![1, 2, 3, 4, 5, 6]).unwrap();
+    image.save(&image_path).unwrap();
+
+    let mask: ImageBuffer<Luma<u16>, Vec<u16>> =
+        ImageBuffer::from_vec(3, 2, vec![1, 1, 0, 2, 2, 2]).unwrap();
+    mask.save(&mask_path).unwrap();
+
+    fs::write(
+        &table_path,
+        "ImageNumber,ImagePath,MaskPath,Channel,ObjectSet,Plate,Well,Site\n1,image.tif,mask.tif,DAPI,Nuclei,P001,A01,1\n",
+    )
+    .unwrap();
+
+    let rows = read_image_table(&table_path).unwrap();
+    let results = measure_rows(&rows).unwrap();
+    let object_csv = dir.path().join("Objects.csv");
+    write_object_csv_with_options(
+        &object_csv,
+        &results,
+        CsvOutputOptions {
+            include_object_metadata: true,
+        },
+    )
+    .unwrap();
+
+    let object_csv = fs::read_to_string(object_csv).unwrap();
+    let mut lines = object_csv.lines();
+    let header = lines.next().unwrap();
+    assert!(header.ends_with(",Plate,Site,Well"));
+    assert!(lines.all(|line| line.ends_with(",P001,1,A01")));
+}
+
+#[test]
+fn object_csv_metadata_rejects_object_measurement_column_collisions() {
+    let dir = tempfile::tempdir().unwrap();
+    let image_path = dir.path().join("image.tif");
+    let mask_path = dir.path().join("mask.tif");
+    let table_path = dir.path().join("images.csv");
+
+    let image = GrayImage::from_vec(1, 1, vec![1]).unwrap();
+    image.save(&image_path).unwrap();
+    let mask: ImageBuffer<Luma<u16>, Vec<u16>> = ImageBuffer::from_vec(1, 1, vec![1]).unwrap();
+    mask.save(&mask_path).unwrap();
+    fs::write(
+        &table_path,
+        "ImageNumber,ImagePath,MaskPath,AreaShape_Area\n1,image.tif,mask.tif,legacy\n",
+    )
+    .unwrap();
+
+    let rows = read_image_table(&table_path).unwrap();
+    let results = measure_rows(&rows).unwrap();
+    let error = write_object_csv_with_options(
+        dir.path().join("Objects.csv"),
+        &results,
+        CsvOutputOptions {
+            include_object_metadata: true,
+        },
+    )
+    .unwrap_err();
+
+    assert!(error
+        .to_string()
+        .contains("metadata column uses reserved object output name"));
 }
 
 #[test]

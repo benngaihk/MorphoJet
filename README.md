@@ -82,6 +82,19 @@ ImageNumber,ImagePath,MaskPath,Channel,Plate,Well,Site
 2,images/A01_s1_CD3.tif,masks/A01_s1_cells.tif,CD3,P001,A01,1
 ```
 
+`Image.csv` always carries non-empty image-table metadata columns such as `Plate`, `Well`, and `Site`. `Objects.csv` keeps its stable measurement schema by default; pass `--include-object-metadata` when each object row should repeat those image-table metadata values for downstream grouping or handoff systems:
+
+```bash
+cargo run -p morphojet -- measure \
+  --images images.csv \
+  --out measurements \
+  --cellprofiler-compatible \
+  --include-object-metadata \
+  --overwrite
+```
+
+When object metadata export is enabled, metadata columns that collide with object measurement columns such as `AreaShape_Area` are rejected instead of producing duplicate CSV headers.
+
 ## Smoke Benchmark
 
 ```bash

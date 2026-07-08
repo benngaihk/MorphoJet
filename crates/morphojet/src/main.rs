@@ -2,7 +2,7 @@ use anyhow::{bail, Error, Result};
 use clap::{Parser, Subcommand};
 use morphojet_core::{
     measure_rows_with_options, read_image_table, validate_image_table,
-    write_measurement_csvs_atomic, MeasureOptions,
+    write_measurement_csvs_atomic_with_options, CsvOutputOptions, MeasureOptions,
 };
 use serde::Serialize;
 use std::collections::BTreeSet;
@@ -35,6 +35,8 @@ struct MeasureArgs {
     #[arg(long)]
     cellprofiler_compatible: bool,
     #[arg(long)]
+    include_object_metadata: bool,
+    #[arg(long)]
     overwrite: bool,
     #[arg(long)]
     summary_json: Option<PathBuf>,
@@ -58,6 +60,7 @@ struct MeasureSummary {
     image_csv: String,
     objects_csv: String,
     cellprofiler_compatible: bool,
+    include_object_metadata: bool,
     threads: usize,
 }
 
@@ -141,7 +144,13 @@ fn run_measure(args: &MeasureArgs) -> Result<()> {
             compact_object_numbers: args.cellprofiler_compatible,
         },
     )?;
-    write_measurement_csvs_atomic(&args.out, &results)?;
+    write_measurement_csvs_atomic_with_options(
+        &args.out,
+        &results,
+        CsvOutputOptions {
+            include_object_metadata: args.include_object_metadata,
+        },
+    )?;
 
     let object_count: usize = results.iter().map(|result| result.objects.len()).sum();
     if let Some(summary_path) = &args.summary_json {
@@ -197,6 +206,7 @@ impl MeasureSummary {
             image_csv: args.out.join("Image.csv").display().to_string(),
             objects_csv: args.out.join("Objects.csv").display().to_string(),
             cellprofiler_compatible: args.cellprofiler_compatible,
+            include_object_metadata: args.include_object_metadata,
             threads: rayon::current_num_threads(),
         }
     }

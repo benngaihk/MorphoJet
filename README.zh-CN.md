@@ -44,6 +44,19 @@ ImageNumber,ImagePath,MaskPath,Channel,Plate,Well,Site
 2,images/A01_s1_CD3.tif,masks/A01_s1_cells.tif,CD3,P001,A01,1
 ```
 
+`Image.csv` 会一直保留非空的 image-table 元数据列，例如 `Plate`、`Well`、`Site`。`Objects.csv` 默认保持稳定的测量 schema；如果下游分组、交付或 L4 handoff 希望每个 object row 都重复这些元数据，可以显式传入 `--include-object-metadata`：
+
+```bash
+cargo run -p morphojet -- measure \
+  --images images.csv \
+  --out measurements \
+  --cellprofiler-compatible \
+  --include-object-metadata \
+  --overwrite
+```
+
+打开 object metadata 导出时，如果元数据列名与对象测量列冲突，例如 `AreaShape_Area`，MorphoJet 会拒绝输出，避免生成重复 CSV 表头。
+
 ## 诊断与可观测性
 
 ```bash

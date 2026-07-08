@@ -40,9 +40,10 @@
   - [x] Scheduler-ready CellBinDB L3 validation script.
   - [x] Structured measure success/failure JSON reports.
   - [x] GitHub scheduled CellBinDB L3 workflow.
+  - [x] Optional object-level image-table metadata export for plate/well/site handoff context.
   - [ ] External workflow trial.
 
-- Multi-channel and plate/well/site metadata polish.
+- Multi-channel and plate/well/site metadata polish: object-level metadata export is available behind `measure --include-object-metadata`; remaining work is external L4 confirmation that the handoff shape matches real lab systems.
 - More morphology features.
 - Better error reporting.
 - macOS/Linux binaries.

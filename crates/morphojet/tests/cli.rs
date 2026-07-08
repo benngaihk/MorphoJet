@@ -35,6 +35,16 @@ fn write_object_set_table(dir: &Path, body: &str) -> std::path::PathBuf {
     table
 }
 
+fn write_metadata_table(dir: &Path, body: &str) -> std::path::PathBuf {
+    let table = dir.join("images.csv");
+    fs::write(
+        &table,
+        format!("ImageNumber,ImagePath,MaskPath,Channel,ObjectSet,Plate,Well,Site\n{body}"),
+    )
+    .unwrap();
+    table
+}
+
 fn run_measure(table: &Path, out: &Path, extra_args: &[&str]) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_morphojet"));
     command
@@ -109,6 +119,7 @@ fn measure_success_writes_summary_json() {
     assert_eq!(payload["channels"][0], "DAPI");
     assert_eq!(payload["object_sets"][0], "Nuclei");
     assert_eq!(payload["cellprofiler_compatible"], true);
+    assert_eq!(payload["include_object_metadata"], false);
     assert!(payload["elapsed_seconds"].as_f64().unwrap() >= 0.0);
     assert!(payload["image_csv"]
         .as_str()
@@ -118,6 +129,35 @@ fn measure_success_writes_summary_json() {
         .as_str()
         .unwrap()
         .ends_with("Objects.csv"));
+}
+
+#[test]
+fn measure_can_include_image_table_metadata_in_objects_csv() {
+    let dir = tempfile::tempdir().unwrap();
+    write_images(dir.path(), (3, 2), (3, 2));
+    let table = write_metadata_table(dir.path(), "1,image.tif,mask.tif,DAPI,Nuclei,P001,A01,1\n");
+    let out = dir.path().join("out");
+    let summary = dir.path().join("summary.json");
+
+    let output = run_measure(
+        &table,
+        &out,
+        &[
+            "--overwrite",
+            "--include-object-metadata",
+            "--summary-json",
+            summary.to_str().unwrap(),
+        ],
+    );
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    let objects = fs::read_to_string(out.join("Objects.csv")).unwrap();
+    let mut lines = objects.lines();
+    assert!(lines.next().unwrap().ends_with(",Plate,Site,Well"));
+    assert!(lines.all(|line| line.ends_with(",P001,1,A01")));
+    let payload: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(summary).unwrap()).unwrap();
+    assert_eq!(payload["include_object_metadata"], true);
 }
 
 #[test]
