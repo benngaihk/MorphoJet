@@ -2,6 +2,38 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `260508c`
+
+This snapshot records the clean `main` verification for carrying the local-preflight packaged-readiness scope contract into generated external L4 workspace reviewer instructions. `benchmark/prepare_external_l4_trial.py` now writes both English and Chinese workspace READMEs that tell reviewers `verify_local_evidence_preflight` recomputes packaged readiness READY status, `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_READINESS_PRECHECK`, `final_production_signoff=false`, UTC generation time, package name, workspace, and manifest before PASS can be accepted.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `260508c`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-260508c.json --out-md /tmp/morphojet-l3-release-report-main-260508c.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-260508c.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| External trial workspace preparation tests | PASS, 21 tests |
+| Full Python unit test suite | PASS, 466 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Generated English README Packaged Readiness Scope Guidance | PASS |
+| Generated Chinese README Packaged Readiness Scope Guidance | PASS |
+| Root English README Generated Guidance Coverage | PASS |
+| Root Chinese README Generated Guidance Coverage | PASS |
+| Production Readiness Generated Guidance Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `6a83bc2`
 
 This snapshot records the clean `main` verification for making local external L4 evidence-preflight reports expose and recheck the packaged readiness report's READY status, non-final claim-scope labels, UTC generation time, package name, workspace, and manifest. `benchmark/run_production_gate.py --local-evidence-preflight-only` now copies those readiness fields into `input_artifacts.package_readiness_json`, renders them in the Markdown input-artifact table, validates them for saved preflight reports, binds them back to the packaged `readiness.json`, and recomputes them during `--verify-local-evidence-preflight-files` so local preflight reports cannot imply final production signoff or hide readiness drift.
