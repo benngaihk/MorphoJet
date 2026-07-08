@@ -14,6 +14,12 @@ Verification:
 |---|---:|
 | `python3 -m py_compile benchmark/run_external_l4_rehearsal.py tests/test_run_external_l4_rehearsal.py` | PASS |
 | `python3 -m unittest discover -s tests -p 'test_run_external_l4_rehearsal.py'` | PASS, 6 tests |
+| `python3 -m unittest discover -s tests -p 'test_external_l4_rehearsal_workflow.py'` | PASS, 3 tests |
+| `python3 benchmark/run_external_l4_rehearsal.py --workspace /tmp/morphojet-internal-rehearsal-c321c1b --overwrite` | PASS; summary written to `/tmp/morphojet-internal-rehearsal-c321c1b/external-l4-rehearsal-summary.json` |
+| `python3 benchmark/run_external_l4_rehearsal.py --verify-report /tmp/morphojet-internal-rehearsal-c321c1b/external-l4-rehearsal-summary.json --verify-report-files --require-report-pass` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_INTERNAL_REHEARSAL`, `final_evidence_acceptable=False` |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths including the bilingual README contract |
+| `python3 -m unittest discover -s tests` | PASS, 586 tests |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-rehearsal-summary-verifier-release-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report` | PASS; precommit report remains `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
 
 ## Current Main Clean L3 And Workflow Evidence Snapshot
 
