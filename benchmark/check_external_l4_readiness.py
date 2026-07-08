@@ -20,6 +20,7 @@ import validate_handoff_manifest
 
 CHECKER = "benchmark/check_external_l4_readiness.py"
 MANIFEST_NAME = "external_manifest.json"
+PLAN_NAME = "trial_plan.json"
 CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
 EVIDENCE_SCOPE = "EXTERNAL_L4_READINESS_PRECHECK"
 FINAL_PRODUCTION_SIGNOFF = False
@@ -63,6 +64,20 @@ def check_report_outputs(manifest_path: Path, manifest: dict[str, Any], workspac
             if line.strip()
         ]
     return []
+
+
+def saved_trial_plan_issues(workspace: Path) -> list[str]:
+    plan_path = workspace / PLAN_NAME
+    if not plan_path.is_file():
+        return [f"trial plan does not exist: {plan_path}"]
+    try:
+        payload = json.loads(plan_path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001 - exact readiness diagnostic.
+        return [f"trial plan is not readable JSON: {type(exc).__name__}: {exc}"]
+    return [
+        f"trial plan verification failed: {failure}"
+        for failure in prepare_external_l4_trial.validate_plan_payload(payload, verify_files=True)
+    ]
 
 
 def package_output_issues(workspace: Path, trial_id: str, package_name: str | None) -> list[str]:
@@ -508,6 +523,15 @@ def readiness_report(
     )
     issues: list[str] = []
     checks: list[dict[str, Any]] = []
+    plan_issues = saved_trial_plan_issues(workspace)
+    checks.append(
+        {
+            "name": "saved_trial_plan",
+            "status": "PASS" if not plan_issues else "FAIL",
+            "issues": plan_issues,
+        }
+    )
+    issues.extend(plan_issues)
 
     if not manifest_path.is_file():
         issues.append(f"manifest does not exist: {manifest_path}")

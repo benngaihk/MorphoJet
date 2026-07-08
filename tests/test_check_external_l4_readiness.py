@@ -129,6 +129,7 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             self.assertFalse(payload["final_production_signoff"])
             self.assertIsNone(payload["package_name"])
             self.assertTrue(all(check["status"] == "PASS" for check in payload["checks"]))
+            self.assertIn("saved_trial_plan", {check["name"] for check in payload["checks"]})
             generated_at = datetime.fromisoformat(payload["generated_at_utc"])
             self.assertIsNotNone(generated_at.tzinfo)
             self.assertEqual(timezone.utc.utcoffset(generated_at), generated_at.utcoffset())
@@ -263,6 +264,86 @@ class ExternalL4ReadinessTest(unittest.TestCase):
 
             self.assertEqual(0, completed.returncode, completed.stderr)
             self.assertIn("status=READY", completed.stdout)
+
+    def test_readiness_rejects_tampered_workspace_readme(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            manifest_path = workspace / "external_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            fill_external_evidence(manifest)
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            write_valid_inputs(workspace)
+            readme = workspace / "README.md"
+            readme.write_text(readme.read_text(encoding="utf-8").replace("verify_plan", "skip_plan", 1), encoding="utf-8")
+
+            payload = check_external_l4_readiness.readiness_report(workspace)
+
+        self.assertEqual("NOT_READY", payload["status"])
+        self.assertIn("trial plan verification failed: README changed after plan was written", payload["issues"])
+        checks = {check["name"]: check for check in payload["checks"]}
+        self.assertEqual("FAIL", checks["saved_trial_plan"]["status"])
+
+    def test_readiness_rejects_missing_saved_trial_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            manifest_path = workspace / "external_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            fill_external_evidence(manifest)
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            write_valid_inputs(workspace)
+            (workspace / "trial_plan.json").unlink()
+
+            payload = check_external_l4_readiness.readiness_report(workspace)
+
+        self.assertEqual("NOT_READY", payload["status"])
+        self.assertIn(f"trial plan does not exist: {workspace.resolve() / 'trial_plan.json'}", payload["issues"])
+
+    def test_saved_readiness_report_file_recheck_rejects_readme_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            manifest_path = workspace / "external_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            fill_external_evidence(manifest)
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            write_valid_inputs(workspace)
+            report = workspace / "readiness.json"
+            subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--workspace",
+                    str(workspace),
+                    "--json-out",
+                    str(report),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            readme = workspace / "README.zh-CN.md"
+            readme.write_text(readme.read_text(encoding="utf-8").replace("verify_plan", "skip_plan", 1), encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--verify-report",
+                    str(report),
+                    "--verify-report-files",
+                    "--require-ready",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("saved readiness report status changed after report was written", completed.stderr)
+        self.assertIn("saved readiness report checks changed after report was written", completed.stderr)
 
     def test_saved_readiness_report_rejects_non_utc_generated_at(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
