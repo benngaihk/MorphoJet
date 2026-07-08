@@ -55,6 +55,7 @@ EXTERNAL_WORKSPACE_README_SHARED_ANCHORS = [
     "--external-evidence-package-verification-report",
     "--github-release-verification-report",
     "--github-workflow-verification-report",
+    "--production-evidence-audit-report",
     "audit_production_evidence.py",
     "PRODUCTION_EVIDENCE_READINESS_AUDIT",
     "--require-production-claim-pass",
@@ -607,6 +608,12 @@ def validate_external_evidence_command_bindings(payload: dict[str, Any]) -> list
     expect_flag(
         "verify_production_evidence_audit",
         "--verify-report",
+        production_evidence_audit_json,
+        "production evidence audit",
+    )
+    expect_flag(
+        "final_production_gate",
+        "--production-evidence-audit-report",
         production_evidence_audit_json,
         "production evidence audit",
     )
@@ -1257,6 +1264,8 @@ def plan_commands(
             str(github_release_verification),
             "--github-workflow-verification-report",
             str(github_workflow_verification),
+            "--production-evidence-audit-report",
+            str(production_evidence_audit_json),
             "--github-release-tag",
             STABLE_RELEASE_TAG,
             "--out-json",
@@ -1336,6 +1345,14 @@ def final_gate_requirement_bindings(workspace: Path, package_name: str) -> list[
             "verification_step": "verify_github_workflows_report",
             "final_gate_flag": "--github-workflow-verification-report",
             "final_gate_value": str(workspace / "github-workflow-verification.json"),
+        },
+        {
+            "name": "production_evidence_readiness_audit",
+            "status": "PENDING_FINAL_GATE",
+            "planned_path": str(workspace / "production-evidence-audit.json"),
+            "verification_step": "verify_production_evidence_audit",
+            "final_gate_flag": "--production-evidence-audit-report",
+            "final_gate_value": str(workspace / "production-evidence-audit.json"),
         },
     ]
 

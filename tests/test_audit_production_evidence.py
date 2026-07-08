@@ -146,6 +146,11 @@ class AuditProductionEvidenceTest(unittest.TestCase):
         command = payload["metadata"]["final_wrapper_command"]
         self.assertIn("benchmark/run_production_gate.py", command)
         self.assertIn("--github-workflow-verification-report", command)
+        self.assertIn("--production-evidence-audit-report", command)
+        self.assertEqual(
+            str(report.resolve()),
+            command[command.index("--production-evidence-audit-report") + 1],
+        )
         self.assertEqual([], failures)
 
     def test_require_ready_requires_file_recheck(self) -> None:

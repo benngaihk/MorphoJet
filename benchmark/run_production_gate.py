@@ -108,6 +108,7 @@ def require_final_gate_args(args: argparse.Namespace, require_saved_reports: boo
             "external_evidence_package_verification_report",
             "github_release_verification_report",
             "github_workflow_verification_report",
+            "production_evidence_audit_report",
         ]:
             if getattr(args, name) is None:
                 missing.append("--" + name.replace("_", "-"))
@@ -146,6 +147,11 @@ def validate_existing_inputs(args: argparse.Namespace) -> None:
         raise ProductionGateError(
             "--github-workflow-verification-report is not a file: "
             f"{args.github_workflow_verification_report}"
+        )
+    if args.production_evidence_audit_report and not args.production_evidence_audit_report.is_file():
+        raise ProductionGateError(
+            "--production-evidence-audit-report is not a file: "
+            f"{args.production_evidence_audit_report}"
         )
 
 
@@ -287,6 +293,7 @@ def protected_input_path_entries(args: argparse.Namespace) -> dict[Path, str]:
         ),
         (args.github_release_verification_report, "--github-release-verification-report"),
         (args.github_workflow_verification_report, "--github-workflow-verification-report"),
+        (args.production_evidence_audit_report, "--production-evidence-audit-report"),
     ]:
         if path is not None:
             paths[path] = label
@@ -398,6 +405,31 @@ def build_release_gate_command(args: argparse.Namespace) -> list[str]:
             ]
         )
     return command
+
+
+def saved_production_evidence_audit_report_command(report: Path) -> list[str]:
+    return [
+        sys.executable,
+        "benchmark/audit_production_evidence.py",
+        "--verify-report",
+        str(report),
+        "--verify-report-files",
+        "--require-ready",
+    ]
+
+
+def saved_production_evidence_audit_gate(args: argparse.Namespace) -> release_gate.Gate:
+    command = saved_production_evidence_audit_report_command(args.production_evidence_audit_report)
+    started = datetime.now(timezone.utc)
+    completed = subprocess.run(command, text=True, capture_output=True)
+    detail = (completed.stdout + completed.stderr).strip()
+    return release_gate.Gate(
+        name="Verify saved production evidence audit report",
+        command=command,
+        status="PASS" if completed.returncode == 0 else "FAIL",
+        elapsed_seconds=(datetime.now(timezone.utc) - started).total_seconds(),
+        detail=detail,
+    )
 
 
 def build_final_report_verification_command(args: argparse.Namespace) -> list[str]:
@@ -970,6 +1002,7 @@ def canonical_wrapper_argv(args: argparse.Namespace, resolve_paths: bool = False
         ),
         ("--github-release-verification-report", args.github_release_verification_report),
         ("--github-workflow-verification-report", args.github_workflow_verification_report),
+        ("--production-evidence-audit-report", args.production_evidence_audit_report),
         ("--github-release-tag", args.github_release_tag),
         ("--out-json", args.out_json),
         ("--out-md", args.out_md),
@@ -1006,6 +1039,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--external-evidence-package-verification-report", type=Path)
     parser.add_argument("--github-release-verification-report", type=Path)
     parser.add_argument("--github-workflow-verification-report", type=Path)
+    parser.add_argument("--production-evidence-audit-report", type=Path)
     parser.add_argument(
         "--github-release-tag",
         help=f"Stable non-RC release tag, e.g. {release_gate.DEFAULT_STABLE_RELEASE_TAG}",
@@ -1072,6 +1106,10 @@ def main(argv: list[str] | None = None) -> int:
                 raise ProductionGateError(
                     "--github-workflow-verification-report is not used with --local-evidence-preflight-only"
                 )
+            if args.production_evidence_audit_report:
+                raise ProductionGateError(
+                    "--production-evidence-audit-report is not used with --local-evidence-preflight-only"
+                )
             validate_report_output_paths(
                 args,
                 [
@@ -1099,7 +1137,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.local_evidence_preflight_only:
         return run_local_evidence_preflight(args)
-    reviewer_gates = saved_reviewer_report_gates(args, include_github_release=True)
+    reviewer_gates = [
+        *saved_reviewer_report_gates(args, include_github_release=True),
+        saved_production_evidence_audit_gate(args),
+    ]
     if reviewer_gates:
         for gate in reviewer_gates:
             print(f"{gate.name}: {gate.status}")

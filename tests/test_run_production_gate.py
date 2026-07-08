@@ -209,6 +209,8 @@ class RunProductionGateTest(unittest.TestCase):
                 "github/verification.json",
                 "--github-workflow-verification-report",
                 "github/workflows.json",
+                "--production-evidence-audit-report",
+                "reports/production-evidence-audit.json",
             )
         )
 
@@ -239,6 +241,7 @@ class RunProductionGateTest(unittest.TestCase):
             "github/workflows.json",
             command[command.index("--github-workflow-verification-report") + 1],
         )
+        self.assertNotIn("--production-evidence-audit-report", command)
         self.assertIn("--verify-github-release", command)
         self.assertIn("v0.1.0", command)
         self.assertIn("--github-release-kind", command)
@@ -252,12 +255,14 @@ class RunProductionGateTest(unittest.TestCase):
             "--external-evidence-package-verification-report",
             "--github-release-verification-report",
             "--github-workflow-verification-report",
+            "--production-evidence-audit-report",
         ]
         report_values = {
             "--external-trial-verification-report": "external/trial-verification.json",
             "--external-evidence-package-verification-report": "evidence/package-verification.json",
             "--github-release-verification-report": "github/verification.json",
             "--github-workflow-verification-report": "github/workflows.json",
+            "--production-evidence-audit-report": "reports/production-evidence-audit.json",
         }
         accepted_groups = []
 
@@ -450,6 +455,8 @@ class RunProductionGateTest(unittest.TestCase):
                     "missing/github-release-verification.json",
                     "--github-workflow-verification-report",
                     "missing/github-workflow-verification.json",
+                    "--production-evidence-audit-report",
+                    "missing/production-evidence-audit.json",
                     "--github-release-tag",
                     "v0.1.0",
                     "--dry-run",
@@ -489,6 +496,7 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("--external-evidence-package-verification-report", stderr.getvalue())
         self.assertIn("--github-release-verification-report", stderr.getvalue())
         self.assertIn("--github-workflow-verification-report", stderr.getvalue())
+        self.assertIn("--production-evidence-audit-report", stderr.getvalue())
 
     def test_local_preflight_does_not_require_saved_verifier_reports(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -510,12 +518,24 @@ class RunProductionGateTest(unittest.TestCase):
             package_report = root / "package-verification.json"
             github_report = root / "github-verification.json"
             github_workflow_report = root / "github-workflows.json"
-            for report in [trial_report, package_report, github_report, github_workflow_report]:
+            production_audit_report = root / "production-evidence-audit.json"
+            for report in [trial_report, package_report, github_report, github_workflow_report, production_audit_report]:
                 report.write_text("{}\n", encoding="utf-8")
             out_json = root / "reports" / "production-claim.json"
             out_md = root / "reports" / "production-claim.md"
             with (
                 patch.object(run_production_gate, "saved_reviewer_report_gates", return_value=[]) as reviewer_mock,
+                patch.object(
+                    run_production_gate,
+                    "saved_production_evidence_audit_gate",
+                    return_value=release_gate.Gate(
+                        name="Verify saved production evidence audit report",
+                        command=[],
+                        status="PASS",
+                        elapsed_seconds=0.0,
+                        detail="audit ok",
+                    ),
+                ) as audit_mock,
                 patch.object(
                     run_production_gate.subprocess,
                     "run",
@@ -546,6 +566,8 @@ class RunProductionGateTest(unittest.TestCase):
                         str(github_report),
                         "--github-workflow-verification-report",
                         str(github_workflow_report),
+                        "--production-evidence-audit-report",
+                        str(production_audit_report),
                         "--out-json",
                         str(out_json),
                         "--out-md",
@@ -555,6 +577,7 @@ class RunProductionGateTest(unittest.TestCase):
 
         self.assertEqual(0, status)
         reviewer_mock.assert_called_once()
+        audit_mock.assert_called_once()
         run_mock.assert_called_once()
         verify_mock.assert_called_once_with(
             out_json,
@@ -579,10 +602,22 @@ class RunProductionGateTest(unittest.TestCase):
             package_report = root / "package-verification.json"
             github_report = root / "github-verification.json"
             github_workflow_report = root / "github-workflows.json"
-            for report in [trial_report, package_report, github_report, github_workflow_report]:
+            production_audit_report = root / "production-evidence-audit.json"
+            for report in [trial_report, package_report, github_report, github_workflow_report, production_audit_report]:
                 report.write_text("{}\n", encoding="utf-8")
             with (
                 patch.object(run_production_gate, "saved_reviewer_report_gates", return_value=[]),
+                patch.object(
+                    run_production_gate,
+                    "saved_production_evidence_audit_gate",
+                    return_value=release_gate.Gate(
+                        name="Verify saved production evidence audit report",
+                        command=[],
+                        status="PASS",
+                        elapsed_seconds=0.0,
+                        detail="audit ok",
+                    ),
+                ),
                 patch.object(
                     run_production_gate.subprocess,
                     "run",
@@ -613,6 +648,8 @@ class RunProductionGateTest(unittest.TestCase):
                         str(github_report),
                         "--github-workflow-verification-report",
                         str(github_workflow_report),
+                        "--production-evidence-audit-report",
+                        str(production_audit_report),
                     ]
                 )
 
@@ -632,10 +669,22 @@ class RunProductionGateTest(unittest.TestCase):
             package_report = root / "package-verification.json"
             github_report = root / "github-verification.json"
             github_workflow_report = root / "github-workflows.json"
-            for report in [trial_report, package_report, github_workflow_report, github_report]:
+            production_audit_report = root / "production-evidence-audit.json"
+            for report in [trial_report, package_report, github_workflow_report, github_report, production_audit_report]:
                 report.write_text("{}\n", encoding="utf-8")
             with (
                 patch.object(run_production_gate, "saved_reviewer_report_gates", return_value=[]),
+                patch.object(
+                    run_production_gate,
+                    "saved_production_evidence_audit_gate",
+                    return_value=release_gate.Gate(
+                        name="Verify saved production evidence audit report",
+                        command=[],
+                        status="PASS",
+                        elapsed_seconds=0.0,
+                        detail="audit ok",
+                    ),
+                ),
                 patch.object(
                     run_production_gate.subprocess,
                     "run",
@@ -666,6 +715,8 @@ class RunProductionGateTest(unittest.TestCase):
                         str(github_report),
                         "--github-workflow-verification-report",
                         str(github_workflow_report),
+                        "--production-evidence-audit-report",
+                        str(production_audit_report),
                     ]
                 )
 
@@ -826,6 +877,8 @@ class RunProductionGateTest(unittest.TestCase):
                     "github/verification.json",
                     "--github-workflow-verification-report",
                     "github/workflows.json",
+                    "--production-evidence-audit-report",
+                    "reports/production-evidence-audit.json",
                     "--github-release-tag",
                     "v0.1.0",
                     "--out-json",

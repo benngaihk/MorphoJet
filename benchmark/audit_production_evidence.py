@@ -284,6 +284,8 @@ def final_wrapper_command(args: argparse.Namespace) -> list[str] | None:
         absolute_path_text(args.github_release_verification_report),
         "--github-workflow-verification-report",
         absolute_path_text(args.github_workflow_verification_report),
+        "--production-evidence-audit-report",
+        absolute_path_text(args.out_json),
         "--github-release-tag",
         args.github_release_tag,
     ]
