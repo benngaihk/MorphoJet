@@ -21,6 +21,9 @@ CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
 EVIDENCE_SCOPE = "EXTERNAL_L4_WORKFLOW_TRIAL_REVIEW"
 FINAL_PRODUCTION_SIGNOFF = False
 SOURCE_TRIAL_EVIDENCE_SCOPE = "EXTERNAL_L4_WORKFLOW_TRIAL"
+READINESS_STATUS = "READY"
+READINESS_CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
+READINESS_EVIDENCE_SCOPE = "EXTERNAL_L4_READINESS_PRECHECK"
 
 
 def is_utc_datetime(value: datetime) -> bool:
@@ -112,6 +115,12 @@ def load_trial_readiness_report_field(trial_json: Path, field: str) -> str | Non
     return value if isinstance(value, str) and value.strip() else None
 
 
+def load_trial_readiness_report_value(trial_json: Path, field: str) -> Any:
+    trial = load_trial_payload(trial_json)
+    readiness = trial.get("readiness_report") if isinstance(trial, dict) else None
+    return readiness.get(field) if isinstance(readiness, dict) else None
+
+
 def trial_input_files(trial_json: Path, trial_root: Path) -> dict[str, Any]:
     artifact_files = []
     for artifact in load_trial_artifacts(trial_json):
@@ -126,6 +135,14 @@ def trial_input_files(trial_json: Path, trial_root: Path) -> dict[str, Any]:
     if readiness_path is not None:
         input_files["readiness_report"] = {
             **file_summary(readiness_path),
+            "status": load_trial_readiness_report_field(trial_json, "status"),
+            "claim_status": load_trial_readiness_report_field(trial_json, "claim_status"),
+            "evidence_scope": load_trial_readiness_report_field(trial_json, "evidence_scope"),
+            "final_production_signoff": load_trial_readiness_report_value(
+                trial_json,
+                "final_production_signoff",
+            ),
+            "generated_at_utc": load_trial_readiness_report_field(trial_json, "generated_at_utc"),
             "package_name": load_trial_readiness_report_package_name(trial_json),
             "workspace": load_trial_readiness_report_field(trial_json, "workspace"),
             "manifest": load_trial_readiness_report_field(trial_json, "manifest"),
@@ -185,6 +202,26 @@ def input_files_issues(input_files: Any, status: Any) -> list[str]:
         )
         readiness_summary = input_files.get("readiness_report")
         if isinstance(readiness_summary, dict):
+            if readiness_summary.get("status") != READINESS_STATUS:
+                failures.append(f"input_files.readiness_report.status={readiness_summary.get('status')}")
+            if readiness_summary.get("claim_status") != READINESS_CLAIM_STATUS:
+                failures.append(f"input_files.readiness_report.claim_status={readiness_summary.get('claim_status')}")
+            if readiness_summary.get("evidence_scope") != READINESS_EVIDENCE_SCOPE:
+                failures.append(f"input_files.readiness_report.evidence_scope={readiness_summary.get('evidence_scope')}")
+            if readiness_summary.get("final_production_signoff") is not FINAL_PRODUCTION_SIGNOFF:
+                failures.append("input_files.readiness_report.final_production_signoff must be false")
+            generated_at = readiness_summary.get("generated_at_utc")
+            if not isinstance(generated_at, str) or not generated_at.strip():
+                failures.append("input_files.readiness_report.generated_at_utc must be a non-empty string")
+            else:
+                try:
+                    parsed_generated_at = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+                    if parsed_generated_at.tzinfo is None:
+                        failures.append("input_files.readiness_report.generated_at_utc must include timezone")
+                    elif not is_utc_datetime(parsed_generated_at):
+                        failures.append("input_files.readiness_report.generated_at_utc must be UTC")
+                except ValueError:
+                    failures.append(f"input_files.readiness_report.generated_at_utc is invalid: {generated_at}")
             package_name = readiness_summary.get("package_name")
             if package_name is not None:
                 if not isinstance(package_name, str) or not package_name.strip():
@@ -243,6 +280,17 @@ def input_file_path_binding_issues(input_files: dict[str, Any], trial_json: str,
         trial_package_name = load_trial_readiness_report_package_name(Path(trial_json))
         if readiness_summary.get("package_name") != trial_package_name:
             failures.append("input_files.readiness_report.package_name must match trial readiness_report.package_name")
+        expected_fields = [
+            "status",
+            "claim_status",
+            "evidence_scope",
+            "final_production_signoff",
+            "generated_at_utc",
+        ]
+        for field in expected_fields:
+            expected = load_trial_readiness_report_value(Path(trial_json), field)
+            if readiness_summary.get(field) != expected:
+                failures.append(f"input_files.readiness_report.{field} must match trial readiness_report.{field}")
         for field in ["workspace", "manifest"]:
             expected = load_trial_readiness_report_field(Path(trial_json), field)
             if readiness_summary.get(field) != expected:
