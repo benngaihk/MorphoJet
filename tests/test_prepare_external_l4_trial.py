@@ -58,6 +58,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             generated_at = datetime.fromisoformat(plan["generated_at_utc"])
             self.assertIsNotNone(generated_at.tzinfo)
             self.assertEqual(timezone.utc.utcoffset(generated_at), generated_at.utcoffset())
+            self.assertEqual(prepare_external_l4_trial.git_commit(), plan["git_commit"])
             self.assertEqual(
                 [
                     "benchmark/prepare_external_l4_trial.py",
@@ -161,6 +162,28 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("--verify-git-commit", stable_report)
             self.assertEqual("v0.1.0", stable_report[stable_report.index("--expect-tag") + 1])
             self.assertEqual("benngaihk/MorphoJet", stable_report[stable_report.index("--expect-repo") + 1])
+            verify_workflows = plan["commands"]["verify_github_workflows"]
+            self.assertEqual("benngaihk/MorphoJet", verify_workflows[verify_workflows.index("--repo") + 1])
+            self.assertEqual("main", verify_workflows[verify_workflows.index("--branch") + 1])
+            self.assertEqual(plan["git_commit"], verify_workflows[verify_workflows.index("--commit") + 1])
+            self.assertEqual(
+                str((workspace / "github-workflow-verification.json").resolve()),
+                verify_workflows[verify_workflows.index("--json-out") + 1],
+            )
+            workflow_report = plan["commands"]["verify_github_workflows_report"]
+            self.assertEqual(
+                str((workspace / "github-workflow-verification.json").resolve()),
+                workflow_report[workflow_report.index("--verify-report") + 1],
+            )
+            self.assertIn("--require-report-pass", workflow_report)
+            self.assertEqual("benngaihk/MorphoJet", workflow_report[workflow_report.index("--expect-repo") + 1])
+            self.assertEqual("main", workflow_report[workflow_report.index("--expect-branch") + 1])
+            self.assertEqual(plan["git_commit"], workflow_report[workflow_report.index("--expect-commit") + 1])
+            self.assertIn("ci.yml", prepare_external_l4_trial.argv_values(workflow_report, "--expect-workflow"))
+            self.assertIn(
+                "external-l4-rehearsal.yml",
+                prepare_external_l4_trial.argv_values(workflow_report, "--expect-workflow"),
+            )
             final_gate = plan["commands"]["final_production_gate"]
             self.assertEqual(
                 str((workspace / "handoff_trial.json").resolve()),
@@ -435,6 +458,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             )
             readme = (workspace / "README.md").read_text(encoding="utf-8")
             self.assertIn("Language: English | [简体中文](README.zh-CN.md)", readme)
+            self.assertIn(f"trial_plan.json git_commit: `{plan['git_commit']}`", readme)
+            self.assertIn("must be generated with `--commit` and rechecked with `--expect-commit`", readme)
             self.assertIn("## pre_signoff_requirements", readme)
             self.assertIn("| Requirement | Status | Planned Path | Verification Step | Required Before |", readme)
             self.assertIn("local_evidence_preflight_report", readme)
@@ -557,6 +582,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             readme_zh = (workspace / "README.zh-CN.md").read_text(encoding="utf-8")
             self.assertIn("Language: [English](README.md) | 简体中文", readme_zh)
             self.assertIn("这个工作区只是准备脚手架，不是外部 L4 证据。", readme_zh)
+            self.assertIn(f"trial_plan.json git_commit：`{plan['git_commit']}`", readme_zh)
+            self.assertIn("必须用 `--commit` 生成，并用 `--expect-commit` 复核", readme_zh)
             self.assertIn("## pre_signoff_requirements", readme_zh)
             self.assertIn("| 要求 | 状态 | 计划路径 | 验证步骤 | 前置于 |", readme_zh)
             self.assertIn("local_evidence_preflight_report", readme_zh)
@@ -1167,6 +1194,10 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             verify_release = payload["commands"]["verify_stable_release"]
             verify_release[2] = "v0.1.0-rc.1"
             verify_release[verify_release.index("--repo") + 1] = "example/MorphoJet"
+            verify_workflows = payload["commands"]["verify_github_workflows"]
+            verify_workflows[verify_workflows.index("--commit") + 1] = "0" * 40
+            workflow_report = payload["commands"]["verify_github_workflows_report"]
+            workflow_report[workflow_report.index("--expect-commit") + 1] = "1" * 40
             stable_report = payload["commands"]["verify_stable_release_report"]
             stable_report.remove("--require-stable-report")
             stable_report[stable_report.index("--expect-tag") + 1] = "v0.1.0-rc.1"
@@ -1195,6 +1226,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
         self.assertNotEqual(0, completed.returncode)
         self.assertIn("commands.verify_stable_release tag must be v0.1.0", completed.stderr)
         self.assertIn("commands.verify_stable_release --repo must be benngaihk/MorphoJet", completed.stderr)
+        self.assertIn("commands.verify_github_workflows --commit must be", completed.stderr)
+        self.assertIn("commands.verify_github_workflows_report --expect-commit must be", completed.stderr)
         self.assertIn(
             "commands.verify_stable_release_report must include exactly one --require-stable-report",
             completed.stderr,

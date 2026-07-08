@@ -8,6 +8,7 @@ import hashlib
 import json
 import re
 import shlex
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -84,6 +85,17 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def git_commit(rev: str = "HEAD") -> str:
+    completed = subprocess.run(
+        ["git", "rev-parse", f"{rev}^{{commit}}"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return completed.stdout.strip()
 
 
 def is_utc_datetime(value: datetime) -> bool:
@@ -626,9 +638,12 @@ def validate_stable_release_command_bindings(payload: dict[str, Any]) -> list[st
     failures: list[str] = []
     commands = payload.get("commands")
     workspace = payload.get("workspace")
+    plan_git_commit = payload.get("git_commit")
     if not isinstance(commands, dict):
         return failures
     if not isinstance(workspace, str) or not workspace.strip():
+        return failures
+    if not isinstance(plan_git_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", plan_git_commit):
         return failures
     github_release_verification = str(Path(workspace) / "github-release-verification.json")
     github_workflow_verification = str(Path(workspace) / "github-workflow-verification.json")
@@ -664,6 +679,7 @@ def validate_stable_release_command_bindings(payload: dict[str, Any]) -> list[st
 
     expect_flag("verify_github_workflows", "--repo", STABLE_RELEASE_REPO, "GitHub workflow repo")
     expect_flag("verify_github_workflows", "--branch", "main", "GitHub workflow branch")
+    expect_flag("verify_github_workflows", "--commit", plan_git_commit, "GitHub workflow commit")
     expect_flag("verify_github_workflows", "--json-out", github_workflow_verification, "GitHub workflow report")
 
     expect_flag("verify_stable_release_report", "--verify-report", github_release_verification, "GitHub release verifier report")
@@ -685,6 +701,12 @@ def validate_stable_release_command_bindings(payload: dict[str, Any]) -> list[st
     )
     expect_flag("verify_github_workflows_report", "--expect-repo", STABLE_RELEASE_REPO, "GitHub workflow repo")
     expect_flag("verify_github_workflows_report", "--expect-branch", "main", "GitHub workflow branch")
+    expect_flag(
+        "verify_github_workflows_report",
+        "--expect-commit",
+        plan_git_commit,
+        "GitHub workflow commit",
+    )
     for workflow in ["ci.yml", "external-l4-rehearsal.yml"]:
         values = argv_values(command("verify_github_workflows_report"), "--expect-workflow")
         if workflow not in values:
@@ -860,6 +882,9 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
             failures.append(f"{key} must be a non-empty string")
         elif key != "package_name" and not Path(value).is_absolute():
             failures.append(f"{key} must be an absolute path")
+    plan_git_commit = payload.get("git_commit")
+    if not isinstance(plan_git_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", plan_git_commit):
+        failures.append(f"git_commit={plan_git_commit}")
     template_size = payload.get("template_size_bytes")
     if not isinstance(template_size, int) or template_size <= 0:
         failures.append(f"template_size_bytes={template_size}")
@@ -907,8 +932,11 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
         manifest = payload.get("manifest")
         workspace = payload.get("workspace")
         package_name = payload.get("package_name")
-        if all(isinstance(value, str) and value.strip() for value in [manifest, workspace, package_name]):
-            expected_commands = plan_commands(Path(manifest), Path(workspace), package_name)
+        if all(
+            isinstance(value, str) and value.strip()
+            for value in [manifest, workspace, package_name, plan_git_commit]
+        ):
+            expected_commands = plan_commands(Path(manifest), Path(workspace), package_name, plan_git_commit)
             if commands != expected_commands:
                 failures.append("commands changed after plan was written")
             expected_requirements = final_signoff_requirements(Path(workspace), package_name)
@@ -1016,6 +1044,7 @@ def plan_commands(
     manifest_path: Path,
     workspace: Path,
     package_name: str,
+    github_workflow_commit: str,
 ) -> dict[str, list[str]]:
     plan_path = workspace / PLAN_NAME
     trial_json = workspace / "handoff_trial.json"
@@ -1196,6 +1225,8 @@ def plan_commands(
             STABLE_RELEASE_REPO,
             "--branch",
             "main",
+            "--commit",
+            github_workflow_commit,
             "--json-out",
             str(github_workflow_verification),
         ],
@@ -1209,6 +1240,8 @@ def plan_commands(
             STABLE_RELEASE_REPO,
             "--expect-branch",
             "main",
+            "--expect-commit",
+            github_workflow_commit,
             "--expect-workflow",
             "ci.yml",
             "--expect-workflow",
@@ -1485,9 +1518,11 @@ def render_readme(plan: dict[str, Any]) -> str:
         f"trial_plan.json claim_status: `{plan['claim_status']}`",
         f"trial_plan.json evidence_scope: `{plan['evidence_scope']}`",
         f"trial_plan.json final_production_signoff: `{plan['final_production_signoff']}`",
+        f"trial_plan.json git_commit: `{plan['git_commit']}`",
         "The saved package verifier report produced by `verify_package` is also not final production signoff: `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW`, `final_production_signoff=false`.",
         "The saved local preflight report produced by `local_evidence_preflight` is also not final production signoff: it must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`.",
         "The saved production evidence audit produced by `audit_production_evidence` is also not final production signoff: it must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=PRODUCTION_EVIDENCE_READINESS_AUDIT`, and `final_production_signoff=false`. It must be rechecked with `--verify-report-files --require-ready` before `final_production_gate` runs.",
+        "The saved GitHub Actions workflow verifier report must be generated with `--commit` and rechecked with `--expect-commit` for the `trial_plan.json git_commit`, so branch movement cannot replace the final remote-CI evidence.",
         "Chinese-community reviewers can use `README.zh-CN.md` as a first-class review entrypoint. It must preserve the same command order, non-final claim labels, pre-signoff requirements, final blockers, and package README evidence path as this English README.",
         "The saved trial-plan signoff command must pair `--require-plan-files` with `--verify-plan-files`, so a structurally valid `trial_plan.json` cannot be accepted before rechecking the template, manifest, and English plus Chinese README files.",
         "`check_readiness` also verifies the saved `trial_plan.json`, template hash, manifest presence, and both English and Chinese README files before returning READY, so readiness fails if the execution instructions or plan are weakened after workspace preparation. The saved readiness signoff command must pair `--require-ready` with `--verify-report-files`; otherwise the saved READY JSON is rejected instead of being treated as reviewer-ready evidence.",
@@ -1634,9 +1669,11 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
         f"trial_plan.json claim_status：`{plan['claim_status']}`",
         f"trial_plan.json evidence_scope：`{plan['evidence_scope']}`",
         f"trial_plan.json final_production_signoff：`{plan['final_production_signoff']}`",
+        f"trial_plan.json git_commit：`{plan['git_commit']}`",
         "`verify_package` 生成的 saved package verifier report 也不是最终生产签核：`claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW`、`final_production_signoff=false`。",
         "`local_evidence_preflight` 生成的 saved local preflight report 也不是最终生产签核：它必须保持 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`、`final_evidence_acceptable=false`。",
         "`audit_production_evidence` 生成的 saved production evidence audit 也不是最终生产签核：它必须保持 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=PRODUCTION_EVIDENCE_READINESS_AUDIT`、`final_production_signoff=false`。它必须在 `final_production_gate` 运行前用 `--verify-report-files --require-ready` 重新复核。",
+        "Saved GitHub Actions workflow verifier report 必须用 `--commit` 生成，并用 `--expect-commit` 复核到 `trial_plan.json git_commit`，避免 main 分支移动后替换最终远端 CI 证据。",
         "中文社区 reviewer 可以把 `README.zh-CN.md` 作为一等复核入口。它必须保留与英文 README 相同的命令顺序、非最终 claim labels、pre-signoff requirements、最终阻塞项和 package README evidence path。",
         "Saved trial-plan 签核命令必须把 `--require-plan-files` 和 `--verify-plan-files` 配对使用；这样结构正确的 `trial_plan.json` 也必须重新复核 template、manifest、英文 README 和中文 README 文件后才可被接受。",
         "`check_readiness` 在返回 READY 前也会复核 saved `trial_plan.json`、template hash、manifest 是否存在，以及英文和中文 README 文件；如果 workspace 准备后执行说明或计划被改弱，readiness 会失败。Saved readiness 签核命令必须把 `--require-ready` 和 `--verify-report-files` 配对使用；否则 saved READY JSON 会被拒绝，不能当作 reviewer-ready evidence。",
@@ -1834,11 +1871,13 @@ def prepare_workspace(
 
     manifest_path = workspace / MANIFEST_NAME
     write_json(manifest_path, template)
-    commands = plan_commands(manifest_path, workspace, package_slug)
+    current_git_commit = git_commit()
+    commands = plan_commands(manifest_path, workspace, package_slug, current_git_commit)
     plan = {
         "schema_version": 1,
         "generator": GENERATOR,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "git_commit": current_git_commit,
         "argv": generator_argv(template_path, workspace, package_name, overwrite),
         "template": str(template_path),
         "template_size_bytes": template_path.stat().st_size,

@@ -280,7 +280,9 @@ The same internal rehearsal machinery is wired into `.github/workflows/external-
 After pushing a candidate commit, save and re-check the required GitHub Actions workflow evidence with:
 
 ```bash
-python3 benchmark/verify_github_workflows.py --json-out path/to/github-workflows.json
+python3 benchmark/verify_github_workflows.py \
+  --commit "$(git rev-parse HEAD)" \
+  --json-out path/to/github-workflows.json
 python3 benchmark/verify_github_workflows.py \
   --verify-report path/to/github-workflows.json \
   --require-report-pass \
@@ -290,6 +292,8 @@ python3 benchmark/verify_github_workflows.py \
   --expect-workflow ci.yml \
   --expect-workflow external-l4-rehearsal.yml
 ```
+
+Generated external L4 trial plans use the same explicit commit binding: `verify_github_workflows` writes the saved report with `--commit <trial_plan git_commit>`, and `verify_github_workflows_report` rechecks it with `--expect-commit <trial_plan git_commit>`. This prevents a later `main` branch movement from silently replacing the remote-CI evidence intended for final review.
 
 The external L4 template declares `required_object_metadata_columns` for `Plate`, `Well`, and `Site`. Readiness checks enforce those columns on MorphoJet `Objects.csv`, so real handoff workspaces should generate `Objects.csv` with `measure --include-object-metadata` or intentionally update the manifest contract before review.
 

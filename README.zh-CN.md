@@ -300,7 +300,9 @@ python3 benchmark/run_external_l4_rehearsal.py \
 推送候选 commit 后，可以保存并复核必需 GitHub Actions workflow 证据：
 
 ```bash
-python3 benchmark/verify_github_workflows.py --json-out path/to/github-workflows.json
+python3 benchmark/verify_github_workflows.py \
+  --commit "$(git rev-parse HEAD)" \
+  --json-out path/to/github-workflows.json
 python3 benchmark/verify_github_workflows.py \
   --verify-report path/to/github-workflows.json \
   --require-report-pass \
@@ -310,6 +312,8 @@ python3 benchmark/verify_github_workflows.py \
   --expect-workflow ci.yml \
   --expect-workflow external-l4-rehearsal.yml
 ```
+
+生成的外部 L4 trial plan 也会使用同一条显式 commit 绑定：`verify_github_workflows` 用 `--commit <trial_plan git_commit>` 写出保存报告，`verify_github_workflows_report` 再用 `--expect-commit <trial_plan git_commit>` 复核。这样 main 分支后续移动时，不能悄悄替换最终 review 要用的远端 CI 证据。
 
 稳定 release 存在后，用 production wrapper 把所有必需证据绑定到同一份最终报告：
 

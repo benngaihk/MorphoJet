@@ -2,6 +2,21 @@
 
 Updated: 2026-07-09
 
+## External L4 Plan Workflow Commit Binding Snapshot
+
+This snapshot records the hardening that makes generated external L4 trial plans bind saved GitHub Actions workflow evidence to an explicit commit, not only to `main`.
+
+`benchmark/prepare_external_l4_trial.py` now writes the current `git_commit` into `trial_plan.json`, generates `verify_github_workflows` with `--commit <trial_plan git_commit>`, and generates `verify_github_workflows_report` with `--expect-commit <trial_plan git_commit>`. Saved-plan verification recomputes those command bindings and rejects plans whose top-level commit, saved workflow command, or saved workflow report command drift apart. The generated English and Chinese workspace READMEs also render `trial_plan.json git_commit` and explain why the saved workflow report must use `--commit` / `--expect-commit`.
+
+This is not a production claim. It closes a workflow-evidence drift gap in the external L4 plan; the real external L4 trial, matching package, saved reviewer reports, stable GitHub release, and saved stable-release verifier report are still required before final production signoff.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 -m unittest discover -s tests -p 'test_prepare_external_l4_trial.py'` | PASS, 30 tests; validates generated workflow `--commit` / `--expect-commit` bindings and saved-plan tamper rejection |
+| `python3 benchmark/prepare_external_l4_trial.py --workspace /tmp/morphojet-external-l4-commit-bound-plan --overwrite --verify-plan-files --require-plan-files` | PASS; confirms generated plan and bilingual READMEs include the explicit workflow commit binding |
+
 ## Current Main L3 Provenance And Workflow Snapshot
 
 This snapshot records the post-bilingual-release-archive validation for commit `894de87ca8402b084abfa06db956a16ffb0806e5` on `main`.
