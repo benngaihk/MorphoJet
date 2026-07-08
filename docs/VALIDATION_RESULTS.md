@@ -2,6 +2,40 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `5a514f0`
+
+This snapshot records the clean `main` verification for the code commit that binds local evidence preflight reports to the source trial, packaged trial, and package artifact-manifest claim-scope labels. `benchmark/run_production_gate.py` now writes `package_artifact_manifest_json` into local preflight `input_artifacts`, copies non-final claim-scope fields from the source and packaged trial reports, copies package-level and source-trial scope fields from `artifact_manifest.json`, rejects saved preflight reports whose copied fields are tampered, and recomputes those fields during `--verify-local-evidence-preflight-files`. English and Chinese README guidance now describe the local preflight scope and saved verifier behavior for reviewers.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `5a514f0`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-5a514f0.json --out-md /tmp/morphojet-l3-release-report-main-5a514f0.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-5a514f0.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Production wrapper tests | PASS, 72 tests |
+| Package external trial tests | PASS, 67 tests |
+| Release-gate helper tests | PASS, 69 tests |
+| Full Python unit test suite | PASS, 434 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Local Preflight Trial Scope Binding | PASS |
+| Local Preflight Package Manifest Scope Binding | PASS |
+| Local Preflight File Recheck Scope Recompute | PASS |
+| English README Local Preflight Scope Coverage | PASS |
+| Chinese README Local Preflight Scope Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `7ffca9b`
 
 This snapshot records the clean `main` verification for the code commit that binds evidence packages to the source trial report's claim-scope labels. `benchmark/package_external_trial.py` now writes `trial_claim_status`, `trial_evidence_scope`, and `trial_final_production_signoff` into `artifact_manifest.json`. `benchmark/release_gate.py` rejects packages whose artifact manifest drops or mutates those source trial labels, and `benchmark/verify_external_evidence_package.py` copies the source trial labels into `input_files.source_trial_json` so saved package-reviewer reports and file rechecks catch source trial claim-scope tampering. English and Chinese README guidance now describe the package manifest and saved package verifier as carrying the source trial's non-final scope.
