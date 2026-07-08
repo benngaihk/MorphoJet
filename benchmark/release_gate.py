@@ -54,6 +54,28 @@ PRODUCTION_CLAIM_STATUSES = frozenset(
         PRODUCTION_AUDIT_INCOMPLETE_STATUS,
     ]
 )
+PRODUCTION_PATH_METADATA_KEYS = frozenset(
+    [
+        "external_trial_json",
+        "external_trial_root",
+        "external_evidence_package_dir",
+        "external_trial_verification_report",
+        "external_evidence_package_verification_report",
+        "github_release_verification_report",
+    ]
+)
+RELEASE_GATE_ARGV_PATH_FLAGS = frozenset(
+    [
+        "--out-json",
+        "--out-md",
+        "--external-trial-json",
+        "--external-trial-root",
+        "--external-evidence-package-dir",
+        "--external-trial-verification-report",
+        "--external-evidence-package-verification-report",
+        "--github-release-verification-report",
+    ]
+)
 PRODUCTION_AUDIT_CHECK_NAMES = [
     "clean_git_worktree",
     "standard_code_and_artifact_gates",
@@ -2273,18 +2295,6 @@ def render_markdown(payload: dict, out_json: Path) -> str:
             lines.append("```")
         lines.append("")
     return "\n".join(lines)
-
-
-RELEASE_GATE_ARGV_PATH_FLAGS = {
-    "--out-json",
-    "--out-md",
-    "--external-trial-json",
-    "--external-trial-root",
-    "--external-evidence-package-dir",
-    "--external-trial-verification-report",
-    "--external-evidence-package-verification-report",
-    "--github-release-verification-report",
-}
 
 
 def canonical_release_gate_argv(argv: list[str]) -> list[str]:

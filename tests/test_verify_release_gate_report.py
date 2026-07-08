@@ -44,6 +44,14 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             verify_release_gate_report.PRODUCTION_AUDIT_PASS_STATUS,
         )
         self.assertIs(
+            release_gate.PRODUCTION_PATH_METADATA_KEYS,
+            verify_release_gate_report.PRODUCTION_PATH_METADATA_KEYS,
+        )
+        self.assertIs(
+            release_gate.RELEASE_GATE_ARGV_PATH_FLAGS,
+            verify_release_gate_report.PRODUCTION_PATH_ARGV_FLAGS,
+        )
+        self.assertIs(
             release_gate.GITHUB_RELEASE_REPO,
             verify_release_gate_report.GITHUB_RELEASE_REPO,
         )

@@ -145,6 +145,8 @@ python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/r
 python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/production-claim.json --require-report-pass --require-clean-git-metadata --verify-git-commit --require-production-claim-pass
 ```
 
+保存版 release-gate verifier 会把顶层摘要、`production_claim_audit`、claim-scope labels、UTC metadata、git commit、clean-git metadata、production evidence 路径和 `metadata.argv` 互相绑定起来复核。Production evidence metadata keys 和带路径值的 `metadata.argv` flags 由 `benchmark/release_gate.py` 统一持有，writer 和 saved report verifier 复用同一份合同，所以外部 L4 evidence、saved reviewer reports、saved GitHub release verifier report、`--out-json` 和 `--out-md` 的绝对路径要求不会在两边漂移。
+
 ## 发布验证
 
 打 `v*` tag 后，GitHub Actions 会构建 macOS 和 Linux CLI archive，并发布 SHA-256 checksum。

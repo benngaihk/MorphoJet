@@ -27,33 +27,14 @@ REQUIRED_PRODUCTION_GATE_NAMES = release_gate.REQUIRED_PRODUCTION_GATE_NAMES
 PRODUCTION_AUDIT_CHECK_STATUSES = release_gate.PRODUCTION_AUDIT_CHECK_STATUSES
 PRODUCTION_CLAIM_STATUSES = release_gate.PRODUCTION_CLAIM_STATUSES
 PRODUCTION_AUDIT_PASS_STATUS = release_gate.PRODUCTION_AUDIT_PASS_STATUS
+PRODUCTION_PATH_METADATA_KEYS = release_gate.PRODUCTION_PATH_METADATA_KEYS
+PRODUCTION_PATH_ARGV_FLAGS = release_gate.RELEASE_GATE_ARGV_PATH_FLAGS
 
 NO_ACTION_NEEDED = "No action needed for this check."
 
 
 def is_utc_datetime(value: datetime) -> bool:
     return value.utcoffset() == timezone.utc.utcoffset(value)
-
-
-PRODUCTION_PATH_METADATA_KEYS = {
-    "external_trial_json",
-    "external_trial_root",
-    "external_evidence_package_dir",
-    "external_trial_verification_report",
-    "external_evidence_package_verification_report",
-    "github_release_verification_report",
-}
-
-PRODUCTION_PATH_ARGV_FLAGS = {
-    "--external-trial-json",
-    "--external-trial-root",
-    "--external-evidence-package-dir",
-    "--external-trial-verification-report",
-    "--external-evidence-package-verification-report",
-    "--github-release-verification-report",
-    "--out-json",
-    "--out-md",
-}
 
 
 def git_commit_is_reachable(commit: str) -> bool:

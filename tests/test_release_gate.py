@@ -215,6 +215,22 @@ class ReleaseGateTest(unittest.TestCase):
             release_gate.PRODUCTION_CLAIM_STATUSES,
         )
 
+    def test_release_gate_path_contracts_cover_metadata_and_argv(self) -> None:
+        args = self.production_args(
+            external_trial_json=Path("trial.json"),
+            external_trial_root=Path("trial-root"),
+            external_evidence_package_dir=Path("package"),
+            external_trial_verification_report=Path("trial-review.json"),
+            external_evidence_package_verification_report=Path("package-review.json"),
+            github_release_verification_report=Path("github-release.json"),
+        )
+        metadata = release_gate.build_metadata(args, [])
+
+        for key in release_gate.PRODUCTION_PATH_METADATA_KEYS:
+            self.assertIn(key, metadata)
+        self.assertIn("--out-json", release_gate.RELEASE_GATE_ARGV_PATH_FLAGS)
+        self.assertIn("--out-md", release_gate.RELEASE_GATE_ARGV_PATH_FLAGS)
+
     def test_external_claim_scope_contracts_are_shared(self) -> None:
         self.assertEqual(
             release_gate.non_final_claim_scope(release_gate.EXTERNAL_TRIAL_PLAN_EVIDENCE_SCOPE),
@@ -279,6 +295,9 @@ class ReleaseGateTest(unittest.TestCase):
             "github_release_kind": "prerelease",
             "github_release_verification_report": None,
             "require_production_claim": False,
+            "run_l3": False,
+            "build_release_artifact": False,
+            "release_version": "local",
             "out_json": Path("release-gate.json"),
             "out_md": Path("release-gate.md"),
         }
