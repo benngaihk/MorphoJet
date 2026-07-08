@@ -121,6 +121,18 @@ class PackageExternalTrialTest(unittest.TestCase):
                 (package_dir / "README.md").read_text(encoding="utf-8"),
             )
             self.assertIn(
+                "- morphojet_objects_csv: `external/morphojet/Objects.csv`",
+                (package_dir / "README.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "- required_object_metadata_columns: `none`",
+                (package_dir / "README.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "- export[0].channels: `DNA`",
+                (package_dir / "README.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
                 "- final_production_signoff: `False`",
                 (package_dir / "README.zh-CN.md").read_text(encoding="utf-8"),
             )
@@ -150,6 +162,18 @@ class PackageExternalTrialTest(unittest.TestCase):
             )
             self.assertIn(
                 f"- readiness_manifest: `{readiness_report['manifest']}`",
+                (package_dir / "README.zh-CN.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "- morphojet_objects_csv: `external/morphojet/Objects.csv`",
+                (package_dir / "README.zh-CN.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "- required_object_metadata_columns: `none`",
+                (package_dir / "README.zh-CN.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "- export[0].channels: `DNA`",
                 (package_dir / "README.zh-CN.md").read_text(encoding="utf-8"),
             )
             self.assertEqual(trial_json.stat().st_size, manifest["trial_json_size_bytes"])
@@ -2204,6 +2228,37 @@ class PackageExternalTrialTest(unittest.TestCase):
 
         self.assertEqual("FAIL", gate.status)
         self.assertIn("package README missing signoff field: validation_detail_text", gate.detail)
+
+    def test_release_gate_rejects_package_readme_missing_manifest_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            package_dir = Path(result["package_dir"])
+            readme_path = package_dir / "README.md"
+            readme_path.write_text(
+                readme_path.read_text(encoding="utf-8")
+                .replace("- morphojet_objects_csv: `external/morphojet/Objects.csv`\n", "")
+                .replace("- export[0].channels: `DNA`\n", ""),
+                encoding="utf-8",
+            )
+            zip_path = Path(result["zip"])
+            package_external_trial.zip_directory(package_dir, zip_path)
+            Path(result["sha256"]).write_text(
+                f"{release_gate.sha256_file(zip_path)}  external-l4-demo.zip\n",
+                encoding="utf-8",
+            )
+
+            gate = release_gate.validate_external_evidence_package(package_dir, trial_json)
+
+        self.assertEqual("FAIL", gate.status)
+        self.assertIn("package README missing signoff field: manifest_morphojet_objects_csv", gate.detail)
+        self.assertIn("package README missing signoff field: manifest_export_0_channels", gate.detail)
 
     def test_release_gate_rejects_artifact_manifest_validation_detail_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

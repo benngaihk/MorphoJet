@@ -128,6 +128,10 @@ def render_readme(trial: dict[str, Any], validation_detail: str, artifact_manife
         validation_detail,
         "```",
         "",
+        "## Handoff Contract",
+        "",
+        *render_manifest_contract_lines(trial["rendered_manifest"]),
+        "",
         "## Contents",
         "",
         "- `handoff_trial.json`: original trial report.",
@@ -202,6 +206,10 @@ def render_readme_zh(trial: dict[str, Any], validation_detail: str, artifact_man
         validation_detail,
         "```",
         "",
+        "## Handoff Contract",
+        "",
+        *render_manifest_contract_lines(trial["rendered_manifest"]),
+        "",
         "## 内容",
         "",
         "- `handoff_trial.json`: 原始 trial report。",
@@ -228,6 +236,44 @@ def render_readme_zh(trial: dict[str, Any], validation_detail: str, artifact_man
         ]
     )
     return "\n".join(lines)
+
+
+def render_manifest_contract_lines(manifest: dict[str, Any]) -> list[str]:
+    lines = [
+        f"- morphojet_objects_csv: `{manifest.get('morphojet_objects_csv')}`",
+        "- required_object_metadata_columns: "
+        f"`{format_list(manifest.get('required_object_metadata_columns', []))}`",
+    ]
+    for index, export in enumerate(manifest.get("exports", [])):
+        if not isinstance(export, dict):
+            continue
+        metadata_columns = export.get(
+            "required_object_metadata_columns",
+            manifest.get("required_object_metadata_columns", []),
+        )
+        lines.extend(
+            [
+                f"- export[{index}].name: `{export.get('name')}`",
+                f"- export[{index}].object_set: `{export.get('object_set')}`",
+                f"- export[{index}].channels: `{format_list(export.get('channels', []))}`",
+                "- export[{}].required_object_metadata_columns: `{}`".format(
+                    index,
+                    format_list(metadata_columns),
+                ),
+                f"- export[{index}].out_csv: `{export.get('out_csv')}`",
+            ]
+        )
+        for key in ["expected_cellprofiler_csv", "comparison_report", "comparison_json"]:
+            if key in export:
+                lines.append(f"- export[{index}].{key}: `{export.get(key)}`")
+    return lines
+
+
+def format_list(value: Any) -> str:
+    if not isinstance(value, list):
+        return "none"
+    items = [str(item) for item in value if isinstance(item, str) and item.strip()]
+    return ", ".join(items) if items else "none"
 
 
 def zip_directory(source_dir: Path, zip_path: Path) -> None:

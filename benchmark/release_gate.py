@@ -1287,7 +1287,7 @@ def package_zip_sha256_issues(path: Path, zip_name: str) -> tuple[str | None, li
 def external_package_readme_common_required_fields(trial: dict, artifact_manifest: dict) -> dict[str, str]:
     evidence = trial.get("external_evidence") if isinstance(trial.get("external_evidence"), dict) else {}
     metadata = trial.get("metadata") if isinstance(trial.get("metadata"), dict) else {}
-    return {
+    fields = {
         "claim_status": f"- claim_status: `{artifact_manifest.get('claim_status')}`",
         "evidence_scope": f"- evidence_scope: `{artifact_manifest.get('evidence_scope')}`",
         "final_production_signoff": (
@@ -1330,6 +1330,54 @@ def external_package_readme_common_required_fields(trial: dict, artifact_manifes
         "packaged_at_utc": f"- packaged_at_utc: `{artifact_manifest.get('packaged_at_utc')}`",
         "validation_detail_text": str(artifact_manifest.get("validation_detail")),
     }
+    fields.update(external_package_readme_contract_fields(trial.get("rendered_manifest")))
+    return fields
+
+
+def external_package_readme_contract_fields(manifest: object) -> dict[str, str]:
+    if not isinstance(manifest, dict):
+        return {}
+    fields = {
+        "manifest_morphojet_objects_csv": (
+            f"- morphojet_objects_csv: `{manifest.get('morphojet_objects_csv')}`"
+        ),
+        "manifest_required_object_metadata_columns": (
+            "- required_object_metadata_columns: "
+            f"`{format_manifest_list(manifest.get('required_object_metadata_columns', []))}`"
+        ),
+    }
+    top_level_metadata = manifest.get("required_object_metadata_columns", [])
+    for index, export in enumerate(manifest.get("exports", [])):
+        if not isinstance(export, dict):
+            continue
+        metadata_columns = export.get("required_object_metadata_columns", top_level_metadata)
+        fields[f"manifest_export_{index}_name"] = f"- export[{index}].name: `{export.get('name')}`"
+        fields[f"manifest_export_{index}_object_set"] = (
+            f"- export[{index}].object_set: `{export.get('object_set')}`"
+        )
+        fields[f"manifest_export_{index}_channels"] = (
+            f"- export[{index}].channels: `{format_manifest_list(export.get('channels', []))}`"
+        )
+        fields[f"manifest_export_{index}_metadata_columns"] = (
+            "- export[{}].required_object_metadata_columns: `{}`".format(
+                index,
+                format_manifest_list(metadata_columns),
+            )
+        )
+        fields[f"manifest_export_{index}_out_csv"] = f"- export[{index}].out_csv: `{export.get('out_csv')}`"
+        for key in ["expected_cellprofiler_csv", "comparison_report", "comparison_json"]:
+            if key in export:
+                fields[f"manifest_export_{index}_{key}"] = (
+                    f"- export[{index}].{key}: `{export.get(key)}`"
+                )
+    return fields
+
+
+def format_manifest_list(value: object) -> str:
+    if not isinstance(value, list):
+        return "none"
+    items = [str(item) for item in value if isinstance(item, str) and item.strip()]
+    return ", ".join(items) if items else "none"
 
 
 def external_package_readme_failures(readme: str, trial: dict, artifact_manifest: dict) -> list[str]:
