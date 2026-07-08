@@ -2121,6 +2121,7 @@ def is_l3_provenance_compatible_path(path: str) -> bool:
         or path == ".github/workflows/cellbindb-l3.yml"
         or path == ".github/workflows/external-l4-rehearsal.yml"
         or path.startswith("tests/")
+        or path == "benchmark/audit_production_evidence.py"
         or path == "benchmark/check_external_l4_readiness.py"
         or path == "benchmark/inspect_cellbindb_direct_masks.py"
         or path == "benchmark/release_gate.py"
@@ -2149,6 +2150,7 @@ def is_external_trial_compatible_path(path: str) -> bool:
         or path == ".github/workflows/cellbindb-l3.yml"
         or path == ".github/workflows/external-l4-rehearsal.yml"
         or path.startswith("tests/")
+        or path == "benchmark/audit_production_evidence.py"
         or path == "benchmark/check_external_l4_readiness.py"
         or path == "benchmark/inspect_cellbindb_direct_masks.py"
         or path == "benchmark/release_gate.py"
