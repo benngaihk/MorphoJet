@@ -27,6 +27,9 @@ README_ZH_NAME = "README.zh-CN.md"
 CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
 EVIDENCE_SCOPE = "EXTERNAL_L4_TRIAL_PLAN"
 FINAL_PRODUCTION_SIGNOFF = False
+STABLE_RELEASE_TAG = "v0.1.0"
+STABLE_RELEASE_REPO = "benngaihk/MorphoJet"
+STABLE_RELEASE_URL = f"https://github.com/{STABLE_RELEASE_REPO}/releases/tag/{STABLE_RELEASE_TAG}"
 
 
 class PrepareError(Exception):
@@ -394,7 +397,7 @@ def plan_commands(
             "--external-evidence-package-verification-report",
             str(package_verification),
             "--github-release-tag",
-            "v0.1.0",
+            STABLE_RELEASE_TAG,
             "--local-evidence-preflight-json",
             str(preflight_json),
             "--local-evidence-preflight-md",
@@ -412,9 +415,9 @@ def plan_commands(
         "verify_stable_release": [
             "python3",
             "benchmark/verify_github_release.py",
-            "v0.1.0",
+            STABLE_RELEASE_TAG,
             "--repo",
-            "benngaihk/MorphoJet",
+            STABLE_RELEASE_REPO,
             "--out-dir",
             str(github_release_dir),
             "--expect-stable",
@@ -431,9 +434,9 @@ def plan_commands(
             "--require-stable-report",
             "--verify-git-commit",
             "--expect-tag",
-            "v0.1.0",
+            STABLE_RELEASE_TAG,
             "--expect-repo",
-            "benngaihk/MorphoJet",
+            STABLE_RELEASE_REPO,
         ],
         "final_production_gate": [
             "python3",
@@ -451,7 +454,7 @@ def plan_commands(
             "--github-release-verification-report",
             str(github_release_verification),
             "--github-release-tag",
-            "v0.1.0",
+            STABLE_RELEASE_TAG,
             "--out-json",
             str(production_claim_json),
             "--out-md",
@@ -500,6 +503,13 @@ def final_signoff_requirements(workspace: Path, package_name: str) -> list[dict[
             "status": "PENDING_EXTERNAL_REVIEW",
             "planned_path": str(workspace / "evidence-package-verification.json"),
             "verification_step": "verify_package",
+            "required_for": "final_production_gate",
+        },
+        {
+            "name": "stable_github_release",
+            "status": "PENDING_STABLE_RELEASE",
+            "planned_path": STABLE_RELEASE_URL,
+            "verification_step": "verify_stable_release",
             "required_for": "final_production_gate",
         },
         {

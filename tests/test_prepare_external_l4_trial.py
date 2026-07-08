@@ -211,6 +211,26 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 requirement_by_name["external_l4_evidence_package"]["planned_path"],
             )
             self.assertEqual(
+                "https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0",
+                requirement_by_name["stable_github_release"]["planned_path"],
+            )
+            self.assertEqual(
+                "verify_stable_release",
+                requirement_by_name["stable_github_release"]["verification_step"],
+            )
+            self.assertEqual(
+                "final_production_gate",
+                requirement_by_name["stable_github_release"]["required_for"],
+            )
+            self.assertEqual(
+                str((workspace / "github-release-verification.json").resolve()),
+                requirement_by_name["stable_github_release_saved_report"]["planned_path"],
+            )
+            self.assertEqual(
+                "verify_stable_release_report",
+                requirement_by_name["stable_github_release_saved_report"]["verification_step"],
+            )
+            self.assertEqual(
                 "verify_final_production_report",
                 requirement_by_name["final_production_claim_report"]["verification_step"],
             )
@@ -222,6 +242,9 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("## final_signoff_requirements", readme)
             self.assertIn("| Requirement | Status | Planned Path | Verification Step | Required For |", readme)
             self.assertIn("external_l4_workflow_trial", readme)
+            self.assertIn("stable_github_release", readme)
+            self.assertIn("https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0", readme)
+            self.assertIn("stable_github_release_saved_report", readme)
             self.assertIn("final_production_gate", readme)
             self.assertIn(
                 "The saved package verifier report produced by `verify_package` is also not final production signoff",
@@ -261,6 +284,9 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("local_evidence_preflight_report", readme_zh)
             self.assertIn("## final_signoff_requirements", readme_zh)
             self.assertIn("| 要求 | 状态 | 计划路径 | 验证步骤 | 用于 |", readme_zh)
+            self.assertIn("stable_github_release", readme_zh)
+            self.assertIn("https://github.com/benngaihk/MorphoJet/releases/tag/v0.1.0", readme_zh)
+            self.assertIn("stable_github_release_saved_report", readme_zh)
             self.assertIn("production_signoff", readme_zh)
             self.assertIn("saved package verifier report 也不是最终生产签核", readme_zh)
             self.assertIn("evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW", readme_zh)
