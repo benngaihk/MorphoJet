@@ -222,6 +222,9 @@ class PackageExternalTrialTest(unittest.TestCase):
             expected_zip_sha = release_gate.sha256_file(Path(result["zip"]))
             expected_manifest_sha = release_gate.sha256_file(Path(result["package_dir"]) / "artifact_manifest.json")
             expected_readiness_sha = release_gate.sha256_file(Path(result["package_dir"]) / "readiness.json")
+            expected_readiness_payload = json.loads(
+                (Path(result["package_dir"]) / "readiness.json").read_text(encoding="utf-8")
+            )
             expected_readme_zh_sha = release_gate.sha256_file(Path(result["package_dir"]) / "README.zh-CN.md")
 
         self.assertEqual(0, code)
@@ -253,6 +256,8 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual(expected_readiness_sha, payload["input_files"]["package_readiness"]["sha256"])
         self.assertEqual(expected_readme_zh_sha, payload["input_files"]["package_readme_zh"]["sha256"])
         self.assertEqual("external-l4-demo", payload["input_files"]["package_readiness"]["package_name"])
+        self.assertEqual(expected_readiness_payload["workspace"], payload["input_files"]["package_readiness"]["workspace"])
+        self.assertEqual(expected_readiness_payload["manifest"], payload["input_files"]["package_readiness"]["manifest"])
 
     def test_standalone_verifier_records_absolute_paths_for_relative_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -853,6 +858,95 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual(1, code)
         self.assertIn(
             "input_files.package_readiness.sha256 changed after recomputing evidence package validation",
+            stderr.getvalue(),
+        )
+
+    def test_saved_fail_package_verification_report_allows_missing_readiness_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            readiness_json = Path(result["package_dir"]) / "readiness.json"
+            readiness_json.unlink()
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                    require_pass=False,
+                )
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(
+                    json_out,
+                    verify_files=True,
+                )
+
+        self.assertEqual(0, code, stderr.getvalue())
+
+    def test_saved_package_verification_report_rejects_readiness_manifest_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["input_files"]["package_readiness"]["manifest"] = str(root / "external" / "other.json")
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn(
+            "input_files.package_readiness.manifest must match package readiness report",
+            stderr.getvalue(),
+        )
+
+    def test_saved_package_verification_report_rejects_readiness_workspace_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["input_files"]["package_readiness"]["workspace"] = str(root / "other-workspace")
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn(
+            "input_files.package_readiness.workspace must match package readiness report",
             stderr.getvalue(),
         )
 

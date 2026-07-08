@@ -86,14 +86,22 @@ def trial_report_summary(path: Path) -> dict[str, Any]:
     return summary
 
 
-def readiness_package_name(path: Path) -> str | None:
+def readiness_report_summary(path: Path) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001 - missing/malformed package files are reported elsewhere.
-        return None
+        payload = None
     if not isinstance(payload, dict):
-        return None
-    package_name = payload.get("package_name")
+        payload = {}
+    return {
+        "package_name": payload.get("package_name"),
+        "workspace": payload.get("workspace"),
+        "manifest": payload.get("manifest"),
+    }
+
+
+def readiness_package_name(path: Path) -> str | None:
+    package_name = readiness_report_summary(path).get("package_name")
     return package_name if isinstance(package_name, str) and package_name.strip() else None
 
 
@@ -124,7 +132,7 @@ def package_input_files(package_dir: Path, trial_json: Path | None = None) -> di
     files["package_artifact_manifest"].update(
         artifact_manifest_claim_scope(package_dir / "artifact_manifest.json")
     )
-    files["package_readiness"]["package_name"] = readiness_package_name(package_dir / "readiness.json")
+    files["package_readiness"].update(readiness_report_summary(package_dir / "readiness.json"))
     files["package_zip"] = file_summary(package_dir.parent / f"{package_dir.name}.zip")
     files["package_zip_sha256"] = file_summary(package_dir.parent / f"{package_dir.name}.zip.sha256")
     if trial_json is not None:
@@ -188,6 +196,13 @@ def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) 
                         failures.append("input_files.package_readiness.package_name must be null or a non-empty string")
                     elif release_gate.slugify(package_name) != package_name:
                         failures.append("input_files.package_readiness.package_name must be a canonical slug")
+            if summary.get("exists"):
+                for field in ["workspace", "manifest"]:
+                    value = summary.get(field)
+                    if not isinstance(value, str) or not value.strip():
+                        failures.append(f"input_files.package_readiness.{field} must be a non-empty string")
+                    elif not Path(value).is_absolute():
+                        failures.append(f"input_files.package_readiness.{field} must be an absolute path")
         if name == "package_artifact_manifest" and isinstance(summary, dict):
             for field in ["claim_status", "evidence_scope", "final_production_signoff"]:
                 if field not in summary:
@@ -242,9 +257,10 @@ def input_file_path_binding_issues(
             failures.append(f"input_files.{name}.path must match report inputs")
     readiness_summary = input_files.get("package_readiness")
     if isinstance(readiness_summary, dict):
-        expected_package_name = readiness_package_name(root / "readiness.json")
-        if readiness_summary.get("package_name") != expected_package_name:
-            failures.append("input_files.package_readiness.package_name must match package readiness report")
+        expected_readiness = readiness_report_summary(root / "readiness.json")
+        for field in ["package_name", "workspace", "manifest"]:
+            if readiness_summary.get(field) != expected_readiness.get(field):
+                failures.append(f"input_files.package_readiness.{field} must match package readiness report")
     source_trial_summary = input_files.get("source_trial_json")
     if isinstance(source_trial_summary, dict) and trial_json is not None:
         try:
@@ -277,6 +293,8 @@ def recomputed_input_file_issues(recorded: dict[str, Any], package_dir: Path, tr
             "size_bytes",
             "sha256",
             "package_name",
+            "workspace",
+            "manifest",
             "claim_status",
             "evidence_scope",
             "final_production_signoff",

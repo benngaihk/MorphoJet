@@ -1339,6 +1339,9 @@ class RunProductionGateTest(unittest.TestCase):
 
             payload = json.loads(out_json.read_text(encoding="utf-8"))
             markdown = out_md.read_text(encoding="utf-8")
+            package_readiness_payload = json.loads(
+                (Path(package["package_dir"]) / "readiness.json").read_text(encoding="utf-8")
+            )
 
         self.assertEqual(0, status)
         self.assertEqual(1, payload["schema_version"])
@@ -1415,6 +1418,8 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertTrue(artifact_by_name["package_zip"]["exists"])
         self.assertEqual(64, len(artifact_by_name["package_zip"]["sha256"]))
         self.assertEqual("external-l4-demo", artifact_by_name["package_readiness_json"]["package_name"])
+        self.assertEqual(package_readiness_payload["workspace"], artifact_by_name["package_readiness_json"]["workspace"])
+        self.assertEqual(package_readiness_payload["manifest"], artifact_by_name["package_readiness_json"]["manifest"])
         self.assertEqual(2, len(payload["gates"]))
         self.assertIn("Local External L4 Evidence Preflight", markdown)
         self.assertIn("claim_status: `NOT_PRODUCTION_CLAIM`", markdown)
@@ -1879,6 +1884,98 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(1, status)
         self.assertIn(
             "input_artifacts.package_readiness_json.package_name must match package readiness report",
+            stderr.getvalue(),
+        )
+
+    def test_verify_local_evidence_preflight_report_rejects_package_readiness_manifest_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root, package_name="external-l4-demo")
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            out_json = root / "reports" / "preflight.json"
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(root / "reports" / "preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                run_production_gate.run_local_evidence_preflight(args)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            for artifact in payload["input_artifacts"]:
+                if artifact["name"] == "package_readiness_json":
+                    artifact["manifest"] = str(root / "external" / "other.json")
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(1, status)
+        self.assertIn(
+            "input_artifacts.package_readiness_json.manifest must match package readiness report",
+            stderr.getvalue(),
+        )
+
+    def test_verify_local_evidence_preflight_report_rejects_package_readiness_workspace_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root, package_name="external-l4-demo")
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            out_json = root / "reports" / "preflight.json"
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--local-evidence-preflight-json",
+                str(out_json),
+                "--local-evidence-preflight-md",
+                str(root / "reports" / "preflight.md"),
+                "--local-evidence-preflight-only",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                run_production_gate.run_local_evidence_preflight(args)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            for artifact in payload["input_artifacts"]:
+                if artifact["name"] == "package_readiness_json":
+                    artifact["workspace"] = str(root / "other-workspace")
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(1, status)
+        self.assertIn(
+            "input_artifacts.package_readiness_json.workspace must match package readiness report",
             stderr.getvalue(),
         )
 

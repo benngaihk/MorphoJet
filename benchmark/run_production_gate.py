@@ -465,7 +465,7 @@ def local_preflight_skipped_final_checklist(saved_reviewer_reports: bool = False
 def local_evidence_input_artifacts(args: argparse.Namespace) -> list[dict]:
     package_dir = args.external_evidence_package_dir
     package_readiness = file_summary("package_readiness_json", package_dir / "readiness.json")
-    package_readiness["package_name"] = readiness_package_name(package_dir / "readiness.json")
+    package_readiness.update(readiness_report_summary(package_dir / "readiness.json"))
     return [
         json_field_summary("external_trial_json", args.external_trial_json, TRIAL_CLAIM_SCOPE),
         json_field_summary("package_handoff_trial_json", package_dir / "handoff_trial.json", TRIAL_CLAIM_SCOPE),
@@ -701,14 +701,22 @@ def json_field_summary(name: str, path: Path, expected_fields: dict[str, object]
     return summary
 
 
-def readiness_package_name(path: Path) -> str | None:
+def readiness_report_summary(path: Path) -> dict[str, object]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001 - missing/malformed evidence is reported by the package gate.
-        return None
+        payload = None
     if not isinstance(payload, dict):
-        return None
-    package_name = payload.get("package_name")
+        payload = {}
+    return {
+        "package_name": payload.get("package_name"),
+        "workspace": payload.get("workspace"),
+        "manifest": payload.get("manifest"),
+    }
+
+
+def readiness_package_name(path: Path) -> str | None:
+    package_name = readiness_report_summary(path).get("package_name")
     return package_name if isinstance(package_name, str) and package_name.strip() else None
 
 
@@ -1148,7 +1156,7 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
                 )
         if isinstance(metadata, dict):
             failures.extend(validate_local_evidence_preflight_path_bindings(metadata, artifact_paths))
-            failures.extend(validate_local_evidence_preflight_package_name_binding(metadata, artifact_summaries))
+            failures.extend(validate_local_evidence_preflight_readiness_binding(metadata, artifact_summaries))
             failures.extend(validate_local_evidence_preflight_artifact_presence(metadata, artifact_summaries))
 
     gates = payload.get("gates")
@@ -1233,16 +1241,23 @@ def validate_local_evidence_preflight_skipped_checklist(
 
 
 def package_readiness_artifact_package_name_issues(artifact: dict) -> list[str]:
+    failures = []
     if "package_name" not in artifact:
-        return ["input_artifacts.package_readiness_json.package_name must be present"]
+        failures.append("input_artifacts.package_readiness_json.package_name must be present")
     package_name = artifact.get("package_name")
-    if package_name is None:
-        return []
-    if not isinstance(package_name, str) or not package_name.strip():
-        return ["input_artifacts.package_readiness_json.package_name must be null or a non-empty string"]
-    if release_gate.slugify(package_name) != package_name:
-        return ["input_artifacts.package_readiness_json.package_name must be a canonical slug"]
-    return []
+    if package_name is not None:
+        if not isinstance(package_name, str) or not package_name.strip():
+            failures.append("input_artifacts.package_readiness_json.package_name must be null or a non-empty string")
+        elif release_gate.slugify(package_name) != package_name:
+            failures.append("input_artifacts.package_readiness_json.package_name must be a canonical slug")
+    if artifact.get("exists"):
+        for field in ["workspace", "manifest"]:
+            value = artifact.get(field)
+            if not isinstance(value, str) or not value.strip():
+                failures.append(f"input_artifacts.package_readiness_json.{field} must be a non-empty string")
+            elif not Path(value).is_absolute():
+                failures.append(f"input_artifacts.package_readiness_json.{field} must be an absolute path")
+    return failures
 
 
 def claim_scope_artifact_issues(
@@ -1346,9 +1361,10 @@ def validate_local_evidence_preflight_files(payload: dict) -> list[str]:
         if actual_hash != artifact.get("sha256"):
             failures.append(f"input artifact sha256 mismatch: {name}")
         if name == "package_readiness_json":
-            actual_package_name = readiness_package_name(path)
-            if actual_package_name != artifact.get("package_name"):
-                failures.append("input artifact package_name mismatch: package_readiness_json")
+            actual_readiness = readiness_report_summary(path)
+            for field in ["package_name", "workspace", "manifest"]:
+                if actual_readiness.get(field) != artifact.get(field):
+                    failures.append(f"input artifact {field} mismatch: package_readiness_json")
         if name in {"external_trial_json", "package_handoff_trial_json"}:
             actual_summary = json_field_summary(name, path, TRIAL_CLAIM_SCOPE)
             for field in TRIAL_CLAIM_SCOPE:
@@ -1480,7 +1496,7 @@ def validate_local_evidence_preflight_artifact_presence(
     return failures
 
 
-def validate_local_evidence_preflight_package_name_binding(
+def validate_local_evidence_preflight_readiness_binding(
     metadata: dict,
     artifact_summaries: dict[str, dict],
 ) -> list[str]:
@@ -1492,9 +1508,10 @@ def validate_local_evidence_preflight_package_name_binding(
     readiness_path = Path(package_dir_value) / "readiness.json"
     if not readiness_path.is_file():
         return failures
-    expected_package_name = readiness_package_name(readiness_path)
-    if readiness_summary.get("package_name") != expected_package_name:
-        failures.append("input_artifacts.package_readiness_json.package_name must match package readiness report")
+    expected_readiness = readiness_report_summary(readiness_path)
+    for field in ["package_name", "workspace", "manifest"]:
+        if readiness_summary.get(field) != expected_readiness.get(field):
+            failures.append(f"input_artifacts.package_readiness_json.{field} must match package readiness report")
     return failures
 
 
