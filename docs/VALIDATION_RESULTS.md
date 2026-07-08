@@ -2,6 +2,37 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `6748df4`
+
+This snapshot records the clean `main` verification for making the source claim-language guard enforce the root bilingual README contract. `benchmark/validate_claim_language.py` now requires the English README to link to `README.zh-CN.md` and requires the Chinese README to keep the external L4 workflow, local preflight, final production wrapper, current blocker list, and package README evidence path visible for Chinese-community review before the release gate can pass.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `6748df4`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-6748df4.json --out-md /tmp/morphojet-l3-release-report-main-6748df4.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-6748df4.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Claim-language guard tests | PASS, 11 tests |
+| Full Python unit test suite | PASS, 476 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Root English README Bilingual Link Contract | PASS |
+| Root Chinese README External L4 Guidance Contract | PASS |
+| Root Chinese README Current Blocker Contract | PASS |
+| Root Chinese README Package README Evidence Contract | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `2c7a660`
 
 This snapshot records the clean `main` verification for synchronizing generated external L4 workspace README instructions with the local-preflight package README evidence checks. `benchmark/prepare_external_l4_trial.py` now writes English and Chinese workspace READMEs that tell reviewers `verify_local_evidence_preflight` rehashes package `README.md` and `README.zh-CN.md` and recomputes package README-rendered readiness scope before PASS can be accepted; `--verify-plan-files` keeps those bilingual instructions bound to the saved trial plan.
