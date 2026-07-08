@@ -367,6 +367,8 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                 "benngaihk/MorphoJet",
                 "--out-dir",
                 str(out_dir),
+                "--expect-commit",
+                self.FULL_COMMIT,
                 "--expect-stable",
                 "--json-out",
                 str(root / "github-release-verification.json"),
@@ -434,6 +436,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                         verify_git_commit=True,
                         expect_tag="v0.1.0",
                         expect_repo="benngaihk/MorphoJet",
+                        expect_commit=self.FULL_COMMIT,
                     )
 
         self.assertEqual(0, status)
@@ -457,6 +460,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         self.assertIn("--require-stable-report requires --verify-git-commit", stderr.getvalue())
         self.assertIn("--require-stable-report requires --expect-tag", stderr.getvalue())
         self.assertIn("--require-stable-report requires --expect-repo", stderr.getvalue())
+        self.assertIn("--require-stable-report requires --expect-commit", stderr.getvalue())
 
     def test_saved_release_report_rejects_claim_scope_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -878,11 +882,52 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                     status = verify_github_release.verify_saved_github_release_report(
                         report,
                         expect_tag="v0.1.0",
+                        expect_commit=self.FULL_COMMIT,
                         verify_git_commit=True,
                     )
 
         self.assertEqual(0, status)
         self.assertIn("verified_git_commit=True", stdout.getvalue())
+        self.assertIn("expected_commit_match=True", stdout.getvalue())
+
+    def test_saved_release_report_can_require_expected_commit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                matching_status = verify_github_release.verify_saved_github_release_report(
+                    report,
+                    expect_commit=self.FULL_COMMIT,
+                )
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                mismatched_status = verify_github_release.verify_saved_github_release_report(
+                    report,
+                    expect_commit="b" * 40,
+                )
+
+        self.assertEqual(0, matching_status)
+        self.assertEqual(1, mismatched_status)
+        self.assertIn(
+            "github release verification report expected_commit does not match expected commit",
+            stderr.getvalue(),
+        )
+
+    def test_saved_release_report_expected_commit_requires_argv_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            expect_commit_index = payload["argv"].index("--expect-commit")
+            del payload["argv"][expect_commit_index : expect_commit_index + 2]
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                status = verify_github_release.verify_saved_github_release_report(
+                    report,
+                    expect_commit=self.FULL_COMMIT,
+                )
+
+        self.assertEqual(1, status)
+        self.assertIn("argv must include exactly one --expect-commit", stderr.getvalue())
 
     def test_saved_release_report_rejects_tag_commit_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

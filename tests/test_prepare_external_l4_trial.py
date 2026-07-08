@@ -163,6 +163,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("--verify-git-commit", stable_report)
             self.assertEqual("v0.1.0", stable_report[stable_report.index("--expect-tag") + 1])
             self.assertEqual("benngaihk/MorphoJet", stable_report[stable_report.index("--expect-repo") + 1])
+            self.assertEqual(plan["git_commit"], stable_report[stable_report.index("--expect-commit") + 1])
             verify_workflows = plan["commands"]["verify_github_workflows"]
             self.assertEqual("benngaihk/MorphoJet", verify_workflows[verify_workflows.index("--repo") + 1])
             self.assertEqual("main", verify_workflows[verify_workflows.index("--branch") + 1])
@@ -462,6 +463,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn(f"trial_plan.json git_commit: `{plan['git_commit']}`", readme)
             self.assertIn("must be generated with `--commit` and rechecked with `--expect-commit`", readme)
             self.assertIn("live stable release verifier command must also use `--expect-commit`", readme)
+            self.assertIn("saved stable release verifier report must also be rechecked with `--expect-commit`", readme)
             self.assertIn("## pre_signoff_requirements", readme)
             self.assertIn("| Requirement | Status | Planned Path | Verification Step | Required Before |", readme)
             self.assertIn("local_evidence_preflight_report", readme)
@@ -587,6 +589,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn(f"trial_plan.json git_commit：`{plan['git_commit']}`", readme_zh)
             self.assertIn("必须用 `--commit` 生成，并用 `--expect-commit` 复核", readme_zh)
             self.assertIn("也必须用 `--expect-commit` 绑定同一个 `trial_plan.json git_commit`", readme_zh)
+            self.assertIn("也必须用 `--expect-commit` 复核到同一个 `trial_plan.json git_commit`", readme_zh)
             self.assertIn("## pre_signoff_requirements", readme_zh)
             self.assertIn("| 要求 | 状态 | 计划路径 | 验证步骤 | 前置于 |", readme_zh)
             self.assertIn("local_evidence_preflight_report", readme_zh)
@@ -1205,6 +1208,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             stable_report = payload["commands"]["verify_stable_release_report"]
             stable_report.remove("--require-stable-report")
             stable_report[stable_report.index("--expect-tag") + 1] = "v0.1.0-rc.1"
+            stable_report[stable_report.index("--expect-commit") + 1] = "3" * 40
             production_evidence_audit = payload["commands"]["audit_production_evidence"]
             production_evidence_audit.remove("--verify-live-github-release")
             production_evidence_audit[production_evidence_audit.index("--github-release-tag") + 1] = "v0.1.0-rc.1"
@@ -1238,6 +1242,7 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             completed.stderr,
         )
         self.assertIn("commands.verify_stable_release_report --expect-tag must be v0.1.0", completed.stderr)
+        self.assertIn("commands.verify_stable_release_report --expect-commit must be", completed.stderr)
         self.assertIn("commands.audit_production_evidence --github-release-tag must be v0.1.0", completed.stderr)
         self.assertIn(
             "commands.audit_production_evidence must include exactly one --verify-live-github-release",

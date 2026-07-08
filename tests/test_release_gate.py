@@ -998,7 +998,7 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertIn("| stable_github_release_saved_report | MISSING |", markdown)
         self.assertIn(
             "--verify-report-files --require-stable-report --verify-git-commit "
-            "--expect-tag <final-tag> --expect-repo benngaihk/MorphoJet",
+            "--expect-tag <final-tag> --expect-repo benngaihk/MorphoJet --expect-commit <final-commit>",
             markdown,
         )
 
@@ -1415,6 +1415,7 @@ class ReleaseGateTest(unittest.TestCase):
         command = release_gate.saved_github_release_report_command(
             report,
             expected_tag="v0.1.0",
+            expected_commit="a" * 40,
         )
 
         self.assertEqual(str(report.resolve(strict=False)), command[command.index("--verify-report") + 1])
@@ -1423,13 +1424,18 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertIn("--require-stable-report", command)
         self.assertIn("--verify-git-commit", command)
         self.assertEqual("v0.1.0", command[command.index("--expect-tag") + 1])
+        self.assertEqual("a" * 40, command[command.index("--expect-commit") + 1])
         self.assertEqual("benngaihk/MorphoJet", command[command.index("--expect-repo") + 1])
 
-    def test_saved_github_release_report_command_verifies_git_commit_without_expected_tag(self) -> None:
-        command = release_gate.saved_github_release_report_command(Path("github-release/verification.json"))
+    def test_saved_github_release_report_command_verifies_expected_commit_without_expected_tag(self) -> None:
+        command = release_gate.saved_github_release_report_command(
+            Path("github-release/verification.json"),
+            expected_commit="b" * 40,
+        )
 
         self.assertIn("--verify-git-commit", command)
         self.assertEqual("benngaihk/MorphoJet", command[command.index("--expect-repo") + 1])
+        self.assertEqual("b" * 40, command[command.index("--expect-commit") + 1])
         self.assertNotIn("--expect-tag", command)
 
     def test_saved_external_trial_report_command_requires_file_recheck_and_pass(self) -> None:

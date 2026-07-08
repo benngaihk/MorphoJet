@@ -98,6 +98,8 @@ class RunProductionGateTest(unittest.TestCase):
                         "benngaihk/MorphoJet",
                         "--out-dir",
                         str(out_dir),
+                        "--expect-commit",
+                        self.FULL_COMMIT,
                         "--expect-stable",
                         "--json-out",
                         str(root / "github-release-verification.json"),
@@ -1415,20 +1417,30 @@ class RunProductionGateTest(unittest.TestCase):
             github_report = self.write_valid_github_release_report(root)
             args = self.parse("--github-release-verification-report", str(github_report))
 
-            with patch.object(verify_github_release, "git_commit", return_value=self.FULL_COMMIT):
+            with patch.object(release_gate, "git_commit", return_value=self.FULL_COMMIT), patch.object(
+                verify_github_release,
+                "git_commit",
+                return_value=self.FULL_COMMIT,
+            ):
                 gates = run_production_gate.saved_reviewer_report_gates(args, include_github_release=True)
 
         self.assertEqual(1, len(gates))
         self.assertEqual("Verify saved stable GitHub release report", gates[0].name)
         self.assertEqual("PASS", gates[0].status)
         self.assertEqual(
-            release_gate.saved_github_release_report_command(github_report, expected_tag="v0.1.0"),
+            release_gate.saved_github_release_report_command(
+                github_report,
+                expected_tag="v0.1.0",
+                expected_commit=self.FULL_COMMIT,
+            ),
             gates[0].command,
         )
         self.assertIn("--require-stable-report", gates[0].command)
         self.assertIn("--verify-git-commit", gates[0].command)
         self.assertIn("--expect-tag", gates[0].command)
         self.assertEqual("v0.1.0", gates[0].command[gates[0].command.index("--expect-tag") + 1])
+        self.assertIn("--expect-commit", gates[0].command)
+        self.assertEqual(self.FULL_COMMIT, gates[0].command[gates[0].command.index("--expect-commit") + 1])
         self.assertIn("--expect-repo", gates[0].command)
         self.assertEqual("benngaihk/MorphoJet", gates[0].command[gates[0].command.index("--expect-repo") + 1])
 
@@ -1441,7 +1453,11 @@ class RunProductionGateTest(unittest.TestCase):
             github_report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
             args = self.parse("--github-release-verification-report", str(github_report))
 
-            with patch.object(verify_github_release, "git_commit", return_value=self.FULL_COMMIT):
+            with patch.object(release_gate, "git_commit", return_value=self.FULL_COMMIT), patch.object(
+                verify_github_release,
+                "git_commit",
+                return_value=self.FULL_COMMIT,
+            ):
                 gates = run_production_gate.saved_reviewer_report_gates(args, include_github_release=True)
 
         self.assertEqual(1, len(gates))
@@ -1459,12 +1475,33 @@ class RunProductionGateTest(unittest.TestCase):
                 str(github_report),
             )
 
-            with patch.object(verify_github_release, "git_commit", return_value=self.FULL_COMMIT):
+            with patch.object(release_gate, "git_commit", return_value=self.FULL_COMMIT), patch.object(
+                verify_github_release,
+                "git_commit",
+                return_value=self.FULL_COMMIT,
+            ):
                 gates = run_production_gate.saved_reviewer_report_gates(args, include_github_release=True)
 
         self.assertEqual(1, len(gates))
         self.assertEqual("FAIL", gates[0].status)
         self.assertIn("tag does not match expected tag", gates[0].detail)
+
+    def test_final_wrapper_rejects_saved_github_release_report_for_different_commit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            github_report = self.write_valid_github_release_report(root)
+            args = self.parse("--github-release-verification-report", str(github_report))
+
+            with patch.object(release_gate, "git_commit", return_value="b" * 40), patch.object(
+                verify_github_release,
+                "git_commit",
+                return_value=self.FULL_COMMIT,
+            ):
+                gates = run_production_gate.saved_reviewer_report_gates(args, include_github_release=True)
+
+        self.assertEqual(1, len(gates))
+        self.assertEqual("FAIL", gates[0].status)
+        self.assertIn("expected_commit does not match expected commit", gates[0].detail)
 
     def test_final_wrapper_rejects_saved_github_release_report_for_different_repo(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1484,7 +1521,11 @@ class RunProductionGateTest(unittest.TestCase):
             github_report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
             args = self.parse("--github-release-verification-report", str(github_report))
 
-            with patch.object(verify_github_release, "git_commit", return_value=self.FULL_COMMIT):
+            with patch.object(release_gate, "git_commit", return_value=self.FULL_COMMIT), patch.object(
+                verify_github_release,
+                "git_commit",
+                return_value=self.FULL_COMMIT,
+            ):
                 gates = run_production_gate.saved_reviewer_report_gates(args, include_github_release=True)
 
         self.assertEqual(1, len(gates))

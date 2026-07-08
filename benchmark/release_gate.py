@@ -733,7 +733,11 @@ def production_claim_contract_failures(args: argparse.Namespace) -> list[str]:
     return failures
 
 
-def saved_github_release_report_command(report: Path, expected_tag: str | None = None) -> list[str]:
+def saved_github_release_report_command(
+    report: Path,
+    expected_tag: str | None = None,
+    expected_commit: str | None = None,
+) -> list[str]:
     command = [
         "python3",
         "benchmark/verify_github_release.py",
@@ -748,6 +752,8 @@ def saved_github_release_report_command(report: Path, expected_tag: str | None =
     ]
     if expected_tag:
         command.extend(["--expect-tag", expected_tag])
+    if expected_commit:
+        command.extend(["--expect-commit", expected_commit])
     return command
 
 
@@ -2363,7 +2369,7 @@ PRODUCTION_CHECKLIST_GUIDANCE = {
         "next_action": (
             "Save verify_github_release.py output outside the download dir, then recheck it with "
             "--verify-report-files --require-stable-report --verify-git-commit "
-            "--expect-tag <final-tag> --expect-repo benngaihk/MorphoJet."
+            "--expect-tag <final-tag> --expect-repo benngaihk/MorphoJet --expect-commit <final-commit>."
         ),
     },
 }
@@ -2759,6 +2765,7 @@ def main() -> int:
         command = saved_github_release_report_command(
             args.github_release_verification_report,
             expected_tag=args.verify_github_release,
+            expected_commit=metadata["git_commit"],
         )
         gates.append(
             run_command(

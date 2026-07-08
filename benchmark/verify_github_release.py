@@ -569,6 +569,7 @@ def validate_verification_report_payload(
     require_stable_report: bool = False,
     expect_tag: str | None = None,
     expect_repo: str | None = None,
+    expect_commit: str | None = None,
     report_path: Path | None = None,
 ) -> list[str]:
     failures: list[str] = []
@@ -637,6 +638,11 @@ def validate_verification_report_payload(
     expected_commit = payload.get("expected_commit")
     expected_doctor_commit = payload.get("expected_doctor_commit")
     failures.extend(expected_commit_issues(expected_commit, expected_doctor_commit))
+    if expect_commit is not None and expected_commit != expect_commit:
+        failures.append(
+            "github release verification report expected_commit does not match expected commit: "
+            f"{expected_commit} != {expect_commit}"
+        )
     out_dir = payload.get("out_dir")
     if out_dir is not None and (not isinstance(out_dir, str) or not out_dir.strip()):
         failures.append("out_dir must be null or a non-empty string")
@@ -656,7 +662,16 @@ def validate_verification_report_payload(
         and out_dir.strip()
     ):
         failures.extend(
-            verification_report_argv_issues(argv, tag, repo, out_dir, expected_kind, expected_commit, report_path)
+            verification_report_argv_issues(
+                argv,
+                tag,
+                repo,
+                out_dir,
+                expected_kind,
+                expected_commit,
+                report_path,
+                require_expect_commit=expect_commit is not None,
+            )
         )
     asset_count = payload.get("asset_count")
     if not isinstance(asset_count, int) or asset_count < 0:
@@ -792,6 +807,7 @@ def verification_report_argv_issues(
     expected_kind: Any,
     expected_commit: Any,
     report_path: Path | None = None,
+    require_expect_commit: bool = False,
 ) -> list[str]:
     failures = []
     if argv[0] != VERIFIER:
@@ -816,6 +832,8 @@ def verification_report_argv_issues(
     expect_commit_values = argv_values(argv, "--expect-commit")
     if len(expect_commit_values) > 1:
         failures.append("argv has duplicate --expect-commit")
+    if require_expect_commit and len(expect_commit_values) != 1:
+        failures.append("argv must include exactly one --expect-commit for expected commit binding")
     for value in expect_commit_values:
         if value is None:
             failures.append("argv --expect-commit must include a value")
@@ -855,6 +873,7 @@ def verify_saved_github_release_report(
     verify_files: bool = False,
     expect_tag: str | None = None,
     expect_repo: str | None = None,
+    expect_commit: str | None = None,
     verify_git_commit: bool = False,
 ) -> int:
     try:
@@ -868,6 +887,7 @@ def verify_saved_github_release_report(
         require_stable_report=require_stable_report,
         expect_tag=expect_tag,
         expect_repo=expect_repo,
+        expect_commit=expect_commit,
         report_path=report,
     )
     if require_stable_report:
@@ -881,6 +901,8 @@ def verify_saved_github_release_report(
             failures.append("--require-stable-report requires --expect-tag")
         if not expect_repo:
             failures.append("--require-stable-report requires --expect-repo")
+        if not expect_commit:
+            failures.append("--require-stable-report requires --expect-commit")
     if verify_git_commit:
         failures.extend(git_commit_verification_issues(payload.get("expected_commit"), expect_tag))
     if not failures and verify_files:
@@ -923,6 +945,8 @@ def verify_saved_github_release_report(
     print(f"tag={payload['tag']}")
     if verify_git_commit:
         print("verified_git_commit=True")
+    if expect_commit:
+        print("expected_commit_match=True")
     return 0
 
 
@@ -951,6 +975,7 @@ def main() -> int:
             verify_files=args.verify_report_files,
             expect_tag=args.expect_tag,
             expect_repo=args.expect_repo,
+            expect_commit=args.expect_commit,
             verify_git_commit=args.verify_git_commit,
         )
     if args.tag is None:

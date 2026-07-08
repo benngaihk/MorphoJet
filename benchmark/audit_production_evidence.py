@@ -73,9 +73,10 @@ def verify_saved_github_workflow_gate(report: Path) -> release_gate.Gate:
 
 
 def verify_saved_github_release_gate(report: Path, tag: str) -> release_gate.Gate:
+    expected_commit = release_gate.git_commit()
     return timed_call(
         "Verify saved stable GitHub release report",
-        release_gate.saved_github_release_report_command(report, expected_tag=tag),
+        release_gate.saved_github_release_report_command(report, expected_tag=tag, expected_commit=expected_commit),
         verify_github_release.verify_saved_github_release_report,
         report,
         require_report_pass=True,
@@ -83,6 +84,7 @@ def verify_saved_github_release_gate(report: Path, tag: str) -> release_gate.Gat
         verify_files=True,
         expect_tag=tag,
         expect_repo=release_gate.GITHUB_RELEASE_REPO,
+        expect_commit=expected_commit,
         verify_git_commit=True,
     )
 
