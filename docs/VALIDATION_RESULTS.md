@@ -2,9 +2,28 @@
 
 Updated: 2026-07-09
 
+## Dry-Run Final Wrapper Contract Snapshot
+
+This snapshot records local verification for aligning `benchmark/run_production_gate.py --dry-run` with the direct final-claim release-gate contract. Dry-run no longer prints a final `benchmark/release_gate.py --require-production-claim` command that omits saved reviewer/verifier report arguments; it still skips file-existence checks after those argument paths are supplied.
+
+This is not a production claim. The current release-gate precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_run_production_gate.py` | PASS, 96 tests |
+| `python3 benchmark/run_production_gate.py --dry-run --external-trial-json /tmp/morphojet-external/handoff_trial.json --external-trial-root /tmp/morphojet-external --external-evidence-package-dir /tmp/morphojet-package --github-release-tag v0.1.0` | PASS; expected exit 2 with missing saved trial/package/GitHub verifier report arguments |
+| `python3 benchmark/run_production_gate.py --dry-run --external-trial-json /tmp/morphojet-external/handoff_trial.json --external-trial-root /tmp/morphojet-external --external-evidence-package-dir /tmp/morphojet-package --external-trial-verification-report /tmp/morphojet-external/trial-verification.json --external-evidence-package-verification-report /tmp/morphojet-package/package-verification.json --github-release-verification-report /tmp/morphojet-github-release-verification.json --github-release-tag v0.1.0` | PASS; prints a release-gate command containing all final saved report arguments without requiring those paths to exist |
+| `python3 -m unittest discover -s tests` | PASS, 550 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## Final Wrapper Saved Report Contract Coverage Snapshot
 
-This snapshot records local verification for the final production wrapper's saved reviewer/verifier input contract. Actual non-dry-run final wrapper runs require the external trial reviewer report, external evidence-package reviewer report, and stable GitHub release verifier report together; dry-run and local-preflight modes remain explicitly non-final and may omit those saved reports.
+This snapshot records local verification for the final production wrapper's saved reviewer/verifier input contract. Final wrapper commands, including dry-run command inspection, require the external trial reviewer report, external evidence-package reviewer report, and stable GitHub release verifier report together; local-preflight mode remains the explicitly non-final exception.
 
 This is not a production claim. The current release-gate precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
 

@@ -268,7 +268,7 @@ class RunProductionGateTest(unittest.TestCase):
 
         self.assertEqual([set(report_flags)], accepted_groups)
 
-    def test_final_gate_allows_missing_saved_reports_for_dry_run_or_local_preflight(self) -> None:
+    def test_final_gate_allows_missing_saved_reports_for_local_preflight_only(self) -> None:
         run_production_gate.require_final_gate_args(self.parse(), require_saved_reports=False)
 
     def test_builds_final_report_verification_command(self) -> None:
@@ -433,6 +433,12 @@ class RunProductionGateTest(unittest.TestCase):
                     "missing/root",
                     "--external-evidence-package-dir",
                     "missing/package",
+                    "--external-trial-verification-report",
+                    "missing/trial-verification.json",
+                    "--external-evidence-package-verification-report",
+                    "missing/package-verification.json",
+                    "--github-release-verification-report",
+                    "missing/github-release-verification.json",
                     "--github-release-tag",
                     "v0.1.0",
                     "--dry-run",
@@ -791,6 +797,12 @@ class RunProductionGateTest(unittest.TestCase):
                     "external",
                     "--external-evidence-package-dir",
                     "evidence/external-l4-trial",
+                    "--external-trial-verification-report",
+                    "external/trial-verification.json",
+                    "--external-evidence-package-verification-report",
+                    "evidence/package-verification.json",
+                    "--github-release-verification-report",
+                    "github/verification.json",
                     "--github-release-tag",
                     "v0.1.0",
                     "--out-json",

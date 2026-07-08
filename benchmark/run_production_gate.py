@@ -953,7 +953,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         require_final_gate_args(
             args,
-            require_saved_reports=not args.dry_run and not args.local_evidence_preflight_only,
+            require_saved_reports=not args.local_evidence_preflight_only,
         )
         command = build_release_gate_command(args)
         if args.local_evidence_preflight_only:
