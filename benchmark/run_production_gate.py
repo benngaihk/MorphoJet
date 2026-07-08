@@ -1149,6 +1149,7 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
         if isinstance(metadata, dict):
             failures.extend(validate_local_evidence_preflight_path_bindings(metadata, artifact_paths))
             failures.extend(validate_local_evidence_preflight_package_name_binding(metadata, artifact_summaries))
+            failures.extend(validate_local_evidence_preflight_artifact_presence(metadata, artifact_summaries))
 
     gates = payload.get("gates")
     if not isinstance(gates, list):
@@ -1453,6 +1454,29 @@ def validate_local_evidence_preflight_path_bindings(
                 failures.append(f"input_artifacts.{artifact_name}.path does not match metadata.{metadata_key}")
         elif artifact_name in artifact_paths:
             failures.append(f"input_artifacts.{artifact_name} is present but metadata.{metadata_key} is empty")
+    return failures
+
+
+def validate_local_evidence_preflight_artifact_presence(
+    metadata: dict,
+    artifact_summaries: dict[str, dict],
+) -> list[str]:
+    failures = []
+    required_names = set(LOCAL_PREFLIGHT_INPUT_NAMES)
+    optional_metadata_artifacts = {
+        "external_trial_verification_report": "external_trial_verification_report",
+        "external_evidence_package_verification_report": "external_evidence_package_verification_report",
+    }
+    for metadata_key, artifact_name in optional_metadata_artifacts.items():
+        value = metadata.get(metadata_key)
+        if isinstance(value, str) and value.strip():
+            required_names.add(artifact_name)
+    for name in sorted(required_names):
+        artifact = artifact_summaries.get(name)
+        if artifact is None:
+            failures.append(f"input_artifacts.{name} must be present")
+        elif artifact.get("exists") is not True:
+            failures.append(f"input_artifacts.{name}.exists must be true")
     return failures
 
 
