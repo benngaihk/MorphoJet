@@ -254,6 +254,18 @@ python3 benchmark/run_external_l4_rehearsal.py \
 
 The same internal rehearsal machinery is wired into `.github/workflows/external-l4-rehearsal.yml` for pushes to `main`, weekly scheduled runs, and manual `workflow_dispatch`. That workflow generates a minimal CI fixture outside the git checkout, runs the rehearsal there, writes the Markdown summary to the GitHub Actions step summary, and uploads the summary, trial plan, bilingual README files, readiness report, trial report, saved trial/package verifier reports, local preflight report, and evidence package as a 30-day artifact. It is continuous non-final rehearsal evidence and still does not satisfy real external L4 signoff, the stable GitHub release, or final production-claim gates.
 
+After pushing a candidate commit, save and re-check the required GitHub Actions workflow evidence with:
+
+```bash
+python3 benchmark/verify_github_workflows.py --json-out path/to/github-workflows.json
+python3 benchmark/verify_github_workflows.py \
+  --verify-report path/to/github-workflows.json \
+  --require-report-pass \
+  --expect-commit "$(git rev-parse HEAD)" \
+  --expect-workflow ci.yml \
+  --expect-workflow external-l4-rehearsal.yml
+```
+
 The external L4 template declares `required_object_metadata_columns` for `Plate`, `Well`, and `Site`. Readiness checks enforce those columns on MorphoJet `Objects.csv`, so real handoff workspaces should generate `Objects.csv` with `measure --include-object-metadata` or intentionally update the manifest contract before review.
 
 Generated external-workspace READMEs also tell reviewers that local preflight treats saved reviewer reports as validated only when both saved reviewer verifier gates pass; otherwise the saved reviewer report check stays in the skipped final checklist until the failing reviewer report is fixed and rechecked. They now also state that `verify_local_evidence_preflight` rehashes package `README.md` and `README.zh-CN.md`, recomputes package README-rendered readiness scope, binds the README-rendered handoff contract back to `rendered_manifest.json`, recomputes each package README `review_entrypoint_present` value before PASS can be accepted, and renders those values in the saved local preflight Markdown `Review Entrypoint` column.

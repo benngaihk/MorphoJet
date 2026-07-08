@@ -275,6 +275,18 @@ python3 benchmark/run_external_l4_rehearsal.py \
 
 同一套内部 rehearsal 机制也接入 `.github/workflows/external-l4-rehearsal.yml`：push 到 `main`、每周定时和手动 `workflow_dispatch` 都会运行。这个 workflow 会在 git checkout 外生成最小 CI fixture，再执行 rehearsal，把 Markdown summary 写入 GitHub Actions step summary，并把 summary、trial plan、中英文 README、readiness report、trial report、trial/package saved verifier reports、local preflight report 和 evidence package 作为保留 30 天的 artifact 上传。它是持续的非最终 rehearsal evidence，仍然不能替代真实外部 L4 签核、稳定 GitHub release 或最终 production-claim gate。
 
+推送候选 commit 后，可以保存并复核必需 GitHub Actions workflow 证据：
+
+```bash
+python3 benchmark/verify_github_workflows.py --json-out path/to/github-workflows.json
+python3 benchmark/verify_github_workflows.py \
+  --verify-report path/to/github-workflows.json \
+  --require-report-pass \
+  --expect-commit "$(git rev-parse HEAD)" \
+  --expect-workflow ci.yml \
+  --expect-workflow external-l4-rehearsal.yml
+```
+
 稳定 release 存在后，用 production wrapper 把所有必需证据绑定到同一份最终报告：
 
 ```bash
