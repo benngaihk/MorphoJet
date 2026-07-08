@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## Local Preflight Clean Metadata Signoff Snapshot
+
+This snapshot records local verification for making saved local evidence-preflight signoff require clean saved git metadata. `--require-local-evidence-preflight-pass` now rejects reports whose metadata says the worktree was dirty or whose saved `git_status` is non-empty, in addition to requiring file rehashing and gate reruns. This keeps reviewer-ready local preflight evidence reproducible from a clean committed tree while preserving ordinary saved-report checks for diagnostics.
+
+This is not a production claim. Local preflight reports remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_run_production_gate.py` | PASS, 94 tests |
+| `python3 tests/test_prepare_external_l4_trial.py` | PASS, 29 tests |
+| `python3 -m unittest discover -s tests` | PASS, 530 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## Local Preflight Stable Tag Signoff Snapshot
 
 This snapshot records local verification for making saved local evidence-preflight report review reject non-stable `metadata.github_release_tag` values. A local preflight remains non-final evidence, but its saved report now preserves the future stable-release binding instead of allowing an RC or weakened tag to be edited into both metadata and `metadata.argv`.

@@ -1706,6 +1706,15 @@ def verify_local_evidence_preflight_report(
         )
     if require_pass and payload.get("status") != "PASS":
         failures.append(f"local evidence preflight status is not PASS: {payload.get('status')}")
+    if require_pass:
+        metadata = payload.get("metadata")
+        if not isinstance(metadata, dict):
+            failures.append("--require-local-evidence-preflight-pass requires metadata")
+        else:
+            if metadata.get("git_dirty") is not False:
+                failures.append("--require-local-evidence-preflight-pass requires metadata.git_dirty=false")
+            if metadata.get("git_status") != []:
+                failures.append("--require-local-evidence-preflight-pass requires metadata.git_status=[]")
     if not failures and verify_files:
         failures.extend(validate_local_evidence_preflight_files(payload))
     if not failures and verify_gates:

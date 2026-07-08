@@ -3524,6 +3524,37 @@ class RunProductionGateTest(unittest.TestCase):
             stderr.getvalue(),
         )
 
+    def test_require_local_evidence_preflight_pass_rejects_dirty_git_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, out_json, _trial_json, _package_dir = self.write_local_preflight(root)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            payload["metadata"]["git_dirty"] = True
+            payload["metadata"]["git_status"] = [" M benchmark/run_production_gate.py"]
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                        "--verify-local-evidence-preflight-files",
+                        "--verify-local-evidence-preflight-gates",
+                        "--require-local-evidence-preflight-pass",
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertEqual(1, verify_status)
+        self.assertIn(
+            "--require-local-evidence-preflight-pass requires metadata.git_dirty=false",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "--require-local-evidence-preflight-pass requires metadata.git_status=[]",
+            stderr.getvalue(),
+        )
+
     def test_main_preflight_only_does_not_print_final_release_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
