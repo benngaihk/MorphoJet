@@ -2,6 +2,29 @@
 
 Updated: 2026-07-08
 
+## Remote Workflow Activation Snapshot for `cd0b9e6`
+
+This snapshot records remote GitHub state after the scheduled CellBinDB L3 workflow was pushed to `main`. The local checkout and `origin/main` both resolved to `cd0b9e6cf827535c960168ba3c7714dede08d1b4`, and GitHub Actions listed the new workflow as active.
+
+Environment:
+
+- Branch: `main`
+- Local HEAD: `cd0b9e6cf827535c960168ba3c7714dede08d1b4`
+- Remote `origin/main`: `cd0b9e6cf827535c960168ba3c7714dede08d1b4`
+- Remote workflow command: `gh workflow list --repo benngaihk/MorphoJet`
+
+Result:
+
+| Remote Check | Result |
+|---|---:|
+| `origin/main` matches local HEAD | PASS |
+| `CellBinDB L3 Validation` workflow exists | PASS |
+| `CellBinDB L3 Validation` workflow state | `active` |
+| `CellBinDB L3 Validation` workflow id | `309251628` |
+| `CI` workflow state | `active` |
+| `Release` workflow state | `active` |
+| Production claim impact | Remote workflow activation is recurring L3 regression evidence only; `production_claim_status` remains `INCOMPLETE` until the external L4 and stable-release gates pass together |
+
 ## Release-Gate Snapshot for `0f83696`
 
 This snapshot records the clean `main` verification for adding the scheduled GitHub Actions CellBinDB L3 validation workflow. `.github/workflows/cellbindb-l3.yml` now runs the scheduler-ready `benchmark/run_cellbindb_l3_validation.sh` weekly and on manual dispatch, uploads the L3 release-gate, parity, impact, provenance, workflow-bridge, and handoff-trial reports as a 30-day artifact, and remains explicitly documented as recurring non-final L3 regression evidence rather than an external L4 or stable-release production claim.
