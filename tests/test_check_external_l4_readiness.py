@@ -289,6 +289,47 @@ class ExternalL4ReadinessTest(unittest.TestCase):
             self.assertEqual(0, completed.returncode, completed.stderr)
             self.assertIn("status=READY", completed.stdout)
 
+    def test_require_ready_requires_file_recheck(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            manifest_path = workspace / "external_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            fill_external_evidence(manifest)
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            write_valid_inputs(workspace)
+            report = workspace / "readiness.json"
+            subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--workspace",
+                    str(workspace),
+                    "--json-out",
+                    str(report),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/check_external_l4_readiness.py",
+                    "--verify-report",
+                    str(report),
+                    "--require-ready",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("--require-ready requires --verify-report-files", completed.stderr)
+
     def test_readiness_rejects_tampered_workspace_readme(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "external-trial"

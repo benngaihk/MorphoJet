@@ -2,6 +2,24 @@
 
 Updated: 2026-07-08
 
+## Readiness Saved Report File Signoff Snapshot
+
+This snapshot records local verification for making saved external L4 readiness report signoff fail closed unless `--require-ready` is paired with `--verify-report-files`. Generated external L4 plans already use that stronger command; this closes the manual-review gap where a saved READY JSON could be accepted without revalidating the current workspace, manifest, bilingual README files, input CSVs, planned outputs, and package paths.
+
+This is not a production claim. Readiness reports remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_READINESS_PRECHECK`, and `final_production_signoff=false`; production remains incomplete until the real external L4 evidence chain, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_check_external_l4_readiness.py` | PASS, 28 tests |
+| `python3 tests/test_prepare_external_l4_trial.py` | PASS, 28 tests |
+| `python3 -m unittest discover -s tests` | PASS, 523 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## External Workspace Reviewer Signoff Instructions Snapshot
 
 This snapshot records local verification for making generated external L4 workspace READMEs state that saved trial/package reviewer report signoff must pair `--require-report-pass` with `--verify-report-files`. The generated plan already emits the stronger commands; the generated English and Chinese READMEs now tell reviewers why that pairing is required, and `--verify-plan-files` rejects README edits that remove or weaken the instruction.

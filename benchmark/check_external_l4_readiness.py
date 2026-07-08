@@ -505,6 +505,8 @@ def verify_saved_readiness_report(
         print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
     failures = validate_readiness_report_payload(payload, report_path=report, require_ready=require_ready)
+    if require_ready and not verify_files:
+        failures.append("--require-ready requires --verify-report-files")
     if not failures and verify_files:
         argv = payload["argv"]
         fresh = readiness_report(
@@ -653,7 +655,11 @@ def main() -> int:
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--verify-report", type=Path, help="Validate a saved readiness JSON report")
     parser.add_argument("--verify-report-files", action="store_true", help="Recompute readiness checks from saved report paths")
-    parser.add_argument("--require-ready", action="store_true", help="Reject saved readiness reports that are not READY")
+    parser.add_argument(
+        "--require-ready",
+        action="store_true",
+        help="Reject saved readiness reports that are not READY; requires --verify-report-files",
+    )
     args = parser.parse_args()
     if args.verify_report:
         return verify_saved_readiness_report(
