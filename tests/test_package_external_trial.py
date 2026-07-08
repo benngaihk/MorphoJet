@@ -266,6 +266,7 @@ class PackageExternalTrialTest(unittest.TestCase):
             expected_readiness_payload = json.loads(
                 (Path(result["package_dir"]) / "readiness.json").read_text(encoding="utf-8")
             )
+            expected_readme_sha = release_gate.sha256_file(Path(result["package_dir"]) / "README.md")
             expected_readme_zh_sha = release_gate.sha256_file(Path(result["package_dir"]) / "README.zh-CN.md")
 
         self.assertEqual(0, code)
@@ -304,6 +305,7 @@ class PackageExternalTrialTest(unittest.TestCase):
         )
         self.assertFalse(payload["input_files"]["package_artifact_manifest"]["trial_final_production_signoff"])
         self.assertEqual(expected_readiness_sha, payload["input_files"]["package_readiness"]["sha256"])
+        self.assertEqual(expected_readme_sha, payload["input_files"]["package_readme"]["sha256"])
         self.assertEqual(expected_readme_zh_sha, payload["input_files"]["package_readme_zh"]["sha256"])
         self.assertEqual("READY", payload["input_files"]["package_readiness"]["status"])
         self.assertEqual("NOT_PRODUCTION_CLAIM", payload["input_files"]["package_readiness"]["claim_status"])
@@ -319,6 +321,30 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertEqual("external-l4-demo", payload["input_files"]["package_readiness"]["package_name"])
         self.assertEqual(expected_readiness_payload["workspace"], payload["input_files"]["package_readiness"]["workspace"])
         self.assertEqual(expected_readiness_payload["manifest"], payload["input_files"]["package_readiness"]["manifest"])
+        for readme_key in ["package_readme", "package_readme_zh"]:
+            self.assertEqual("NOT_PRODUCTION_CLAIM", payload["input_files"][readme_key]["claim_status"])
+            self.assertEqual("EXTERNAL_L4_EVIDENCE_PACKAGE", payload["input_files"][readme_key]["evidence_scope"])
+            self.assertFalse(payload["input_files"][readme_key]["final_production_signoff"])
+            self.assertEqual("READY", payload["input_files"][readme_key]["readiness_status"])
+            self.assertEqual("NOT_PRODUCTION_CLAIM", payload["input_files"][readme_key]["readiness_claim_status"])
+            self.assertEqual(
+                "EXTERNAL_L4_READINESS_PRECHECK",
+                payload["input_files"][readme_key]["readiness_evidence_scope"],
+            )
+            self.assertFalse(payload["input_files"][readme_key]["readiness_final_production_signoff"])
+            self.assertEqual(
+                expected_readiness_payload["generated_at_utc"],
+                payload["input_files"][readme_key]["readiness_generated_at_utc"],
+            )
+            self.assertEqual("external-l4-demo", payload["input_files"][readme_key]["readiness_package_name"])
+            self.assertEqual(
+                expected_readiness_payload["workspace"],
+                payload["input_files"][readme_key]["readiness_workspace"],
+            )
+            self.assertEqual(
+                expected_readiness_payload["manifest"],
+                payload["input_files"][readme_key]["readiness_manifest"],
+            )
 
     def test_standalone_verifier_records_absolute_paths_for_relative_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -922,6 +948,88 @@ class PackageExternalTrialTest(unittest.TestCase):
             stderr.getvalue(),
         )
 
+    def test_saved_package_verification_report_rejects_unbound_package_readme_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["input_files"]["package_readme"]["readiness_claim_status"] = "FINAL_PRODUCTION_CLAIM"
+            payload["input_files"]["package_readme"]["readiness_evidence_scope"] = "FINAL_PRODUCTION_RELEASE_GATE"
+            payload["input_files"]["package_readme"]["readiness_final_production_signoff"] = True
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn(
+            "input_files.package_readme.readiness_claim_status=FINAL_PRODUCTION_CLAIM",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_files.package_readme.readiness_evidence_scope=FINAL_PRODUCTION_RELEASE_GATE",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_files.package_readme.readiness_final_production_signoff must be false",
+            stderr.getvalue(),
+        )
+
+    def test_saved_package_verification_report_rejects_unbound_chinese_package_readme_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            result = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            json_out = root / "external-package-verification.json"
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(result["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=json_out,
+                )
+            payload = json.loads(json_out.read_text(encoding="utf-8"))
+            payload["input_files"]["package_readme_zh"]["readiness_claim_status"] = "FINAL_PRODUCTION_CLAIM"
+            payload["input_files"]["package_readme_zh"]["readiness_evidence_scope"] = (
+                "FINAL_PRODUCTION_RELEASE_GATE"
+            )
+            payload["input_files"]["package_readme_zh"]["readiness_final_production_signoff"] = True
+            json_out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                code = verify_external_evidence_package.verify_saved_external_evidence_package_report(json_out)
+
+        self.assertEqual(1, code)
+        self.assertIn(
+            "input_files.package_readme_zh.readiness_claim_status=FINAL_PRODUCTION_CLAIM",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_files.package_readme_zh.readiness_evidence_scope=FINAL_PRODUCTION_RELEASE_GATE",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_files.package_readme_zh.readiness_final_production_signoff must be false",
+            stderr.getvalue(),
+        )
+
     def test_saved_fail_package_verification_report_allows_missing_readiness_context(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1044,15 +1152,19 @@ class PackageExternalTrialTest(unittest.TestCase):
 
         self.assertEqual(1, code)
         self.assertIn(
-            "input_files.package_artifact_manifest.claim_status changed after recomputing evidence package validation",
+            "input_files.package_readme.claim_status must match package artifact manifest",
             stderr.getvalue(),
         )
         self.assertIn(
-            "input_files.package_artifact_manifest.evidence_scope changed after recomputing evidence package validation",
+            "input_files.package_readme.evidence_scope must match package artifact manifest",
             stderr.getvalue(),
         )
         self.assertIn(
-            "input_files.package_artifact_manifest.final_production_signoff changed after recomputing evidence package validation",
+            "input_files.package_readme.final_production_signoff must match package artifact manifest",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_files.package_readme_zh.claim_status must match package artifact manifest",
             stderr.getvalue(),
         )
 

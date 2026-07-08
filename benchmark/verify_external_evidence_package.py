@@ -113,6 +113,45 @@ def readiness_package_name(path: Path) -> str | None:
     return package_name if isinstance(package_name, str) and package_name.strip() else None
 
 
+def parse_readme_value(value: str) -> Any:
+    if value == "False":
+        return False
+    if value == "True":
+        return True
+    if value == "None":
+        return None
+    return value
+
+
+def readme_scope_summary(path: Path) -> dict[str, Any]:
+    fields = {
+        "claim_status": None,
+        "evidence_scope": None,
+        "final_production_signoff": None,
+        "readiness_status": None,
+        "readiness_claim_status": None,
+        "readiness_evidence_scope": None,
+        "readiness_final_production_signoff": None,
+        "readiness_generated_at_utc": None,
+        "readiness_package_name": None,
+        "readiness_workspace": None,
+        "readiness_manifest": None,
+    }
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception:  # noqa: BLE001 - missing/malformed package files are reported elsewhere.
+        return fields
+    values = dict(fields)
+    for line in text.splitlines():
+        match = re.fullmatch(r"- ([A-Za-z0-9_]+): `(.+)`", line)
+        if not match:
+            continue
+        key, raw_value = match.groups()
+        if key in values:
+            values[key] = parse_readme_value(raw_value)
+    return values
+
+
 def artifact_manifest_claim_scope(path: Path) -> dict[str, Any]:
     fields = {
         "claim_status": None,
@@ -137,6 +176,8 @@ def package_input_files(package_dir: Path, trial_json: Path | None = None) -> di
         artifact_manifest_claim_scope(package_dir / "artifact_manifest.json")
     )
     files["package_readiness"].update(readiness_report_summary(package_dir / "readiness.json"))
+    files["package_readme"].update(readme_scope_summary(package_dir / "README.md"))
+    files["package_readme_zh"].update(readme_scope_summary(package_dir / "README.zh-CN.md"))
     files["package_zip"] = file_summary(package_dir.parent / f"{package_dir.name}.zip")
     files["package_zip_sha256"] = file_summary(package_dir.parent / f"{package_dir.name}.zip.sha256")
     if trial_json is not None:
@@ -230,6 +271,50 @@ def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) 
                         failures.append(f"input_files.package_readiness.{field} must be a non-empty string")
                     elif not Path(value).is_absolute():
                         failures.append(f"input_files.package_readiness.{field} must be an absolute path")
+        if name in {"package_readme", "package_readme_zh"} and isinstance(summary, dict):
+            label = f"input_files.{name}"
+            if summary.get("exists"):
+                if summary.get("claim_status") != "NOT_PRODUCTION_CLAIM":
+                    failures.append(f"{label}.claim_status={summary.get('claim_status')}")
+                if summary.get("evidence_scope") != "EXTERNAL_L4_EVIDENCE_PACKAGE":
+                    failures.append(f"{label}.evidence_scope={summary.get('evidence_scope')}")
+                if summary.get("final_production_signoff") is not False:
+                    failures.append(f"{label}.final_production_signoff must be false")
+                if summary.get("readiness_status") != READINESS_STATUS:
+                    failures.append(f"{label}.readiness_status={summary.get('readiness_status')}")
+                if summary.get("readiness_claim_status") != READINESS_CLAIM_STATUS:
+                    failures.append(f"{label}.readiness_claim_status={summary.get('readiness_claim_status')}")
+                if summary.get("readiness_evidence_scope") != READINESS_EVIDENCE_SCOPE:
+                    failures.append(f"{label}.readiness_evidence_scope={summary.get('readiness_evidence_scope')}")
+                if summary.get("readiness_final_production_signoff") is not FINAL_PRODUCTION_SIGNOFF:
+                    failures.append(f"{label}.readiness_final_production_signoff must be false")
+                generated_at = summary.get("readiness_generated_at_utc")
+                if not isinstance(generated_at, str) or not generated_at.strip():
+                    failures.append(f"{label}.readiness_generated_at_utc must be a non-empty string")
+                else:
+                    try:
+                        parsed_generated_at = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+                        if parsed_generated_at.tzinfo is None:
+                            failures.append(f"{label}.readiness_generated_at_utc must include timezone")
+                        elif not is_utc_datetime(parsed_generated_at):
+                            failures.append(f"{label}.readiness_generated_at_utc must be UTC")
+                    except ValueError:
+                        failures.append(f"{label}.readiness_generated_at_utc is invalid: {generated_at}")
+                if "readiness_package_name" not in summary:
+                    failures.append(f"{label}.readiness_package_name must be present")
+                else:
+                    package_name = summary.get("readiness_package_name")
+                    if package_name is not None:
+                        if not isinstance(package_name, str) or not package_name.strip():
+                            failures.append(f"{label}.readiness_package_name must be null or a non-empty string")
+                        elif release_gate.slugify(package_name) != package_name:
+                            failures.append(f"{label}.readiness_package_name must be a canonical slug")
+                for field in ["readiness_workspace", "readiness_manifest"]:
+                    value = summary.get(field)
+                    if not isinstance(value, str) or not value.strip():
+                        failures.append(f"{label}.{field} must be a non-empty string")
+                    elif not Path(value).is_absolute():
+                        failures.append(f"{label}.{field} must be an absolute path")
         if name == "package_artifact_manifest" and isinstance(summary, dict):
             for field in [
                 "claim_status",
@@ -317,6 +402,54 @@ def input_file_path_binding_issues(
         ]:
             if readiness_summary.get(field) != expected_readiness.get(field):
                 failures.append(f"input_files.package_readiness.{field} must match package readiness report")
+    readiness_path = root / "readiness.json"
+    expected_readiness = readiness_report_summary(readiness_path)
+    expected_manifest_scope = artifact_manifest_claim_scope(root / "artifact_manifest.json")
+    for readme_name, readme_file in [
+        ("package_readme", root / "README.md"),
+        ("package_readme_zh", root / "README.zh-CN.md"),
+    ]:
+        readme_summary = input_files.get(readme_name)
+        if not isinstance(readme_summary, dict):
+            continue
+        expected_readme = readme_scope_summary(readme_file)
+        for field in [
+            "claim_status",
+            "evidence_scope",
+            "final_production_signoff",
+            "readiness_status",
+            "readiness_claim_status",
+            "readiness_evidence_scope",
+            "readiness_final_production_signoff",
+            "readiness_generated_at_utc",
+            "readiness_package_name",
+            "readiness_workspace",
+            "readiness_manifest",
+        ]:
+            if readme_summary.get(field) != expected_readme.get(field):
+                failures.append(f"input_files.{readme_name}.{field} must match package README")
+        readme_to_manifest = {
+            "claim_status": "claim_status",
+            "evidence_scope": "evidence_scope",
+            "final_production_signoff": "final_production_signoff",
+        }
+        for readme_field, manifest_field in readme_to_manifest.items():
+            if readme_summary.get(readme_field) != expected_manifest_scope.get(manifest_field):
+                failures.append(f"input_files.{readme_name}.{readme_field} must match package artifact manifest")
+        if readiness_path.is_file():
+            readme_to_readiness = {
+                "readiness_status": "status",
+                "readiness_claim_status": "claim_status",
+                "readiness_evidence_scope": "evidence_scope",
+                "readiness_final_production_signoff": "final_production_signoff",
+                "readiness_generated_at_utc": "generated_at_utc",
+                "readiness_package_name": "package_name",
+                "readiness_workspace": "workspace",
+                "readiness_manifest": "manifest",
+            }
+            for readme_field, readiness_field in readme_to_readiness.items():
+                if readme_summary.get(readme_field) != expected_readiness.get(readiness_field):
+                    failures.append(f"input_files.{readme_name}.{readme_field} must match package readiness report")
     source_trial_summary = input_files.get("source_trial_json")
     if isinstance(source_trial_summary, dict) and trial_json is not None:
         try:
@@ -359,6 +492,14 @@ def recomputed_input_file_issues(recorded: dict[str, Any], package_dir: Path, tr
             "trial_claim_status",
             "trial_evidence_scope",
             "trial_final_production_signoff",
+            "readiness_status",
+            "readiness_claim_status",
+            "readiness_evidence_scope",
+            "readiness_final_production_signoff",
+            "readiness_generated_at_utc",
+            "readiness_package_name",
+            "readiness_workspace",
+            "readiness_manifest",
         ]:
             if recorded_summary.get(field) != current_summary.get(field):
                 failures.append(f"input_files.{name}.{field} changed after recomputing evidence package validation")
