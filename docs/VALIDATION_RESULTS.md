@@ -2711,7 +2711,7 @@ Local validation for the wrapper:
 | `python3 tests/test_run_production_gate.py` with saved report verifier coverage | PASS |
 | `python3 benchmark/validate_claim_language.py` | PASS |
 | `git diff --check` | PASS |
-| `python3 -m unittest discover -s tests` | PASS, 573 tests |
+| `python3 -m unittest discover -s tests` | PASS, 576 tests |
 | `python3 tests/test_package_external_trial.py` with standalone evidence package verifier coverage | PASS |
 | `python3 tests/test_verify_external_trial_report.py` with standalone external trial report verifier coverage | PASS |
 | `python3 tests/test_verify_github_release.py` with saved release expected-repo coverage | PASS |
@@ -3009,6 +3009,7 @@ Result:
 |---|---:|
 | Archive contains `morphojet` | PASS |
 | Archive contains `README.md` | PASS |
+| Archive contains `README.zh-CN.md` | PASS |
 | Archive contains `LICENSE` | PASS |
 | SHA-256 verification | PASS |
 | Packaged `morphojet doctor` smoke | PASS |
@@ -3017,6 +3018,31 @@ Result:
 | SHA-256 | Recorded in `benchmark/results/release-artifacts/verification.json` |
 
 Conclusion: local release artifact shape is validated. Production release evidence still requires a tagged GitHub release with published macOS and Linux archives and checksums.
+
+## Bilingual Release Archive Contract
+
+This snapshot tightens the release package contract so the stable GitHub release cannot satisfy release evidence with English-only documentation.
+
+Changes:
+
+- `benchmark/build_release_archive.py` now packages `README.zh-CN.md` alongside `README.md`, `LICENSE`, and the `morphojet` binary.
+- `.github/workflows/release.yml` uses the same package shape for tagged release assets.
+- `benchmark/verify_release_archive.py` requires `README.zh-CN.md` during local archive verification.
+- `benchmark/verify_github_release.py` reuses the same required package-file set, so live GitHub release verification rejects archives missing the Chinese README.
+
+Validation:
+
+| Command | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/build_release_archive.py benchmark/verify_release_archive.py benchmark/verify_github_release.py tests/test_build_release_archive.py tests/test_verify_release_archive.py tests/test_verify_github_release.py` | PASS |
+| `python3 -m unittest discover -s tests -p 'test_build_release_archive.py'` | PASS |
+| `python3 -m unittest discover -s tests -p 'test_verify_release_archive.py'` | PASS |
+| `python3 -m unittest discover -s tests -p 'test_verify_github_release.py'` | PASS |
+| `python3 benchmark/build_release_archive.py --version local-bilingual --out-dir benchmark/results/release-artifacts` | PASS |
+| `python3 benchmark/verify_release_archive.py benchmark/results/release-artifacts/morphojet-local-bilingual-macos-arm64.tar.gz --json-out benchmark/results/release-artifacts/local-bilingual-verification.json` | PASS |
+| `tar -tzf benchmark/results/release-artifacts/morphojet-local-bilingual-macos-arm64.tar.gz \| sort` | PASS, includes `README.zh-CN.md` |
+
+Conclusion: local and GitHub release verification now enforce the bilingual release archive shape. This reduces stable-release packaging risk but remains non-final evidence until a stable GitHub release is published and verified with the final production wrapper.
 
 ## GitHub Release Candidate Snapshot
 

@@ -37,6 +37,9 @@ def write_tar(path: Path, members: list[tuple[str, bytes, str]]) -> None:
 
 
 class VerifyReleaseArchiveTest(unittest.TestCase):
+    def test_required_files_include_chinese_readme(self) -> None:
+        self.assertIn("README.zh-CN.md", verify_release_archive.REQUIRED_FILES)
+
     def test_checksum_issues_accepts_matching_archive_name(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             checksum = Path(tmp) / "archive.tar.gz.sha256"

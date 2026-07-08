@@ -151,13 +151,15 @@ python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/p
 
 ## 发布验证
 
-打 `v*` tag 后，GitHub Actions 会构建 macOS 和 Linux CLI archive，并发布 SHA-256 checksum。
+打 `v*` tag 后，GitHub Actions 会构建 macOS 和 Linux CLI archive，并发布 SHA-256 checksum。Release archive 必须同时包含 `README.md`、`README.zh-CN.md` 和 `LICENSE`，让中文社区 reviewer 拿到同一份发布包上下文。
 
 本地验证 release archive 形状：
 
 ```bash
 python3 benchmark/release_gate.py --build-release-artifact --release-version local
 ```
+
+本地 archive verifier 会检查 checksum、tar 安全解包、`morphojet doctor`，以及 `README.zh-CN.md` 等必需 package files。
 
 验证已发布的 GitHub release candidate：
 

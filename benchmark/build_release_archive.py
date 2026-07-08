@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SAFE_VERSION_PATTERN = re.compile(r"^[A-Za-z0-9._+-]+$")
-PACKAGE_FILES = {"morphojet", "README.md", "LICENSE"}
+PACKAGE_FILES = {"morphojet", "README.md", "README.zh-CN.md", "LICENSE"}
 
 
 def cargo_bin() -> str:
@@ -116,6 +116,7 @@ def main() -> int:
     package_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(binary, package_dir / "morphojet")
     shutil.copy2(ROOT / "README.md", package_dir / "README.md")
+    shutil.copy2(ROOT / "README.zh-CN.md", package_dir / "README.zh-CN.md")
     shutil.copy2(ROOT / "LICENSE", package_dir / "LICENSE")
 
     if archive.exists():

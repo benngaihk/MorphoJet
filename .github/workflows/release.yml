@@ -44,7 +44,7 @@ jobs:
           name="morphojet-${version}-${os}-${arch}"
           mkdir -p "dist/${name}"
           cp target/release/morphojet "dist/${name}/"
-          cp README.md LICENSE "dist/${name}/"
+          cp README.md README.zh-CN.md LICENSE "dist/${name}/"
           tar -C dist -czf "dist/${name}.tar.gz" "${name}"
           shasum -a 256 "dist/${name}.tar.gz" > "dist/${name}.tar.gz.sha256"
 

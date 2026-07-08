@@ -13,7 +13,7 @@ import tempfile
 from pathlib import Path
 
 
-REQUIRED_FILES = {"morphojet", "README.md", "LICENSE"}
+REQUIRED_FILES = {"morphojet", "README.md", "README.zh-CN.md", "LICENSE"}
 
 
 def sha256(path: Path) -> str:

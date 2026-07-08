@@ -40,7 +40,7 @@ cargo run -p morphojet -- measure \
 
 ## Release Builds
 
-Tagged releases (`v*`) build macOS and Linux CLI archives with SHA-256 checksums through GitHub Actions.
+Tagged releases (`v*`) build macOS and Linux CLI archives with SHA-256 checksums through GitHub Actions. Release archives include `README.md`, `README.zh-CN.md`, and `LICENSE` so Chinese-community reviewers receive the same release package context.
 
 To validate the local release archive shape before tagging:
 
@@ -48,7 +48,7 @@ To validate the local release archive shape before tagging:
 python3 benchmark/release_gate.py --build-release-artifact --release-version local
 ```
 
-Local archive verification checks the archive checksum digest and checksum target filename before extracting the package.
+Local archive verification checks the archive checksum digest, checksum target filename, traversal-safe extraction, `morphojet doctor`, and required package files including `README.zh-CN.md`.
 
 To verify a published GitHub release candidate:
 

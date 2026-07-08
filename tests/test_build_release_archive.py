@@ -31,10 +31,15 @@ class BuildReleaseArchiveTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             package_dir = Path(tmp) / "morphojet-local-macos-arm64"
             package_dir.mkdir()
-            for name in ["morphojet", "README.md", "LICENSE"]:
+            for name in ["morphojet", "README.md", "README.zh-CN.md", "LICENSE"]:
                 (package_dir / name).write_text("ok\n", encoding="utf-8")
 
             self.assertTrue(build_release_archive.package_dir_is_replaceable(package_dir))
+
+    def test_release_workflow_packages_chinese_readme(self) -> None:
+        workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+
+        self.assertIn('cp README.md README.zh-CN.md LICENSE "dist/${name}/"', workflow)
 
     def test_existing_package_dir_with_extra_file_is_not_replaceable(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

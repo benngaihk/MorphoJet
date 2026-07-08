@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import release_gate
+from verify_release_archive import REQUIRED_FILES as REQUIRED_PACKAGE_FILES
 from verify_release_archive import verify
 
 
@@ -25,7 +26,6 @@ DEFAULT_REPO = release_gate.GITHUB_RELEASE_REPO
 CLAIM_STATUS = release_gate.NON_FINAL_CLAIM_STATUS
 EVIDENCE_SCOPE = release_gate.GITHUB_STABLE_RELEASE_EVIDENCE_SCOPE
 FINAL_PRODUCTION_SIGNOFF = release_gate.NON_FINAL_PRODUCTION_SIGNOFF
-REQUIRED_PACKAGE_FILES = {"morphojet", "README.md", "LICENSE"}
 FULL_COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
 SHORT_COMMIT_PATTERN = re.compile(r"[0-9a-f]{12}")
 ASSET_DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")

@@ -39,6 +39,9 @@ class VerifyGithubReleaseTest(unittest.TestCase):
     def test_default_repo_reuses_release_gate_contract(self) -> None:
         self.assertIs(release_gate.GITHUB_RELEASE_REPO, verify_github_release.DEFAULT_REPO)
 
+    def test_release_archive_required_files_include_chinese_readme(self) -> None:
+        self.assertIn("README.zh-CN.md", verify_github_release.REQUIRED_PACKAGE_FILES)
+
     def test_stable_release_tag_validation_reuses_release_gate_contract(self) -> None:
         self.assertEqual(
             [],
