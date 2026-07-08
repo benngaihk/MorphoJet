@@ -194,6 +194,11 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("| Requirement | Status | Planned Path | Verification Step | Required For |", readme)
             self.assertIn("external_l4_workflow_trial", readme)
             self.assertIn("final_production_gate", readme)
+            self.assertIn(
+                "The saved package verifier report produced by `verify_package` is also not final production signoff",
+                readme,
+            )
+            self.assertIn("evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW", readme)
             self.assertLess(readme.index("## verify_plan"), readme.index("## validate_manifest"))
             self.assertLess(readme.index("## verify_readiness"), readme.index("## run_trial"))
             self.assertLess(
@@ -218,6 +223,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("## final_signoff_requirements", readme_zh)
             self.assertIn("| 要求 | 状态 | 计划路径 | 验证步骤 | 用于 |", readme_zh)
             self.assertIn("production_signoff", readme_zh)
+            self.assertIn("saved package verifier report 也不是最终生产签核", readme_zh)
+            self.assertIn("evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW", readme_zh)
             self.assertLess(readme_zh.index("## verify_plan"), readme_zh.index("## validate_manifest"))
             self.assertLess(readme_zh.index("## verify_readiness"), readme_zh.index("## run_trial"))
             self.assertLess(
