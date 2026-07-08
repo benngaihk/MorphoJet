@@ -2,6 +2,36 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `2bc03d0`
+
+This snapshot records the verification for saved trial-plan checks that bind final signoff rows back to the generated final production wrapper command. `benchmark/prepare_external_l4_trial.py --verify-plan` now checks that every final-signoff `required_for` wrapper flag appears exactly once in `commands.final_production_gate`, that each planned artifact path matches the matching command value, and that the final production claim report maps back to the generated final `--out-json` path.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `2bc03d085c3074fb1a8ec33b071059829722b7be`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-final-wrapper-bindings.json --out-md /tmp/morphojet-l3-release-report-final-wrapper-bindings.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-final-wrapper-bindings.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Generated external L4 workspace tests | PASS, 22 tests |
+| Final-signoff command-binding tamper test | PASS |
+| Full Python unit test suite | PASS, 494 tests |
+| Source claim-language guard | PASS, 16 paths |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| English saved-plan binding documentation | PASS |
+| Chinese saved-plan binding documentation | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `c0ab0ef`
 
 This snapshot records the verification for binding generated final signoff requirements to the exact final production wrapper arguments they satisfy. `benchmark/prepare_external_l4_trial.py` now records separate `required_for` values for `--external-trial-json`, `--external-evidence-package-dir`, `--external-trial-verification-report`, `--external-evidence-package-verification-report`, `--github-release-tag`, and `--github-release-verification-report`; the generated English and Chinese external-workspace READMEs render the same mapping so reviewers can trace every final artifact to the wrapper input it must satisfy.
