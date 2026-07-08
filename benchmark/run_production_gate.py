@@ -763,8 +763,8 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
             "",
             "## Input Artifacts",
             "",
-            "| Name | Exists | Size Bytes | SHA-256 | Claim Status | Evidence Scope | Final Signoff | Trial Claim Status | Trial Evidence Scope | Trial Final Signoff | Package Name | Path |",
-            "|---|---:|---:|---|---|---|---:|---|---|---:|---|---|",
+            "| Name | Exists | Size Bytes | SHA-256 | Claim Status | Evidence Scope | Final Signoff | Trial Claim Status | Trial Evidence Scope | Trial Final Signoff | Package Name | Readiness Workspace | Readiness Manifest | Path |",
+            "|---|---:|---:|---|---|---|---:|---|---|---:|---|---|---|---|",
         ]
     )
     for artifact in payload["input_artifacts"]:
@@ -781,6 +781,8 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
             f"{artifact.get('trial_evidence_scope') or ''} | "
             f"{artifact.get('trial_final_production_signoff') if 'trial_final_production_signoff' in artifact else ''} | "
             f"{artifact.get('package_name') or ''} | "
+            f"{artifact.get('workspace') or ''} | "
+            f"{artifact.get('manifest') or ''} | "
             f"{artifact['path']} |"
         )
     lines.extend(
