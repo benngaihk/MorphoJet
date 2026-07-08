@@ -758,6 +758,44 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             completed.stderr,
         )
 
+    def test_saved_trial_plan_rejects_stable_release_command_binding_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+            payload = json.loads(plan_path.read_text(encoding="utf-8"))
+            verify_release = payload["commands"]["verify_stable_release"]
+            verify_release[2] = "v0.1.0-rc.1"
+            verify_release[verify_release.index("--repo") + 1] = "example/MorphoJet"
+            stable_report = payload["commands"]["verify_stable_release_report"]
+            stable_report.remove("--require-stable-report")
+            stable_report[stable_report.index("--expect-tag") + 1] = "v0.1.0-rc.1"
+            final_gate = payload["commands"]["final_production_gate"]
+            final_gate[final_gate.index("--github-release-tag") + 1] = "v0.1.0-rc.1"
+            plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("commands.verify_stable_release tag must be v0.1.0", completed.stderr)
+        self.assertIn("commands.verify_stable_release --repo must be benngaihk/MorphoJet", completed.stderr)
+        self.assertIn(
+            "commands.verify_stable_release_report must include exactly one --require-stable-report",
+            completed.stderr,
+        )
+        self.assertIn("commands.verify_stable_release_report --expect-tag must be v0.1.0", completed.stderr)
+        self.assertIn("commands.final_production_gate --github-release-tag must be v0.1.0", completed.stderr)
+
     def test_saved_trial_plan_rejects_template_hash_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "external-trial"

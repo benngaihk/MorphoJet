@@ -384,6 +384,65 @@ def validate_external_evidence_command_bindings(payload: dict[str, Any]) -> list
     return failures
 
 
+def validate_stable_release_command_bindings(payload: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    commands = payload.get("commands")
+    workspace = payload.get("workspace")
+    if not isinstance(commands, dict):
+        return failures
+    if not isinstance(workspace, str) or not workspace.strip():
+        return failures
+    github_release_verification = str(Path(workspace) / "github-release-verification.json")
+
+    def command(command_name: str) -> list[str]:
+        value = commands.get(command_name)
+        if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
+            failures.append(f"commands.{command_name} must be a non-empty string list before stable-release binding")
+            return []
+        return value
+
+    def expect_flag(command_name: str, flag: str, expected: str, label: str) -> None:
+        values = argv_values(command(command_name), flag)
+        if len(values) != 1 or values[0] is None:
+            failures.append(f"commands.{command_name} must include exactly one {flag} value for {label}")
+        elif values[0] != expected:
+            failures.append(f"commands.{command_name} {flag} must be {expected} for {label}")
+
+    def expect_present(command_name: str, flag: str, label: str) -> None:
+        count = command(command_name).count(flag)
+        if count != 1:
+            failures.append(f"commands.{command_name} must include exactly one {flag} for {label}")
+
+    verify_release = command("verify_stable_release")
+    if len(verify_release) <= 2:
+        failures.append("commands.verify_stable_release missing stable release tag argument")
+    elif verify_release[2] != STABLE_RELEASE_TAG:
+        failures.append(f"commands.verify_stable_release tag must be {STABLE_RELEASE_TAG}")
+    expect_flag("verify_stable_release", "--repo", STABLE_RELEASE_REPO, "stable release repo")
+    expect_flag("verify_stable_release", "--json-out", github_release_verification, "GitHub release verifier report")
+    expect_present("verify_stable_release", "--expect-stable", "stable release verification")
+
+    expect_flag("verify_stable_release_report", "--verify-report", github_release_verification, "GitHub release verifier report")
+    expect_flag("verify_stable_release_report", "--expect-tag", STABLE_RELEASE_TAG, "stable release tag")
+    expect_flag("verify_stable_release_report", "--expect-repo", STABLE_RELEASE_REPO, "stable release repo")
+    for flag, label in [
+        ("--verify-report-files", "saved stable release file recheck"),
+        ("--require-report-pass", "saved stable release PASS enforcement"),
+        ("--require-stable-report", "saved stable report type"),
+        ("--verify-git-commit", "saved stable release git commit binding"),
+    ]:
+        expect_present("verify_stable_release_report", flag, label)
+
+    expect_flag("final_production_gate", "--github-release-tag", STABLE_RELEASE_TAG, "final stable release tag")
+    expect_flag(
+        "final_production_gate",
+        "--github-release-verification-report",
+        github_release_verification,
+        "GitHub release verifier report",
+    )
+    return failures
+
+
 def validate_generator_argv(payload: dict[str, Any], argv: list[str]) -> list[str]:
     failures = []
     if argv[0] != GENERATOR:
@@ -515,6 +574,7 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
             failures.extend(validate_pre_signoff_command_bindings(payload))
             failures.extend(validate_final_signoff_command_bindings(payload))
             failures.extend(validate_external_evidence_command_bindings(payload))
+            failures.extend(validate_stable_release_command_bindings(payload))
     if verify_files:
         failures.extend(validate_plan_files(payload))
     return failures
