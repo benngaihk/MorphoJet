@@ -17,6 +17,9 @@ import release_gate
 SCHEMA_VERSION = 1
 VERIFIER = "benchmark/verify_external_trial_report.py"
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
+CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
+EVIDENCE_SCOPE = "EXTERNAL_L4_WORKFLOW_TRIAL_REVIEW"
+FINAL_PRODUCTION_SIGNOFF = False
 
 
 def is_utc_datetime(value: datetime) -> bool:
@@ -275,6 +278,9 @@ def verify_external_trial_report(
         "schema_version": SCHEMA_VERSION,
         "verifier": VERIFIER,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "claim_status": CLAIM_STATUS,
+        "evidence_scope": EVIDENCE_SCOPE,
+        "final_production_signoff": FINAL_PRODUCTION_SIGNOFF,
         "status": gate.status,
         "argv": verifier_argv(trial_json, trial_root, json_out),
         "trial_json": str(trial_json),
@@ -313,6 +319,12 @@ def validate_verification_report_payload(
         failures.append(f"schema_version={payload.get('schema_version')}")
     if payload.get("verifier") != VERIFIER:
         failures.append(f"verifier={payload.get('verifier')}")
+    if payload.get("claim_status") != CLAIM_STATUS:
+        failures.append(f"claim_status={payload.get('claim_status')}")
+    if payload.get("evidence_scope") != EVIDENCE_SCOPE:
+        failures.append(f"evidence_scope={payload.get('evidence_scope')}")
+    if payload.get("final_production_signoff") is not FINAL_PRODUCTION_SIGNOFF:
+        failures.append("final_production_signoff must be false")
     generated_at = payload.get("generated_at_utc")
     if isinstance(generated_at, str):
         try:
