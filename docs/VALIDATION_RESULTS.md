@@ -2,6 +2,40 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `d00ee79`
+
+This snapshot records the clean `main` verification for binding external L4 handoff execution to the same saved READY readiness report workspace. `benchmark/run_handoff_trial.py` now re-verifies a supplied readiness report and fails before any trial step if the report's `manifest` does not match the current trial manifest or its `workspace` does not match the current `base_dir`/manifest directory. English and Chinese README coverage, generated external workspace README coverage, and production-readiness docs now describe that fail-fast binding.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `d00ee79`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-main-d00ee79.json --out-md /tmp/morphojet-l3-release-report-main-d00ee79.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-main-d00ee79.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Handoff manifest and runner tests | PASS, 22 tests |
+| External trial workspace preparation tests | PASS, 21 tests |
+| External L4 readiness tests | PASS, 26 tests |
+| Full Python unit test suite | PASS, 449 tests |
+| Source claim-language guard | PASS |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Handoff READY manifest binding | PASS |
+| Handoff READY workspace/base_dir binding | PASS |
+| English README Readiness Execution Binding Coverage | PASS |
+| Chinese README Readiness Execution Binding Coverage | PASS |
+| Generated Workspace Bilingual README Binding Coverage | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `f3b7b13`
 
 This snapshot records the clean `main` verification for binding external L4 readiness to the saved trial plan and bilingual reviewer instructions. `benchmark/check_external_l4_readiness.py` now requires the workspace `trial_plan.json` to exist and verifies it with file checks before returning READY, which also revalidates the template hash, manifest presence, and both English and Chinese README files. Saved readiness report file rechecks now fail if the plan or bilingual instructions are weakened after the readiness report is written.
