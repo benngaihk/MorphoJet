@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PATHS = [
     ROOT / "README.md",
+    *sorted(ROOT.glob("README.*.md")),
     *(ROOT / "docs").glob("*.md"),
 ]
 RISKY_PATTERNS = [
@@ -20,6 +21,13 @@ RISKY_PATTERNS = [
     re.compile(r"\bready for production\b", re.IGNORECASE),
     re.compile(r"\breplaces?\s+CellProfiler\b", re.IGNORECASE),
     re.compile(r"\bCellProfiler[- ]replacement\b", re.IGNORECASE),
+    re.compile(r"生产级"),
+    re.compile(r"生产就绪"),
+    re.compile(r"生产可用"),
+    re.compile(r"可用于生产"),
+    re.compile(r"达到生产标准"),
+    re.compile(r"(?:替代|取代)\s*CellProfiler", re.IGNORECASE),
+    re.compile(r"CellProfiler\s*(?:的)?替代品", re.IGNORECASE),
 ]
 SAFE_LINE_MARKERS = [
     "not ",
@@ -39,6 +47,23 @@ SAFE_LINE_MARKERS = [
     "before",
     "not enough",
     "not allowed",
+    "不是",
+    "不能",
+    "不可",
+    "不应",
+    "不要",
+    "尚未",
+    "未完成",
+    "未通过",
+    "未满足",
+    "直到",
+    "之前",
+    "除非",
+    "不足以",
+    "不代表",
+    "阻塞",
+    "保持",
+    "仍",
 ]
 SAFE_CONTEXT_MARKERS = [
     "not allowed",
@@ -46,6 +71,11 @@ SAFE_CONTEXT_MARKERS = [
     "must not",
     "should not",
     "do not",
+    "不能",
+    "不可",
+    "不是",
+    "尚未",
+    "直到",
 ]
 
 

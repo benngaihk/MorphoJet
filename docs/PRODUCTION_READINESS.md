@@ -25,7 +25,7 @@ Production-grade means:
 | Workflow fit | CellProfiler-style object CSV handoff can run without manual CSV editing | CellBinDB L4-preflight handoff PASS with 35 contract columns; external trial template and release-gate external trial report plus strict-runner metadata, clean-git current-or-compatible commit metadata, reviewer signoff metadata, manifest-declared step command/runtime/detail/artifact coverage, and one-to-one artifact hash validation implemented |
 | Observability | Clear stderr summary, actionable error context, runtime diagnostics, and machine-readable success/failure metadata | Runtime `doctor`, optional `measure --summary-json`, and optional `measure --error-json` with basic error codes implemented |
 | Release | GitHub release workflow and checksums | `v0.1.0-rc.1` prerelease PASS: GitHub Actions built Linux/macOS archives, checksums verified, macOS packaged `doctor` commit verified; release gate reports now record git commit, dirty-worktree status, arguments, optional L3 provenance/hash validation, and a production-claim audit |
-| Documentation | Supported inputs, unsupported scope, parity gaps, and production caveats documented | L3 evidence and release gate documented; source-doc claim language guard rejects unsupported production-ready or CellProfiler-replacement claims; L4 workflow caveats remain |
+| Documentation | Supported inputs, unsupported scope, parity gaps, and production caveats documented | L3 evidence and release gate documented; source-doc claim language guard scans English and Chinese README/docs and rejects unsupported production-ready, production-grade, production-level, or CellProfiler-replacement claims; L4 workflow caveats remain |
 
 ## Production Hardening Backlog
 
