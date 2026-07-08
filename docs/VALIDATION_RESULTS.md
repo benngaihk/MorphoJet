@@ -2,6 +2,37 @@
 
 Updated: 2026-07-08
 
+## Release-Gate Snapshot for `5fde170`
+
+This snapshot records the verification for binding evidence-package README handoff contracts into saved package verifier reports. `benchmark/verify_external_evidence_package.py` now parses the README-rendered handoff contract into `input_files.package_readme.handoff_contract` and `input_files.package_readme_zh.handoff_contract`, checks those summaries against the package READMEs and `rendered_manifest.json`, and rejects saved-report tampering.
+
+Environment:
+
+- Branch: `main`
+- Verified code commit: `5fde1709980d9ed24713c3a0ac7a450aff3b2e55`
+- Release-gate command: `python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --out-json /tmp/morphojet-l3-release-report-saved-package-contract.json --out-md /tmp/morphojet-l3-release-report-saved-package-contract.md`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-l3-release-report-saved-package-contract.json --require-report-pass --require-clean-git-metadata --verify-git-commit --expect-missing-checks external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| External L4 package tests | PASS, 80 tests |
+| Full Python unit test suite | PASS, 489 tests |
+| Source claim-language guard | PASS, 16 paths |
+| Whitespace diff check | PASS |
+| Clean L3 release gate | PASS |
+| Saved release-gate report verifier | PASS |
+| Saved package verifier README handoff-contract summaries | PASS |
+| Saved package verifier tamper rejection | PASS |
+| English saved-package-verifier documentation | PASS |
+| Chinese saved-package-verifier documentation | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Release-Gate Snapshot for `c854c7e`
 
 This snapshot records the verification for rendering the external L4 handoff contract in evidence-package READMEs. Evidence packages now show `morphojet_objects_csv`, `required_object_metadata_columns`, and each export's object set, channels, metadata columns, output CSV, expected CellProfiler CSV, and comparison artifact paths in both `README.md` and `README.zh-CN.md`; release gate checks those README fields so the review package cannot silently lose the downstream CSV contract.
