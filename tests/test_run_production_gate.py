@@ -1479,6 +1479,17 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertTrue(artifact_by_name["package_zip"]["exists"])
         self.assertEqual(64, len(artifact_by_name["package_zip"]["sha256"]))
         self.assertEqual("external-l4-demo", artifact_by_name["package_readiness_json"]["package_name"])
+        self.assertEqual("READY", artifact_by_name["package_readiness_json"]["status"])
+        self.assertEqual("NOT_PRODUCTION_CLAIM", artifact_by_name["package_readiness_json"]["claim_status"])
+        self.assertEqual(
+            "EXTERNAL_L4_READINESS_PRECHECK",
+            artifact_by_name["package_readiness_json"]["evidence_scope"],
+        )
+        self.assertIs(False, artifact_by_name["package_readiness_json"]["final_production_signoff"])
+        self.assertEqual(
+            package_readiness_payload["generated_at_utc"],
+            artifact_by_name["package_readiness_json"]["generated_at_utc"],
+        )
         self.assertEqual(package_readiness_payload["workspace"], artifact_by_name["package_readiness_json"]["workspace"])
         self.assertEqual(package_readiness_payload["manifest"], artifact_by_name["package_readiness_json"]["manifest"])
         self.assertEqual(2, len(payload["gates"]))
@@ -1490,8 +1501,11 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("## Skipped Final Checks", markdown)
         self.assertIn("stable_github_release", markdown)
         self.assertIn("Trial Claim Status", markdown)
+        self.assertIn("Readiness Generated At", markdown)
         self.assertIn("Readiness Workspace", markdown)
         self.assertIn("Readiness Manifest", markdown)
+        self.assertIn("EXTERNAL_L4_READINESS_PRECHECK", markdown)
+        self.assertIn(package_readiness_payload["generated_at_utc"], markdown)
         self.assertIn("package_artifact_manifest_json", markdown)
         self.assertIn(package_readiness_payload["workspace"], markdown)
         self.assertIn(package_readiness_payload["manifest"], markdown)
@@ -1768,6 +1782,51 @@ class RunProductionGateTest(unittest.TestCase):
             stderr.getvalue(),
         )
 
+    def test_verify_local_evidence_preflight_files_recomputes_package_readiness_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, out_json, _trial_json, package_dir = self.write_local_preflight(
+                root,
+                package_name="external-l4-demo",
+            )
+            readiness_path = package_dir / "readiness.json"
+            readiness = json.loads(readiness_path.read_text(encoding="utf-8"))
+            readiness["claim_status"] = "FINAL_PRODUCTION_CLAIM"
+            readiness["evidence_scope"] = "FINAL_PRODUCTION_RELEASE_GATE"
+            readiness["final_production_signoff"] = True
+            readiness_path.write_text(json.dumps(readiness, indent=2) + "\n", encoding="utf-8")
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            artifact_by_name = {artifact["name"]: artifact for artifact in payload["input_artifacts"]}
+            artifact_by_name["package_readiness_json"]["size_bytes"] = readiness_path.stat().st_size
+            artifact_by_name["package_readiness_json"]["sha256"] = run_production_gate.release_gate.sha256_file(
+                readiness_path
+            )
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                        "--verify-local-evidence-preflight-files",
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertEqual(1, verify_status)
+        self.assertIn(
+            "input_artifacts.package_readiness_json.claim_status must match package readiness report",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_artifacts.package_readiness_json.evidence_scope must match package readiness report",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_artifacts.package_readiness_json.final_production_signoff must match package readiness report",
+            stderr.getvalue(),
+        )
+
     def test_verify_local_evidence_preflight_report_rejects_artifact_path_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1949,6 +2008,50 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertEqual(1, status)
         self.assertIn(
             "input_artifacts.package_readiness_json.package_name must match package readiness report",
+            stderr.getvalue(),
+        )
+
+    def test_verify_local_evidence_preflight_report_rejects_package_readiness_scope_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, out_json, _trial_json, _package_dir = self.write_local_preflight(
+                root,
+                package_name="external-l4-demo",
+            )
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            artifact_by_name = {artifact["name"]: artifact for artifact in payload["input_artifacts"]}
+            artifact_by_name["package_readiness_json"]["status"] = "PASS"
+            artifact_by_name["package_readiness_json"]["claim_status"] = "FINAL_PRODUCTION_CLAIM"
+            artifact_by_name["package_readiness_json"]["evidence_scope"] = "FINAL_PRODUCTION_RELEASE_GATE"
+            artifact_by_name["package_readiness_json"]["final_production_signoff"] = True
+            artifact_by_name["package_readiness_json"]["generated_at_utc"] = "2026-07-03T00:00:00+00:00"
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertEqual(1, verify_status)
+        self.assertIn("input_artifacts.package_readiness_json.status=PASS", stderr.getvalue())
+        self.assertIn(
+            "input_artifacts.package_readiness_json.claim_status=FINAL_PRODUCTION_CLAIM",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_artifacts.package_readiness_json.evidence_scope=FINAL_PRODUCTION_RELEASE_GATE",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_artifacts.package_readiness_json.final_production_signoff must be false",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "input_artifacts.package_readiness_json.generated_at_utc must match package readiness report",
             stderr.getvalue(),
         )
 

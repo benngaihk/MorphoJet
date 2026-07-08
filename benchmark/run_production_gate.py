@@ -109,6 +109,12 @@ PACKAGE_MANIFEST_CLAIM_SCOPE = {
     "trial_evidence_scope": "EXTERNAL_L4_WORKFLOW_TRIAL",
     "trial_final_production_signoff": False,
 }
+PACKAGE_READINESS_SCOPE = {
+    "status": "READY",
+    "claim_status": "NOT_PRODUCTION_CLAIM",
+    "evidence_scope": "EXTERNAL_L4_READINESS_PRECHECK",
+    "final_production_signoff": False,
+}
 GITHUB_RELEASE_REPO = "benngaihk/MorphoJet"
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
 
@@ -720,6 +726,11 @@ def readiness_report_summary(path: Path) -> dict[str, object]:
     if not isinstance(payload, dict):
         payload = {}
     return {
+        "status": payload.get("status"),
+        "claim_status": payload.get("claim_status"),
+        "evidence_scope": payload.get("evidence_scope"),
+        "final_production_signoff": payload.get("final_production_signoff"),
+        "generated_at_utc": payload.get("generated_at_utc"),
         "package_name": payload.get("package_name"),
         "workspace": payload.get("workspace"),
         "manifest": payload.get("manifest"),
@@ -774,8 +785,8 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
             "",
             "## Input Artifacts",
             "",
-            "| Name | Exists | Size Bytes | SHA-256 | Claim Status | Evidence Scope | Final Signoff | Trial Claim Status | Trial Evidence Scope | Trial Final Signoff | Package Name | Readiness Workspace | Readiness Manifest | Path |",
-            "|---|---:|---:|---|---|---|---:|---|---|---:|---|---|---|---|",
+            "| Name | Exists | Size Bytes | SHA-256 | Status | Claim Status | Evidence Scope | Final Signoff | Trial Claim Status | Trial Evidence Scope | Trial Final Signoff | Package Name | Readiness Generated At | Readiness Workspace | Readiness Manifest | Path |",
+            "|---|---:|---:|---|---|---|---|---:|---|---|---:|---|---|---|---|---|",
         ]
     )
     for artifact in payload["input_artifacts"]:
@@ -785,6 +796,7 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
             f"{artifact['exists']} | "
             f"{artifact['size_bytes'] if artifact['size_bytes'] is not None else ''} | "
             f"{artifact['sha256'] or ''} | "
+            f"{artifact.get('status') or ''} | "
             f"{artifact.get('claim_status') or ''} | "
             f"{artifact.get('evidence_scope') or ''} | "
             f"{artifact.get('final_production_signoff') if 'final_production_signoff' in artifact else ''} | "
@@ -792,6 +804,7 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
             f"{artifact.get('trial_evidence_scope') or ''} | "
             f"{artifact.get('trial_final_production_signoff') if 'trial_final_production_signoff' in artifact else ''} | "
             f"{artifact.get('package_name') or ''} | "
+            f"{artifact.get('generated_at_utc') or ''} | "
             f"{artifact.get('workspace') or ''} | "
             f"{artifact.get('manifest') or ''} | "
             f"{artifact['path']} |"
@@ -1256,6 +1269,27 @@ def validate_local_evidence_preflight_skipped_checklist(
 
 def package_readiness_artifact_package_name_issues(artifact: dict) -> list[str]:
     failures = []
+    if artifact.get("exists"):
+        for field, expected in PACKAGE_READINESS_SCOPE.items():
+            if field not in artifact:
+                failures.append(f"input_artifacts.package_readiness_json.{field} must be present")
+            elif artifact.get(field) != expected:
+                if expected is False:
+                    failures.append(f"input_artifacts.package_readiness_json.{field} must be false")
+                else:
+                    failures.append(f"input_artifacts.package_readiness_json.{field}={artifact.get(field)}")
+        generated_at = artifact.get("generated_at_utc")
+        if not isinstance(generated_at, str) or not generated_at.strip():
+            failures.append("input_artifacts.package_readiness_json.generated_at_utc must be a non-empty string")
+        else:
+            try:
+                parsed_generated_at = datetime.fromisoformat(generated_at)
+                if parsed_generated_at.tzinfo is None:
+                    failures.append("input_artifacts.package_readiness_json.generated_at_utc must include timezone")
+                elif not is_utc_datetime(parsed_generated_at):
+                    failures.append("input_artifacts.package_readiness_json.generated_at_utc must be UTC")
+            except ValueError:
+                failures.append(f"input_artifacts.package_readiness_json.generated_at_utc is invalid: {generated_at}")
     if "package_name" not in artifact:
         failures.append("input_artifacts.package_readiness_json.package_name must be present")
     package_name = artifact.get("package_name")
@@ -1376,7 +1410,16 @@ def validate_local_evidence_preflight_files(payload: dict) -> list[str]:
             failures.append(f"input artifact sha256 mismatch: {name}")
         if name == "package_readiness_json":
             actual_readiness = readiness_report_summary(path)
-            for field in ["package_name", "workspace", "manifest"]:
+            for field in [
+                "status",
+                "claim_status",
+                "evidence_scope",
+                "final_production_signoff",
+                "generated_at_utc",
+                "package_name",
+                "workspace",
+                "manifest",
+            ]:
                 if actual_readiness.get(field) != artifact.get(field):
                     failures.append(f"input artifact {field} mismatch: package_readiness_json")
         if name in {"external_trial_json", "package_handoff_trial_json"}:
@@ -1523,7 +1566,16 @@ def validate_local_evidence_preflight_readiness_binding(
     if not readiness_path.is_file():
         return failures
     expected_readiness = readiness_report_summary(readiness_path)
-    for field in ["package_name", "workspace", "manifest"]:
+    for field in [
+        "status",
+        "claim_status",
+        "evidence_scope",
+        "final_production_signoff",
+        "generated_at_utc",
+        "package_name",
+        "workspace",
+        "manifest",
+    ]:
         if readiness_summary.get(field) != expected_readiness.get(field):
             failures.append(f"input_artifacts.package_readiness_json.{field} must match package readiness report")
     return failures
