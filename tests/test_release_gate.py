@@ -1287,6 +1287,29 @@ class ReleaseGateTest(unittest.TestCase):
             failures,
         )
 
+    def test_rendered_manifest_commands_include_required_metadata_columns(self) -> None:
+        manifest = valid_external_trial()["rendered_manifest"]
+        manifest["required_object_metadata_columns"] = ["Plate", "Well", "Site"]
+
+        commands = dict(release_gate.rendered_manifest_step_commands(manifest))
+
+        self.assertIn(
+            "--metadata-columns",
+            commands["Materialize Cells wide CSV"],
+        )
+        self.assertIn(
+            "Plate,Well,Site",
+            commands["Materialize Cells wide CSV"],
+        )
+        self.assertIn(
+            "--allow-extra-columns",
+            commands["Compare Cells supported columns"],
+        )
+        self.assertIn(
+            "Plate,Well,Site",
+            commands["Compare Cells supported columns"],
+        )
+
     def test_external_trial_rejects_steps_not_declared_by_rendered_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

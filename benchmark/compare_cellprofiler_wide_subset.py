@@ -53,13 +53,25 @@ def compare(
     keys: list[str],
     abs_tol: float,
     rel_tol: float,
+    allowed_extra_columns: list[str] | None = None,
 ) -> tuple[bool, str, dict[str, object]]:
     expected_columns, expected_rows = read_rows(cellprofiler_path)
     actual_columns, actual_rows = read_rows(morphojet_path)
 
     key_set = set(keys)
+    allowed_extra_columns = allowed_extra_columns or []
+    allowed_extra_set = set(allowed_extra_columns)
     actual_value_columns = [column for column in actual_columns if column not in key_set]
-    unsupported_actual_columns = [column for column in actual_value_columns if column not in expected_columns]
+    unsupported_actual_columns = [
+        column
+        for column in actual_value_columns
+        if column not in expected_columns and column not in allowed_extra_set
+    ]
+    allowed_actual_extra_columns = [
+        column
+        for column in actual_value_columns
+        if column not in expected_columns and column in allowed_extra_set
+    ]
     compared_columns = [column for column in actual_value_columns if column in expected_columns]
     ignored_expected_columns = [
         column for column in expected_columns if column not in key_set and column not in actual_value_columns
@@ -112,8 +124,11 @@ def compare(
         "",
         f"- compared_columns: `{len(compared_columns)}`",
         f"- ignored_cellprofiler_columns: `{len(ignored_expected_columns)}`",
+        f"- allowed_morphojet_extra_columns: `{len(allowed_actual_extra_columns)}`",
         f"- unsupported_morphojet_columns: `{len(unsupported_actual_columns)}`",
     ]
+    if allowed_actual_extra_columns:
+        lines.append(f"- allowed extra: `{', '.join(allowed_actual_extra_columns)}`")
     if unsupported_actual_columns:
         lines.append(f"- unsupported: `{', '.join(unsupported_actual_columns)}`")
     if ignored_expected_columns:
@@ -153,6 +168,8 @@ def compare(
         "shared_rows": len(shared_keys),
         "compared_columns": compared_columns,
         "ignored_cellprofiler_columns": ignored_expected_columns,
+        "allowed_extra_columns": allowed_extra_columns,
+        "allowed_actual_extra_columns": allowed_actual_extra_columns,
         "unsupported_morphojet_columns": unsupported_actual_columns,
         "missing_rows": len(missing_rows),
         "extra_rows": len(extra_rows),
@@ -175,10 +192,23 @@ def main() -> int:
     parser.add_argument("--out", type=Path)
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--fail-on-gap", action="store_true")
+    parser.add_argument("--allow-extra-columns", help="Comma-separated MorphoJet-only columns allowed in the wide CSV")
     args = parser.parse_args()
 
     keys = [key.strip() for key in args.keys.split(",") if key.strip()]
-    passed, report, summary = compare(args.cellprofiler, args.morphojet_wide, keys, args.abs_tol, args.rel_tol)
+    allowed_extra_columns = [
+        column.strip()
+        for column in (args.allow_extra_columns or "").split(",")
+        if column.strip()
+    ]
+    passed, report, summary = compare(
+        args.cellprofiler,
+        args.morphojet_wide,
+        keys,
+        args.abs_tol,
+        args.rel_tol,
+        allowed_extra_columns,
+    )
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(report)

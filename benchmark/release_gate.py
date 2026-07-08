@@ -613,6 +613,7 @@ def rendered_manifest_step_names(manifest: dict) -> list[str]:
 def rendered_manifest_step_commands(manifest: dict) -> list[tuple[str, list[str]]]:
     step_commands = []
     objects_csv = manifest.get("morphojet_objects_csv")
+    top_level_metadata_columns = manifest.get("required_object_metadata_columns", [])
     for export in manifest.get("exports", []):
         if not isinstance(export, dict):
             continue
@@ -622,38 +623,50 @@ def rendered_manifest_step_commands(manifest: dict) -> list[tuple[str, list[str]
             channel_arg = ",".join(channels) if isinstance(channels, list) else ""
             out_csv = export.get("out_csv")
             object_set = export.get("object_set")
+            metadata_columns = export.get("required_object_metadata_columns", top_level_metadata_columns)
+            metadata_arg = (
+                ",".join(column for column in metadata_columns if isinstance(column, str) and column.strip())
+                if isinstance(metadata_columns, list)
+                else ""
+            )
+            materialize_command = [
+                "python3",
+                "benchmark/materialize_morphojet_cellprofiler_wide.py",
+                "--objects",
+                export.get("objects_csv", objects_csv),
+                "--object-set",
+                object_set,
+                "--channels",
+                channel_arg,
+                "--out",
+                out_csv,
+            ]
+            if metadata_arg:
+                materialize_command.extend(["--metadata-columns", metadata_arg])
             step_commands.append(
                 (
                     f"Materialize {name} wide CSV",
-                    [
-                        "python3",
-                        "benchmark/materialize_morphojet_cellprofiler_wide.py",
-                        "--objects",
-                        export.get("objects_csv", objects_csv),
-                        "--object-set",
-                        object_set,
-                        "--channels",
-                        channel_arg,
-                        "--out",
-                        out_csv,
-                    ],
+                    materialize_command,
                 )
             )
             if "expected_cellprofiler_csv" in export:
+                compare_command = [
+                    "python3",
+                    "benchmark/compare_cellprofiler_wide_subset.py",
+                    export.get("expected_cellprofiler_csv"),
+                    out_csv,
+                    "--out",
+                    export.get("comparison_report"),
+                    "--json-out",
+                    export.get("comparison_json"),
+                    "--fail-on-gap",
+                ]
+                if metadata_arg:
+                    compare_command.extend(["--allow-extra-columns", metadata_arg])
                 step_commands.append(
                     (
                         f"Compare {name} supported columns",
-                        [
-                            "python3",
-                            "benchmark/compare_cellprofiler_wide_subset.py",
-                            export.get("expected_cellprofiler_csv"),
-                            out_csv,
-                            "--out",
-                            export.get("comparison_report"),
-                            "--json-out",
-                            export.get("comparison_json"),
-                            "--fail-on-gap",
-                        ],
+                        compare_command,
                     )
                 )
     for check in manifest.get("downstream_checks", []):

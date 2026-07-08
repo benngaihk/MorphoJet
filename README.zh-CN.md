@@ -162,14 +162,19 @@ python3 benchmark/materialize_morphojet_cellprofiler_wide.py \
   --objects measurements/Objects.csv \
   --object-set Cells \
   --channels DNA,PH3 \
+  --metadata-columns Plate,Well,Site \
   --out measurements/Cells.wide.csv
 ```
 
 对照 CellProfiler object CSV 验证支持列：
 
 ```bash
-python3 benchmark/compare_cellprofiler_wide_subset.py CellProfiler/Cells.csv measurements/Cells.wide.csv --fail-on-gap
+python3 benchmark/compare_cellprofiler_wide_subset.py CellProfiler/Cells.csv measurements/Cells.wide.csv \
+  --allow-extra-columns Plate,Well,Site \
+  --fail-on-gap
 ```
+
+使用 `--metadata-columns` 时，materializer 会把这些列从 `Objects.csv` 带到宽表；如果同一个 object 在不同 channel 行上的元数据值不一致，会直接失败。Subset comparer 可以把这些声明过的元数据列当作 MorphoJet-only pass-through 字段允许通过，同时仍会拒绝未声明的额外列。
 
 ## 外部 L4 试验与生产门禁
 

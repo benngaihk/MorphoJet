@@ -40,6 +40,8 @@
         "{base_dir}/morphojet/Cells.wide.csv",
         "--channels",
         "DNA,PH3",
+        "--metadata-columns",
+        "Plate,Well,Site",
         "--min-rows",
         "1",
         "--json-out",

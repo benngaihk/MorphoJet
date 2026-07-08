@@ -80,6 +80,16 @@ def require(data: dict[str, Any], key: str) -> Any:
     return data[key]
 
 
+def export_metadata_columns(manifest: dict[str, Any], export: dict[str, Any]) -> list[str]:
+    columns = export.get(
+        "required_object_metadata_columns",
+        manifest.get("required_object_metadata_columns", []),
+    )
+    if not isinstance(columns, list):
+        return []
+    return [column for column in columns if isinstance(column, str) and column.strip()]
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -330,6 +340,8 @@ def run_trial(manifest: dict[str, Any]) -> tuple[list[TrialStep], list[str]]:
         channels = require(export, "channels")
         out_csv = require(export, "out_csv")
         channel_arg = ",".join(channels)
+        metadata_columns = export_metadata_columns(manifest, export)
+        metadata_arg = ",".join(metadata_columns)
         materialize_command = [
             "python3",
             "benchmark/materialize_morphojet_cellprofiler_wide.py",
@@ -342,6 +354,8 @@ def run_trial(manifest: dict[str, Any]) -> tuple[list[TrialStep], list[str]]:
             "--out",
             out_csv,
         ]
+        if metadata_arg:
+            materialize_command.extend(["--metadata-columns", metadata_arg])
         steps.append(run_command(f"Materialize {name} wide CSV", materialize_command))
         artifacts.append(out_csv)
 
@@ -360,6 +374,8 @@ def run_trial(manifest: dict[str, Any]) -> tuple[list[TrialStep], list[str]]:
                 json_report,
                 "--fail-on-gap",
             ]
+            if metadata_arg:
+                compare_command.extend(["--allow-extra-columns", metadata_arg])
             steps.append(run_command(f"Compare {name} supported columns", compare_command))
             artifacts.extend([report, json_report])
 

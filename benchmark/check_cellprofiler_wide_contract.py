@@ -57,16 +57,23 @@ def read_rows(path: Path) -> tuple[list[str], list[dict[str, str]]]:
         return reader.fieldnames or [], list(reader)
 
 
-def required_columns(channels: list[str]) -> list[str]:
+def required_columns(channels: list[str], metadata_columns: list[str] | None = None) -> list[str]:
     columns = list(BASE_COLUMNS)
+    columns.extend(metadata_columns or [])
     for channel in channels:
         columns.extend(f"{column}_{channel}" for column in INTENSITY_COLUMNS)
     return columns
 
 
-def check(path: Path, channels: list[str], min_rows: int) -> tuple[bool, dict[str, object]]:
+def check(
+    path: Path,
+    channels: list[str],
+    min_rows: int,
+    metadata_columns: list[str] | None = None,
+) -> tuple[bool, dict[str, object]]:
     columns, rows = read_rows(path)
-    required = required_columns(channels)
+    metadata_columns = metadata_columns or []
+    required = required_columns(channels, metadata_columns)
     missing_columns = [column for column in required if column not in columns]
     extra_columns = [column for column in columns if column not in required]
     duplicate_keys = 0
@@ -97,6 +104,7 @@ def check(path: Path, channels: list[str], min_rows: int) -> tuple[bool, dict[st
         "rows": len(rows),
         "columns": len(columns),
         "required_columns": required,
+        "metadata_columns": metadata_columns,
         "missing_columns": missing_columns,
         "extra_columns": extra_columns,
         "duplicate_keys": duplicate_keys,
@@ -110,6 +118,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("csv", type=Path)
     parser.add_argument("--channels", required=True, help="Comma-separated channel suffixes")
+    parser.add_argument("--metadata-columns", help="Comma-separated required pass-through metadata columns")
     parser.add_argument("--min-rows", type=int, default=1)
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args()
@@ -117,10 +126,15 @@ def main() -> int:
     channels = [channel.strip() for channel in args.channels.split(",") if channel.strip()]
     if not channels:
         raise SystemExit("--channels must contain at least one channel")
+    metadata_columns = [
+        column.strip()
+        for column in (args.metadata_columns or "").split(",")
+        if column.strip()
+    ]
     if args.min_rows < 0:
         raise SystemExit("--min-rows must be >= 0")
 
-    passed, summary = check(args.csv, channels, args.min_rows)
+    passed, summary = check(args.csv, channels, args.min_rows, metadata_columns)
     if args.json_out:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(summary, indent=2) + "\n")

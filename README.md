@@ -200,14 +200,19 @@ python3 benchmark/materialize_morphojet_cellprofiler_wide.py \
   --objects measurements/Objects.csv \
   --object-set Cells \
   --channels DNA,PH3 \
+  --metadata-columns Plate,Well,Site \
   --out measurements/Cells.wide.csv
 ```
 
 Validate the supported wide columns against a CellProfiler object CSV with:
 
 ```bash
-python3 benchmark/compare_cellprofiler_wide_subset.py CellProfiler/Cells.csv measurements/Cells.wide.csv --fail-on-gap
+python3 benchmark/compare_cellprofiler_wide_subset.py CellProfiler/Cells.csv measurements/Cells.wide.csv \
+  --allow-extra-columns Plate,Well,Site \
+  --fail-on-gap
 ```
+
+When `--metadata-columns` is used, the materializer carries those columns through from `Objects.csv` to the wide CSV and fails if a metadata value differs across channel rows for the same object. The subset comparer can allow those declared metadata columns as MorphoJet-only pass-through fields while still failing on unexpected extra columns.
 
 For a no-manual-CSV-edit handoff preflight, run a manifest-driven trial:
 

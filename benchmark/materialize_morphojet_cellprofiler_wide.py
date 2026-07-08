@@ -97,6 +97,18 @@ def parse_channels(value: str | None, rows: list[dict[str, str]], object_set: st
     return list(channels)
 
 
+def parse_metadata_columns(value: str | None) -> list[str]:
+    if not value:
+        return []
+    columns = [column.strip() for column in value.split(",") if column.strip()]
+    if not columns:
+        raise SystemExit("--metadata-columns must contain at least one column when provided")
+    seen: OrderedDict[str, None] = OrderedDict()
+    for column in columns:
+        seen[column] = None
+    return list(seen)
+
+
 def format_int(value: int) -> str:
     return str(value)
 
@@ -145,8 +157,15 @@ def convex_area(row: dict[str, str], source: Path) -> str:
     return format_float(area / solidity if solidity else 0.0)
 
 
-def materialize(objects_csv: Path, object_set: str, channels: list[str], out: Path) -> int:
+def materialize(
+    objects_csv: Path,
+    object_set: str,
+    channels: list[str],
+    out: Path,
+    metadata_columns: list[str] | None = None,
+) -> int:
     rows = read_rows(objects_csv)
+    metadata_columns = metadata_columns or []
     by_key: OrderedDict[tuple[str, str], dict[str, str]] = OrderedDict()
     seen_channels: dict[tuple[str, str], set[str]] = {}
 
@@ -183,6 +202,13 @@ def materialize(objects_csv: Path, object_set: str, channels: list[str], out: Pa
                 raise SystemExit(f"shape column {column} differs across channels for key {key}")
             target[column] = value
 
+        for column in metadata_columns:
+            value = require(row, column, objects_csv)
+            existing = target.get(column)
+            if existing is not None and existing != value:
+                raise SystemExit(f"metadata column {column} differs across channels for key {key}")
+            target[column] = value
+
         for column in INTENSITY_COLUMNS:
             target[f"{column}_{channel}"] = require(row, column, objects_csv)
 
@@ -198,7 +224,11 @@ def materialize(objects_csv: Path, object_set: str, channels: list[str], out: Pa
     if not by_key:
         raise SystemExit(f"no rows for ObjectSet={object_set} and channels={','.join(channels)}")
 
-    fieldnames = BASE_COLUMNS + [f"{column}_{channel}" for channel in channels for column in INTENSITY_COLUMNS]
+    fieldnames = (
+        BASE_COLUMNS
+        + metadata_columns
+        + [f"{column}_{channel}" for channel in channels for column in INTENSITY_COLUMNS]
+    )
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -213,12 +243,14 @@ def main() -> int:
     parser.add_argument("--objects", type=Path, required=True, help="MorphoJet Objects.csv")
     parser.add_argument("--object-set", required=True, help="ObjectSet to materialize, for example Cells")
     parser.add_argument("--channels", help="Comma-separated channel order; defaults to discovery order")
+    parser.add_argument("--metadata-columns", help="Comma-separated pass-through metadata columns")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
 
     source_rows = read_rows(args.objects)
     channels = parse_channels(args.channels, source_rows, args.object_set, args.objects)
-    row_count = materialize(args.objects, args.object_set, channels, args.out)
+    metadata_columns = parse_metadata_columns(args.metadata_columns)
+    row_count = materialize(args.objects, args.object_set, channels, args.out, metadata_columns)
     print(f"wrote {row_count} {args.object_set} rows to {args.out}")
     return 0
 

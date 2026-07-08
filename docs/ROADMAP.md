@@ -42,9 +42,10 @@
   - [x] GitHub scheduled CellBinDB L3 workflow.
   - [x] Optional object-level image-table metadata export for plate/well/site handoff context.
   - [x] External L4 manifest/readiness contract for required object metadata columns.
+  - [x] CellProfiler-style wide export carries declared object metadata columns.
   - [ ] External workflow trial.
 
-- Multi-channel and plate/well/site metadata polish: object-level metadata export is available behind `measure --include-object-metadata`, and the external L4 template/readiness checker can require `Plate`, `Well`, and `Site`; remaining work is external L4 confirmation that the handoff shape matches real lab systems.
+- Multi-channel and plate/well/site metadata polish: object-level metadata export is available behind `measure --include-object-metadata`, the external L4 template/readiness checker can require `Plate`, `Well`, and `Site`, and the wide-export bridge can carry those declared metadata columns through to downstream CSVs; remaining work is external L4 confirmation that the handoff shape matches real lab systems.
 - More morphology features.
 - Better error reporting.
 - macOS/Linux binaries.
