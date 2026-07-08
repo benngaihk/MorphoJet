@@ -185,6 +185,36 @@ def validate_readiness_report(report: Path) -> dict[str, Any]:
     }
 
 
+def validate_readiness_binding(
+    readiness_report: dict[str, Any],
+    manifest_path: Path,
+    variables: dict[str, str],
+) -> None:
+    issues = []
+    manifest = readiness_report.get("manifest")
+    if not isinstance(manifest, str) or not manifest.strip():
+        issues.append("readiness report manifest must be a non-empty path")
+    elif normalized_path_key(manifest) != normalized_path_key(manifest_path):
+        issues.append(
+            "readiness report manifest does not match trial manifest: "
+            f"{manifest} != {manifest_path}"
+        )
+
+    workspace = readiness_report.get("workspace")
+    if not isinstance(workspace, str) or not workspace.strip():
+        issues.append("readiness report workspace must be a non-empty path")
+    else:
+        expected_workspace = variables.get("base_dir") or str(manifest_path.parent)
+        if normalized_path_key(workspace) != normalized_path_key(expected_workspace):
+            issues.append(
+                "readiness report workspace does not match trial workspace: "
+                f"{workspace} != {expected_workspace}"
+            )
+
+    if issues:
+        raise SystemExit("\n".join(f"ERROR: {issue}" for issue in issues))
+
+
 def validate_manifest(manifest: dict[str, Any], require_external_evidence: bool = False) -> None:
     import validate_handoff_manifest
 
@@ -369,6 +399,8 @@ def main() -> int:
     validate_manifest(manifest, require_external_evidence=args.require_external_evidence)
     validate_report_outputs(args.manifest, manifest, args.out_json, args.out_md)
     readiness_report = validate_readiness_report(args.readiness_report) if args.readiness_report else None
+    if readiness_report is not None:
+        validate_readiness_binding(readiness_report, args.manifest, variables)
     steps, artifacts = run_trial(manifest)
     payload = {
         "trial_id": require(manifest, "trial_id"),

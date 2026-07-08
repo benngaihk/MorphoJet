@@ -160,6 +160,50 @@ class HandoffManifestValidationTest(unittest.TestCase):
 
         self.assertEqual("external-l4-demo", summary["package_name"])
 
+    def test_handoff_runner_rejects_readiness_manifest_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp).resolve()
+            manifest = workspace / "external_manifest.json"
+            other_manifest = workspace / "other_manifest.json"
+            readiness = {
+                "manifest": str(other_manifest),
+                "workspace": str(workspace),
+            }
+
+            with self.assertRaises(SystemExit) as context:
+                run_handoff_trial.validate_readiness_binding(
+                    readiness,
+                    manifest,
+                    {"base_dir": str(workspace)},
+                )
+
+        self.assertIn(
+            "ERROR: readiness report manifest does not match trial manifest",
+            str(context.exception),
+        )
+
+    def test_handoff_runner_rejects_readiness_workspace_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp).resolve()
+            manifest = workspace / "external_manifest.json"
+            other_workspace = workspace / "other-workspace"
+            readiness = {
+                "manifest": str(manifest),
+                "workspace": str(other_workspace),
+            }
+
+            with self.assertRaises(SystemExit) as context:
+                run_handoff_trial.validate_readiness_binding(
+                    readiness,
+                    manifest,
+                    {"base_dir": str(workspace)},
+                )
+
+        self.assertIn(
+            "ERROR: readiness report workspace does not match trial workspace",
+            str(context.exception),
+        )
+
     def test_handoff_runner_rejects_report_output_over_manifest_input(self) -> None:
         with self.assertRaises(SystemExit) as context:
             run_handoff_trial.validate_report_outputs(
