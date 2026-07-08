@@ -1183,8 +1183,18 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
                 failed_gate_names.append(gate["name"])
             if not isinstance(gate.get("detail"), str):
                 failures.append(f"gate detail must be a string: {gate.get('name')}")
-        if not LOCAL_PREFLIGHT_GATE_NAMES.issubset(gate_names) or gate_names - allowed_gate_names:
-            failures.append(f"gate names={sorted(str(name) for name in gate_names)}")
+        required_gate_names = set(LOCAL_PREFLIGHT_GATE_NAMES)
+        if saved_reviewer_reports:
+            required_gate_names.update(LOCAL_PREFLIGHT_OPTIONAL_GATE_NAMES)
+        missing_required_gates = required_gate_names - gate_names
+        unexpected_gates = gate_names - allowed_gate_names
+        if missing_required_gates or unexpected_gates:
+            failures.append(
+                "gate names="
+                f"{sorted(str(name) for name in gate_names)}; "
+                f"missing_required={sorted(missing_required_gates)}; "
+                f"unexpected={sorted(unexpected_gates)}"
+            )
         expected_status = "FAIL" if failed_gate_names else "PASS"
         if payload.get("status") in {"PASS", "FAIL"} and payload.get("status") != expected_status:
             failures.append(
