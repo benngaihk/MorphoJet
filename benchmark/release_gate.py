@@ -629,6 +629,10 @@ def production_claim_contract_failures(args: argparse.Namespace) -> list[str]:
         failures.append("--require-production-claim requires --require-l3-provenance")
     if args.verify_github_release and args.github_release_kind != "stable":
         failures.append("--require-production-claim with --verify-github-release requires --github-release-kind stable")
+    if args.github_release_verification_report and not args.verify_github_release:
+        failures.append(
+            "--require-production-claim with --github-release-verification-report requires --verify-github-release"
+        )
     return failures
 
 

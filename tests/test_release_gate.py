@@ -366,6 +366,21 @@ class ReleaseGateTest(unittest.TestCase):
             failures,
         )
 
+    def test_require_production_claim_rejects_unbound_saved_github_release_report(self) -> None:
+        failures = release_gate.production_claim_contract_failures(
+            self.production_args(
+                require_production_claim=True,
+                require_clean_git=True,
+                require_l3_provenance=True,
+                github_release_verification_report=Path("github-release-verification.json"),
+            )
+        )
+
+        self.assertEqual(
+            ["--require-production-claim with --github-release-verification-report requires --verify-github-release"],
+            failures,
+        )
+
     def test_production_claim_audit_defaults_to_incomplete_without_l4_or_stable_release(self) -> None:
         gates = self.production_gates(
             [
