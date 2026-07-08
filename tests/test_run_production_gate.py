@@ -1604,6 +1604,15 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("evidence_scope: `LOCAL_EXTERNAL_L4_PREFLIGHT`", markdown)
         self.assertIn("final_evidence_acceptable: `False`", markdown)
         self.assertIn("## Input Artifacts", markdown)
+        input_header = next(line for line in markdown.splitlines() if line.startswith("| Name |"))
+        input_header_cells = [cell.strip() for cell in input_header.strip("|").split("|")]
+        review_entrypoint_index = input_header_cells.index("Review Entrypoint")
+        for readme_name in ["package_readme", "package_readme_zh"]:
+            readme_line = next(
+                line for line in markdown.splitlines() if line.startswith(f"| {readme_name} |")
+            )
+            readme_cells = [cell.strip() for cell in readme_line.strip("|").split("|")]
+            self.assertEqual("True", readme_cells[review_entrypoint_index])
         self.assertIn("## Package README Handoff Contracts", markdown)
         self.assertIn("package_readme_zh", markdown)
         self.assertIn("morphojet_objects_csv", markdown)

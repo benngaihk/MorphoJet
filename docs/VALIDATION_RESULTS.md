@@ -2,6 +2,32 @@
 
 Updated: 2026-07-08
 
+## Local Preflight Markdown Reviewer-Entrypoint Snapshot
+
+This snapshot records the verification for making package README reviewer-entrypoint status visible in saved local evidence preflight Markdown reports. `benchmark/run_production_gate.py --local-evidence-preflight-only` now renders a `Review Entrypoint` column in the input artifact table, so reviewers can see whether package `README.md` and `README.zh-CN.md` preserved their reviewer entrypoints without opening the JSON report.
+
+Environment:
+
+- Branch: `main`
+- Verified code state: local preflight Markdown reviewer-entrypoint change set
+- Release-gate command: `python3 benchmark/release_gate.py`
+- Saved-report verifier command: `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json`
+
+Result:
+
+| Gate | Result |
+|---|---:|
+| Production wrapper/local preflight tests | PASS, 88 tests |
+| Full Python unit test suite | PASS, 501 tests |
+| Source claim-language guard | PASS, 16 paths |
+| Release gate precheck | PASS |
+| Saved release-gate report verifier | PASS |
+| `claim_status` | `NOT_PRODUCTION_CLAIM` |
+| `evidence_scope` | `RELEASE_GATE_PRECHECK` |
+| `final_production_signoff` | `False` |
+| `production_claim_status` | `INCOMPLETE` |
+| Remaining production blockers | `clean_git_worktree`, `l3_provenance_hashes`, `external_l4_workflow_trial`, `external_l4_evidence_package`, `external_l4_saved_reviewer_reports`, `stable_github_release`, `stable_github_release_saved_report` |
+
 ## Workspace Verification for Package README Reviewer Entrypoint Contract
 
 This snapshot records the verification for synchronizing generated external L4 workspace README instructions with the package README reviewer-entrypoint checks. `benchmark/prepare_external_l4_trial.py` now writes English and Chinese workspace READMEs that tell reviewers `verify_local_evidence_preflight` recomputes package README `review_entrypoint_present` values for both `README.md` and `README.zh-CN.md` before PASS can be accepted; `--verify-plan-files` keeps those bilingual instructions bound to the saved trial plan.

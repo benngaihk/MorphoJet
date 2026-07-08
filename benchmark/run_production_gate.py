@@ -803,8 +803,8 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
             "",
             "## Input Artifacts",
             "",
-            "| Name | Exists | Size Bytes | SHA-256 | Status | Claim Status | Evidence Scope | Final Signoff | Trial Claim Status | Trial Evidence Scope | Trial Final Signoff | Package Name | Readiness Generated At | Readiness Workspace | Readiness Manifest | Path |",
-            "|---|---:|---:|---|---|---|---|---:|---|---|---:|---|---|---|---|---|",
+            "| Name | Exists | Size Bytes | SHA-256 | Status | Claim Status | Evidence Scope | Final Signoff | Review Entrypoint | Trial Claim Status | Trial Evidence Scope | Trial Final Signoff | Package Name | Readiness Generated At | Readiness Workspace | Readiness Manifest | Path |",
+            "|---|---:|---:|---|---|---|---|---:|---:|---|---|---:|---|---|---|---|---|",
         ]
     )
     for artifact in payload["input_artifacts"]:
@@ -818,6 +818,7 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
             f"{artifact.get('claim_status') or ''} | "
             f"{artifact.get('evidence_scope') or ''} | "
             f"{artifact.get('final_production_signoff') if 'final_production_signoff' in artifact else ''} | "
+            f"{artifact.get('review_entrypoint_present') if 'review_entrypoint_present' in artifact else ''} | "
             f"{artifact.get('trial_claim_status') or ''} | "
             f"{artifact.get('trial_evidence_scope') or ''} | "
             f"{artifact.get('trial_final_production_signoff') if 'trial_final_production_signoff' in artifact else ''} | "
