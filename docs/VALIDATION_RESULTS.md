@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## Complete External L4 Chain Production-Claim Contract Snapshot
+
+This snapshot records local verification for making direct `benchmark/release_gate.py --require-production-claim` external L4 trial evidence fail closed unless the matching evidence package directory is supplied in the same command. This tightens the final-claim direct CLI path from pairwise input binding to a complete external L4 evidence group: trial JSON, trial root, and evidence package directory.
+
+This is not a production claim. The current release-gate precheck remains `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=RELEASE_GATE_PRECHECK`, `final_production_signoff=false`, and `production_claim_status=INCOMPLETE`; production remains incomplete until the real external L4 evidence chain, saved reviewer reports, stable release evidence, and final production wrapper all pass together.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 tests/test_release_gate.py` | PASS, 89 tests |
+| `python3 benchmark/release_gate.py --require-production-claim --require-clean-git --require-l3-provenance --external-trial-json /tmp/morphojet-handoff-trial.json --external-trial-root /tmp/morphojet-external-trial --out-json /tmp/morphojet-missing-external-package-contract.json --out-md /tmp/morphojet-missing-external-package-contract.md` | PASS; expected exit 2 with missing `--external-evidence-package-dir` error |
+| `python3 -m unittest discover -s tests` | PASS, 538 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths |
+| `python3 benchmark/release_gate.py` | PASS |
+| `python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `git diff --check` | PASS |
+
 ## Complete External Evidence Production-Claim Contract Snapshot
 
 This snapshot records local verification for making direct `benchmark/release_gate.py --require-production-claim` external L4 evidence inputs fail closed unless they are supplied as complete input groups. `--external-trial-json` now requires `--external-trial-root`, and `--external-evidence-package-dir` now requires `--external-trial-json`, so partial external evidence cannot enter the final production-claim path and only fail later inside heavier gates.

@@ -113,7 +113,7 @@ Use `--require-clean-git --require-l3-provenance` for any report intended to sup
 
 Saved release-gate JSON reports can be re-checked during review:
 
-Direct final-claim release-gate use must bind external L4 evidence as complete input groups. `--external-trial-json` requires `--external-trial-root`; `--external-evidence-package-dir` requires `--external-trial-json`; `--external-trial-verification-report` requires `--external-trial-json` and `--external-trial-root`; `--external-evidence-package-verification-report` requires `--external-evidence-package-dir` and `--external-trial-json`; live GitHub release verification rejects prerelease/RC gates unless `--github-release-kind stable` is supplied; and `--github-release-verification-report` is rejected unless the same command also supplies `--verify-github-release`.
+Direct final-claim release-gate use must bind external L4 evidence as a complete input group. `--external-trial-json` requires `--external-trial-root`; trial evidence also requires `--external-evidence-package-dir`; `--external-evidence-package-dir` requires `--external-trial-json`; `--external-trial-verification-report` requires `--external-trial-json` and `--external-trial-root`; `--external-evidence-package-verification-report` requires `--external-evidence-package-dir` and `--external-trial-json`; live GitHub release verification rejects prerelease/RC gates unless `--github-release-kind stable` is supplied; and `--github-release-verification-report` is rejected unless the same command also supplies `--verify-github-release`.
 
 ```bash
 python3 benchmark/verify_release_gate_report.py benchmark/results/release-gate/report.json

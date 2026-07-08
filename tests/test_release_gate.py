@@ -447,6 +447,36 @@ class ReleaseGateTest(unittest.TestCase):
             failures,
         )
 
+    def test_require_production_claim_rejects_trial_evidence_without_package_dir(self) -> None:
+        failures = release_gate.production_claim_contract_failures(
+            self.production_args(
+                require_production_claim=True,
+                require_clean_git=True,
+                require_l3_provenance=True,
+                external_trial_json=Path("handoff_trial.json"),
+                external_trial_root=Path("external-trial"),
+            )
+        )
+
+        self.assertEqual(
+            ["--require-production-claim with external L4 trial evidence requires --external-evidence-package-dir"],
+            failures,
+        )
+
+    def test_require_production_claim_accepts_complete_external_evidence_group(self) -> None:
+        failures = release_gate.production_claim_contract_failures(
+            self.production_args(
+                require_production_claim=True,
+                require_clean_git=True,
+                require_l3_provenance=True,
+                external_trial_json=Path("handoff_trial.json"),
+                external_trial_root=Path("external-trial"),
+                external_evidence_package_dir=Path("external-l4-package"),
+            )
+        )
+
+        self.assertEqual([], failures)
+
     def test_production_claim_audit_defaults_to_incomplete_without_l4_or_stable_release(self) -> None:
         gates = self.production_gates(
             [

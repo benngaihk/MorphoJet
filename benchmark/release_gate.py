@@ -639,6 +639,10 @@ def production_claim_contract_failures(args: argparse.Namespace) -> list[str]:
         failures.append(
             "--require-production-claim with --external-evidence-package-dir requires --external-trial-json"
         )
+    if args.external_trial_json and args.external_trial_root and not args.external_evidence_package_dir:
+        failures.append(
+            "--require-production-claim with external L4 trial evidence requires --external-evidence-package-dir"
+        )
     if args.external_trial_verification_report and (
         not args.external_trial_json or not args.external_trial_root
     ):
