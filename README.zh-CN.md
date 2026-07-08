@@ -185,7 +185,7 @@ python3 benchmark/run_production_gate.py \
   --local-evidence-preflight-only
 ```
 
-Local evidence preflight 会写出 JSON/Markdown 报告，并标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`、`final_evidence_acceptable=false`。报告会列出被刻意跳过的最终生产门禁，记录 `skipped_final_checklist`，并用绝对路径、size 和 SHA-256 绑定 source trial JSON、package 内 `handoff_trial.json`、`artifact_manifest.json`、`readiness.json`、package zip、checksum 和可选 saved reviewer reports。它还会把 source/package trial 的三项 claim-scope 字段，以及 package artifact manifest 的 package-scope 和 source-trial scope 字段写入 `input_artifacts`；saved preflight verifier 在 `--verify-local-evidence-preflight-files` 下会从文件重新计算这些字段和 readiness `package_name`，防止本地预检报告被误改成最终生产签核。
+Local evidence preflight 会写出 JSON/Markdown 报告，并标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`、`final_evidence_acceptable=false`。报告会列出被刻意跳过的最终生产门禁，记录 `skipped_final_checklist`，并用绝对路径、size 和 SHA-256 绑定 source trial JSON、package 内 `handoff_trial.json`、`artifact_manifest.json`、`readiness.json`、package zip、checksum 和可选 saved reviewer reports。两份 saved external reviewer reports 都提供时，`external_l4_saved_reviewer_reports` 会进入 `validated_checks`；否则它会留在 `skipped_final_checklist`。`stable_github_release` 和 `stable_github_release_saved_report` 在 local preflight 中始终保持 skipped，因为稳定 release 与 saved stable-release verifier report 必须在最终 production wrapper 中验证。它还会把 source/package trial 的三项 claim-scope 字段，以及 package artifact manifest 的 package-scope 和 source-trial scope 字段写入 `input_artifacts`；saved preflight verifier 在 `--verify-local-evidence-preflight-files` 下会从文件重新计算这些字段和 readiness `package_name`，防止本地预检报告被误改成最终生产签核。
 
 稳定 release 存在后，用 production wrapper 把所有必需证据绑定到同一份最终报告：
 

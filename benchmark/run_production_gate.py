@@ -35,7 +35,9 @@ LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS = [
     "clean_git_worktree",
     "standard_code_and_artifact_gates",
     "l3_provenance_hashes",
+    "external_l4_saved_reviewer_reports",
     "stable_github_release",
+    "stable_github_release_saved_report",
     "production_claim_enforcement",
 ]
 LOCAL_PREFLIGHT_SKIPPED_FINAL_GUIDANCE = {
@@ -51,9 +53,23 @@ LOCAL_PREFLIGHT_SKIPPED_FINAL_GUIDANCE = {
         "evidence": "Final release-gate report includes --require-l3-provenance and matching CellBinDB artifact hashes.",
         "next_action": "Refresh L3 provenance if measurement code changed, then run the final production wrapper.",
     },
+    "external_l4_saved_reviewer_reports": {
+        "evidence": "Both saved external L4 trial and evidence-package verifier reports pass file rechecks.",
+        "next_action": (
+            "Supply both --external-trial-verification-report and "
+            "--external-evidence-package-verification-report, then rerun local preflight."
+        ),
+    },
     "stable_github_release": {
         "evidence": "Live GitHub verification passes for the stable non-RC release tag.",
         "next_action": "After external L4 evidence is accepted, publish the stable tag and verify it with release gate.",
+    },
+    "stable_github_release_saved_report": {
+        "evidence": "A saved stable GitHub release verifier report is bound to the final repo, tag, commit, and assets.",
+        "next_action": (
+            "Save verify_github_release.py output outside the download directory, then recheck it with "
+            "--verify-report-files --require-stable-report."
+        ),
     },
     "production_claim_enforcement": {
         "evidence": "Final report passes --require-production-claim and rechecks with --expect-missing-checks none.",
@@ -375,17 +391,40 @@ def verify_final_production_report(args: argparse.Namespace) -> int:
     )
 
 
+def has_complete_saved_reviewer_report_pair(trial_report: object, package_report: object) -> bool:
+    return bool(trial_report) and bool(package_report)
+
+
+def local_preflight_validated_checks(saved_reviewer_reports: bool) -> list[str]:
+    checks = list(LOCAL_PREFLIGHT_VALIDATED_CHECKS)
+    if saved_reviewer_reports:
+        checks.append("external_l4_saved_reviewer_reports")
+    return checks
+
+
+def local_preflight_skipped_final_checks(saved_reviewer_reports: bool) -> list[str]:
+    return [
+        check
+        for check in LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS
+        if check != "external_l4_saved_reviewer_reports" or not saved_reviewer_reports
+    ]
+
+
 def build_local_evidence_preflight_payload(args: argparse.Namespace, gates: list[release_gate.Gate]) -> dict:
     git_status_lines = release_gate.git_status_porcelain()
+    saved_reviewer_reports = has_complete_saved_reviewer_report_pair(
+        args.external_trial_verification_report,
+        args.external_evidence_package_verification_report,
+    )
     return {
         "schema_version": 1,
         "status": "PASS" if all(gate.status == "PASS" for gate in gates) else "FAIL",
         "claim_status": "NOT_PRODUCTION_CLAIM",
         "evidence_scope": LOCAL_PREFLIGHT_EVIDENCE_SCOPE,
         "final_evidence_acceptable": False,
-        "validated_checks": LOCAL_PREFLIGHT_VALIDATED_CHECKS,
-        "skipped_final_checks": LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS,
-        "skipped_final_checklist": local_preflight_skipped_final_checklist(),
+        "validated_checks": local_preflight_validated_checks(saved_reviewer_reports),
+        "skipped_final_checks": local_preflight_skipped_final_checks(saved_reviewer_reports),
+        "skipped_final_checklist": local_preflight_skipped_final_checklist(saved_reviewer_reports),
         "input_artifacts": local_evidence_input_artifacts(args),
         "metadata": {
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -411,7 +450,7 @@ def build_local_evidence_preflight_payload(args: argparse.Namespace, gates: list
     }
 
 
-def local_preflight_skipped_final_checklist() -> list[dict[str, str]]:
+def local_preflight_skipped_final_checklist(saved_reviewer_reports: bool = False) -> list[dict[str, str]]:
     return [
         {
             "check": check,
@@ -419,7 +458,7 @@ def local_preflight_skipped_final_checklist() -> list[dict[str, str]]:
             "evidence": LOCAL_PREFLIGHT_SKIPPED_FINAL_GUIDANCE[check]["evidence"],
             "next_action": LOCAL_PREFLIGHT_SKIPPED_FINAL_GUIDANCE[check]["next_action"],
         }
-        for check in LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS
+        for check in local_preflight_skipped_final_checks(saved_reviewer_reports)
     ]
 
 
@@ -756,8 +795,9 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
     lines.extend(
         [
             "",
-            "This preflight validates only the external L4 trial report and evidence package. "
-            "It does not satisfy the stable GitHub release or final production-claim gates.",
+            "This preflight validates only the external L4 trial report, evidence package, "
+            "and any supplied saved external L4 reviewer reports. It does not satisfy the "
+            "stable GitHub release, saved stable-release report, or final production-claim gates.",
         ]
     )
     return "\n".join(lines)
@@ -952,6 +992,12 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
     failures = []
     if not isinstance(payload, dict):
         return ["local evidence preflight report must be a JSON object"]
+    metadata = payload.get("metadata")
+    metadata_dict = metadata if isinstance(metadata, dict) else {}
+    saved_reviewer_reports = has_complete_saved_reviewer_report_pair(
+        metadata_dict.get("external_trial_verification_report"),
+        metadata_dict.get("external_evidence_package_verification_report"),
+    )
     if payload.get("schema_version") != 1:
         failures.append(f"schema_version={payload.get('schema_version')}")
     if payload.get("status") not in {"PASS", "FAIL"}:
@@ -962,13 +1008,12 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
         failures.append(f"evidence_scope={payload.get('evidence_scope')}")
     if payload.get("final_evidence_acceptable") is not False:
         failures.append(f"final_evidence_acceptable={payload.get('final_evidence_acceptable')}")
-    if payload.get("validated_checks") != LOCAL_PREFLIGHT_VALIDATED_CHECKS:
+    if payload.get("validated_checks") != local_preflight_validated_checks(saved_reviewer_reports):
         failures.append("validated_checks do not match local evidence preflight contract")
-    if payload.get("skipped_final_checks") != LOCAL_PREFLIGHT_SKIPPED_FINAL_CHECKS:
+    if payload.get("skipped_final_checks") != local_preflight_skipped_final_checks(saved_reviewer_reports):
         failures.append("skipped_final_checks do not match local evidence preflight contract")
-    failures.extend(validate_local_evidence_preflight_skipped_checklist(payload))
+    failures.extend(validate_local_evidence_preflight_skipped_checklist(payload, saved_reviewer_reports))
 
-    metadata = payload.get("metadata")
     if not isinstance(metadata, dict):
         failures.append("metadata must be an object")
     else:
@@ -1149,11 +1194,14 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
     return failures
 
 
-def validate_local_evidence_preflight_skipped_checklist(payload: dict) -> list[str]:
+def validate_local_evidence_preflight_skipped_checklist(
+    payload: dict,
+    saved_reviewer_reports: bool = False,
+) -> list[str]:
     checklist = payload.get("skipped_final_checklist")
     if not isinstance(checklist, list) or not checklist:
         return ["skipped_final_checklist must be a non-empty list"]
-    expected = local_preflight_skipped_final_checklist()
+    expected = local_preflight_skipped_final_checklist(saved_reviewer_reports)
     failures = []
     if len(checklist) != len(expected):
         failures.append("skipped_final_checklist length does not match skipped_final_checks")

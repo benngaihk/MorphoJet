@@ -860,6 +860,8 @@ class RunProductionGateTest(unittest.TestCase):
         gate_names = {gate["name"] for gate in payload["gates"]}
         self.assertIn("Verify saved external L4 trial report", gate_names)
         self.assertIn("Verify saved external L4 evidence package report", gate_names)
+        self.assertIn("external_l4_saved_reviewer_reports", payload["validated_checks"])
+        self.assertNotIn("external_l4_saved_reviewer_reports", payload["skipped_final_checks"])
 
     def test_saved_trial_report_must_match_current_trial_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1180,12 +1182,24 @@ class RunProductionGateTest(unittest.TestCase):
             payload["validated_checks"],
         )
         self.assertIn("stable_github_release", payload["skipped_final_checks"])
+        self.assertIn("stable_github_release_saved_report", payload["skipped_final_checks"])
+        self.assertIn("external_l4_saved_reviewer_reports", payload["skipped_final_checks"])
         self.assertIn("production_claim_enforcement", payload["skipped_final_checks"])
         checklist_by_check = {row["check"]: row for row in payload["skipped_final_checklist"]}
+        self.assertEqual("SKIPPED", checklist_by_check["external_l4_saved_reviewer_reports"]["status"])
+        self.assertIn(
+            "--external-trial-verification-report",
+            checklist_by_check["external_l4_saved_reviewer_reports"]["next_action"],
+        )
         self.assertEqual("SKIPPED", checklist_by_check["stable_github_release"]["status"])
         self.assertIn(
             "publish the stable tag",
             checklist_by_check["stable_github_release"]["next_action"],
+        )
+        self.assertEqual("SKIPPED", checklist_by_check["stable_github_release_saved_report"]["status"])
+        self.assertIn(
+            "--require-stable-report",
+            checklist_by_check["stable_github_release_saved_report"]["next_action"],
         )
         self.assertIn(
             "without --local-evidence-preflight-only",
@@ -2100,8 +2114,13 @@ class RunProductionGateTest(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):
                 run_production_gate.run_local_evidence_preflight(args)
             payload = json.loads(out_json.read_text(encoding="utf-8"))
-            payload["skipped_final_checklist"][3]["status"] = "PASS"
-            payload["skipped_final_checklist"][3]["next_action"] = "No action needed."
+            stable_index = next(
+                index
+                for index, row in enumerate(payload["skipped_final_checklist"])
+                if row["check"] == "stable_github_release"
+            )
+            payload["skipped_final_checklist"][stable_index]["status"] = "PASS"
+            payload["skipped_final_checklist"][stable_index]["next_action"] = "No action needed."
             out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
             with contextlib.redirect_stderr(io.StringIO()) as stderr:
