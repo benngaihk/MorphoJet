@@ -304,6 +304,23 @@ class ReleaseGateTest(unittest.TestCase):
         values.update(overrides)
         return Namespace(**values)
 
+    def production_claim_args(self, **overrides: object) -> Namespace:
+        values = {
+            "require_production_claim": True,
+            "require_clean_git": True,
+            "require_l3_provenance": True,
+            "verify_github_release": "v0.1.0",
+            "github_release_kind": "stable",
+            "github_release_verification_report": Path("github-release-verification.json"),
+            "external_trial_json": Path("handoff_trial.json"),
+            "external_trial_root": Path("external-trial"),
+            "external_evidence_package_dir": Path("external-l4-package"),
+            "external_trial_verification_report": Path("trial-verification.json"),
+            "external_evidence_package_verification_report": Path("package-verification.json"),
+        }
+        values.update(overrides)
+        return self.production_args(**values)
+
     def production_gates(self, names: list[str]) -> list[release_gate.Gate]:
         return [release_gate.Gate(name, None, "PASS", 0.0, "ok") for name in names]
 
@@ -318,12 +335,7 @@ class ReleaseGateTest(unittest.TestCase):
 
     def test_require_production_claim_requires_clean_git_and_l3_provenance_flags(self) -> None:
         failures = release_gate.production_claim_contract_failures(
-            self.production_args(
-                require_production_claim=True,
-                verify_github_release="v0.1.0",
-                github_release_kind="stable",
-                github_release_verification_report=Path("github-release-verification.json"),
-            )
+            self.production_claim_args(require_clean_git=False, require_l3_provenance=False)
         )
 
         self.assertEqual(
@@ -336,13 +348,7 @@ class ReleaseGateTest(unittest.TestCase):
 
     def test_require_production_claim_rejects_missing_l3_provenance_flag(self) -> None:
         failures = release_gate.production_claim_contract_failures(
-            self.production_args(
-                require_production_claim=True,
-                require_clean_git=True,
-                verify_github_release="v0.1.0",
-                github_release_kind="stable",
-                github_release_verification_report=Path("github-release-verification.json"),
-            )
+            self.production_claim_args(require_l3_provenance=False)
         )
 
         self.assertEqual(
@@ -350,26 +356,17 @@ class ReleaseGateTest(unittest.TestCase):
             failures,
         )
 
-    def test_require_production_claim_accepts_required_base_flags(self) -> None:
-        failures = release_gate.production_claim_contract_failures(
-            self.production_args(
-                require_production_claim=True,
-                require_clean_git=True,
-                require_l3_provenance=True,
-                verify_github_release="v0.1.0",
-                github_release_kind="stable",
-                github_release_verification_report=Path("github-release-verification.json"),
-            )
-        )
+    def test_require_production_claim_accepts_required_final_evidence_group(self) -> None:
+        failures = release_gate.production_claim_contract_failures(self.production_claim_args())
 
         self.assertEqual([], failures)
 
     def test_require_production_claim_requires_stable_release_evidence(self) -> None:
         failures = release_gate.production_claim_contract_failures(
-            self.production_args(
-                require_production_claim=True,
-                require_clean_git=True,
-                require_l3_provenance=True,
+            self.production_claim_args(
+                verify_github_release=None,
+                github_release_kind="prerelease",
+                github_release_verification_report=None,
             )
         )
 
@@ -381,15 +378,33 @@ class ReleaseGateTest(unittest.TestCase):
             failures,
         )
 
+    def test_require_production_claim_requires_external_l4_evidence_group(self) -> None:
+        failures = release_gate.production_claim_contract_failures(
+            self.production_claim_args(
+                external_trial_json=None,
+                external_trial_root=None,
+                external_evidence_package_dir=None,
+                external_trial_verification_report=None,
+                external_evidence_package_verification_report=None,
+            )
+        )
+
+        self.assertEqual(
+            [
+                "--require-production-claim requires --external-trial-json",
+                "--require-production-claim requires --external-trial-root",
+                "--require-production-claim requires --external-evidence-package-dir",
+                "--require-production-claim requires --external-trial-verification-report",
+                "--require-production-claim requires --external-evidence-package-verification-report",
+            ],
+            failures,
+        )
+
     def test_require_production_claim_rejects_prerelease_live_github_gate(self) -> None:
         failures = release_gate.production_claim_contract_failures(
-            self.production_args(
-                require_production_claim=True,
-                require_clean_git=True,
-                require_l3_provenance=True,
+            self.production_claim_args(
                 verify_github_release="v0.1.0-rc.1",
                 github_release_kind="prerelease",
-                github_release_verification_report=Path("github-release-verification.json"),
             )
         )
 
@@ -400,11 +415,9 @@ class ReleaseGateTest(unittest.TestCase):
 
     def test_require_production_claim_rejects_unbound_saved_github_release_report(self) -> None:
         failures = release_gate.production_claim_contract_failures(
-            self.production_args(
-                require_production_claim=True,
-                require_clean_git=True,
-                require_l3_provenance=True,
+            self.production_claim_args(
                 github_release_verification_report=Path("github-release-verification.json"),
+                verify_github_release=None,
             )
         )
 

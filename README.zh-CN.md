@@ -176,6 +176,8 @@ GitHub release verifier 会检查 tag 身份、release URL、GitHub release ID/A
 
 直接 final-claim 合同也把稳定 release evidence 从“可选绑定”提升为“必填输入”：`benchmark/release_gate.py --require-production-claim` 必须同时提供 live `--verify-github-release <tag>`、`--github-release-kind stable` 和 saved `--github-release-verification-report`。如果 live stable release evidence 或 saved stable-release verifier evidence 缺失，命令会先在参数合同层失败，避免后面才作为 audit blocker 暴露。
 
+同一个 direct final-claim 合同现在也要求外部 L4 evidence group 在重型 audit 前已经出现：`--external-trial-json`、`--external-trial-root`、`--external-evidence-package-dir`、`--external-trial-verification-report` 和 `--external-evidence-package-verification-report` 都是 `--require-production-claim` 的必填输入。只提供部分输入时，仍会继续使用上面的更细绑定错误指出缺哪一边。
+
 ## CellProfiler 风格宽表导出
 
 MorphoJet 原生 `Objects.csv` 是长表，键为 `ImageNumber`、`ObjectSet`、`ObjectNumber` 和 `Channel`。如果下游工具需要 CellProfiler object CSV，例如 `Cells.csv`，可以把当前支持的测量子集物化为宽表：
