@@ -63,6 +63,7 @@ LOCAL_PREFLIGHT_SKIPPED_FINAL_GUIDANCE = {
 LOCAL_PREFLIGHT_INPUT_NAMES = {
     "external_trial_json",
     "package_handoff_trial_json",
+    "package_artifact_manifest_json",
     "package_readiness_json",
     "package_zip",
     "package_zip_sha256",
@@ -78,6 +79,19 @@ LOCAL_PREFLIGHT_GATE_NAMES = {
 LOCAL_PREFLIGHT_OPTIONAL_GATE_NAMES = {
     "Verify saved external L4 trial report",
     "Verify saved external L4 evidence package report",
+}
+TRIAL_CLAIM_SCOPE = {
+    "claim_status": "NOT_PRODUCTION_CLAIM",
+    "evidence_scope": "EXTERNAL_L4_WORKFLOW_TRIAL",
+    "final_production_signoff": False,
+}
+PACKAGE_MANIFEST_CLAIM_SCOPE = {
+    "claim_status": "NOT_PRODUCTION_CLAIM",
+    "evidence_scope": "EXTERNAL_L4_EVIDENCE_PACKAGE",
+    "final_production_signoff": False,
+    "trial_claim_status": "NOT_PRODUCTION_CLAIM",
+    "trial_evidence_scope": "EXTERNAL_L4_WORKFLOW_TRIAL",
+    "trial_final_production_signoff": False,
 }
 GITHUB_RELEASE_REPO = "benngaihk/MorphoJet"
 STABLE_TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(?:\+\S+)?$")
@@ -414,8 +428,13 @@ def local_evidence_input_artifacts(args: argparse.Namespace) -> list[dict]:
     package_readiness = file_summary("package_readiness_json", package_dir / "readiness.json")
     package_readiness["package_name"] = readiness_package_name(package_dir / "readiness.json")
     return [
-        file_summary("external_trial_json", args.external_trial_json),
-        file_summary("package_handoff_trial_json", package_dir / "handoff_trial.json"),
+        json_field_summary("external_trial_json", args.external_trial_json, TRIAL_CLAIM_SCOPE),
+        json_field_summary("package_handoff_trial_json", package_dir / "handoff_trial.json", TRIAL_CLAIM_SCOPE),
+        json_field_summary(
+            "package_artifact_manifest_json",
+            package_dir / "artifact_manifest.json",
+            PACKAGE_MANIFEST_CLAIM_SCOPE,
+        ),
         package_readiness,
         file_summary("package_zip", package_dir.parent / f"{package_dir.name}.zip"),
         file_summary("package_zip_sha256", package_dir.parent / f"{package_dir.name}.zip.sha256"),
@@ -633,6 +652,16 @@ def file_summary(name: str, path: Path) -> dict:
     return summary
 
 
+def json_field_summary(name: str, path: Path, expected_fields: dict[str, object]) -> dict:
+    summary = file_summary(name, path)
+    payload = load_json_if_file(Path(summary["path"]))
+    if not isinstance(payload, dict):
+        payload = {}
+    for field in expected_fields:
+        summary[field] = payload.get(field)
+    return summary
+
+
 def readiness_package_name(path: Path) -> str | None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -687,8 +716,8 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
             "",
             "## Input Artifacts",
             "",
-            "| Name | Exists | Size Bytes | SHA-256 | Package Name | Path |",
-            "|---|---:|---:|---|---|---|",
+            "| Name | Exists | Size Bytes | SHA-256 | Claim Status | Evidence Scope | Final Signoff | Trial Claim Status | Trial Evidence Scope | Trial Final Signoff | Package Name | Path |",
+            "|---|---:|---:|---|---|---|---:|---|---|---:|---|---|",
         ]
     )
     for artifact in payload["input_artifacts"]:
@@ -698,6 +727,12 @@ def render_local_evidence_preflight_markdown(payload: dict, out_json: Path) -> s
             f"{artifact['exists']} | "
             f"{artifact['size_bytes'] if artifact['size_bytes'] is not None else ''} | "
             f"{artifact['sha256'] or ''} | "
+            f"{artifact.get('claim_status') or ''} | "
+            f"{artifact.get('evidence_scope') or ''} | "
+            f"{artifact.get('final_production_signoff') if 'final_production_signoff' in artifact else ''} | "
+            f"{artifact.get('trial_claim_status') or ''} | "
+            f"{artifact.get('trial_evidence_scope') or ''} | "
+            f"{artifact.get('trial_final_production_signoff') if 'trial_final_production_signoff' in artifact else ''} | "
             f"{artifact.get('package_name') or ''} | "
             f"{artifact['path']} |"
         )
@@ -1060,6 +1095,12 @@ def validate_local_evidence_preflight_payload(payload: object) -> list[str]:
                 failures.append(f"missing input artifact must not carry size/hash: {name}")
             if name == "package_readiness_json":
                 failures.extend(package_readiness_artifact_package_name_issues(artifact))
+            if name in {"external_trial_json", "package_handoff_trial_json"}:
+                failures.extend(claim_scope_artifact_issues(name, artifact, TRIAL_CLAIM_SCOPE))
+            if name == "package_artifact_manifest_json":
+                failures.extend(
+                    claim_scope_artifact_issues(name, artifact, PACKAGE_MANIFEST_CLAIM_SCOPE)
+                )
         if isinstance(metadata, dict):
             failures.extend(validate_local_evidence_preflight_path_bindings(metadata, artifact_paths))
             failures.extend(validate_local_evidence_preflight_package_name_binding(metadata, artifact_summaries))
@@ -1143,6 +1184,23 @@ def package_readiness_artifact_package_name_issues(artifact: dict) -> list[str]:
     if release_gate.slugify(package_name) != package_name:
         return ["input_artifacts.package_readiness_json.package_name must be a canonical slug"]
     return []
+
+
+def claim_scope_artifact_issues(
+    name: str,
+    artifact: dict,
+    expected_fields: dict[str, object],
+) -> list[str]:
+    failures = []
+    for field, expected in expected_fields.items():
+        if field not in artifact:
+            failures.append(f"input_artifacts.{name}.{field} must be present")
+        elif artifact.get("exists") is True and artifact.get(field) != expected:
+            if expected is False:
+                failures.append(f"input_artifacts.{name}.{field} must be false")
+            else:
+                failures.append(f"input_artifacts.{name}.{field}={artifact.get(field)}")
+    return failures
 
 
 def argv_values(argv: list[str], flag: str) -> list[str | None]:
@@ -1232,6 +1290,16 @@ def validate_local_evidence_preflight_files(payload: dict) -> list[str]:
             actual_package_name = readiness_package_name(path)
             if actual_package_name != artifact.get("package_name"):
                 failures.append("input artifact package_name mismatch: package_readiness_json")
+        if name in {"external_trial_json", "package_handoff_trial_json"}:
+            actual_summary = json_field_summary(name, path, TRIAL_CLAIM_SCOPE)
+            for field in TRIAL_CLAIM_SCOPE:
+                if actual_summary.get(field) != artifact.get(field):
+                    failures.append(f"input artifact {field} mismatch: {name}")
+        if name == "package_artifact_manifest_json":
+            actual_summary = json_field_summary(name, path, PACKAGE_MANIFEST_CLAIM_SCOPE)
+            for field in PACKAGE_MANIFEST_CLAIM_SCOPE:
+                if actual_summary.get(field) != artifact.get(field):
+                    failures.append(f"input artifact {field} mismatch: {name}")
     return failures
 
 
@@ -1307,6 +1375,7 @@ def validate_local_evidence_preflight_path_bindings(
         package_dir = Path(package_dir_value)
         expected_package_paths = {
             "package_handoff_trial_json": package_dir / "handoff_trial.json",
+            "package_artifact_manifest_json": package_dir / "artifact_manifest.json",
             "package_readiness_json": package_dir / "readiness.json",
             "package_zip": package_dir.parent / f"{package_dir.name}.zip",
             "package_zip_sha256": package_dir.parent / f"{package_dir.name}.zip.sha256",

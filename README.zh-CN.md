@@ -172,6 +172,21 @@ python3 benchmark/package_external_trial.py \
 
 External trial report 本身会标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=EXTERNAL_L4_WORKFLOW_TRIAL`、`final_production_signoff=false`；Saved external trial verifier report 也会标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=EXTERNAL_L4_WORKFLOW_TRIAL_REVIEW`、`final_production_signoff=false`，并把源 trial report 的三项 claim-scope 字段复制到 `input_files.trial_json`，`--verify-report-files` 会重新计算它们，防止 trial 或 trial reviewer JSON 被单独误读成最终生产签核。Evidence package 会包含 `README.md` 和 `README.zh-CN.md`。两份 README 都会进入 `artifact_manifest.review_files` 和 package zip，release gate 会检查关键 signoff 字段，standalone package verifier 也会记录它们的 path/size/SHA-256，方便中英文 reviewer 复核。Package 的 `artifact_manifest.json` 和两份 README 还必须保留 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE`、`final_production_signoff=false`；`artifact_manifest.json` 还会记录源 trial 的 `trial_claim_status`、`trial_evidence_scope`、`trial_final_production_signoff`，把 package 绑定到非最终 trial report。Saved package verifier report 自身也会标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW`、`final_production_signoff=false`，并把 package manifest 的三项 package-scope 字段复制到 `input_files.package_artifact_manifest`；如果提供 `--trial-json`，还会把源 trial 的三项 claim-scope 字段复制到 `input_files.source_trial_json`；`--verify-report-files` 会从 package manifest 和 source trial report 重新计算它们。
 
+稳定 release 还不存在时，可以先对外部 trial 和 evidence package 做本地证据预检：
+
+```bash
+python3 benchmark/run_production_gate.py \
+  --external-trial-json path/to/external-trial/handoff_trial.json \
+  --external-trial-root path/to/external-trial \
+  --external-evidence-package-dir path/to/evidence-packages/external-l4-trial \
+  --external-trial-verification-report path/to/external-trial/trial-verification.json \
+  --external-evidence-package-verification-report path/to/evidence-packages/package-verification.json \
+  --github-release-tag v0.1.0 \
+  --local-evidence-preflight-only
+```
+
+Local evidence preflight 会写出 JSON/Markdown 报告，并标记 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`、`final_evidence_acceptable=false`。报告会列出被刻意跳过的最终生产门禁，记录 `skipped_final_checklist`，并用绝对路径、size 和 SHA-256 绑定 source trial JSON、package 内 `handoff_trial.json`、`artifact_manifest.json`、`readiness.json`、package zip、checksum 和可选 saved reviewer reports。它还会把 source/package trial 的三项 claim-scope 字段，以及 package artifact manifest 的 package-scope 和 source-trial scope 字段写入 `input_artifacts`；saved preflight verifier 在 `--verify-local-evidence-preflight-files` 下会从文件重新计算这些字段和 readiness `package_name`，防止本地预检报告被误改成最终生产签核。
+
 稳定 release 存在后，用 production wrapper 把所有必需证据绑定到同一份最终报告：
 
 ```bash
@@ -194,7 +209,7 @@ python3 benchmark/run_production_gate.py \
 - L3 public direct-mask benchmark PASS。
 - 已验证的 `v0.1.0-rc.1` prerelease。
 - L4-preflight handoff harness。
-- 外部 L4 trial、evidence package、local evidence preflight、GitHub release saved-report verification、final production gate 和 final report verification 的审计脚手架；local preflight 也会写入可机器复核的 `skipped_final_checklist`，防止把预检误读成最终生产证据。
+- 外部 L4 trial、evidence package、local evidence preflight、GitHub release saved-report verification、final production gate 和 final report verification 的审计脚手架；local preflight 也会写入可机器复核的 `skipped_final_checklist`，并绑定 source/package trial 与 package manifest 的 claim-scope 字段，防止把预检误读成最终生产证据。
 
 仍未完成最终生产声明：
 

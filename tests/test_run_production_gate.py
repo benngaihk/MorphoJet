@@ -149,6 +149,36 @@ class RunProductionGateTest(unittest.TestCase):
             ]
         )
 
+    def write_local_preflight(
+        self,
+        root: Path,
+        package_name: str = "external-l4-demo",
+    ) -> tuple[int, Path, Path, Path]:
+        trial_json = self.write_valid_trial(root, package_name=package_name)
+        package = package_external_trial.create_package(
+            trial_json,
+            root,
+            root / "package-out",
+            package_name=package_name,
+        )
+        out_json = root / "reports" / "preflight.json"
+        args = self.parse(
+            "--external-trial-json",
+            str(trial_json),
+            "--external-trial-root",
+            str(root),
+            "--external-evidence-package-dir",
+            package["package_dir"],
+            "--local-evidence-preflight-json",
+            str(out_json),
+            "--local-evidence-preflight-md",
+            str(root / "reports" / "preflight.md"),
+            "--local-evidence-preflight-only",
+        )
+        with contextlib.redirect_stdout(io.StringIO()):
+            status = run_production_gate.run_local_evidence_preflight(args)
+        return status, out_json, trial_json, Path(package["package_dir"])
+
     def test_builds_complete_required_production_claim_command(self) -> None:
         command = run_production_gate.build_release_gate_command(
             self.parse(
@@ -1166,6 +1196,7 @@ class RunProductionGateTest(unittest.TestCase):
             {
                 "external_trial_json",
                 "package_handoff_trial_json",
+                "package_artifact_manifest_json",
                 "package_readiness_json",
                 "package_zip",
                 "package_zip_sha256",
@@ -1174,6 +1205,30 @@ class RunProductionGateTest(unittest.TestCase):
         )
         self.assertTrue(artifact_by_name["external_trial_json"]["exists"])
         self.assertEqual(64, len(artifact_by_name["external_trial_json"]["sha256"]))
+        self.assertEqual("NOT_PRODUCTION_CLAIM", artifact_by_name["external_trial_json"]["claim_status"])
+        self.assertEqual("EXTERNAL_L4_WORKFLOW_TRIAL", artifact_by_name["external_trial_json"]["evidence_scope"])
+        self.assertIs(False, artifact_by_name["external_trial_json"]["final_production_signoff"])
+        self.assertEqual("NOT_PRODUCTION_CLAIM", artifact_by_name["package_handoff_trial_json"]["claim_status"])
+        self.assertEqual(
+            "EXTERNAL_L4_WORKFLOW_TRIAL",
+            artifact_by_name["package_handoff_trial_json"]["evidence_scope"],
+        )
+        self.assertIs(False, artifact_by_name["package_handoff_trial_json"]["final_production_signoff"])
+        self.assertEqual("NOT_PRODUCTION_CLAIM", artifact_by_name["package_artifact_manifest_json"]["claim_status"])
+        self.assertEqual(
+            "EXTERNAL_L4_EVIDENCE_PACKAGE",
+            artifact_by_name["package_artifact_manifest_json"]["evidence_scope"],
+        )
+        self.assertIs(False, artifact_by_name["package_artifact_manifest_json"]["final_production_signoff"])
+        self.assertEqual(
+            "NOT_PRODUCTION_CLAIM",
+            artifact_by_name["package_artifact_manifest_json"]["trial_claim_status"],
+        )
+        self.assertEqual(
+            "EXTERNAL_L4_WORKFLOW_TRIAL",
+            artifact_by_name["package_artifact_manifest_json"]["trial_evidence_scope"],
+        )
+        self.assertIs(False, artifact_by_name["package_artifact_manifest_json"]["trial_final_production_signoff"])
         self.assertTrue(artifact_by_name["package_zip"]["exists"])
         self.assertEqual(64, len(artifact_by_name["package_zip"]["sha256"]))
         self.assertEqual("external-l4-demo", artifact_by_name["package_readiness_json"]["package_name"])
@@ -1185,6 +1240,8 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("## Input Artifacts", markdown)
         self.assertIn("## Skipped Final Checks", markdown)
         self.assertIn("stable_github_release", markdown)
+        self.assertIn("Trial Claim Status", markdown)
+        self.assertIn("package_artifact_manifest_json", markdown)
         self.assertIn("package_zip", markdown)
         self.assertIn("Validate external L4 evidence package", markdown)
         self.assertIn("does not satisfy the stable GitHub release", markdown)
@@ -1323,6 +1380,140 @@ class RunProductionGateTest(unittest.TestCase):
 
         self.assertEqual(0, status)
         self.assertIn("verified_files=True", stdout.getvalue())
+
+    def test_verify_local_evidence_preflight_report_rejects_trial_scope_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, out_json, _trial_json, _package_dir = self.write_local_preflight(root)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            artifact_by_name = {artifact["name"]: artifact for artifact in payload["input_artifacts"]}
+            artifact_by_name["external_trial_json"]["claim_status"] = "FINAL_PRODUCTION_CLAIM"
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertEqual(1, verify_status)
+        self.assertIn(
+            "input_artifacts.external_trial_json.claim_status=FINAL_PRODUCTION_CLAIM",
+            stderr.getvalue(),
+        )
+
+    def test_verify_local_evidence_preflight_report_rejects_packaged_trial_scope_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, out_json, _trial_json, _package_dir = self.write_local_preflight(root)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            artifact_by_name = {artifact["name"]: artifact for artifact in payload["input_artifacts"]}
+            artifact_by_name["package_handoff_trial_json"]["final_production_signoff"] = True
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertEqual(1, verify_status)
+        self.assertIn(
+            "input_artifacts.package_handoff_trial_json.final_production_signoff must be false",
+            stderr.getvalue(),
+        )
+
+    def test_verify_local_evidence_preflight_report_rejects_package_manifest_scope_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, out_json, _trial_json, _package_dir = self.write_local_preflight(root)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            artifact_by_name = {artifact["name"]: artifact for artifact in payload["input_artifacts"]}
+            artifact_by_name["package_artifact_manifest_json"]["trial_evidence_scope"] = (
+                "FINAL_PRODUCTION_RELEASE_GATE"
+            )
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertEqual(1, verify_status)
+        self.assertIn(
+            "input_artifacts.package_artifact_manifest_json.trial_evidence_scope=FINAL_PRODUCTION_RELEASE_GATE",
+            stderr.getvalue(),
+        )
+
+    def test_verify_local_evidence_preflight_files_recomputes_trial_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, out_json, trial_json, _package_dir = self.write_local_preflight(root)
+            trial = json.loads(trial_json.read_text(encoding="utf-8"))
+            trial["claim_status"] = "FINAL_PRODUCTION_CLAIM"
+            trial_json.write_text(json.dumps(trial, indent=2) + "\n", encoding="utf-8")
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            artifact_by_name = {artifact["name"]: artifact for artifact in payload["input_artifacts"]}
+            artifact_by_name["external_trial_json"]["size_bytes"] = trial_json.stat().st_size
+            artifact_by_name["external_trial_json"]["sha256"] = run_production_gate.release_gate.sha256_file(
+                trial_json
+            )
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                        "--verify-local-evidence-preflight-files",
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertEqual(1, verify_status)
+        self.assertIn("input artifact claim_status mismatch: external_trial_json", stderr.getvalue())
+
+    def test_verify_local_evidence_preflight_files_recomputes_manifest_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, out_json, _trial_json, package_dir = self.write_local_preflight(root)
+            manifest_path = package_dir / "artifact_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["trial_final_production_signoff"] = True
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            artifact_by_name = {artifact["name"]: artifact for artifact in payload["input_artifacts"]}
+            artifact_by_name["package_artifact_manifest_json"]["size_bytes"] = manifest_path.stat().st_size
+            artifact_by_name["package_artifact_manifest_json"]["sha256"] = (
+                run_production_gate.release_gate.sha256_file(manifest_path)
+            )
+            out_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                verify_status = run_production_gate.main(
+                    [
+                        "--verify-local-evidence-preflight-report",
+                        str(out_json),
+                        "--verify-local-evidence-preflight-files",
+                    ]
+                )
+
+        self.assertEqual(0, status)
+        self.assertEqual(1, verify_status)
+        self.assertIn(
+            "input artifact trial_final_production_signoff mismatch: package_artifact_manifest_json",
+            stderr.getvalue(),
+        )
 
     def test_verify_local_evidence_preflight_report_rejects_artifact_path_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
