@@ -96,6 +96,8 @@ python3 benchmark/inspect_cellbindb_direct_masks.py \
 python3 benchmark/release_gate.py --require-clean-git --require-l3-provenance --run-l3 --build-release-artifact --release-version rc-preflight
 ```
 
+同一条完整 CellBinDB L3 gate 现在也接入 `.github/workflows/cellbindb-l3.yml`，支持每周定时运行和手动 `workflow_dispatch`。这个 workflow 会执行 `benchmark/run_cellbindb_l3_validation.sh`，刷新 pinned CellBinDB oracle evidence，写出 `benchmark/results/release-gate/l3-cellbindb.json` / `.md`，并把 L3 parity、impact、provenance、workflow bridge 和 handoff trial 报告作为保留 30 天的 GitHub artifact 上传。定时 L3 evidence 是公开 oracle 路径的持续回归信号；它仍然不能替代真实外部 L4 workflow trial 或稳定 release 生产声明门禁。
+
 快速审计已生成的 L3 产物：
 
 ```bash
@@ -235,6 +237,7 @@ python3 benchmark/run_production_gate.py \
 - L3 public direct-mask benchmark PASS。
 - 已验证的 `v0.1.0-rc.1` prerelease。
 - L4-preflight handoff harness。
+- 每周和手动触发的 GitHub scheduled CellBinDB L3 workflow，用于持续刷新公开 oracle 路径的 L3 回归证据。
 - 外部 L4 trial、evidence package、local evidence preflight、GitHub release saved-report verification、final production gate 和 final report verification 的审计脚手架；local preflight 也会写入可机器复核的 `skipped_final_checklist`，并绑定 source/package trial 与 package manifest 的 claim-scope 字段，防止把预检误读成最终生产证据。
 
 仍未完成最终生产声明：

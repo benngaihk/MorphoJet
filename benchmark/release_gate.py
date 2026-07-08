@@ -1776,6 +1776,7 @@ def is_doc_path(path: str) -> bool:
 def is_l3_provenance_compatible_path(path: str) -> bool:
     return (
         is_doc_path(path)
+        or path == ".github/workflows/cellbindb-l3.yml"
         or path.startswith("tests/")
         or path == "benchmark/check_external_l4_readiness.py"
         or path == "benchmark/inspect_cellbindb_direct_masks.py"
@@ -1800,6 +1801,7 @@ def is_l3_provenance_compatible_path(path: str) -> bool:
 def is_external_trial_compatible_path(path: str) -> bool:
     return (
         is_doc_path(path)
+        or path == ".github/workflows/cellbindb-l3.yml"
         or path.startswith("tests/")
         or path == "benchmark/check_external_l4_readiness.py"
         or path == "benchmark/inspect_cellbindb_direct_masks.py"

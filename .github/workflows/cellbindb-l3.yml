@@ -1,0 +1,67 @@
+name: CellBinDB L3 Validation
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cellbindb-l3-validation
+  cancel-in-progress: false
+
+jobs:
+  l3:
+    name: Run CellBinDB L3 gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Run scheduled CellBinDB L3 validation
+        shell: bash
+        run: benchmark/run_cellbindb_l3_validation.sh
+
+      - name: Write validation summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## CellBinDB L3 validation"
+            echo
+            if [[ -f benchmark/results/release-gate/l3-cellbindb.md ]]; then
+              cat benchmark/results/release-gate/l3-cellbindb.md
+            else
+              echo "No L3 release-gate Markdown report was produced."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload L3 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cellbindb-l3-evidence-${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            benchmark/results/release-gate/l3-cellbindb.json
+            benchmark/results/release-gate/l3-cellbindb.md
+            benchmark/results/cellbindb/oracle-full/summary.json
+            benchmark/results/cellbindb/oracle-full/parity.json
+            benchmark/results/cellbindb/oracle-full/parity.md
+            benchmark/results/cellbindb/oracle-full/impact.json
+            benchmark/results/cellbindb/oracle-full/impact.md
+            benchmark/results/cellbindb/oracle-full/provenance.json
+            benchmark/results/cellbindb/oracle-full/workflow_bridge.json
+            benchmark/results/cellbindb/oracle-full/workflow_bridge.md
+            benchmark/results/cellbindb/oracle-full/handoff_trial.json
+            benchmark/results/cellbindb/oracle-full/handoff_trial.md

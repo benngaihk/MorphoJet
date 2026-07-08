@@ -39,7 +39,7 @@
   - [x] Handoff manifest validator and external lab template.
   - [x] Scheduler-ready CellBinDB L3 validation script.
   - [x] Structured measure success/failure JSON reports.
-  - [ ] GitHub scheduled CellBinDB L3 workflow.
+  - [x] GitHub scheduled CellBinDB L3 workflow.
   - [ ] External workflow trial.
 
 - Multi-channel and plate/well/site metadata polish.
