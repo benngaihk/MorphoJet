@@ -24,6 +24,9 @@ MANIFEST_NAME = "external_manifest.json"
 PLAN_NAME = "trial_plan.json"
 README_NAME = "README.md"
 README_ZH_NAME = "README.zh-CN.md"
+CLAIM_STATUS = "NOT_PRODUCTION_CLAIM"
+EVIDENCE_SCOPE = "EXTERNAL_L4_TRIAL_PLAN"
+FINAL_PRODUCTION_SIGNOFF = False
 
 
 class PrepareError(Exception):
@@ -168,8 +171,12 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
     template_sha = payload.get("template_sha256")
     if not isinstance(template_sha, str) or not re.fullmatch(r"[0-9a-f]{64}", template_sha):
         failures.append(f"template_sha256={template_sha}")
-    if payload.get("claim_status") != "NOT_PRODUCTION_CLAIM":
+    if payload.get("claim_status") != CLAIM_STATUS:
         failures.append(f"claim_status={payload.get('claim_status')}")
+    if payload.get("evidence_scope") != EVIDENCE_SCOPE:
+        failures.append(f"evidence_scope={payload.get('evidence_scope')}")
+    if payload.get("final_production_signoff") is not FINAL_PRODUCTION_SIGNOFF:
+        failures.append("final_production_signoff must be false")
     commands = payload.get("commands")
     expected_command_names = [
         "verify_plan",
@@ -253,6 +260,8 @@ def verify_saved_plan(plan_path: Path, verify_files: bool = False) -> int:
         return 1
     print(f"trial plan ok: {plan_path}")
     print(f"claim_status={payload['claim_status']}")
+    print(f"evidence_scope={payload['evidence_scope']}")
+    print(f"final_production_signoff={payload['final_production_signoff']}")
     return 0
 
 
@@ -515,6 +524,9 @@ def render_readme(plan: dict[str, Any]) -> str:
         "Language: English | [简体中文](README.zh-CN.md)",
         "",
         "This workspace is a preparation scaffold, not external L4 evidence.",
+        f"trial_plan.json claim_status: `{plan['claim_status']}`",
+        f"trial_plan.json evidence_scope: `{plan['evidence_scope']}`",
+        f"trial_plan.json final_production_signoff: `{plan['final_production_signoff']}`",
         "Replace all `REPLACE_WITH` values in the manifest and place the real input files before running the trial.",
         "",
         "Expected input files:",
@@ -587,6 +599,9 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
         "Language: [English](README.md) | 简体中文",
         "",
         "这个工作区只是准备脚手架，不是外部 L4 证据。",
+        f"trial_plan.json claim_status：`{plan['claim_status']}`",
+        f"trial_plan.json evidence_scope：`{plan['evidence_scope']}`",
+        f"trial_plan.json final_production_signoff：`{plan['final_production_signoff']}`",
         "运行 trial 前，请替换 manifest 中所有 `REPLACE_WITH` 值，并放入真实输入文件。",
         "",
         "预期输入文件：",
@@ -722,7 +737,9 @@ def prepare_workspace(
         "workspace": str(workspace),
         "manifest": str(manifest_path),
         "package_name": package_slug,
-        "claim_status": "NOT_PRODUCTION_CLAIM",
+        "claim_status": CLAIM_STATUS,
+        "evidence_scope": EVIDENCE_SCOPE,
+        "final_production_signoff": FINAL_PRODUCTION_SIGNOFF,
         "commands": commands,
         "final_signoff_requirements": final_signoff_requirements(workspace, package_slug),
     }

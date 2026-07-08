@@ -41,6 +41,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             plan = prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
 
             self.assertEqual("NOT_PRODUCTION_CLAIM", plan["claim_status"])
+            self.assertEqual("EXTERNAL_L4_TRIAL_PLAN", plan["evidence_scope"])
+            self.assertFalse(plan["final_production_signoff"])
             generated_at = datetime.fromisoformat(plan["generated_at_utc"])
             self.assertIsNotNone(generated_at.tzinfo)
             self.assertEqual(timezone.utc.utcoffset(generated_at), generated_at.utcoffset())
@@ -291,6 +293,36 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
 
             self.assertEqual(0, completed.returncode, completed.stderr)
             self.assertIn("claim_status=NOT_PRODUCTION_CLAIM", completed.stdout)
+            self.assertIn("evidence_scope=EXTERNAL_L4_TRIAL_PLAN", completed.stdout)
+            self.assertIn("final_production_signoff=False", completed.stdout)
+
+    def test_saved_trial_plan_rejects_claim_scope_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+            payload = json.loads(plan_path.read_text(encoding="utf-8"))
+            payload["claim_status"] = "PASS"
+            payload["evidence_scope"] = "FINAL_PRODUCTION_CLAIM"
+            payload["final_production_signoff"] = True
+            plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("claim_status=PASS", completed.stderr)
+        self.assertIn("evidence_scope=FINAL_PRODUCTION_CLAIM", completed.stderr)
+        self.assertIn("final_production_signoff must be false", completed.stderr)
 
     def test_saved_trial_plan_rejects_non_utc_generated_at(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
