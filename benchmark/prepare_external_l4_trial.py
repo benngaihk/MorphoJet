@@ -183,6 +183,94 @@ def validate_final_signoff_command_bindings(payload: dict[str, Any]) -> list[str
     return failures
 
 
+def validate_pre_signoff_command_bindings(payload: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    commands = payload.get("commands")
+    requirements = payload.get("pre_signoff_requirements")
+    if not isinstance(commands, dict) or not isinstance(requirements, list):
+        return failures
+    requirement_by_name: dict[str, dict[str, Any]] = {}
+    for requirement in requirements:
+        if not isinstance(requirement, dict):
+            continue
+        name = requirement.get("name")
+        if isinstance(name, str):
+            requirement_by_name[name] = requirement
+
+    def command_values(command_name: str, flag: str) -> list[str | None]:
+        command = commands.get(command_name)
+        if not isinstance(command, list) or not all(isinstance(item, str) and item for item in command):
+            failures.append(f"commands.{command_name} must be a non-empty string list before binding {flag}")
+            return []
+        return argv_values(command, flag)
+
+    readiness_requirement = requirement_by_name.get("external_l4_readiness_precheck")
+    if readiness_requirement is None:
+        failures.append("pre_signoff_requirements missing external_l4_readiness_precheck")
+    else:
+        if readiness_requirement.get("verification_step") != "verify_readiness":
+            failures.append("pre_signoff_requirements.external_l4_readiness_precheck verification_step must be verify_readiness")
+        elif "verify_readiness" not in commands:
+            failures.append(
+                "pre_signoff_requirements.external_l4_readiness_precheck verification_step missing "
+                "commands.verify_readiness"
+            )
+        if readiness_requirement.get("required_before") != "run_trial":
+            failures.append("pre_signoff_requirements.external_l4_readiness_precheck required_before must be run_trial")
+        elif "run_trial" not in commands:
+            failures.append("pre_signoff_requirements.external_l4_readiness_precheck required_before missing commands.run_trial")
+        planned_path = readiness_requirement.get("planned_path")
+        for command_name, flag in [
+            ("check_readiness", "--json-out"),
+            ("verify_readiness", "--verify-report"),
+            ("run_trial", "--readiness-report"),
+        ]:
+            values = command_values(command_name, flag)
+            if len(values) != 1 or values[0] is None:
+                failures.append(f"commands.{command_name} must include exactly one {flag} value")
+            elif planned_path != values[0]:
+                failures.append(
+                    "pre_signoff_requirements.external_l4_readiness_precheck planned_path must match "
+                    f"{command_name} {flag}"
+                )
+
+    preflight_requirement = requirement_by_name.get("local_evidence_preflight_report")
+    if preflight_requirement is None:
+        failures.append("pre_signoff_requirements missing local_evidence_preflight_report")
+    else:
+        if preflight_requirement.get("verification_step") != "verify_local_evidence_preflight":
+            failures.append(
+                "pre_signoff_requirements.local_evidence_preflight_report verification_step must be "
+                "verify_local_evidence_preflight"
+            )
+        elif "verify_local_evidence_preflight" not in commands:
+            failures.append(
+                "pre_signoff_requirements.local_evidence_preflight_report verification_step missing "
+                "commands.verify_local_evidence_preflight"
+            )
+        if preflight_requirement.get("required_before") != "verify_stable_release":
+            failures.append("pre_signoff_requirements.local_evidence_preflight_report required_before must be verify_stable_release")
+        elif "verify_stable_release" not in commands:
+            failures.append(
+                "pre_signoff_requirements.local_evidence_preflight_report required_before missing "
+                "commands.verify_stable_release"
+            )
+        planned_path = preflight_requirement.get("planned_path")
+        for command_name, flag in [
+            ("local_evidence_preflight", "--local-evidence-preflight-json"),
+            ("verify_local_evidence_preflight", "--verify-local-evidence-preflight-report"),
+        ]:
+            values = command_values(command_name, flag)
+            if len(values) != 1 or values[0] is None:
+                failures.append(f"commands.{command_name} must include exactly one {flag} value")
+            elif planned_path != values[0]:
+                failures.append(
+                    "pre_signoff_requirements.local_evidence_preflight_report planned_path must match "
+                    f"{command_name} {flag}"
+                )
+    return failures
+
+
 def validate_generator_argv(payload: dict[str, Any], argv: list[str]) -> list[str]:
     failures = []
     if argv[0] != GENERATOR:
@@ -311,6 +399,7 @@ def validate_plan_payload(payload: Any, verify_files: bool = False) -> list[str]
             expected_pre_signoff = pre_signoff_requirements(Path(workspace))
             if payload.get("pre_signoff_requirements") != expected_pre_signoff:
                 failures.append("pre_signoff_requirements changed after plan was written")
+            failures.extend(validate_pre_signoff_command_bindings(payload))
             failures.extend(validate_final_signoff_command_bindings(payload))
     if verify_files:
         failures.extend(validate_plan_files(payload))

@@ -678,6 +678,49 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
         self.assertNotEqual(0, completed.returncode)
         self.assertIn("pre_signoff_requirements changed after plan was written", completed.stderr)
 
+    def test_saved_trial_plan_rejects_pre_signoff_command_binding_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "external-trial"
+            prepare_external_l4_trial.prepare_workspace(TEMPLATE, workspace)
+            plan_path = workspace / "trial_plan.json"
+            payload = json.loads(plan_path.read_text(encoding="utf-8"))
+            payload["pre_signoff_requirements"][0]["required_before"] = "verify_stable_release"
+            check_readiness = payload["commands"]["check_readiness"]
+            check_readiness[check_readiness.index("--json-out") + 1] = str(workspace / "wrong-readiness.json")
+            local_preflight = payload["commands"]["local_evidence_preflight"]
+            local_preflight[local_preflight.index("--local-evidence-preflight-json") + 1] = str(
+                workspace / "wrong-preflight.json"
+            )
+            plan_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "benchmark/prepare_external_l4_trial.py",
+                    "--verify-plan",
+                    str(plan_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn(
+            "pre_signoff_requirements.external_l4_readiness_precheck required_before must be run_trial",
+            completed.stderr,
+        )
+        self.assertIn(
+            "pre_signoff_requirements.external_l4_readiness_precheck planned_path must match "
+            "check_readiness --json-out",
+            completed.stderr,
+        )
+        self.assertIn(
+            "pre_signoff_requirements.local_evidence_preflight_report planned_path must match "
+            "local_evidence_preflight --local-evidence-preflight-json",
+            completed.stderr,
+        )
+
     def test_saved_trial_plan_rejects_template_hash_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp) / "external-trial"
