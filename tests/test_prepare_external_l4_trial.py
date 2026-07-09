@@ -485,6 +485,10 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("audit_production_evidence", readme)
             self.assertIn("verify_production_evidence_audit", readme)
             self.assertIn("PRODUCTION_EVIDENCE_READINESS_AUDIT", readme)
+            self.assertIn("schema_version=2", readme)
+            self.assertIn("`input_artifacts` directory summaries", readme)
+            self.assertIn("`external_trial_root`", readme)
+            self.assertIn("`external_evidence_package_dir`", readme)
             self.assertIn(
                 "It must be rechecked with `--verify-report-files --require-ready` before `final_production_gate` runs",
                 readme,
@@ -616,6 +620,10 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
             self.assertIn("audit_production_evidence", readme_zh)
             self.assertIn("verify_production_evidence_audit", readme_zh)
             self.assertIn("PRODUCTION_EVIDENCE_READINESS_AUDIT", readme_zh)
+            self.assertIn("schema_version=2", readme_zh)
+            self.assertIn("`input_artifacts` 目录摘要", readme_zh)
+            self.assertIn("`external_trial_root`", readme_zh)
+            self.assertIn("`external_evidence_package_dir`", readme_zh)
             self.assertIn(
                 "必须在 `final_production_gate` 运行前用 `--verify-report-files --require-ready` 重新复核",
                 readme_zh,
