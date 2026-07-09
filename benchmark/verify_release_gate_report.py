@@ -315,6 +315,24 @@ def validate_saved_reviewer_gate_command(gate: dict, metadata: Any) -> list[str]
     command = gate.get("command")
     if not isinstance(name, str):
         return []
+    if name == "Verify saved external L4 reviewer report pair":
+        failures = []
+        if command is not None:
+            failures.append("gate command for Verify saved external L4 reviewer report pair must be null")
+        if isinstance(metadata, dict):
+            trial_report = metadata.get("external_trial_verification_report")
+            package_report = metadata.get("external_evidence_package_verification_report")
+            if not (isinstance(trial_report, str) and trial_report.strip()):
+                failures.append(
+                    "gate Verify saved external L4 reviewer report pair requires "
+                    "metadata.external_trial_verification_report"
+                )
+            if not (isinstance(package_report, str) and package_report.strip()):
+                failures.append(
+                    "gate Verify saved external L4 reviewer report pair requires "
+                    "metadata.external_evidence_package_verification_report"
+                )
+        return failures
     if not isinstance(command, list) or not all(isinstance(item, str) for item in command):
         return []
     if not isinstance(metadata, dict):
@@ -410,6 +428,22 @@ def validate_saved_reviewer_gate_presence(metadata: Any, gate_names: set[str]) -
         value = metadata.get(metadata_key)
         if isinstance(value, str) and value.strip() and gate_name not in gate_names:
             failures.append(f"metadata.{metadata_key} requires gate: {gate_name}")
+    has_external_trial_report = isinstance(metadata.get("external_trial_verification_report"), str) and bool(
+        metadata.get("external_trial_verification_report").strip()
+    )
+    has_external_package_report = isinstance(
+        metadata.get("external_evidence_package_verification_report"), str
+    ) and bool(metadata.get("external_evidence_package_verification_report").strip())
+    if (
+        has_external_trial_report
+        and has_external_package_report
+        and "Verify saved external L4 reviewer report pair" not in gate_names
+    ):
+        failures.append(
+            "metadata.external_trial_verification_report and "
+            "metadata.external_evidence_package_verification_report require gate: "
+            "Verify saved external L4 reviewer report pair"
+        )
     return failures
 
 

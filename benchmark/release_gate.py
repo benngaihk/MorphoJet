@@ -120,6 +120,7 @@ REQUIRED_PRODUCTION_GATE_NAMES = frozenset(
         "Validate external L4 evidence package",
         "Verify saved external L4 trial report",
         "Verify saved external L4 evidence package report",
+        "Verify saved external L4 reviewer report pair",
         "Verify GitHub release assets",
         "Verify saved stable GitHub release report",
     ]
@@ -874,6 +875,58 @@ def saved_external_package_report_binding_failures(report: Path, args: argparse.
     if not paths_match(payload.get("trial_json"), args.external_trial_json):
         failures.append("saved external evidence package report trial_json does not match --external-trial-json")
     return failures
+
+
+def saved_external_reviewer_pair_binding_failures(trial_report: Path, package_report: Path) -> list[str]:
+    try:
+        trial_payload = load_reviewer_report(trial_report)
+    except Exception as exc:  # noqa: BLE001 - binding diagnostics should fail closed.
+        return [f"cannot read saved external trial report for pair binding: {type(exc).__name__}: {exc}"]
+    try:
+        package_payload = load_reviewer_report(package_report)
+    except Exception as exc:  # noqa: BLE001 - binding diagnostics should fail closed.
+        return [f"cannot read saved external evidence package report for pair binding: {type(exc).__name__}: {exc}"]
+    trial_input_files = trial_payload.get("input_files")
+    package_input_files = package_payload.get("input_files")
+    trial_evidence = (
+        trial_input_files.get("external_evidence") if isinstance(trial_input_files, dict) else None
+    )
+    package_evidence = (
+        package_input_files.get("package_external_evidence") if isinstance(package_input_files, dict) else None
+    )
+    if not isinstance(trial_evidence, dict):
+        return ["saved external trial report is missing input_files.external_evidence"]
+    if not isinstance(package_evidence, dict):
+        return ["saved external package report is missing input_files.package_external_evidence"]
+    ignored_file_fields = {"path", "exists", "size_bytes", "sha256"}
+    normalized_trial_evidence = {
+        key: value for key, value in trial_evidence.items() if key not in ignored_file_fields
+    }
+    normalized_package_evidence = {
+        key: value for key, value in package_evidence.items() if key not in ignored_file_fields
+    }
+    if normalized_trial_evidence != normalized_package_evidence:
+        return ["saved external trial/package reviewer reports do not bind the same external evidence"]
+    return []
+
+
+def saved_external_reviewer_pair_gate(trial_report: Path, package_report: Path) -> Gate:
+    failures = saved_external_reviewer_pair_binding_failures(trial_report, package_report)
+    if failures:
+        return Gate(
+            name="Verify saved external L4 reviewer report pair",
+            command=None,
+            status="FAIL",
+            elapsed_seconds=0.0,
+            detail="; ".join(failures),
+        )
+    return Gate(
+        name="Verify saved external L4 reviewer report pair",
+        command=None,
+        status="PASS",
+        elapsed_seconds=0.0,
+        detail="saved external trial/package reviewer reports bind the same external evidence",
+    )
 
 
 def rendered_manifest_artifacts(manifest: dict) -> list[str]:
@@ -2288,13 +2341,15 @@ def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], me
                 [
                     "Verify saved external L4 trial report",
                     "Verify saved external L4 evidence package report",
+                    "Verify saved external L4 reviewer report pair",
                 ],
                 bool(args.external_trial_verification_report)
                 and bool(args.external_evidence_package_verification_report),
             ),
             "detail": (
                 "Requires saved external trial and evidence-package reviewer reports to be supplied "
-                "and re-checked with file hashing."
+                "and re-checked with file hashing, expected commit binding, and matching "
+                "external-evidence identity summaries."
             ),
         },
         {
@@ -2776,6 +2831,13 @@ def main() -> int:
                 )
                 if gate.status == "PASS"
                 else [],
+            )
+        )
+    if args.external_trial_verification_report and args.external_evidence_package_verification_report:
+        gates.append(
+            saved_external_reviewer_pair_gate(
+                args.external_trial_verification_report,
+                args.external_evidence_package_verification_report,
             )
         )
     if args.github_release_verification_report:

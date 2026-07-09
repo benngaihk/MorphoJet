@@ -2,6 +2,25 @@
 
 Updated: 2026-07-09
 
+## Saved Release-Gate Reviewer Pair Gate Snapshot
+
+This snapshot records the hardening that makes direct `benchmark/release_gate.py` reports include the saved external L4 reviewer-report pair gate, not only the two individual saved reviewer verifier gates. When both saved external trial/package reviewer reports are supplied, the release gate now writes `Verify saved external L4 reviewer report pair`, compares their external-evidence identity summaries while ignoring file-location/hash wrapper fields, and includes that pair gate in the `external_l4_saved_reviewer_reports` production-audit status. The saved release-gate verifier now rejects reports that record both saved reviewer report paths but omit that pair gate, attach a command to it, or preserve it as FAIL.
+
+This is not a production claim. It closes a saved release-gate report tampering gap; the real external L4 workflow trial, matching evidence package, saved external reviewer reports, live stable GitHub release, and saved stable-release verifier report are still required before final production signoff.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/release_gate.py benchmark/verify_release_gate_report.py tests/test_release_gate.py tests/test_verify_release_gate_report.py` | PASS |
+| `python3 -m unittest discover -s tests -p 'test_release_gate.py'` | PASS, 100 tests |
+| `python3 -m unittest discover -s tests -p 'test_verify_release_gate_report.py'` | PASS, 58 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths including the bilingual README contract |
+| `git diff --check` | PASS |
+| `python3 -m unittest discover -s tests` | PASS, 595 tests |
+| `python3 benchmark/release_gate.py --out-json /tmp/morphojet-release-gate-reviewer-pair-gate.json --out-md /tmp/morphojet-release-gate-reviewer-pair-gate.md` | PASS; non-final precommit report |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-release-gate-reviewer-pair-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+
 ## External Reviewer Pair Identity Snapshot
 
 This snapshot records the hardening that makes saved external L4 trial/package reviewer reports bind to the same external evidence identity, not only to compatible paths and commits. `benchmark/verify_external_trial_report.py` now records `input_files.external_evidence` with reviewer identity, review timestamp, manual-editing status, acceptance-criteria count/hash, and a full external-evidence digest. `benchmark/verify_external_evidence_package.py` records the same identity summary in `input_files.package_external_evidence`. `benchmark/run_production_gate.py` now adds a saved reviewer-report pair gate, so final wrapper and local preflight reject two individually valid saved reviewer reports if their external-evidence identity summaries differ.

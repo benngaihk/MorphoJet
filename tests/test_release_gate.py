@@ -849,6 +849,7 @@ class ReleaseGateTest(unittest.TestCase):
                 "Validate external L4 evidence package",
                 "Verify saved external L4 trial report",
                 "Verify saved external L4 evidence package report",
+                "Verify saved external L4 reviewer report pair",
                 "Verify GitHub release assets",
                 "Verify saved stable GitHub release report",
                 "Verify saved GitHub Actions workflow report",
@@ -1055,6 +1056,7 @@ class ReleaseGateTest(unittest.TestCase):
                 "Validate external L4 evidence package",
                 "Verify saved external L4 trial report",
                 "Verify saved external L4 evidence package report",
+                "Verify saved external L4 reviewer report pair",
                 "Verify GitHub release assets",
                 "Verify saved stable GitHub release report",
                 "Verify saved GitHub Actions workflow report",
@@ -1525,6 +1527,56 @@ class ReleaseGateTest(unittest.TestCase):
         )
         self.assertIn(
             "saved external evidence package report trial_json does not match --external-trial-json",
+            failures,
+        )
+
+    def test_saved_external_reviewer_pair_binding_ignores_file_location_but_rejects_identity_drift(self) -> None:
+        identity = {
+            "path": "/tmp/trial/external_evidence.json",
+            "exists": True,
+            "size_bytes": 123,
+            "sha256": "a" * 64,
+            "reviewer_name_or_role": "External QA Reviewer",
+            "reviewed_at_utc": "2026-07-03T01:02:03+00:00",
+            "manual_csv_editing": False,
+            "acceptance_criteria_count": 3,
+            "acceptance_criteria_sha256": "b" * 64,
+            "external_evidence_sha256": "c" * 64,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_report = root / "trial-verification.json"
+            package_report = root / "package-verification.json"
+            package_identity = {
+                **identity,
+                "path": "/tmp/package/external_evidence.json",
+                "size_bytes": 456,
+                "sha256": "d" * 64,
+            }
+            trial_report.write_text(
+                json.dumps({"input_files": {"external_evidence": identity}}) + "\n",
+                encoding="utf-8",
+            )
+            package_report.write_text(
+                json.dumps({"input_files": {"package_external_evidence": package_identity}}) + "\n",
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                [],
+                release_gate.saved_external_reviewer_pair_binding_failures(trial_report, package_report),
+            )
+
+            package_identity["reviewer_name_or_role"] = "Different Reviewer"
+            package_report.write_text(
+                json.dumps({"input_files": {"package_external_evidence": package_identity}}) + "\n",
+                encoding="utf-8",
+            )
+
+            failures = release_gate.saved_external_reviewer_pair_binding_failures(trial_report, package_report)
+
+        self.assertEqual(
+            ["saved external trial/package reviewer reports do not bind the same external evidence"],
             failures,
         )
 

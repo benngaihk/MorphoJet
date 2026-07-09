@@ -186,6 +186,7 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                 "Validate external L4 evidence package",
                 "Verify saved external L4 trial report",
                 "Verify saved external L4 evidence package report",
+                "Verify saved external L4 reviewer report pair",
                 "Verify GitHub release assets",
                 "Verify saved stable GitHub release report",
                 "Verify saved GitHub Actions workflow report",
@@ -338,6 +339,13 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
                     "status": "PASS",
                     "elapsed_seconds": 0.0,
                     "detail": "ok",
+                },
+                {
+                    "name": "Verify saved external L4 reviewer report pair",
+                    "command": None,
+                    "status": "PASS",
+                    "elapsed_seconds": 0.0,
+                    "detail": "saved external trial/package reviewer reports bind the same external evidence",
                 },
                 {
                     "name": "Verify saved stable GitHub release report",
@@ -1055,6 +1063,19 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
             failures,
         )
 
+    def test_rejects_saved_reviewer_pair_gate_command_tampering(self) -> None:
+        payload = self.payload_with_saved_reviewer_gate_commands()
+        for gate in payload["gates"]:
+            if gate["name"] == "Verify saved external L4 reviewer report pair":
+                gate["command"] = ["python3", "benchmark/verify_external_trial_report.py"]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "gate command for Verify saved external L4 reviewer report pair must be null",
+            failures,
+        )
+
     def test_rejects_saved_reviewer_metadata_without_matching_gate(self) -> None:
         payload = self.payload_with_saved_reviewer_gate_commands()
         payload["gates"] = [
@@ -1065,6 +1086,35 @@ class VerifyReleaseGateReportTest(unittest.TestCase):
 
         self.assertIn(
             "metadata.external_trial_verification_report requires gate: Verify saved external L4 trial report",
+            failures,
+        )
+
+    def test_rejects_saved_reviewer_pair_metadata_without_matching_gate(self) -> None:
+        payload = self.payload_with_saved_reviewer_gate_commands()
+        payload["gates"] = [
+            gate for gate in payload["gates"] if gate["name"] != "Verify saved external L4 reviewer report pair"
+        ]
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload)
+
+        self.assertIn(
+            "metadata.external_trial_verification_report and "
+            "metadata.external_evidence_package_verification_report require gate: "
+            "Verify saved external L4 reviewer report pair",
+            failures,
+        )
+
+    def test_rejects_passing_saved_reviewer_pair_gate_failure(self) -> None:
+        payload = self.payload_with_saved_reviewer_gate_commands()
+        for gate in payload["gates"]:
+            if gate["name"] == "Verify saved external L4 reviewer report pair":
+                gate["status"] = "FAIL"
+                gate["detail"] = "saved external trial/package reviewer reports do not bind the same external evidence"
+
+        failures = verify_release_gate_report.validate_release_gate_report_payload(payload, require_report_pass=True)
+
+        self.assertIn(
+            "passing release-gate report has failed gates: Verify saved external L4 reviewer report pair",
             failures,
         )
 
