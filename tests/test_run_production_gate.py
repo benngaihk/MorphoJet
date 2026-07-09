@@ -30,6 +30,7 @@ from test_release_gate import add_artifact_provenance, valid_external_trial, wri
 class RunProductionGateTest(unittest.TestCase):
     FULL_COMMIT = "a" * 40
     DOCTOR_COMMIT = "a" * 12
+    PACKAGE_FILE_SHA = "b" * 64
 
     def test_github_release_repo_reuses_release_gate_contract(self) -> None:
         self.assertIs(release_gate.GITHUB_RELEASE_REPO, run_production_gate.GITHUB_RELEASE_REPO)
@@ -60,6 +61,20 @@ class RunProductionGateTest(unittest.TestCase):
         trial_json.write_text(json.dumps(trial, indent=2) + "\n", encoding="utf-8")
         return trial_json
 
+    def valid_doctor_package_files(self) -> dict[str, dict[str, object]]:
+        return {
+            filename: {
+                "package_path": f"/tmp/package/{filename}",
+                "source_path": f"/repo/{filename}",
+                "package_exists": True,
+                "source_exists": True,
+                "package_sha256": self.PACKAGE_FILE_SHA,
+                "source_sha256": self.PACKAGE_FILE_SHA,
+                "matches_source": True,
+            }
+            for filename in verify_github_release.SOURCE_MATCH_PACKAGE_FILES
+        }
+
     def write_valid_github_release_report(self, root: Path) -> Path:
         out_dir = root / "github-release"
         out_dir.mkdir()
@@ -75,7 +90,12 @@ class RunProductionGateTest(unittest.TestCase):
                     "archive": archive.name,
                     "sha256": digest,
                     "checksum_match": True,
-                    "doctor": {"status": "PASS", "issues": [], "expected_commit": self.DOCTOR_COMMIT}
+                    "doctor": {
+                        "status": "PASS",
+                        "issues": [],
+                        "expected_commit": self.DOCTOR_COMMIT,
+                        "package_files": self.valid_doctor_package_files(),
+                    }
                     if "linux-x86_64" in archive.name
                     else None,
                 }

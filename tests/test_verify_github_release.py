@@ -35,6 +35,7 @@ def temporary_cwd(path: Path):
 class VerifyGithubReleaseTest(unittest.TestCase):
     FULL_COMMIT = "a" * 40
     DOCTOR_COMMIT = "a" * 12
+    PACKAGE_FILE_SHA = "b" * 64
 
     def test_default_repo_reuses_release_gate_contract(self) -> None:
         self.assertIs(release_gate.GITHUB_RELEASE_REPO, verify_github_release.DEFAULT_REPO)
@@ -332,6 +333,20 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             verify_github_release.doctor_run_issues([{"doctor": None}]),
         )
 
+    def valid_doctor_package_files(self) -> dict[str, dict[str, object]]:
+        return {
+            filename: {
+                "package_path": f"/tmp/package/{filename}",
+                "source_path": f"/repo/{filename}",
+                "package_exists": True,
+                "source_exists": True,
+                "package_sha256": self.PACKAGE_FILE_SHA,
+                "source_sha256": self.PACKAGE_FILE_SHA,
+                "matches_source": True,
+            }
+            for filename in verify_github_release.SOURCE_MATCH_PACKAGE_FILES
+        }
+
     def valid_report(self, root: Path) -> Path:
         out_dir = root / "release"
         out_dir.mkdir()
@@ -347,7 +362,12 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                     "archive": archive.name,
                     "sha256": digest,
                     "checksum_match": True,
-                    "doctor": {"status": "PASS", "issues": [], "expected_commit": self.DOCTOR_COMMIT}
+                    "doctor": {
+                        "status": "PASS",
+                        "issues": [],
+                        "expected_commit": self.DOCTOR_COMMIT,
+                        "package_files": self.valid_doctor_package_files(),
+                    }
                     if "linux-x86_64" in archive.name
                     else None,
                 }
@@ -793,6 +813,50 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             failures,
         )
         self.assertIn("archive doctor has issues: morphojet-v0.1.0-linux-x86_64.tar.gz", failures)
+
+    def test_saved_release_report_rejects_missing_doctor_package_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            del payload["archives"][0]["doctor"]["package_files"]
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn(
+            "archive doctor package_files must be an object: morphojet-v0.1.0-linux-x86_64.tar.gz",
+            failures,
+        )
+
+    def test_saved_release_report_rejects_stale_chinese_readme_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            readme_summary = payload["archives"][0]["doctor"]["package_files"]["README.zh-CN.md"]
+            readme_summary["package_sha256"] = "c" * 64
+            readme_summary["matches_source"] = False
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn(
+            "passing github release archive README.zh-CN.md must match repository source: "
+            "morphojet-v0.1.0-linux-x86_64.tar.gz",
+            failures,
+        )
+
+    def test_saved_release_report_rejects_package_file_match_flag_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            readme_summary = payload["archives"][0]["doctor"]["package_files"]["README.md"]
+            readme_summary["package_sha256"] = "c" * 64
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn(
+            "archive doctor package_files.README.md.matches_source conflicts with sha256 values: "
+            "morphojet-v0.1.0-linux-x86_64.tar.gz",
+            failures,
+        )
 
     def test_saved_release_report_rejects_incomplete_pass_asset_sets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

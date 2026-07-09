@@ -87,6 +87,24 @@ class VerifyReleaseArchiveTest(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "--json-out must not overwrite checksum"):
                 verify_release_archive.validate_json_out_path(checksum, archive, checksum)
 
+    def test_package_file_issues_rejects_stale_chinese_readme(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source"
+            package = root / "package"
+            source.mkdir()
+            package.mkdir()
+            for filename in verify_release_archive.SOURCE_MATCH_FILES:
+                (source / filename).write_text(f"{filename} current\n", encoding="utf-8")
+                (package / filename).write_text(f"{filename} current\n", encoding="utf-8")
+            (package / "README.zh-CN.md").write_text("stale Chinese release README\n", encoding="utf-8")
+
+            summaries = verify_release_archive.package_file_summaries(package, source)
+            issues = verify_release_archive.package_file_issues(summaries)
+
+        self.assertFalse(summaries["README.zh-CN.md"]["matches_source"])
+        self.assertIn("packaged README.zh-CN.md does not match repository README.zh-CN.md", issues)
+
     def test_safe_extract_accepts_directories(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

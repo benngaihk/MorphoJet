@@ -13,7 +13,9 @@ import tempfile
 from pathlib import Path
 
 
+ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_FILES = {"morphojet", "README.md", "README.zh-CN.md", "LICENSE"}
+SOURCE_MATCH_FILES = ("README.md", "README.zh-CN.md", "LICENSE")
 
 
 def sha256(path: Path) -> str:
@@ -66,6 +68,43 @@ def normalized_path_key(path: Path) -> str:
     return str(path.expanduser().resolve(strict=False))
 
 
+def package_file_summaries(package_dir: Path, source_root: Path = ROOT) -> dict[str, dict[str, object]]:
+    summaries = {}
+    for filename in SOURCE_MATCH_FILES:
+        package_path = package_dir / filename
+        source_path = source_root / filename
+        package_exists = package_path.is_file()
+        source_exists = source_path.is_file()
+        package_sha = sha256(package_path) if package_exists else None
+        source_sha = sha256(source_path) if source_exists else None
+        summaries[filename] = {
+            "package_path": str(package_path),
+            "source_path": str(source_path),
+            "package_exists": package_exists,
+            "source_exists": source_exists,
+            "package_sha256": package_sha,
+            "source_sha256": source_sha,
+            "matches_source": package_exists and source_exists and package_sha == source_sha,
+        }
+    return summaries
+
+
+def package_file_issues(summaries: dict[str, dict[str, object]]) -> list[str]:
+    issues = []
+    for filename in SOURCE_MATCH_FILES:
+        summary = summaries.get(filename)
+        if not isinstance(summary, dict):
+            issues.append(f"missing package file summary for {filename}")
+            continue
+        if not summary.get("source_exists"):
+            issues.append(f"repository source file missing for {filename}")
+        if not summary.get("package_exists"):
+            issues.append(f"package file missing for {filename}")
+        elif summary.get("matches_source") is not True:
+            issues.append(f"packaged {filename} does not match repository {filename}")
+    return issues
+
+
 def validate_json_out_path(json_out: Path | None, archive: Path, checksum: Path) -> None:
     if json_out is None:
         return
@@ -100,6 +139,8 @@ def verify(archive: Path, checksum: Path, expect_commit: str | None) -> dict[str
         missing = sorted(REQUIRED_FILES - found)
         if missing:
             issues.append(f"missing files={','.join(missing)}")
+        file_summaries = package_file_summaries(package_dir)
+        issues.extend(package_file_issues(file_summaries))
 
         binary = package_dir / "morphojet"
         doctor_output = ""
@@ -124,6 +165,7 @@ def verify(archive: Path, checksum: Path, expect_commit: str | None) -> dict[str
         "issues": issues,
         "expected_commit": expect_commit,
         "doctor_output": doctor_output,
+        "package_files": file_summaries,
     }
 
 

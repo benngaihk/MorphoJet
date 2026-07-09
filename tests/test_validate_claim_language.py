@@ -121,7 +121,7 @@ class ValidateClaimLanguageTest(unittest.TestCase):
         self.assertIn("missing required shared bilingual README anchor", failures[0])
         self.assertIn("--github-release-verification-report", failures[0])
 
-    def test_production_readiness_contract_requires_final_wrapper_audit_binding(self) -> None:
+    def test_production_readiness_contract_requires_release_archive_readme_binding(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "PRODUCTION_READINESS.md"
             path.write_text(
@@ -132,10 +132,12 @@ class ValidateClaimLanguageTest(unittest.TestCase):
                 "--github-release-tag\n"
                 "--github-release-verification-report\n"
                 "--github-workflow-verification-report\n"
+                "--production-evidence-audit-report\n"
                 "--require-stable-report\n"
                 "--expect-tag v0.1.0\n"
                 "--expect-repo benngaihk/MorphoJet\n"
                 "--expect-commit <final-commit>\n"
+                "matches_source\n"
                 "schema_version=2\n"
                 "input_artifacts\n"
                 "external_trial_root\n"
@@ -158,7 +160,7 @@ class ValidateClaimLanguageTest(unittest.TestCase):
 
         self.assertEqual(1, len(failures))
         self.assertIn("PRODUCTION_READINESS.md", failures[0])
-        self.assertIn("--production-evidence-audit-report", failures[0])
+        self.assertIn("package_files", failures[0])
 
     def test_accepts_guarded_claim_language(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -3410,16 +3410,18 @@ Result:
 
 Conclusion: local release artifact shape is validated. Production release evidence still requires a tagged GitHub release with published macOS and Linux archives and checksums.
 
-## Bilingual Release Archive Contract
+## Bilingual Release Archive Source-Match Contract
 
-This snapshot tightens the release package contract so the stable GitHub release cannot satisfy release evidence with English-only documentation.
+This snapshot tightens the release package contract so the stable GitHub release cannot satisfy release evidence with English-only or stale documentation.
 
 Changes:
 
 - `benchmark/build_release_archive.py` now packages `README.zh-CN.md` alongside `README.md`, `LICENSE`, and the `morphojet` binary.
 - `.github/workflows/release.yml` uses the same package shape for tagged release assets.
-- `benchmark/verify_release_archive.py` requires `README.zh-CN.md` during local archive verification.
-- `benchmark/verify_github_release.py` reuses the same required package-file set, so live GitHub release verification rejects archives missing the Chinese README.
+- `benchmark/verify_release_archive.py` requires `README.zh-CN.md` during local archive verification and records a `package_files` summary for `README.md`, `README.zh-CN.md`, and `LICENSE`.
+- `benchmark/verify_release_archive.py` now requires those packaged files to have `matches_source=true` against the current repository files, so a local archive carrying stale bilingual README content fails before release.
+- `benchmark/verify_github_release.py` reuses the same required package-file set and saved-report schema, so live GitHub release verification and saved stable-release report review reject compatible archives missing `package_files`, stale `README.zh-CN.md`, or tampered `matches_source` flags.
+- `benchmark/validate_claim_language.py` now requires both root READMEs and `docs/PRODUCTION_READINESS.md` to preserve the `package_files` and `matches_source` release-archive contract anchors.
 
 Validation:
 
@@ -3433,7 +3435,24 @@ Validation:
 | `python3 benchmark/verify_release_archive.py benchmark/results/release-artifacts/morphojet-local-bilingual-macos-arm64.tar.gz --json-out benchmark/results/release-artifacts/local-bilingual-verification.json` | PASS |
 | `tar -tzf benchmark/results/release-artifacts/morphojet-local-bilingual-macos-arm64.tar.gz \| sort` | PASS, includes `README.zh-CN.md` |
 
-Conclusion: local and GitHub release verification now enforce the bilingual release archive shape. This reduces stable-release packaging risk but remains non-final evidence until a stable GitHub release is published and verified with the final production wrapper.
+Additional local validation for the source-match hardening:
+
+| Command | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/verify_release_archive.py benchmark/verify_github_release.py benchmark/validate_claim_language.py tests/test_verify_release_archive.py tests/test_verify_github_release.py tests/test_run_production_gate.py tests/test_validate_claim_language.py` | PASS |
+| `python3 -m unittest discover -s tests -p test_verify_release_archive.py` | PASS, 11 tests |
+| `python3 -m unittest discover -s tests -p test_verify_github_release.py` | PASS, 69 tests |
+| `python3 -m unittest discover -s tests -p test_run_production_gate.py` | PASS, 100 tests |
+| `python3 -m unittest discover -s tests -p test_validate_claim_language.py` | PASS, 13 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS |
+| `python3 benchmark/build_release_archive.py --version local-source-match --out-dir /tmp/morphojet-release-source-match --skip-build` | PASS |
+| `python3 benchmark/verify_release_archive.py /tmp/morphojet-release-source-match/morphojet-local-source-match-macos-arm64.tar.gz --json-out /tmp/morphojet-release-source-match/verification.json` | PASS, `package_files` records `matches_source=true` for `README.md`, `README.zh-CN.md`, and `LICENSE` |
+| `git diff --check` | PASS |
+| `python3 -m unittest discover -s tests` | PASS, 603 tests |
+| `python3 benchmark/release_gate.py --out-json /tmp/morphojet-release-gate-readme-source-match-release-gate.json --out-md /tmp/morphojet-release-gate-readme-source-match-release-gate.md` | PASS |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-release-gate-readme-source-match-release-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report,production_evidence_readiness_audit` | PASS |
+
+Conclusion: local and GitHub release verification now enforce the bilingual release archive shape and source-match summary. This reduces stable-release packaging risk but remains non-final evidence until a stable GitHub release is published and verified with the final production wrapper.
 
 ## GitHub Release Candidate Snapshot
 

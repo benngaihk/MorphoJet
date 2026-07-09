@@ -18,6 +18,7 @@ from typing import Any
 
 import release_gate
 from verify_release_archive import REQUIRED_FILES as REQUIRED_PACKAGE_FILES
+from verify_release_archive import SOURCE_MATCH_FILES as SOURCE_MATCH_PACKAGE_FILES
 from verify_release_archive import verify
 
 
@@ -521,6 +522,40 @@ def doctor_run_issues(archive_summaries: list[dict]) -> list[str]:
     return ["no compatible release archive was doctor-verified on this machine"]
 
 
+def doctor_package_file_issues(archive_name: Any, doctor: dict[str, Any], status: Any) -> list[str]:
+    failures = []
+    package_files = doctor.get("package_files")
+    if not isinstance(package_files, dict):
+        failures.append(f"archive doctor package_files must be an object: {archive_name}")
+        return failures
+    for filename in SOURCE_MATCH_PACKAGE_FILES:
+        summary = package_files.get(filename)
+        if not isinstance(summary, dict):
+            failures.append(f"archive doctor package_files missing {filename}: {archive_name}")
+            continue
+        for key in ["package_exists", "source_exists", "matches_source"]:
+            if not isinstance(summary.get(key), bool):
+                failures.append(f"archive doctor package_files.{filename}.{key} must be boolean: {archive_name}")
+        for key in ["package_sha256", "source_sha256"]:
+            value = summary.get(key)
+            if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
+                failures.append(f"archive doctor package_files.{filename}.{key} must be a sha256: {archive_name}")
+        package_sha = summary.get("package_sha256")
+        source_sha = summary.get("source_sha256")
+        if summary.get("matches_source") is True and package_sha != source_sha:
+            failures.append(
+                f"archive doctor package_files.{filename}.matches_source conflicts with sha256 values: {archive_name}"
+            )
+        if status == "PASS":
+            if summary.get("package_exists") is not True:
+                failures.append(f"passing github release archive package file missing {filename}: {archive_name}")
+            if summary.get("source_exists") is not True:
+                failures.append(f"passing github release archive source file missing {filename}: {archive_name}")
+            if summary.get("matches_source") is not True:
+                failures.append(f"passing github release archive {filename} must match repository source: {archive_name}")
+    return failures
+
+
 def expected_commit_issues(expected_commit: Any, expected_doctor_commit: Any) -> list[str]:
     failures = []
     if not isinstance(expected_commit, str) or not expected_commit.strip():
@@ -774,6 +809,7 @@ def validate_verification_report_payload(
                     failures.append(f"archive doctor has issues: {archive.get('archive')}")
                 if doctor.get("expected_commit") != expected_doctor_commit:
                     failures.append(f"archive doctor expected_commit does not match expected_doctor_commit: {archive.get('archive')}")
+                failures.extend(doctor_package_file_issues(archive.get("archive"), doctor, status))
         downloaded_archive_names = (
             sorted(name for name in downloaded_assets_payload if name.endswith(".tar.gz"))
             if isinstance(downloaded_assets_payload, list)
