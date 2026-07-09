@@ -75,6 +75,7 @@ def verify_saved_github_workflow_gate(report: Path) -> release_gate.Gate:
         expect_branch=release_gate.GITHUB_ACTIONS_WORKFLOW_BRANCH,
         expect_commit=release_gate.git_commit(),
         expect_workflows=release_gate.GITHUB_ACTIONS_REQUIRED_WORKFLOWS,
+        verify_live_runs=True,
     )
 
 

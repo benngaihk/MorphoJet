@@ -881,6 +881,7 @@ def saved_reviewer_report_gates(
                 "expect_branch": release_gate.GITHUB_ACTIONS_WORKFLOW_BRANCH,
                 "expect_commit": release_gate.git_commit(),
                 "expect_workflows": release_gate.GITHUB_ACTIONS_REQUIRED_WORKFLOWS,
+                "verify_live_runs": True,
             },
         )
         gates.append(

@@ -2,6 +2,29 @@
 
 Updated: 2026-07-09
 
+## Saved GitHub Workflow Live-Run Recheck Snapshot
+
+This snapshot records the hardening that makes saved GitHub Actions workflow reports re-check live run identities before final signoff. `benchmark/verify_github_workflows.py --verify-report ... --verify-live-runs` now queries GitHub Actions again and compares saved versus live workflow, status, run status, conclusion, head SHA, branch, run ID, URL, and event signatures. Final release-gate, final wrapper, production-evidence audit, and generated external L4 trial-plan commands now include that flag, so saved workflow JSON cannot replace live remote-CI evidence during production review.
+
+This is not a production claim. It strengthens the required remote workflow evidence; the real external L4 workflow trial, matching evidence package, saved external reviewer reports, live stable GitHub release, saved stable-release verifier report, ready saved production evidence audit, and final production release-gate report are still required before final production signoff.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/verify_github_workflows.py benchmark/release_gate.py benchmark/run_production_gate.py benchmark/audit_production_evidence.py benchmark/prepare_external_l4_trial.py benchmark/validate_claim_language.py tests/test_verify_github_workflows.py tests/test_prepare_external_l4_trial.py tests/test_validate_claim_language.py` | PASS |
+| `python3 -m unittest discover -s tests -p test_verify_github_workflows.py` | PASS, 8 tests |
+| `python3 -m unittest discover -s tests -p test_release_gate.py` | PASS, 100 tests |
+| `python3 -m unittest discover -s tests -p test_run_production_gate.py` | PASS, 100 tests |
+| `python3 -m unittest discover -s tests -p test_audit_production_evidence.py` | PASS, 13 tests |
+| `python3 -m unittest discover -s tests -p test_prepare_external_l4_trial.py` | PASS, 30 tests |
+| `python3 -m unittest discover -s tests -p test_validate_claim_language.py` | PASS, 13 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths including the bilingual README contract |
+| `git diff --check` | PASS |
+| `python3 -m unittest discover -s tests` | PASS, 610 tests |
+| `python3 benchmark/release_gate.py --out-json /tmp/morphojet-workflow-live-run-recheck-release-gate.json --out-md /tmp/morphojet-workflow-live-run-recheck-release-gate.md` | PASS; non-final precommit report |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-workflow-live-run-recheck-release-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report,production_evidence_readiness_audit` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+
 ## Production Evidence Audit Gate Signature Snapshot
 
 This snapshot records the hardening that makes saved production evidence audit reports bind their gate rows to recomputed audit evidence. `benchmark/audit_production_evidence.py --verify-report ... --verify-report-files` now validates saved gate entry shape and compares saved/recomputed gate name, status, and command signatures, while still ignoring naturally variable elapsed time. This prevents a saved production-evidence audit JSON from silently dropping or weakening a gate row while leaving the top-level checklist unchanged.

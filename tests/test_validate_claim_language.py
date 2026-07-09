@@ -133,6 +133,7 @@ class ValidateClaimLanguageTest(unittest.TestCase):
                 "--github-release-verification-report\n"
                 "--github-workflow-verification-report\n"
                 "--production-evidence-audit-report\n"
+                "--verify-live-runs\n"
                 "--require-stable-report\n"
                 "--expect-tag v0.1.0\n"
                 "--expect-repo benngaihk/MorphoJet\n"

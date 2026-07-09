@@ -292,6 +292,44 @@ def validate_report_payload(
     return failures
 
 
+def workflow_run_signature(summary: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "workflow": summary.get("workflow"),
+        "status": summary.get("status"),
+        "conclusion": summary.get("conclusion"),
+        "run_status": summary.get("run_status"),
+        "head_sha": summary.get("head_sha"),
+        "head_branch": summary.get("head_branch"),
+        "run_id": summary.get("run_id"),
+        "url": summary.get("url"),
+        "event": summary.get("event"),
+    }
+
+
+def live_workflow_run_issues(payload: dict[str, Any]) -> list[str]:
+    repo = payload.get("repo")
+    branch = payload.get("branch")
+    commit = payload.get("commit")
+    workflows = payload.get("workflows")
+    saved_runs = payload.get("workflow_runs")
+    if not isinstance(repo, str) or not isinstance(branch, str) or not isinstance(commit, str):
+        return ["repo, branch, and commit must be strings before live workflow recheck"]
+    if not isinstance(workflows, list) or not all(isinstance(workflow, str) for workflow in workflows):
+        return ["workflows must be a string list before live workflow recheck"]
+    if not isinstance(saved_runs, list) or not all(isinstance(item, dict) for item in saved_runs):
+        return ["workflow_runs must be object list before live workflow recheck"]
+    failures = []
+    live_runs = [summarize_workflow(repo, branch, commit, workflow) for workflow in workflows]
+    saved_signatures = [workflow_run_signature(item) for item in saved_runs]
+    live_signatures = [workflow_run_signature(item) for item in live_runs]
+    if saved_signatures != live_signatures:
+        failures.append("live workflow run signatures changed after report was written")
+    live_status = "PASS" if all(summary.get("status") == "PASS" for summary in live_runs) else "FAIL"
+    if payload.get("status") != live_status:
+        failures.append("status changed after live workflow recheck")
+    return failures
+
+
 def verify_saved_report(
     report: Path,
     require_report_pass: bool = False,
@@ -299,6 +337,7 @@ def verify_saved_report(
     expect_branch: str | None = None,
     expect_commit: str | None = None,
     expect_workflows: list[str] | None = None,
+    verify_live_runs: bool = False,
 ) -> int:
     try:
         payload = json.loads(report.read_text(encoding="utf-8"))
@@ -314,12 +353,16 @@ def verify_saved_report(
         expect_commit=expect_commit,
         expect_workflows=expect_workflows,
     )
+    if not failures and verify_live_runs:
+        failures.extend(live_workflow_run_issues(payload))
     if failures:
         for failure in failures:
             print(f"FAIL: {failure}", file=sys.stderr)
         return 1
     print(f"GitHub workflow verification report ok: {report}")
     print(f"status={payload['status']}")
+    if verify_live_runs:
+        print("verified_live_runs=True")
     return 0
 
 
@@ -336,6 +379,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--expect-branch")
     parser.add_argument("--expect-commit")
     parser.add_argument("--expect-workflow", action="append", dest="expect_workflows")
+    parser.add_argument("--verify-live-runs", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -349,6 +393,7 @@ def main(argv: list[str] | None = None) -> int:
             expect_branch=args.expect_branch,
             expect_commit=args.expect_commit,
             expect_workflows=args.expect_workflows,
+            verify_live_runs=args.verify_live_runs,
         )
     commit = args.commit or git_commit()
     workflows = args.workflows or list(DEFAULT_WORKFLOWS)

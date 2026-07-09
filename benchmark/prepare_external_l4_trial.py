@@ -722,6 +722,7 @@ def validate_stable_release_command_bindings(payload: dict[str, Any]) -> list[st
         if workflow not in values:
             failures.append(f"commands.verify_github_workflows_report missing --expect-workflow {workflow}")
     expect_present("verify_github_workflows_report", "--require-report-pass", "saved GitHub workflow PASS enforcement")
+    expect_present("verify_github_workflows_report", "--verify-live-runs", "saved GitHub workflow live run recheck")
 
     expect_flag(
         "audit_production_evidence",
@@ -1259,6 +1260,7 @@ def plan_commands(
             "--verify-report",
             str(github_workflow_verification),
             "--require-report-pass",
+            "--verify-live-runs",
             "--expect-repo",
             STABLE_RELEASE_REPO,
             "--expect-branch",
@@ -1545,7 +1547,7 @@ def render_readme(plan: dict[str, Any]) -> str:
         "The saved package verifier report produced by `verify_package` is also not final production signoff: `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW`, `final_production_signoff=false`.",
         "The saved local preflight report produced by `local_evidence_preflight` is also not final production signoff: it must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`, and `final_evidence_acceptable=false`.",
         "The saved production evidence audit produced by `audit_production_evidence` is also not final production signoff: it must remain `claim_status=NOT_PRODUCTION_CLAIM`, `evidence_scope=PRODUCTION_EVIDENCE_READINESS_AUDIT`, `final_production_signoff=false`, and `schema_version=2`. It must record `input_artifacts` directory summaries for `external_trial_root` and `external_evidence_package_dir`. It must be rechecked with `--verify-report-files --require-ready` before `final_production_gate` runs, and when both saved external reviewer reports are present it must retain the saved trial verifier, saved package verifier, and `Verify saved external L4 reviewer report pair` gate entries.",
-        "The saved GitHub Actions workflow verifier report must be generated with `--commit` and rechecked with `--expect-commit` for the `trial_plan.json git_commit`, so branch movement cannot replace the final remote-CI evidence.",
+        "The saved GitHub Actions workflow verifier report must be generated with `--commit`, rechecked with `--expect-commit` for the `trial_plan.json git_commit`, and rechecked with `--verify-live-runs`, so branch movement or stale saved JSON cannot replace the final remote-CI evidence.",
         "The live stable release verifier command must also use `--expect-commit` for the same `trial_plan.json git_commit`, so the release tag, downloaded archives, `morphojet doctor` commit prefix, and final workflow evidence all point to the same planned commit before signoff.",
         "The saved stable release verifier report must also be rechecked with `--expect-commit` for the same `trial_plan.json git_commit`, so an older saved release report cannot satisfy the final report slot.",
         "Chinese-community reviewers can use `README.zh-CN.md` as a first-class review entrypoint. It must preserve the same command order, non-final claim labels, pre-signoff requirements, final blockers, and package README evidence path as this English README.",
@@ -1698,7 +1700,7 @@ def render_readme_zh(plan: dict[str, Any]) -> str:
         "`verify_package` 生成的 saved package verifier report 也不是最终生产签核：`claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=EXTERNAL_L4_EVIDENCE_PACKAGE_REVIEW`、`final_production_signoff=false`。",
         "`local_evidence_preflight` 生成的 saved local preflight report 也不是最终生产签核：它必须保持 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=LOCAL_EXTERNAL_L4_PREFLIGHT`、`final_evidence_acceptable=false`。",
         "`audit_production_evidence` 生成的 saved production evidence audit 也不是最终生产签核：它必须保持 `claim_status=NOT_PRODUCTION_CLAIM`、`evidence_scope=PRODUCTION_EVIDENCE_READINESS_AUDIT`、`final_production_signoff=false` 和 `schema_version=2`。它必须记录 `input_artifacts` 目录摘要，包括 `external_trial_root` 和 `external_evidence_package_dir`。它必须在 `final_production_gate` 运行前用 `--verify-report-files --require-ready` 重新复核；如果同时存在两份 saved external reviewer reports，它还必须保留 saved trial verifier、saved package verifier 和 `Verify saved external L4 reviewer report pair` gate entries。",
-        "Saved GitHub Actions workflow verifier report 必须用 `--commit` 生成，并用 `--expect-commit` 复核到 `trial_plan.json git_commit`，避免 main 分支移动后替换最终远端 CI 证据。",
+        "Saved GitHub Actions workflow verifier report 必须用 `--commit` 生成，用 `--expect-commit` 复核到 `trial_plan.json git_commit`，并用 `--verify-live-runs` 重新查询远端 run，避免 main 分支移动或旧 saved JSON 替换最终远端 CI 证据。",
         "Live stable release verifier command 也必须用 `--expect-commit` 绑定同一个 `trial_plan.json git_commit`，确保 release tag、下载 archive、`morphojet doctor` commit prefix 和最终 workflow evidence 在签核前都指向同一个计划 commit。",
         "Saved stable release verifier report 也必须用 `--expect-commit` 复核到同一个 `trial_plan.json git_commit`，防止旧 commit 的 saved release report 填进最终报告槽位。",
         "中文社区 reviewer 可以把 `README.zh-CN.md` 作为一等复核入口。它必须保留与英文 README 相同的命令顺序、非最终 claim labels、pre-signoff requirements、最终阻塞项和 package README evidence path。",

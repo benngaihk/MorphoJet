@@ -779,6 +779,7 @@ def saved_github_workflow_report_command(report: Path, expected_commit: str | No
         "--verify-report",
         normalized_path_key(report),
         "--require-report-pass",
+        "--verify-live-runs",
         "--expect-repo",
         GITHUB_RELEASE_REPO,
         "--expect-branch",

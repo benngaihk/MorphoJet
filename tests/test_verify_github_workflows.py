@@ -45,6 +45,45 @@ class VerifyGithubWorkflowsTest(unittest.TestCase):
             }
         ]
 
+    def valid_saved_report_payload(self, report: Path) -> dict:
+        return {
+            "schema_version": 1,
+            "verifier": "benchmark/verify_github_workflows.py",
+            "generated_at_utc": "2026-07-08T00:00:00+00:00",
+            "claim_status": "NOT_PRODUCTION_CLAIM",
+            "evidence_scope": "GITHUB_ACTIONS_WORKFLOW_VERIFICATION",
+            "final_production_signoff": False,
+            "status": "PASS",
+            "repo": "benngaihk/MorphoJet",
+            "branch": "main",
+            "commit": self.COMMIT,
+            "workflows": ["ci.yml", "external-l4-rehearsal.yml"],
+            "argv": [
+                "benchmark/verify_github_workflows.py",
+                "--repo",
+                "benngaihk/MorphoJet",
+                "--branch",
+                "main",
+                "--commit",
+                self.COMMIT,
+                "--workflow",
+                "ci.yml",
+                "--workflow",
+                "external-l4-rehearsal.yml",
+                "--json-out",
+                str(report),
+            ],
+            "workflow_runs": [
+                verify_github_workflows.summarize_workflow("benngaihk/MorphoJet", "main", self.COMMIT, "ci.yml"),
+                verify_github_workflows.summarize_workflow(
+                    "benngaihk/MorphoJet",
+                    "main",
+                    self.COMMIT,
+                    "external-l4-rehearsal.yml",
+                ),
+            ],
+        }
+
     def test_writes_pass_report_for_required_workflows(self) -> None:
         def fake_run(command: list[str]) -> str:
             workflow = command[command.index("--workflow") + 1]
@@ -102,50 +141,9 @@ class VerifyGithubWorkflowsTest(unittest.TestCase):
     def test_saved_report_requires_pass_and_expected_workflows(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = Path(tmp) / "workflows.json"
-            payload = {
-                "schema_version": 1,
-                "verifier": "benchmark/verify_github_workflows.py",
-                "generated_at_utc": "2026-07-08T00:00:00+00:00",
-                "claim_status": "NOT_PRODUCTION_CLAIM",
-                "evidence_scope": "GITHUB_ACTIONS_WORKFLOW_VERIFICATION",
-                "final_production_signoff": False,
-                "status": "PASS",
-                "repo": "benngaihk/MorphoJet",
-                "branch": "main",
-                "commit": self.COMMIT,
-                "workflows": ["ci.yml", "external-l4-rehearsal.yml"],
-                "argv": [
-                    "benchmark/verify_github_workflows.py",
-                    "--repo",
-                    "benngaihk/MorphoJet",
-                    "--branch",
-                    "main",
-                    "--commit",
-                    self.COMMIT,
-                    "--workflow",
-                    "ci.yml",
-                    "--workflow",
-                    "external-l4-rehearsal.yml",
-                    "--json-out",
-                    str(report),
-                ],
-                "workflow_runs": [
-                    {
-                        "workflow": "ci.yml",
-                        "status": "PASS",
-                        "run_status": "completed",
-                        "conclusion": "success",
-                        "head_sha": self.COMMIT,
-                    },
-                    {
-                        "workflow": "external-l4-rehearsal.yml",
-                        "status": "PASS",
-                        "run_status": "completed",
-                        "conclusion": "success",
-                        "head_sha": self.COMMIT,
-                    },
-                ],
-            }
+            with patch.object(verify_github_workflows, "workflow_runs") as workflow_runs:
+                workflow_runs.side_effect = lambda _repo, _branch, _commit, workflow: self.workflow_payload(workflow)
+                payload = self.valid_saved_report_payload(report)
             report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
             with contextlib.redirect_stdout(io.StringIO()) as stdout:
                 status = verify_github_workflows.verify_saved_report(
@@ -157,6 +155,43 @@ class VerifyGithubWorkflowsTest(unittest.TestCase):
 
         self.assertEqual(0, status)
         self.assertIn("status=PASS", stdout.getvalue())
+
+    def test_saved_report_live_recheck_accepts_matching_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "workflows.json"
+            with patch.object(verify_github_workflows, "workflow_runs") as workflow_runs:
+                workflow_runs.side_effect = lambda _repo, _branch, _commit, workflow: self.workflow_payload(workflow)
+                payload = self.valid_saved_report_payload(report)
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+            with (
+                patch.object(verify_github_workflows, "workflow_runs") as workflow_runs,
+                contextlib.redirect_stdout(io.StringIO()) as stdout,
+            ):
+                workflow_runs.side_effect = lambda _repo, _branch, _commit, workflow: self.workflow_payload(workflow)
+                status = verify_github_workflows.verify_saved_report(report, require_report_pass=True, verify_live_runs=True)
+
+        self.assertEqual(0, status)
+        self.assertIn("verified_live_runs=True", stdout.getvalue())
+
+    def test_saved_report_live_recheck_rejects_changed_run_signature(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "workflows.json"
+            with patch.object(verify_github_workflows, "workflow_runs") as workflow_runs:
+                workflow_runs.side_effect = lambda _repo, _branch, _commit, workflow: self.workflow_payload(workflow)
+                payload = self.valid_saved_report_payload(report)
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+            with (
+                patch.object(verify_github_workflows, "workflow_runs") as workflow_runs,
+                contextlib.redirect_stderr(io.StringIO()) as stderr,
+            ):
+                workflow_runs.side_effect = lambda _repo, _branch, _commit, workflow: self.workflow_payload(
+                    workflow,
+                    conclusion="failure" if workflow == "ci.yml" else "success",
+                )
+                status = verify_github_workflows.verify_saved_report(report, require_report_pass=True, verify_live_runs=True)
+
+        self.assertEqual(1, status)
+        self.assertIn("live workflow run signatures changed after report was written", stderr.getvalue())
 
     def test_saved_report_rejects_tampered_workflow_order(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
