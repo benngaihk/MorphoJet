@@ -26,6 +26,11 @@ DEFAULT_OUT_MD = Path("benchmark/results/release-gate/production-evidence-audit.
 AUDITED_CHECK_NAMES = release_gate.PRODUCTION_FINAL_BLOCKER_NAMES
 READY_STATUS = release_gate.PRODUCTION_AUDIT_PASS_STATUS
 INCOMPLETE_STATUS = release_gate.PRODUCTION_AUDIT_INCOMPLETE_STATUS
+EXTERNAL_SAVED_REVIEWER_GATE_NAMES = [
+    "Verify saved external L4 trial report",
+    "Verify saved external L4 evidence package report",
+    "Verify saved external L4 reviewer report pair",
+]
 
 
 def is_utc_datetime(value: datetime) -> bool:
@@ -139,6 +144,22 @@ def combine_gates(name: str, gates: list[release_gate.Gate], missing_detail: str
     return missing_gate(name, "; ".join(item.detail for item in gates if item.detail) or missing_detail)
 
 
+def combine_required_gates(
+    name: str,
+    gates: list[release_gate.Gate],
+    required_names: list[str],
+    missing_detail: str,
+) -> release_gate.Gate:
+    combined = combine_gates(name, gates, missing_detail)
+    gates_by_name = {item.name: item for item in gates}
+    missing_required = [required_name for required_name in required_names if required_name not in gates_by_name]
+    if missing_required:
+        detail_parts = [combined.detail] if combined.detail else []
+        detail_parts.append("missing required gate(s): " + ", ".join(missing_required))
+        return gate(name, "FAIL", "; ".join(detail_parts))
+    return combined
+
+
 def build_gate_map(args: argparse.Namespace) -> tuple[dict[str, release_gate.Gate], list[release_gate.Gate]]:
     gates: list[release_gate.Gate] = []
     gate_map: dict[str, release_gate.Gate] = {}
@@ -185,9 +206,12 @@ def build_gate_map(args: argparse.Namespace) -> tuple[dict[str, release_gate.Gat
     gates.append(package_gate)
 
     reviewer_gates = external_saved_reviewer_gates(args)
-    gate_map["external_l4_saved_reviewer_reports"] = combine_gates(
+    gate_map["external_l4_saved_reviewer_reports"] = combine_required_gates(
         "Verify saved external L4 reviewer reports",
         reviewer_gates,
+        EXTERNAL_SAVED_REVIEWER_GATE_NAMES
+        if args.external_trial_verification_report and args.external_evidence_package_verification_report
+        else [],
         "Supply both saved external reviewer reports.",
     )
     gates.extend(reviewer_gates)
@@ -666,6 +690,40 @@ def validate_input_file_summaries(payload: dict[str, Any], require_ready: bool) 
     return failures
 
 
+def validate_external_saved_reviewer_gate_entries(payload: dict[str, Any]) -> list[str]:
+    metadata = payload.get("metadata")
+    inputs = metadata.get("inputs") if isinstance(metadata, dict) else {}
+    if not isinstance(inputs, dict):
+        return []
+    has_trial_report = isinstance(inputs.get("external_trial_verification_report"), str) and bool(
+        inputs.get("external_trial_verification_report").strip()
+    )
+    has_package_report = isinstance(
+        inputs.get("external_evidence_package_verification_report"), str
+    ) and bool(inputs.get("external_evidence_package_verification_report").strip())
+    if not (has_trial_report and has_package_report):
+        return []
+    gates = payload.get("gates")
+    if not isinstance(gates, list):
+        return ["gates must be a list before checking saved reviewer report gates"]
+    gates_by_name = {
+        item.get("name"): item
+        for item in gates
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    }
+    failures = []
+    for name in EXTERNAL_SAVED_REVIEWER_GATE_NAMES:
+        gate_item = gates_by_name.get(name)
+        if not isinstance(gate_item, dict):
+            failures.append(f"metadata.inputs saved reviewer reports require gate: {name}")
+            continue
+        if gate_item.get("status") not in release_gate.PRODUCTION_AUDIT_CHECK_STATUSES:
+            failures.append(f"gate {name} status invalid: {gate_item.get('status')}")
+        if payload.get("production_claim_status") == READY_STATUS and gate_item.get("status") != "PASS":
+            failures.append(f"ready audit requires saved reviewer gate PASS: {name}")
+    return failures
+
+
 def verify_saved_files(payload: dict[str, Any], report_path: Path | None = None) -> list[str]:
     metadata = payload.get("metadata")
     if not isinstance(metadata, dict):
@@ -745,6 +803,7 @@ def validate_payload(
     if payload.get("missing_or_failed_checks") != observed_missing:
         failures.append("missing_or_failed_checks do not match checks")
     failures.extend(validate_input_file_summaries(payload, require_ready=require_ready))
+    failures.extend(validate_external_saved_reviewer_gate_entries(payload))
     for check in checks:
         if not isinstance(check, dict):
             failures.append("check entries must be objects")

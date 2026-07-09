@@ -125,6 +125,7 @@ class AuditProductionEvidenceTest(unittest.TestCase):
                     return_value=[
                         pass_gate("Verify saved external L4 trial report"),
                         pass_gate("Verify saved external L4 evidence package report"),
+                        pass_gate("Verify saved external L4 reviewer report pair"),
                     ],
                 ),
                 patch.object(
@@ -169,6 +170,128 @@ class AuditProductionEvidenceTest(unittest.TestCase):
         )
         self.assertTrue(input_file_by_name["github_workflow_verification_report"]["exists"])
         self.assertEqual([], failures)
+
+    def test_saved_reviewer_reports_require_pair_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = root / "production-evidence-audit.json"
+            for path in [
+                root / "external" / "handoff_trial.json",
+                root / "reports" / "trial-review.json",
+                root / "reports" / "package-review.json",
+            ]:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(f"{path.name}\n", encoding="utf-8")
+            args = audit_production_evidence.parse_args(
+                [
+                    "--external-trial-json",
+                    str(root / "external" / "handoff_trial.json"),
+                    "--external-trial-root",
+                    str(root / "external"),
+                    "--external-evidence-package-dir",
+                    str(root / "evidence" / "external-l4-trial"),
+                    "--external-trial-verification-report",
+                    str(root / "reports" / "trial-review.json"),
+                    "--external-evidence-package-verification-report",
+                    str(root / "reports" / "package-review.json"),
+                    "--out-json",
+                    str(report),
+                    "--out-md",
+                    str(root / "production-evidence-audit.md"),
+                ]
+            )
+
+            with (
+                self.patch_repo_state()[0],
+                self.patch_repo_state()[1],
+                self.patch_repo_state()[2],
+                self.patch_repo_state()[3],
+                patch.object(
+                    audit_production_evidence.release_gate,
+                    "validate_external_trial_report",
+                    return_value=pass_gate("Validate external L4 workflow trial report"),
+                ),
+                patch.object(
+                    audit_production_evidence.release_gate,
+                    "validate_external_evidence_package",
+                    return_value=pass_gate("Validate external L4 evidence package"),
+                ),
+                patch.object(
+                    audit_production_evidence,
+                    "external_saved_reviewer_gates",
+                    return_value=[
+                        pass_gate("Verify saved external L4 trial report"),
+                        pass_gate("Verify saved external L4 evidence package report"),
+                    ],
+                ),
+            ):
+                payload = audit_production_evidence.build_payload(args)
+
+        reviewer_check = next(
+            check for check in payload["checks"] if check["name"] == "external_l4_saved_reviewer_reports"
+        )
+        self.assertEqual("FAIL", reviewer_check["status"])
+        self.assertIn("missing required gate(s): Verify saved external L4 reviewer report pair", reviewer_check["detail"])
+        self.assertIn("external_l4_saved_reviewer_reports", payload["failed_checks"])
+
+    def test_saved_audit_verifier_rejects_removed_reviewer_pair_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = root / "production-evidence-audit.json"
+            for path in [
+                root / "external" / "handoff_trial.json",
+                root / "reports" / "trial-review.json",
+                root / "reports" / "package-review.json",
+            ]:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(f"{path.name}\n", encoding="utf-8")
+            args = audit_production_evidence.parse_args(
+                [
+                    "--external-trial-json",
+                    str(root / "external" / "handoff_trial.json"),
+                    "--external-trial-root",
+                    str(root / "external"),
+                    "--external-evidence-package-dir",
+                    str(root / "evidence" / "external-l4-trial"),
+                    "--external-trial-verification-report",
+                    str(root / "reports" / "trial-review.json"),
+                    "--external-evidence-package-verification-report",
+                    str(root / "reports" / "package-review.json"),
+                    "--out-json",
+                    str(report),
+                    "--out-md",
+                    str(root / "production-evidence-audit.md"),
+                ]
+            )
+
+            with (
+                self.patch_repo_state()[0],
+                self.patch_repo_state()[1],
+                self.patch_repo_state()[2],
+                self.patch_repo_state()[3],
+                patch.object(
+                    audit_production_evidence,
+                    "external_saved_reviewer_gates",
+                    return_value=[
+                        pass_gate("Verify saved external L4 trial report"),
+                        pass_gate("Verify saved external L4 evidence package report"),
+                        pass_gate("Verify saved external L4 reviewer report pair"),
+                    ],
+                ),
+            ):
+                payload = audit_production_evidence.build_payload(args)
+            payload["gates"] = [
+                gate
+                for gate in payload["gates"]
+                if gate["name"] != "Verify saved external L4 reviewer report pair"
+            ]
+
+            failures = audit_production_evidence.validate_payload(payload)
+
+        self.assertIn(
+            "metadata.inputs saved reviewer reports require gate: Verify saved external L4 reviewer report pair",
+            failures,
+        )
 
     def test_require_ready_requires_file_recheck(self) -> None:
         args = audit_production_evidence.parse_args([])
