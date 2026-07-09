@@ -489,6 +489,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 "It must be rechecked with `--verify-report-files --require-ready` before `final_production_gate` runs",
                 readme,
             )
+            self.assertIn("when both saved external reviewer reports are present", readme)
+            self.assertIn("`Verify saved external L4 reviewer report pair` gate entries", readme)
             self.assertIn("final_production_gate", readme)
             self.assertIn("## production_claim_blockers", readme)
             self.assertIn("| Blocker | Status | Required Evidence | Next Action | Planned Paths | Final Gate Binding |", readme)
@@ -618,6 +620,8 @@ class PrepareExternalL4TrialTest(unittest.TestCase):
                 "必须在 `final_production_gate` 运行前用 `--verify-report-files --require-ready` 重新复核",
                 readme_zh,
             )
+            self.assertIn("如果同时存在两份 saved external reviewer reports", readme_zh)
+            self.assertIn("`Verify saved external L4 reviewer report pair` gate entries", readme_zh)
             self.assertIn("production_signoff", readme_zh)
             self.assertIn("## production_claim_blockers", readme_zh)
             self.assertIn("| 阻塞项 | 状态 | 必需证据 | 下一步 | 计划路径 | Final gate binding |", readme_zh)

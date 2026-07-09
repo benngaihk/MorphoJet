@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## External Workspace Audit Pair-Gate README Snapshot
+
+This snapshot records the hardening that carries the production-evidence-audit reviewer pair-gate requirement into generated external L4 workspace instructions. `benchmark/prepare_external_l4_trial.py` now renders the requirement in both generated `README.md` and `README.zh-CN.md`: when both saved external reviewer reports are present, the saved production evidence audit must retain the saved trial verifier, saved package verifier, and `Verify saved external L4 reviewer report pair` gate entries. The generated workspace README shared-anchor guard also requires that pair-gate text in both languages during `--verify-plan-files`, so saved trial-plan review rejects weakened external instructions.
+
+This is not a production claim. It keeps the future external reviewer handoff aligned with the audit gate contract; the real external L4 workflow trial, matching evidence package, saved external reviewer reports, live stable GitHub release, and saved stable-release verifier report are still required before final production signoff.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/prepare_external_l4_trial.py tests/test_prepare_external_l4_trial.py` | PASS |
+| `python3 -m unittest discover -s tests -p 'test_prepare_external_l4_trial.py'` | PASS, 30 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths including the bilingual README contract |
+| `git diff --check` | PASS |
+| `python3 -m unittest discover -s tests` | PASS, 597 tests |
+| `python3 benchmark/release_gate.py --out-json /tmp/morphojet-external-workspace-audit-pair-readme-release-gate.json --out-md /tmp/morphojet-external-workspace-audit-pair-readme-release-gate.md` | PASS; non-final precommit report |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-external-workspace-audit-pair-readme-release-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+
 ## Production Evidence Audit Reviewer Pair Gate Snapshot
 
 This snapshot records the hardening that makes `benchmark/audit_production_evidence.py` treat the saved external L4 reviewer-report pair gate as required final-input inventory evidence. When both saved external trial/package reviewer reports are supplied, audit generation now requires the saved trial verifier, saved package verifier, and `Verify saved external L4 reviewer report pair` gates to remain present before `external_l4_saved_reviewer_reports` can pass. Saved audit verification also rejects an audit JSON whose metadata still points at both saved reviewer reports but whose `gates` list has had the reviewer-report pair gate removed.
