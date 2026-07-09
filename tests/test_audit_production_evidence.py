@@ -50,6 +50,7 @@ class AuditProductionEvidenceTest(unittest.TestCase):
         self.assertEqual("PASS", payload["status"])
         self.assertEqual("INCOMPLETE", payload["production_claim_status"])
         self.assertEqual("NOT_PRODUCTION_CLAIM", payload["claim_status"])
+        self.assertEqual(audit_production_evidence.AUDIT_SCHEMA_VERSION, payload["schema_version"])
         self.assertEqual("PRODUCTION_EVIDENCE_READINESS_AUDIT", payload["evidence_scope"])
         self.assertIs(payload["final_production_signoff"], False)
         self.assertEqual(
@@ -449,7 +450,7 @@ class AuditProductionEvidenceTest(unittest.TestCase):
 
     def test_saved_report_verifier_rejects_final_signoff_claim(self) -> None:
         payload = {
-            "schema_version": 1,
+            "schema_version": audit_production_evidence.AUDIT_SCHEMA_VERSION,
             "auditor": "benchmark/audit_production_evidence.py",
             "generated_at_utc": "2026-07-03T00:00:00+00:00",
             "claim_status": "NOT_PRODUCTION_CLAIM",

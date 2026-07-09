@@ -20,6 +20,7 @@ import verify_github_workflows
 
 
 AUDITOR = "benchmark/audit_production_evidence.py"
+AUDIT_SCHEMA_VERSION = 2
 EVIDENCE_SCOPE = "PRODUCTION_EVIDENCE_READINESS_AUDIT"
 DEFAULT_OUT_JSON = Path("benchmark/results/release-gate/production-evidence-audit.json")
 DEFAULT_OUT_MD = Path("benchmark/results/release-gate/production-evidence-audit.md")
@@ -384,7 +385,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     failed = [row["name"] for row in checks if row["status"] == "FAIL"]
     production_status = READY_STATUS if not missing_or_failed else INCOMPLETE_STATUS
     return {
-        "schema_version": 1,
+        "schema_version": AUDIT_SCHEMA_VERSION,
         "auditor": AUDITOR,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "claim_status": release_gate.NON_FINAL_CLAIM_STATUS,
@@ -865,7 +866,7 @@ def validate_payload(
         return ["production evidence audit report must be a JSON object"]
     if require_ready and not verify_files:
         failures.append("--require-ready requires --verify-report-files")
-    if payload.get("schema_version") != 1:
+    if payload.get("schema_version") != AUDIT_SCHEMA_VERSION:
         failures.append(f"schema_version={payload.get('schema_version')}")
     if payload.get("auditor") != AUDITOR:
         failures.append(f"auditor={payload.get('auditor')}")
