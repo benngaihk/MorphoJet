@@ -7,7 +7,9 @@ import argparse
 import json
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
+from json import JSONDecodeError
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +23,8 @@ DEFAULT_WORKFLOWS = ["ci.yml", "external-l4-rehearsal.yml"]
 CLAIM_STATUS = release_gate.NON_FINAL_CLAIM_STATUS
 EVIDENCE_SCOPE = "GITHUB_ACTIONS_WORKFLOW_VERIFICATION"
 FINAL_PRODUCTION_SIGNOFF = release_gate.NON_FINAL_PRODUCTION_SIGNOFF
+GH_RUN_LIST_ATTEMPTS = 3
+GH_RUN_LIST_RETRY_SECONDS = 2.0
 
 
 def is_utc_datetime(value: datetime) -> bool:
@@ -59,7 +63,16 @@ def verifier_argv(
     return argv
 
 
-def workflow_runs(repo: str, branch: str, commit: str, workflow: str) -> list[dict[str, Any]]:
+def describe_exception(exc: BaseException) -> str:
+    if isinstance(exc, subprocess.CalledProcessError):
+        stderr = (exc.stderr or "").strip()
+        if stderr:
+            return f"{exc.__class__.__name__}: {stderr}"
+        return f"{exc.__class__.__name__}: command returned {exc.returncode}"
+    return f"{exc.__class__.__name__}: {exc}"
+
+
+def gh_run_list_command(repo: str, branch: str, commit: str, workflow: str) -> list[str]:
     fields = [
         "conclusion",
         "createdAt",
@@ -74,33 +87,66 @@ def workflow_runs(repo: str, branch: str, commit: str, workflow: str) -> list[di
         "url",
         "workflowName",
     ]
-    output = run(
-        [
-            "gh",
-            "run",
-            "list",
-            "--repo",
-            repo,
-            "--workflow",
-            workflow,
-            "--branch",
-            branch,
-            "--commit",
-            commit,
-            "--json",
-            ",".join(fields),
-            "--limit",
-            "10",
-        ]
-    )
-    payload = json.loads(output)
-    if not isinstance(payload, list):
-        raise ValueError(f"gh run list returned non-list payload for {workflow}")
-    return [run for run in payload if isinstance(run, dict)]
+    return [
+        "gh",
+        "run",
+        "list",
+        "--repo",
+        repo,
+        "--workflow",
+        workflow,
+        "--branch",
+        branch,
+        "--commit",
+        commit,
+        "--json",
+        ",".join(fields),
+        "--limit",
+        "10",
+    ]
+
+
+def workflow_runs(
+    repo: str,
+    branch: str,
+    commit: str,
+    workflow: str,
+    attempts: int = GH_RUN_LIST_ATTEMPTS,
+    retry_seconds: float = GH_RUN_LIST_RETRY_SECONDS,
+) -> list[dict[str, Any]]:
+    command = gh_run_list_command(repo, branch, commit, workflow)
+    last_error: BaseException | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            output = run(command)
+            payload = json.loads(output)
+            if not isinstance(payload, list):
+                raise ValueError(f"gh run list returned non-list payload for {workflow}")
+            return [run for run in payload if isinstance(run, dict)]
+        except (subprocess.CalledProcessError, JSONDecodeError, ValueError) as exc:
+            last_error = exc
+            if attempt < attempts:
+                time.sleep(retry_seconds)
+    detail = describe_exception(last_error) if last_error is not None else "unknown error"
+    raise RuntimeError(f"gh run list failed for {workflow} after {attempts} attempt(s): {detail}")
 
 
 def summarize_workflow(repo: str, branch: str, commit: str, workflow: str) -> dict[str, Any]:
-    runs = [run for run in workflow_runs(repo, branch, commit, workflow) if run.get("headSha") == commit]
+    try:
+        runs = [run for run in workflow_runs(repo, branch, commit, workflow) if run.get("headSha") == commit]
+    except RuntimeError as exc:
+        return {
+            "workflow": workflow,
+            "status": "FAIL",
+            "conclusion": None,
+            "run_status": None,
+            "head_sha": commit,
+            "head_branch": branch,
+            "run_id": None,
+            "url": None,
+            "event": None,
+            "detail": str(exc),
+        }
     if not runs:
         return {
             "workflow": workflow,

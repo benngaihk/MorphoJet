@@ -320,6 +320,8 @@ python3 benchmark/verify_github_workflows.py \
 
 生成的外部 L4 trial plan 也会使用同一条显式 commit 绑定和 live-run 复核：`verify_github_workflows` 用 `--commit <trial_plan git_commit>` 写出保存报告，`verify_github_workflows_report` 再用 `--expect-commit <trial_plan git_commit>` 加 `--verify-live-runs` 复核。这样 main 分支后续移动或旧 saved workflow JSON 存在时，不能悄悄替换最终 review 要用的远端 CI 证据。
 
+live-run 复核会对短暂的 `gh run list` 失败进行重试；如果 GitHub CLI/API 仍不可用，它会记录可读的 `FAIL` summary，而不是只留下 traceback。
+
 稳定 release 存在后，用 production wrapper 把所有必需证据绑定到同一份最终报告：
 
 ```bash

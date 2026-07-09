@@ -6,6 +6,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -137,6 +138,41 @@ class VerifyGithubWorkflowsTest(unittest.TestCase):
 
         self.assertEqual(1, status)
         self.assertIn("no GitHub Actions run found", stderr.getvalue())
+
+    def test_workflow_runs_retries_transient_gh_failure(self) -> None:
+        transient = subprocess.CalledProcessError(1, ["gh", "run", "list"], stderr="temporary API failure")
+        with (
+            patch.object(
+                verify_github_workflows,
+                "run",
+                side_effect=[transient, json.dumps(self.workflow_payload("ci.yml"))],
+            ) as run,
+            patch.object(verify_github_workflows.time, "sleep") as sleep,
+        ):
+            runs = verify_github_workflows.workflow_runs(
+                "benngaihk/MorphoJet",
+                "main",
+                self.COMMIT,
+                "ci.yml",
+                attempts=2,
+                retry_seconds=0.01,
+            )
+
+        self.assertEqual(self.COMMIT, runs[0]["headSha"])
+        self.assertEqual(2, run.call_count)
+        sleep.assert_called_once_with(0.01)
+
+    def test_summarize_workflow_reports_readable_query_failure(self) -> None:
+        failure = subprocess.CalledProcessError(1, ["gh", "run", "list"], stderr="temporary API failure")
+        with (
+            patch.object(verify_github_workflows, "run", side_effect=failure),
+            patch.object(verify_github_workflows.time, "sleep"),
+        ):
+            summary = verify_github_workflows.summarize_workflow("benngaihk/MorphoJet", "main", self.COMMIT, "ci.yml")
+
+        self.assertEqual("FAIL", summary["status"])
+        self.assertIn("gh run list failed for ci.yml after", summary["detail"])
+        self.assertIn("temporary API failure", summary["detail"])
 
     def test_saved_report_requires_pass_and_expected_workflows(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
