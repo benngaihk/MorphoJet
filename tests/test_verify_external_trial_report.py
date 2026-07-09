@@ -103,6 +103,14 @@ class VerifyExternalTrialReportTest(unittest.TestCase):
             trial["readiness_report"]["manifest"],
             payload["input_files"]["readiness_report"]["manifest"],
         )
+        self.assertEqual(
+            verify_external_trial_report.external_evidence_summary(trial["external_evidence"]),
+            payload["input_files"]["external_evidence"],
+        )
+        self.assertEqual(
+            trial["external_evidence"]["reviewer_name_or_role"],
+            payload["input_files"]["external_evidence"]["reviewer_name_or_role"],
+        )
         self.assertEqual(expected_artifact_files, payload["input_files"]["artifact_files"])
 
     def test_verifier_records_absolute_paths_for_relative_inputs(self) -> None:

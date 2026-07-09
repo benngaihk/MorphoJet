@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -24,6 +25,18 @@ SOURCE_TRIAL_EVIDENCE_SCOPE = release_gate.EXTERNAL_TRIAL_EVIDENCE_SCOPE
 READINESS_STATUS = release_gate.EXTERNAL_READINESS_STATUS
 READINESS_CLAIM_STATUS = release_gate.NON_FINAL_CLAIM_STATUS
 READINESS_EVIDENCE_SCOPE = release_gate.EXTERNAL_READINESS_EVIDENCE_SCOPE
+EXTERNAL_EVIDENCE_SUMMARY_FIELDS = [
+    "lab_or_org",
+    "workflow_owner",
+    "dataset_name",
+    "dataset_source",
+    "downstream_workflow",
+    "execution_environment",
+    "reviewer_name_or_role",
+    "reviewed_at_utc",
+    "signoff_statement",
+    "manual_csv_editing",
+]
 
 
 def is_utc_datetime(value: datetime) -> bool:
@@ -58,6 +71,35 @@ def file_summary(path: Path) -> dict[str, Any]:
         summary["size_bytes"] = None
         summary["sha256"] = None
     return summary
+
+
+def stable_json_sha256(value: Any) -> str:
+    encoded = json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def external_evidence_summary(evidence: Any) -> dict[str, Any]:
+    if not isinstance(evidence, dict):
+        return {
+            **{field: None for field in EXTERNAL_EVIDENCE_SUMMARY_FIELDS},
+            "acceptance_criteria_count": 0,
+            "acceptance_criteria_sha256": None,
+            "external_evidence_sha256": None,
+        }
+    criteria = evidence.get("acceptance_criteria")
+    criteria_list = [item for item in criteria if isinstance(item, str)] if isinstance(criteria, list) else []
+    return {
+        **{field: evidence.get(field) for field in EXTERNAL_EVIDENCE_SUMMARY_FIELDS},
+        "acceptance_criteria_count": len(criteria_list),
+        "acceptance_criteria_sha256": stable_json_sha256(criteria_list),
+        "external_evidence_sha256": stable_json_sha256(evidence),
+    }
+
+
+def trial_external_evidence_summary(trial_json: Path) -> dict[str, Any]:
+    trial = load_trial_payload(trial_json)
+    evidence = trial.get("external_evidence") if isinstance(trial, dict) else None
+    return external_evidence_summary(evidence)
 
 
 def trial_report_summary(trial_json: Path) -> dict[str, Any]:
@@ -131,6 +173,7 @@ def trial_input_files(trial_json: Path, trial_root: Path) -> dict[str, Any]:
         artifact_files.append({"source_path": artifact, **summary})
     input_files = {
         "trial_json": trial_report_summary(trial_json),
+        "external_evidence": trial_external_evidence_summary(trial_json),
         "artifact_files": sorted(artifact_files, key=lambda entry: entry["source_path"]),
     }
     readiness_path = load_trial_readiness_report_path(trial_json)
@@ -197,6 +240,10 @@ def input_files_issues(input_files: Any, status: Any) -> list[str]:
             failures.append(f"input_files.trial_json.git_commit={git_commit}")
     if status == "PASS" and "readiness_report" not in input_files:
         failures.append("input_files.readiness_report must be present for PASS reports")
+    if status == "PASS" and "external_evidence" not in input_files:
+        failures.append("input_files.external_evidence must be present for PASS reports")
+    if "external_evidence" in input_files:
+        failures.extend(external_evidence_summary_issues(input_files.get("external_evidence"), status))
     if "readiness_report" in input_files:
         failures.extend(
             file_summary_issues(
@@ -260,6 +307,31 @@ def input_files_issues(input_files: Any, status: Any) -> list[str]:
     return failures
 
 
+def external_evidence_summary_issues(summary: Any, status: Any) -> list[str]:
+    failures = []
+    if not isinstance(summary, dict):
+        return ["input_files.external_evidence must be an object"]
+    for field in EXTERNAL_EVIDENCE_SUMMARY_FIELDS:
+        value = summary.get(field)
+        if field == "manual_csv_editing":
+            if status == "PASS" and value is not False:
+                failures.append("input_files.external_evidence.manual_csv_editing must be false")
+        elif status == "PASS" and (not isinstance(value, str) or not value.strip()):
+            failures.append(f"input_files.external_evidence.{field} must be a non-empty string")
+    count = summary.get("acceptance_criteria_count")
+    if status == "PASS" and (
+        not isinstance(count, int) or count < release_gate.MIN_EXTERNAL_ACCEPTANCE_CRITERIA
+    ):
+        failures.append(
+            "input_files.external_evidence.acceptance_criteria_count must meet the external acceptance threshold"
+        )
+    for field in ["acceptance_criteria_sha256", "external_evidence_sha256"]:
+        digest = summary.get(field)
+        if status == "PASS" and (not isinstance(digest, str) or not SHA256_RE.fullmatch(digest)):
+            failures.append(f"input_files.external_evidence.{field} must be a SHA-256 digest")
+    return failures
+
+
 def input_file_path_binding_issues(input_files: dict[str, Any], trial_json: str, trial_root: str) -> list[str]:
     failures = []
     trial_summary = input_files.get("trial_json")
@@ -279,6 +351,11 @@ def input_file_path_binding_issues(input_files: dict[str, Any], trial_json: str,
         expected_git_commit = metadata.get("git_commit") if isinstance(metadata, dict) else None
         if trial_summary.get("git_commit") != expected_git_commit:
             failures.append("input_files.trial_json.git_commit must match source trial report metadata.git_commit")
+    external_evidence = input_files.get("external_evidence")
+    if isinstance(external_evidence, dict):
+        expected_external_evidence = trial_external_evidence_summary(Path(trial_json))
+        if external_evidence != expected_external_evidence:
+            failures.append("input_files.external_evidence must match source trial report external_evidence")
     readiness_summary = input_files.get("readiness_report")
     readiness_path = load_trial_readiness_report_path(Path(trial_json))
     if isinstance(readiness_summary, dict):
@@ -337,6 +414,8 @@ def recomputed_input_file_issues(recorded: dict[str, Any], trial_json: Path, tri
             failures.append(f"input_files.trial_json.{field} changed after recomputing trial validation")
     if recorded.get("readiness_report") != current.get("readiness_report"):
         failures.append("input_files.readiness_report changed after recomputing trial validation")
+    if recorded.get("external_evidence") != current.get("external_evidence"):
+        failures.append("input_files.external_evidence changed after recomputing trial validation")
     recorded_artifacts = recorded.get("artifact_files")
     if not isinstance(recorded_artifacts, list):
         return failures + ["input_files.artifact_files must be a list"]

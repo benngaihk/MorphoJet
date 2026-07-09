@@ -2,6 +2,27 @@
 
 Updated: 2026-07-09
 
+## External Reviewer Pair Identity Snapshot
+
+This snapshot records the hardening that makes saved external L4 trial/package reviewer reports bind to the same external evidence identity, not only to compatible paths and commits. `benchmark/verify_external_trial_report.py` now records `input_files.external_evidence` with reviewer identity, review timestamp, manual-editing status, acceptance-criteria count/hash, and a full external-evidence digest. `benchmark/verify_external_evidence_package.py` records the same identity summary in `input_files.package_external_evidence`. `benchmark/run_production_gate.py` now adds a saved reviewer-report pair gate, so final wrapper and local preflight reject two individually valid saved reviewer reports if their external-evidence identity summaries differ.
+
+This is not a production claim. It closes a saved-reviewer report substitution gap; the real external L4 workflow trial, matching evidence package, saved external reviewer reports, live stable GitHub release, and saved stable-release verifier report are still required before final production signoff.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/verify_external_trial_report.py benchmark/verify_external_evidence_package.py benchmark/run_production_gate.py tests/test_verify_external_trial_report.py tests/test_package_external_trial.py tests/test_run_production_gate.py` | PASS |
+| `python3 -m unittest discover -s tests -p 'test_verify_external_trial_report.py'` | PASS, 37 tests |
+| `python3 -m unittest discover -s tests -p 'test_package_external_trial.py'` | PASS, 84 tests |
+| `python3 -m unittest discover -s tests -p 'test_run_production_gate.py'` | PASS, 99 tests |
+| `python3 -m unittest discover -s tests -p 'test_prepare_external_l4_trial.py'` | PASS, 30 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths including the bilingual README contract |
+| `git diff --check` | PASS |
+| `python3 -m unittest discover -s tests` | PASS, 591 tests |
+| `python3 benchmark/release_gate.py --out-json /tmp/morphojet-reviewer-pair-release-gate.json --out-md /tmp/morphojet-reviewer-pair-release-gate.md` | PASS; non-final precommit report |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-reviewer-pair-release-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+
 ## Production Evidence Audit Input Hash Snapshot
 
 This snapshot records the hardening that makes saved production evidence audit reports bind the final-input files they audited. `benchmark/audit_production_evidence.py` now writes an `input_files` list for the external trial JSON and each supplied saved final-input report: saved external trial reviewer report, saved package reviewer report, saved stable GitHub release verifier report, and saved GitHub workflow verifier report. Each entry records the absolute path, existence, size, and SHA-256 digest when present, and the Markdown report renders the same summary table for reviewer inspection.

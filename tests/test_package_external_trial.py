@@ -306,6 +306,15 @@ class PackageExternalTrialTest(unittest.TestCase):
             expected_readiness_payload = json.loads(
                 (Path(result["package_dir"]) / "readiness.json").read_text(encoding="utf-8")
             )
+            expected_external_evidence = json.loads(
+                (Path(result["package_dir"]) / "external_evidence.json").read_text(encoding="utf-8")
+            )
+            expected_external_evidence_summary = verify_external_evidence_package.file_summary(
+                Path(result["package_dir"]) / "external_evidence.json"
+            )
+            expected_external_evidence_summary.update(
+                verify_external_evidence_package.external_evidence_summary(expected_external_evidence)
+            )
             expected_readme_sha = release_gate.sha256_file(Path(result["package_dir"]) / "README.md")
             expected_readme_zh_sha = release_gate.sha256_file(Path(result["package_dir"]) / "README.zh-CN.md")
 
@@ -326,6 +335,14 @@ class PackageExternalTrialTest(unittest.TestCase):
         self.assertFalse(payload["input_files"]["source_trial_json"]["final_production_signoff"])
         self.assertEqual(expected_zip_sha, payload["input_files"]["package_zip"]["sha256"])
         self.assertEqual(expected_manifest_sha, payload["input_files"]["package_artifact_manifest"]["sha256"])
+        self.assertEqual(
+            expected_external_evidence_summary,
+            payload["input_files"]["package_external_evidence"],
+        )
+        self.assertEqual(
+            expected_external_evidence["reviewer_name_or_role"],
+            payload["input_files"]["package_external_evidence"]["reviewer_name_or_role"],
+        )
         self.assertEqual(
             "NOT_PRODUCTION_CLAIM",
             payload["input_files"]["package_artifact_manifest"]["claim_status"],

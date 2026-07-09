@@ -1302,6 +1302,64 @@ class RunProductionGateTest(unittest.TestCase):
             ),
             gate_by_name["Verify saved external L4 evidence package report"].command,
         )
+        self.assertEqual("PASS", gate_by_name["Verify saved external L4 reviewer report pair"].status)
+        self.assertIn(
+            "bind the same external evidence",
+            gate_by_name["Verify saved external L4 reviewer report pair"].detail,
+        )
+
+    def test_saved_reviewer_report_pair_must_bind_same_external_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = self.write_valid_trial(root)
+            package = package_external_trial.create_package(
+                trial_json,
+                root,
+                root / "package-out",
+                package_name="external-l4-demo",
+            )
+            trial_report = root / "external-trial-verification.json"
+            package_report = root / "external-package-verification.json"
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                verify_external_trial_report.verify_external_trial_report(
+                    trial_json,
+                    root,
+                    json_out=trial_report,
+                )
+                verify_external_evidence_package.verify_external_evidence_package(
+                    Path(package["package_dir"]),
+                    trial_json=trial_json,
+                    json_out=package_report,
+                )
+            package_payload = json.loads(package_report.read_text(encoding="utf-8"))
+            package_payload["input_files"]["package_external_evidence"]["reviewer_name_or_role"] = (
+                "Different Reviewer"
+            )
+            package_payload["input_files"]["package_external_evidence"]["external_evidence_sha256"] = "0" * 64
+            package_report.write_text(json.dumps(package_payload, indent=2) + "\n", encoding="utf-8")
+            args = self.parse(
+                "--external-trial-json",
+                str(trial_json),
+                "--external-trial-root",
+                str(root),
+                "--external-evidence-package-dir",
+                package["package_dir"],
+                "--external-trial-verification-report",
+                str(trial_report),
+                "--external-evidence-package-verification-report",
+                str(package_report),
+            )
+
+            gates = run_production_gate.saved_reviewer_report_gates(args)
+
+        gate_by_name = {gate.name: gate for gate in gates}
+        self.assertEqual("PASS", gate_by_name["Verify saved external L4 trial report"].status)
+        self.assertEqual("FAIL", gate_by_name["Verify saved external L4 evidence package report"].status)
+        self.assertEqual("FAIL", gate_by_name["Verify saved external L4 reviewer report pair"].status)
+        self.assertIn(
+            "saved external trial/package reviewer reports do not bind the same external evidence",
+            gate_by_name["Verify saved external L4 reviewer report pair"].detail,
+        )
 
     def test_saved_trial_report_must_match_current_trial_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -33,6 +34,18 @@ PACKAGE_REVIEW_FILES = {
     "package_readme": "README.md",
     "package_readme_zh": "README.zh-CN.md",
 }
+EXTERNAL_EVIDENCE_SUMMARY_FIELDS = [
+    "lab_or_org",
+    "workflow_owner",
+    "dataset_name",
+    "dataset_source",
+    "downstream_workflow",
+    "execution_environment",
+    "reviewer_name_or_role",
+    "reviewed_at_utc",
+    "signoff_statement",
+    "manual_csv_editing",
+]
 
 
 def is_utc_datetime(value: datetime) -> bool:
@@ -69,6 +82,37 @@ def file_summary(path: Path) -> dict[str, Any]:
         summary["size_bytes"] = None
         summary["sha256"] = None
     return summary
+
+
+def stable_json_sha256(value: Any) -> str:
+    encoded = json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def external_evidence_summary(evidence: Any) -> dict[str, Any]:
+    if not isinstance(evidence, dict):
+        return {
+            **{field: None for field in EXTERNAL_EVIDENCE_SUMMARY_FIELDS},
+            "acceptance_criteria_count": 0,
+            "acceptance_criteria_sha256": None,
+            "external_evidence_sha256": None,
+        }
+    criteria = evidence.get("acceptance_criteria")
+    criteria_list = [item for item in criteria if isinstance(item, str)] if isinstance(criteria, list) else []
+    return {
+        **{field: evidence.get(field) for field in EXTERNAL_EVIDENCE_SUMMARY_FIELDS},
+        "acceptance_criteria_count": len(criteria_list),
+        "acceptance_criteria_sha256": stable_json_sha256(criteria_list),
+        "external_evidence_sha256": stable_json_sha256(evidence),
+    }
+
+
+def package_external_evidence_summary(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 - malformed package files are reported elsewhere.
+        payload = None
+    return external_evidence_summary(payload)
 
 
 def trial_report_summary(path: Path) -> dict[str, Any]:
@@ -249,6 +293,9 @@ def package_input_files(package_dir: Path, trial_json: Path | None = None) -> di
         artifact_manifest_claim_scope(package_dir / "artifact_manifest.json")
     )
     files["package_readiness"].update(readiness_report_summary(package_dir / "readiness.json"))
+    files["package_external_evidence"].update(
+        package_external_evidence_summary(package_dir / "external_evidence.json")
+    )
     files["package_readme"].update(readme_scope_summary(package_dir / "README.md"))
     files["package_readme_zh"].update(readme_scope_summary(package_dir / "README.zh-CN.md"))
     files["package_zip"] = file_summary(package_dir.parent / f"{package_dir.name}.zip")
@@ -344,6 +391,8 @@ def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) 
                         failures.append(f"input_files.package_readiness.{field} must be a non-empty string")
                     elif not Path(value).is_absolute():
                         failures.append(f"input_files.package_readiness.{field} must be an absolute path")
+        if name == "package_external_evidence" and isinstance(summary, dict):
+            failures.extend(external_evidence_summary_issues(summary, status))
         if name in {"package_readme", "package_readme_zh"} and isinstance(summary, dict):
             label = f"input_files.{name}"
             if summary.get("exists"):
@@ -447,6 +496,31 @@ def input_files_issues(input_files: Any, status: Any, require_trial_json: bool) 
     return failures
 
 
+def external_evidence_summary_issues(summary: Any, status: Any) -> list[str]:
+    failures = []
+    if not isinstance(summary, dict):
+        return ["input_files.package_external_evidence must be an object"]
+    for field in EXTERNAL_EVIDENCE_SUMMARY_FIELDS:
+        value = summary.get(field)
+        if field == "manual_csv_editing":
+            if status == "PASS" and value is not False:
+                failures.append("input_files.package_external_evidence.manual_csv_editing must be false")
+        elif status == "PASS" and (not isinstance(value, str) or not value.strip()):
+            failures.append(f"input_files.package_external_evidence.{field} must be a non-empty string")
+    count = summary.get("acceptance_criteria_count")
+    if status == "PASS" and (
+        not isinstance(count, int) or count < release_gate.MIN_EXTERNAL_ACCEPTANCE_CRITERIA
+    ):
+        failures.append(
+            "input_files.package_external_evidence.acceptance_criteria_count must meet the external acceptance threshold"
+        )
+    for field in ["acceptance_criteria_sha256", "external_evidence_sha256"]:
+        digest = summary.get(field)
+        if status == "PASS" and (not isinstance(digest, str) or not SHA256_RE.fullmatch(digest)):
+            failures.append(f"input_files.package_external_evidence.{field} must be a SHA-256 digest")
+    return failures
+
+
 def input_file_path_binding_issues(
     input_files: dict[str, Any],
     package_dir: str,
@@ -481,6 +555,12 @@ def input_file_path_binding_issues(
         ]:
             if readiness_summary.get(field) != expected_readiness.get(field):
                 failures.append(f"input_files.package_readiness.{field} must match package readiness report")
+    external_evidence_summary = input_files.get("package_external_evidence")
+    if isinstance(external_evidence_summary, dict):
+        expected_external_evidence = file_summary(root / "external_evidence.json")
+        expected_external_evidence.update(package_external_evidence_summary(root / "external_evidence.json"))
+        if external_evidence_summary != expected_external_evidence:
+            failures.append("input_files.package_external_evidence must match package external_evidence.json")
     readiness_path = root / "readiness.json"
     expected_readiness = readiness_report_summary(readiness_path)
     expected_contract = rendered_manifest_contract_summary(root / "rendered_manifest.json")
@@ -609,6 +689,19 @@ def recomputed_input_file_issues(recorded: dict[str, Any], package_dir: Path, tr
             "trial_git_commit",
             "review_entrypoint_present",
             "handoff_contract",
+            "acceptance_criteria_count",
+            "acceptance_criteria_sha256",
+            "external_evidence_sha256",
+            "lab_or_org",
+            "workflow_owner",
+            "dataset_name",
+            "dataset_source",
+            "downstream_workflow",
+            "execution_environment",
+            "reviewer_name_or_role",
+            "reviewed_at_utc",
+            "signoff_statement",
+            "manual_csv_editing",
         ]:
             if recorded_summary.get(field) != current_summary.get(field):
                 failures.append(f"input_files.{name}.{field} changed after recomputing evidence package validation")
