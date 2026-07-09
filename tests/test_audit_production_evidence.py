@@ -69,6 +69,17 @@ class AuditProductionEvidenceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             report = root / "production-evidence-audit.json"
+            final_input_files = [
+                root / "external" / "handoff_trial.json",
+                root / "reports" / "trial-review.json",
+                root / "reports" / "package-review.json",
+                root / "reports" / "github-release.json",
+                root / "reports" / "github-workflows.json",
+            ]
+            for path in final_input_files:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(f"{path.name}\n", encoding="utf-8")
+            expected_trial_sha = release_gate.sha256_file(root / "external" / "handoff_trial.json")
             args = audit_production_evidence.parse_args(
                 [
                     "--external-trial-json",
@@ -151,6 +162,12 @@ class AuditProductionEvidenceTest(unittest.TestCase):
             str(report.resolve()),
             command[command.index("--production-evidence-audit-report") + 1],
         )
+        input_file_by_name = {item["name"]: item for item in payload["input_files"]}
+        self.assertEqual(
+            expected_trial_sha,
+            input_file_by_name["external_trial_json"]["sha256"],
+        )
+        self.assertTrue(input_file_by_name["github_workflow_verification_report"]["exists"])
         self.assertEqual([], failures)
 
     def test_require_ready_requires_file_recheck(self) -> None:
@@ -229,6 +246,40 @@ class AuditProductionEvidenceTest(unittest.TestCase):
 
         self.assertIn("metadata.final_wrapper_command changed after recomputing audit evidence", failures)
 
+    def test_file_recheck_rejects_input_file_hash_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = root / "external" / "handoff_trial.json"
+            trial_json.parent.mkdir(parents=True, exist_ok=True)
+            trial_json.write_text("{}\n", encoding="utf-8")
+            report = root / "production-evidence-audit.json"
+            args = audit_production_evidence.parse_args(
+                [
+                    "--external-trial-json",
+                    str(trial_json),
+                    "--out-json",
+                    str(report),
+                    "--out-md",
+                    str(root / "production-evidence-audit.md"),
+                ]
+            )
+
+            with (
+                self.patch_repo_state()[0],
+                self.patch_repo_state()[1],
+                self.patch_repo_state()[2],
+                self.patch_repo_state()[3],
+            ):
+                payload = audit_production_evidence.build_payload(args)
+                payload["input_files"][0]["sha256"] = "0" * 64
+                failures = audit_production_evidence.validate_payload(
+                    payload,
+                    verify_files=True,
+                    report_path=report,
+                )
+
+        self.assertIn("input_files changed after recomputing audit evidence", failures)
+
     def test_saved_report_verifier_rejects_final_signoff_claim(self) -> None:
         payload = {
             "schema_version": 1,
@@ -241,6 +292,7 @@ class AuditProductionEvidenceTest(unittest.TestCase):
             "production_claim_status": "INCOMPLETE",
             "missing_or_failed_checks": [],
             "checks": [],
+            "input_files": [],
             "metadata": {"argv": ["benchmark/audit_production_evidence.py"]},
         }
 

@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## Production Evidence Audit Input Hash Snapshot
+
+This snapshot records the hardening that makes saved production evidence audit reports bind the final-input files they audited. `benchmark/audit_production_evidence.py` now writes an `input_files` list for the external trial JSON and each supplied saved final-input report: saved external trial reviewer report, saved package reviewer report, saved stable GitHub release verifier report, and saved GitHub workflow verifier report. Each entry records the absolute path, existence, size, and SHA-256 digest when present, and the Markdown report renders the same summary table for reviewer inspection.
+
+This is not a production claim. It strengthens the non-final `PRODUCTION_EVIDENCE_READINESS_AUDIT` checkpoint so a saved audit cannot silently drift away from the files it inventoried, but the real external L4 workflow trial, matching evidence package, saved external reviewer reports, live stable GitHub release, and saved stable-release verifier report are still required before final production signoff.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/audit_production_evidence.py tests/test_audit_production_evidence.py` | PASS |
+| `python3 -m unittest discover -s tests -p 'test_audit_production_evidence.py'` | PASS, 8 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths including the bilingual README contract |
+| `git diff --check` | PASS |
+| `python3 -m unittest discover -s tests` | PASS, 590 tests |
+| `python3 benchmark/release_gate.py --out-json /tmp/morphojet-audit-input-hashes-release-gate.json --out-md /tmp/morphojet-audit-input-hashes-release-gate.md` | PASS; non-final precommit report |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-audit-input-hashes-release-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+
 ## External Acceptance Criteria Enforcement Snapshot
 
 This snapshot records the hardening that makes the external L4 signoff contract enforce at least three non-placeholder acceptance criteria at runtime, not only in the generated trial plan. `benchmark/validate_handoff_manifest.py` now rejects external-evidence manifests with fewer than three acceptance criteria before readiness can become `READY`, and `benchmark/release_gate.py` now rejects saved external workflow trial reports whose `external_evidence.acceptance_criteria` list is shorter than that same threshold. This prevents a weak one-line reviewer signoff from satisfying the real external L4 trial gate or the saved trial-reviewer path.

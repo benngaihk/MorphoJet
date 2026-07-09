@@ -253,6 +253,42 @@ def input_paths(args: argparse.Namespace) -> dict[str, str | None]:
     }
 
 
+def file_summary(name: str, path: Path | None) -> dict[str, Any]:
+    if path is None:
+        return {
+            "name": name,
+            "path": None,
+            "exists": False,
+            "size_bytes": None,
+            "sha256": None,
+        }
+    report_path = Path(absolute_path_text(path))
+    summary: dict[str, Any] = {
+        "name": name,
+        "path": str(report_path),
+        "exists": report_path.is_file(),
+        "size_bytes": None,
+        "sha256": None,
+    }
+    if report_path.is_file():
+        summary["size_bytes"] = report_path.stat().st_size
+        summary["sha256"] = release_gate.sha256_file(report_path)
+    return summary
+
+
+def input_file_summaries(args: argparse.Namespace) -> list[dict[str, Any]]:
+    return [
+        file_summary("external_trial_json", args.external_trial_json),
+        file_summary("external_trial_verification_report", args.external_trial_verification_report),
+        file_summary(
+            "external_evidence_package_verification_report",
+            args.external_evidence_package_verification_report,
+        ),
+        file_summary("github_release_verification_report", args.github_release_verification_report),
+        file_summary("github_workflow_verification_report", args.github_workflow_verification_report),
+    ]
+
+
 def absolute_path_text(path: Path) -> str:
     return str(path.expanduser().resolve(strict=False))
 
@@ -312,6 +348,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         "failed_checks": failed,
         "checks": checks,
         "gates": [asdict(item) for item in gates],
+        "input_files": input_file_summaries(args),
         "metadata": {
             "git_commit": release_gate.git_commit(),
             "git_dirty": bool(release_gate.git_status_porcelain()),
@@ -365,6 +402,24 @@ def render_markdown(payload: dict[str, Any], out_json: Path) -> str:
     lines.extend(["", "## Inputs", "", "| Name | Path |", "|---|---|"])
     for name, path in metadata["inputs"].items():
         lines.append(f"| {markdown_cell(name)} | {markdown_cell(path or '')} |")
+    lines.extend(
+        [
+            "",
+            "## Input File Summaries",
+            "",
+            "| Name | Exists | Size Bytes | SHA-256 | Path |",
+            "|---|---:|---:|---|---|",
+        ]
+    )
+    for item in payload.get("input_files", []):
+        lines.append(
+            "| "
+            f"{markdown_cell(item.get('name'))} | "
+            f"{markdown_cell(item.get('exists'))} | "
+            f"{markdown_cell(item.get('size_bytes') if item.get('size_bytes') is not None else '')} | "
+            f"{markdown_cell(item.get('sha256') or '')} | "
+            f"{markdown_cell(item.get('path') or '')} |"
+        )
     command = metadata.get("final_wrapper_command")
     if command:
         lines.extend(["", "## Final Wrapper Command", "", f"`{shlex.join(command)}`"])
@@ -518,6 +573,8 @@ def compare_recomputed_payload(payload: dict[str, Any], recomputed: dict[str, An
     for key in ["status", "production_claim_status", "missing_or_failed_checks", "failed_checks"]:
         if payload.get(key) != recomputed.get(key):
             failures.append(f"{key} changed after recomputing audit evidence")
+    if payload.get("input_files") != recomputed.get("input_files"):
+        failures.append("input_files changed after recomputing audit evidence")
     metadata = payload.get("metadata")
     recomputed_metadata = recomputed.get("metadata")
     if isinstance(metadata, dict) and isinstance(recomputed_metadata, dict):
@@ -547,6 +604,68 @@ def compare_recomputed_payload(payload: dict[str, Any], recomputed: dict[str, An
     return failures
 
 
+def validate_input_file_summaries(payload: dict[str, Any], require_ready: bool) -> list[str]:
+    failures: list[str] = []
+    expected_names = [
+        "external_trial_json",
+        "external_trial_verification_report",
+        "external_evidence_package_verification_report",
+        "github_release_verification_report",
+        "github_workflow_verification_report",
+    ]
+    input_files = payload.get("input_files")
+    metadata = payload.get("metadata")
+    metadata_inputs = metadata.get("inputs") if isinstance(metadata, dict) else {}
+    if not isinstance(metadata_inputs, dict):
+        metadata_inputs = {}
+    if not isinstance(input_files, list):
+        return ["input_files must be a list"]
+    observed_names = [item.get("name") for item in input_files if isinstance(item, dict)]
+    if observed_names != expected_names:
+        failures.append(f"input_files names={observed_names}")
+    by_name = {item.get("name"): item for item in input_files if isinstance(item, dict)}
+    for name in expected_names:
+        item = by_name.get(name)
+        if not isinstance(item, dict):
+            failures.append(f"input_files.{name} must be an object")
+            continue
+        path = item.get("path")
+        expected_path = metadata_inputs.get(name)
+        if path is None:
+            if expected_path is not None:
+                failures.append(f"input_files.{name}.path must match metadata.inputs.{name}")
+        elif not isinstance(path, str) or not path.strip():
+            failures.append(f"input_files.{name}.path must be a non-empty string or null")
+        else:
+            if not Path(path).is_absolute():
+                failures.append(f"input_files.{name}.path must be absolute")
+            if isinstance(expected_path, str) and normalized_path(Path(path)) != normalized_path(
+                Path(expected_path)
+            ):
+                failures.append(f"input_files.{name}.path must match metadata.inputs.{name}")
+        exists = item.get("exists")
+        if not isinstance(exists, bool):
+            failures.append(f"input_files.{name}.exists must be boolean")
+            continue
+        if exists:
+            size = item.get("size_bytes")
+            digest = item.get("sha256")
+            if not isinstance(size, int) or size < 0:
+                failures.append(f"input_files.{name}.size_bytes must be a non-negative integer")
+            if (
+                not isinstance(digest, str)
+                or len(digest) != 64
+                or any(char not in "0123456789abcdef" for char in digest)
+            ):
+                failures.append(f"input_files.{name}.sha256 must be a lowercase SHA-256 digest")
+        else:
+            if item.get("size_bytes") is not None or item.get("sha256") is not None:
+                failures.append(f"input_files.{name} must not carry size/hash when missing")
+            if require_ready and expected_path is not None:
+                failures.append(f"input_files.{name}.exists must be true for ready audit reports")
+    return failures
+
+
 def verify_saved_files(payload: dict[str, Any], report_path: Path | None = None) -> list[str]:
     metadata = payload.get("metadata")
     if not isinstance(metadata, dict):
@@ -563,6 +682,12 @@ def verify_saved_files(payload: dict[str, Any], report_path: Path | None = None)
             failures.append("metadata.git_dirty must be false for ready audit reports")
         if metadata.get("git_status") != []:
             failures.append("metadata.git_status must be empty for ready audit reports")
+    failures.extend(
+        validate_input_file_summaries(
+            payload,
+            require_ready=payload.get("production_claim_status") == READY_STATUS,
+        )
+    )
     if failures:
         return failures
     replay_args = replay_args_from_metadata(metadata)
@@ -619,6 +744,7 @@ def validate_payload(
     ]
     if payload.get("missing_or_failed_checks") != observed_missing:
         failures.append("missing_or_failed_checks do not match checks")
+    failures.extend(validate_input_file_summaries(payload, require_ready=require_ready))
     for check in checks:
         if not isinstance(check, dict):
             failures.append("check entries must be objects")
