@@ -2,6 +2,26 @@
 
 Updated: 2026-07-09
 
+## Production Evidence Audit Gate Signature Snapshot
+
+This snapshot records the hardening that makes saved production evidence audit reports bind their gate rows to recomputed audit evidence. `benchmark/audit_production_evidence.py --verify-report ... --verify-report-files` now validates saved gate entry shape and compares saved/recomputed gate name, status, and command signatures, while still ignoring naturally variable elapsed time. This prevents a saved production-evidence audit JSON from silently dropping or weakening a gate row while leaving the top-level checklist unchanged.
+
+This is not a production claim. It strengthens the final-input readiness audit; the real external L4 workflow trial, matching evidence package, saved external reviewer reports, live stable GitHub release, saved stable-release verifier report, ready saved production evidence audit, and final production release-gate report are still required before final production signoff.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/audit_production_evidence.py tests/test_audit_production_evidence.py` | PASS |
+| `python3 -m unittest discover -s tests -p test_audit_production_evidence.py` | PASS, 13 tests |
+| `python3 -m py_compile benchmark/audit_production_evidence.py tests/test_audit_production_evidence.py tests/test_run_production_gate.py` | PASS |
+| `python3 -m unittest discover -s tests -p test_run_production_gate.py` | PASS, 100 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths including the bilingual README contract |
+| `git diff --check` | PASS |
+| `python3 -m unittest discover -s tests` | PASS, 608 tests |
+| `python3 benchmark/release_gate.py --out-json /tmp/morphojet-production-audit-gate-signature-release-gate.json --out-md /tmp/morphojet-production-audit-gate-signature-release-gate.md` | PASS; non-final precommit report |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-production-audit-gate-signature-release-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report,production_evidence_readiness_audit` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+
 ## Final Wrapper Dry-Run Command Chain Snapshot
 
 This snapshot records the hardening that makes `benchmark/run_production_gate.py --dry-run` print the saved preflight verifier commands before the assembled final release-gate command. Dry-run output now includes the saved external trial report verifier, saved evidence-package verifier, saved stable-release verifier, saved GitHub workflow verifier, saved production-evidence-audit verifier with `--verify-report-files --require-ready`, the final `release_gate.py --require-production-claim` command, and the final saved report verifier. This gives reviewers an executable view of every command the final wrapper will require before a production claim can be considered.

@@ -670,6 +670,50 @@ def compare_recomputed_payload(payload: dict[str, Any], recomputed: dict[str, An
             failures.append("check statuses changed after recomputing audit evidence")
     else:
         failures.append("checks must be lists before recomputing audit evidence")
+    saved_gate_signatures = gate_signatures(payload.get("gates"))
+    recomputed_gate_signatures = gate_signatures(recomputed.get("gates"))
+    if isinstance(saved_gate_signatures, list) and isinstance(recomputed_gate_signatures, list):
+        if saved_gate_signatures != recomputed_gate_signatures:
+            failures.append("gate signatures changed after recomputing audit evidence")
+    else:
+        failures.append("gates must be lists before recomputing audit evidence")
+    return failures
+
+
+def gate_signatures(gates: Any) -> list[tuple[Any, Any, Any]] | None:
+    if not isinstance(gates, list):
+        return None
+    signatures = []
+    for item in gates:
+        if not isinstance(item, dict):
+            return None
+        signatures.append((item.get("name"), item.get("status"), item.get("command")))
+    return signatures
+
+
+def validate_gate_entries(payload: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    gates = payload.get("gates")
+    if not isinstance(gates, list):
+        return ["gates must be a list"]
+    for index, gate_item in enumerate(gates):
+        if not isinstance(gate_item, dict):
+            failures.append(f"gates[{index}] must be an object")
+            continue
+        if not isinstance(gate_item.get("name"), str) or not gate_item.get("name"):
+            failures.append(f"gates[{index}].name must be a non-empty string")
+        if gate_item.get("status") not in release_gate.PRODUCTION_AUDIT_CHECK_STATUSES:
+            failures.append(f"gates[{index}].status={gate_item.get('status')}")
+        command = gate_item.get("command")
+        if command is not None and (
+            not isinstance(command, list) or not all(isinstance(item, str) for item in command)
+        ):
+            failures.append(f"gates[{index}].command must be null or a string list")
+        if not isinstance(gate_item.get("detail"), str):
+            failures.append(f"gates[{index}].detail must be a string")
+        elapsed_seconds = gate_item.get("elapsed_seconds")
+        if not isinstance(elapsed_seconds, (int, float)) or elapsed_seconds < 0:
+            failures.append(f"gates[{index}].elapsed_seconds must be a non-negative number")
     return failures
 
 
@@ -906,6 +950,7 @@ def validate_payload(
         failures.append("missing_or_failed_checks do not match checks")
     failures.extend(validate_input_file_summaries(payload, require_ready=require_ready))
     failures.extend(validate_input_artifact_summaries(payload, require_ready=require_ready))
+    failures.extend(validate_gate_entries(payload))
     failures.extend(validate_external_saved_reviewer_gate_entries(payload))
     for check in checks:
         if not isinstance(check, dict):
