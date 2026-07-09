@@ -33,6 +33,8 @@ class ValidateClaimLanguageTest(unittest.TestCase):
             "Verify saved external L4 reviewer report pair",
             validate_claim_language.ROOT_README_SHARED_ANCHORS,
         )
+        for anchor in ["--require-stable-report", "--expect-tag", "--expect-repo", "--expect-commit"]:
+            self.assertIn(anchor, validate_claim_language.ROOT_README_SHARED_ANCHORS)
 
     def test_root_readme_contract_rejects_missing_chinese_l4_guidance(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -130,6 +132,10 @@ class ValidateClaimLanguageTest(unittest.TestCase):
                 "--github-release-tag\n"
                 "--github-release-verification-report\n"
                 "--github-workflow-verification-report\n"
+                "--require-stable-report\n"
+                "--expect-tag v0.1.0\n"
+                "--expect-repo benngaihk/MorphoJet\n"
+                "--expect-commit <final-commit>\n"
                 "five saved final-input report arguments\n"
                 "reruns that signoff-mode recheck before invoking the release gate\n",
                 encoding="utf-8",

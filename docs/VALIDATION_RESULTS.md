@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## Stable Saved-Report Bilingual Anchor Snapshot
+
+This snapshot records the hardening that promotes stable GitHub release saved-report signoff flags into the root bilingual README and production-readiness documentation contracts. `benchmark/validate_claim_language.py` now requires both `README.md` and `README.zh-CN.md` to keep `--require-stable-report`, `--expect-tag`, `--expect-repo`, and `--expect-commit`, and also requires `docs/PRODUCTION_READINESS.md` to keep the concrete signoff shape `--require-stable-report --expect-tag v0.1.0 --expect-repo benngaihk/MorphoJet --expect-commit <final-commit>`. This keeps Chinese-community and English reviewers pointed at the same stable-release saved-report proof, not a weaker saved JSON review.
+
+This is not a production claim. It protects the stable-release evidence contract; the real external L4 workflow trial, matching evidence package, saved external reviewer reports, live stable GitHub release, and saved stable-release verifier report are still required before final production signoff.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/validate_claim_language.py tests/test_validate_claim_language.py` | PASS |
+| `python3 -m unittest discover -s tests -p test_validate_claim_language.py` | PASS, 13 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths including the bilingual README contract |
+| `git diff --check` | PASS |
+| `python3 -m unittest discover -s tests` | PASS, 597 tests |
+| `python3 benchmark/release_gate.py --out-json /tmp/morphojet-stable-saved-report-anchor-release-gate.json --out-md /tmp/morphojet-stable-saved-report-anchor-release-gate.md` | PASS; non-final precommit report |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-stable-saved-report-anchor-release-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+
 ## Root Bilingual README Pair-Gate Anchor Snapshot
 
 This snapshot records the hardening that promotes `Verify saved external L4 reviewer report pair` into the root bilingual README shared-anchor contract. `benchmark/validate_claim_language.py` now requires both `README.md` and `README.zh-CN.md` to retain that gate name alongside the non-final claim labels, final wrapper report flags, and bilingual README paths, so the release gate rejects a root README update that leaves Chinese-community reviewers without the reviewer-report pair-gate cue.
