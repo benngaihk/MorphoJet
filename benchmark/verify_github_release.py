@@ -553,6 +553,32 @@ def doctor_package_file_issues(archive_name: Any, doctor: dict[str, Any], status
     return package_file_summary_issues(archive_name, package_files, status, "archive doctor")
 
 
+def package_file_recheck_issues(
+    archive_name: str,
+    saved_package_files: Any,
+    recomputed_package_files: Any,
+) -> list[str]:
+    failures = []
+    if not isinstance(saved_package_files, dict):
+        return [f"archive package_files must be an object for file recheck: {archive_name}"]
+    if not isinstance(recomputed_package_files, dict):
+        return [f"recomputed archive package_files must be an object: {archive_name}"]
+    stable_fields = ("package_exists", "source_exists", "package_sha256", "source_sha256", "matches_source")
+    for filename in SOURCE_MATCH_PACKAGE_FILES:
+        saved = saved_package_files.get(filename)
+        recomputed = recomputed_package_files.get(filename)
+        if not isinstance(saved, dict):
+            failures.append(f"archive package_files missing {filename} for file recheck: {archive_name}")
+            continue
+        if not isinstance(recomputed, dict):
+            failures.append(f"recomputed archive package_files missing {filename}: {archive_name}")
+            continue
+        for field in stable_fields:
+            if saved.get(field) != recomputed.get(field):
+                failures.append(f"archive package_files.{filename}.{field} changed after report was written: {archive_name}")
+    return failures
+
+
 def expected_commit_issues(expected_commit: Any, expected_doctor_commit: Any) -> list[str]:
     failures = []
     if not isinstance(expected_commit, str) or not expected_commit.strip():
@@ -970,6 +996,19 @@ def verify_saved_github_release_report(
                                 failures.append(f"checksum mismatch for {archive.name}")
                         except ValueError as exc:
                             failures.append(str(exc))
+                    try:
+                        package_inspection = inspect_package_contents(archive)
+                    except Exception as exc:  # noqa: BLE001 - report verifier should collect all evidence failures.
+                        failures.append(f"archive package inspection failed for {archive.name}: {type(exc).__name__}: {exc}")
+                    else:
+                        failures.extend(f"{archive.name}: {issue}" for issue in package_inspection["issues"])
+                        failures.extend(
+                            package_file_recheck_issues(
+                                archive.name,
+                                archive_summary.get("package_files"),
+                                package_inspection.get("package_files"),
+                            )
+                        )
     if failures:
         for failure in failures:
             print(f"FAIL: {failure}", file=sys.stderr)

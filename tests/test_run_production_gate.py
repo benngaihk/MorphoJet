@@ -8,6 +8,7 @@ import io
 import json
 import os
 import sys
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -30,7 +31,6 @@ from test_release_gate import add_artifact_provenance, valid_external_trial, wri
 class RunProductionGateTest(unittest.TestCase):
     FULL_COMMIT = "a" * 40
     DOCTOR_COMMIT = "a" * 12
-    PACKAGE_FILE_SHA = "b" * 64
 
     def test_github_release_repo_reuses_release_gate_contract(self) -> None:
         self.assertIs(release_gate.GITHUB_RELEASE_REPO, run_production_gate.GITHUB_RELEASE_REPO)
@@ -62,18 +62,33 @@ class RunProductionGateTest(unittest.TestCase):
         return trial_json
 
     def valid_doctor_package_files(self) -> dict[str, dict[str, object]]:
+        package_sha = {
+            filename: verify_github_release.sha256(ROOT / filename)
+            for filename in verify_github_release.SOURCE_MATCH_PACKAGE_FILES
+        }
         return {
             filename: {
                 "package_path": f"/tmp/package/{filename}",
-                "source_path": f"/repo/{filename}",
+                "source_path": str(ROOT / filename),
                 "package_exists": True,
                 "source_exists": True,
-                "package_sha256": self.PACKAGE_FILE_SHA,
-                "source_sha256": self.PACKAGE_FILE_SHA,
+                "package_sha256": package_sha[filename],
+                "source_sha256": package_sha[filename],
                 "matches_source": True,
             }
             for filename in verify_github_release.SOURCE_MATCH_PACKAGE_FILES
         }
+
+    def write_release_archive(self, archive: Path) -> None:
+        package_name = archive.name.removesuffix(".tar.gz")
+        with tempfile.TemporaryDirectory() as tmp:
+            staging = Path(tmp) / package_name
+            staging.mkdir()
+            (staging / "morphojet").write_text("#!/bin/sh\n", encoding="utf-8")
+            for filename in verify_github_release.SOURCE_MATCH_PACKAGE_FILES:
+                (staging / filename).write_bytes((ROOT / filename).read_bytes())
+            with tarfile.open(archive, "w:gz") as handle:
+                handle.add(staging, arcname=package_name)
 
     def write_valid_github_release_report(self, root: Path) -> Path:
         out_dir = root / "github-release"
@@ -82,7 +97,7 @@ class RunProductionGateTest(unittest.TestCase):
         archive_summaries = []
         for archive_name in [name for name in expected_assets if name.endswith(".tar.gz")]:
             archive = out_dir / archive_name
-            archive.write_text(f"{archive_name}\n", encoding="utf-8")
+            self.write_release_archive(archive)
             digest = verify_github_release.sha256(archive)
             (out_dir / f"{archive_name}.sha256").write_text(f"{digest}  {archive_name}\n", encoding="utf-8")
             archive_summaries.append(

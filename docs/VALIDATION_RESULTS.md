@@ -3468,6 +3468,22 @@ Additional validation for making package-file source matching apply to every Git
 
 Conclusion: local and GitHub release verification now enforce the bilingual release archive shape and source-match summary. This reduces stable-release packaging risk but remains non-final evidence until a stable GitHub release is published and verified with the final production wrapper.
 
+Additional validation for saved-report archive package-file rechecks:
+
+| Command | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/verify_release_archive.py benchmark/verify_github_release.py tests/test_verify_github_release.py tests/test_run_production_gate.py` | PASS |
+| `python3 -m unittest discover -s tests -p test_verify_github_release.py` | PASS, 72 tests |
+| `python3 -m unittest discover -s tests -p test_run_production_gate.py` | PASS, 100 tests |
+| `python3 -m unittest discover -s tests -p test_validate_claim_language.py` | PASS, 13 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS |
+| `git diff --check` | PASS |
+| `python3 -m unittest discover -s tests` | PASS, 606 tests |
+| `python3 benchmark/release_gate.py --out-json /tmp/morphojet-saved-archive-package-recheck-release-gate.json --out-md /tmp/morphojet-saved-archive-package-recheck-release-gate.md` | PASS |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-saved-archive-package-recheck-release-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report,production_evidence_readiness_audit` | PASS |
+
+Conclusion: saved GitHub release report file rechecks now re-extract every saved release archive and compare recomputed package-file hashes/existence/source-match fields against the saved `package_files` summary. This closes a stale-saved-JSON path for `README.md`, `README.zh-CN.md`, and `LICENSE` evidence, but it remains release-evidence hardening rather than a production claim.
+
 ## GitHub Release Candidate Snapshot
 
 This snapshot validates the first tagged GitHub prerelease artifact set.

@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tarfile
 import tempfile
 import unittest
 from contextlib import contextmanager
@@ -35,7 +36,6 @@ def temporary_cwd(path: Path):
 class VerifyGithubReleaseTest(unittest.TestCase):
     FULL_COMMIT = "a" * 40
     DOCTOR_COMMIT = "a" * 12
-    PACKAGE_FILE_SHA = "b" * 64
 
     def test_default_repo_reuses_release_gate_contract(self) -> None:
         self.assertIs(release_gate.GITHUB_RELEASE_REPO, verify_github_release.DEFAULT_REPO)
@@ -334,18 +334,33 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         )
 
     def valid_doctor_package_files(self) -> dict[str, dict[str, object]]:
+        package_sha = {
+            filename: verify_github_release.sha256(ROOT / filename)
+            for filename in verify_github_release.SOURCE_MATCH_PACKAGE_FILES
+        }
         return {
             filename: {
                 "package_path": f"/tmp/package/{filename}",
-                "source_path": f"/repo/{filename}",
+                "source_path": str(ROOT / filename),
                 "package_exists": True,
                 "source_exists": True,
-                "package_sha256": self.PACKAGE_FILE_SHA,
-                "source_sha256": self.PACKAGE_FILE_SHA,
+                "package_sha256": package_sha[filename],
+                "source_sha256": package_sha[filename],
                 "matches_source": True,
             }
             for filename in verify_github_release.SOURCE_MATCH_PACKAGE_FILES
         }
+
+    def write_release_archive(self, archive: Path) -> None:
+        package_name = archive.name.removesuffix(".tar.gz")
+        with tempfile.TemporaryDirectory() as tmp:
+            staging = Path(tmp) / package_name
+            staging.mkdir()
+            (staging / "morphojet").write_text("#!/bin/sh\n", encoding="utf-8")
+            for filename in verify_github_release.SOURCE_MATCH_PACKAGE_FILES:
+                (staging / filename).write_bytes((ROOT / filename).read_bytes())
+            with tarfile.open(archive, "w:gz") as handle:
+                handle.add(staging, arcname=package_name)
 
     def valid_report(self, root: Path) -> Path:
         out_dir = root / "release"
@@ -354,7 +369,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         archive_summaries = []
         for archive_name in [name for name in expected_assets if name.endswith(".tar.gz")]:
             archive = out_dir / archive_name
-            archive.write_text(f"{archive_name}\n", encoding="utf-8")
+            self.write_release_archive(archive)
             digest = verify_github_release.sha256(archive)
             (out_dir / f"{archive_name}.sha256").write_text(f"{digest}  {archive_name}\n", encoding="utf-8")
             archive_summaries.append(
@@ -1147,6 +1162,46 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                 status = verify_github_release.verify_saved_github_release_report(report, verify_files=True)
 
         self.assertEqual(1, status)
+
+    def test_saved_release_report_recomputes_archive_package_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = self.valid_report(root)
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            archive_summary = payload["archives"][0]
+            archive_summary["package_files"]["README.zh-CN.md"]["package_sha256"] = "c" * 64
+            archive_summary["package_files"]["README.zh-CN.md"]["source_sha256"] = "c" * 64
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                status = verify_github_release.verify_saved_github_release_report(report, verify_files=True)
+
+        self.assertEqual(1, status)
+        self.assertIn(
+            f"archive package_files.README.zh-CN.md.package_sha256 changed after report was written: "
+            f"{archive_summary['archive']}",
+            stderr.getvalue(),
+        )
+
+    def test_saved_release_report_recomputes_non_doctored_archive_package_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = self.valid_report(root)
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            archive_summary = next(summary for summary in payload["archives"] if summary["doctor"] is None)
+            archive_summary["package_files"]["README.md"]["package_sha256"] = "c" * 64
+            archive_summary["package_files"]["README.md"]["source_sha256"] = "c" * 64
+            report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()) as stderr:
+                status = verify_github_release.verify_saved_github_release_report(report, verify_files=True)
+
+        self.assertEqual(1, status)
+        self.assertIn(
+            f"archive package_files.README.md.package_sha256 changed after report was written: "
+            f"{archive_summary['archive']}",
+            stderr.getvalue(),
+        )
 
     def test_saved_release_report_recomputes_asset_metadata_digest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

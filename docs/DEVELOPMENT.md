@@ -81,7 +81,7 @@ python3 benchmark/verify_release_archive.py \
   --json-out benchmark/results/release-artifacts/verification.json
 ```
 
-The local archive verifier checks the checksum digest, checksum target filename, traversal-safe extraction, package contents including `README.zh-CN.md`, and `morphojet doctor` output, writes a `package_files` summary, requires packaged `README.md`, `README.zh-CN.md`, and `LICENSE` to have `matches_source=true` against the current repository files, and rejects `--json-out` paths that would overwrite the archive or checksum file.
+The local archive verifier checks the checksum digest, checksum target filename, traversal-safe extraction, package contents including `README.zh-CN.md`, and `morphojet doctor` output, writes a `package_files` summary, requires packaged `README.md`, `README.zh-CN.md`, and `LICENSE` to have `matches_source=true` against the current repository files, and rejects `--json-out` paths that would overwrite the archive or checksum file. Saved GitHub release report file rechecks reuse the same archive inspection path for every saved release archive and compare recomputed package-file hashes/existence/source-match fields against the saved `package_files` summaries, so signoff cannot rely on stale JSON for bilingual package documentation.
 The local archive builder rejects version strings with path separators or spaces, keeps package/archive/checksum outputs inside `--out-dir`, includes `README.md`, `README.zh-CN.md`, and `LICENSE`, and refuses to delete an existing package directory unless it contains only the expected release package files.
 
 Before cutting a release candidate, run:
