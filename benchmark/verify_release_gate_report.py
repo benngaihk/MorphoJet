@@ -170,6 +170,7 @@ def validate_metadata_argv(metadata: Any, report_path: Path | None = None) -> li
         "external_evidence_package_verification_report": "--external-evidence-package-verification-report",
         "github_release_verification_report": "--github-release-verification-report",
         "github_workflow_verification_report": "--github-workflow-verification-report",
+        "production_evidence_audit_report": "--production-evidence-audit-report",
         "verify_github_release": "--verify-github-release",
     }
     for metadata_key, flag in required_path_flags.items():
@@ -233,6 +234,7 @@ def validate_production_claim_metadata(metadata: Any) -> list[str]:
         "external_evidence_package_verification_report",
         "github_release_verification_report",
         "github_workflow_verification_report",
+        "production_evidence_audit_report",
     ]:
         value = metadata.get(key)
         if not isinstance(value, str) or not value.strip():
@@ -378,6 +380,11 @@ def validate_saved_reviewer_gate_command(gate: dict, metadata: Any) -> list[str]
                 report,
                 expected_commit if isinstance(expected_commit, str) and expected_commit.strip() else None,
             )
+    elif name == "Verify saved production evidence audit report":
+        metadata_key = "production_evidence_audit_report"
+        report = metadata.get(metadata_key)
+        if isinstance(report, str) and report.strip():
+            expected = release_gate.saved_production_evidence_audit_report_command(Path(report))
     if metadata_key is not None and expected is None:
         failures.append(f"gate command for {name} requires metadata.{metadata_key}")
     elif expected is not None and command != expected:
@@ -390,6 +397,7 @@ SAVED_REVIEWER_METADATA_TO_GATE = {
     "external_evidence_package_verification_report": "Verify saved external L4 evidence package report",
     "github_release_verification_report": "Verify saved stable GitHub release report",
     "github_workflow_verification_report": "Verify saved GitHub Actions workflow report",
+    "production_evidence_audit_report": "Verify saved production evidence audit report",
 }
 
 EVIDENCE_METADATA_TO_GATE = {

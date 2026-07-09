@@ -78,6 +78,8 @@ ROOT_README_SHARED_ANCHORS = [
     "--expect-repo",
     "--expect-commit",
     "Verify saved external L4 reviewer report pair",
+    "Verify saved production evidence audit report",
+    "production_evidence_readiness_audit",
     "README.md",
     "README.zh-CN.md",
 ]
@@ -100,6 +102,8 @@ PRODUCTION_READINESS_CONTRACT = {
         "input_artifacts",
         "external_trial_root",
         "external_evidence_package_dir",
+        "Verify saved production evidence audit report",
+        "production_evidence_readiness_audit",
         "five saved final-input report arguments",
         "reruns that signoff-mode recheck before invoking the release gate",
     ],

@@ -140,6 +140,8 @@ class ValidateClaimLanguageTest(unittest.TestCase):
                 "input_artifacts\n"
                 "external_trial_root\n"
                 "external_evidence_package_dir\n"
+                "Verify saved production evidence audit report\n"
+                "production_evidence_readiness_audit\n"
                 "five saved final-input report arguments\n"
                 "reruns that signoff-mode recheck before invoking the release gate\n",
                 encoding="utf-8",

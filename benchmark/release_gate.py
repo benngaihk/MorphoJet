@@ -67,6 +67,7 @@ PRODUCTION_PATH_METADATA_KEYS = frozenset(
         "external_evidence_package_verification_report",
         "github_release_verification_report",
         "github_workflow_verification_report",
+        "production_evidence_audit_report",
     ]
 )
 RELEASE_GATE_ARGV_PATH_FLAGS = frozenset(
@@ -80,6 +81,7 @@ RELEASE_GATE_ARGV_PATH_FLAGS = frozenset(
         "--external-evidence-package-verification-report",
         "--github-release-verification-report",
         "--github-workflow-verification-report",
+        "--production-evidence-audit-report",
     ]
 )
 PRODUCTION_AUDIT_CHECK_NAMES = [
@@ -92,9 +94,12 @@ PRODUCTION_AUDIT_CHECK_NAMES = [
     "external_l4_saved_reviewer_reports",
     "stable_github_release",
     "stable_github_release_saved_report",
+    "production_evidence_readiness_audit",
 ]
 PRODUCTION_FINAL_BLOCKER_NAMES = [
-    name for name in PRODUCTION_AUDIT_CHECK_NAMES if name != "standard_code_and_artifact_gates"
+    name
+    for name in PRODUCTION_AUDIT_CHECK_NAMES
+    if name not in {"standard_code_and_artifact_gates", "production_evidence_readiness_audit"}
 ]
 PRODUCTION_STANDARD_GATE_NAMES = [
     "Rust formatting",
@@ -123,6 +128,7 @@ REQUIRED_PRODUCTION_GATE_NAMES = frozenset(
         "Verify saved external L4 reviewer report pair",
         "Verify GitHub release assets",
         "Verify saved stable GitHub release report",
+        "Verify saved production evidence audit report",
     ]
 )
 
@@ -583,6 +589,11 @@ def protected_report_input_path_entries(args: argparse.Namespace) -> dict[Path, 
         getattr(args, "github_workflow_verification_report", None),
         "--github-workflow-verification-report",
     )
+    add_protected_path(
+        paths,
+        getattr(args, "production_evidence_audit_report", None),
+        "--production-evidence-audit-report",
+    )
     verify_github_release = getattr(args, "verify_github_release", None)
     if verify_github_release:
         add_protected_path(
@@ -649,6 +660,8 @@ def production_claim_contract_failures(args: argparse.Namespace) -> list[str]:
         failures.append("--require-production-claim requires --github-release-verification-report")
     if not args.github_workflow_verification_report:
         failures.append("--require-production-claim requires --github-workflow-verification-report")
+    if not args.production_evidence_audit_report:
+        failures.append("--require-production-claim requires --production-evidence-audit-report")
     if not any(
         [
             args.external_trial_json,
@@ -822,6 +835,17 @@ def live_github_release_report_command(tag: str, kind: str, expected_commit: str
     if expected_commit:
         command.extend(["--expect-commit", expected_commit])
     return command
+
+
+def saved_production_evidence_audit_report_command(report: Path) -> list[str]:
+    return [
+        "python3",
+        "benchmark/audit_production_evidence.py",
+        "--verify-report",
+        normalized_path_key(report),
+        "--verify-report-files",
+        "--require-ready",
+    ]
 
 
 def paths_match(recorded: object, expected: Path | None) -> bool:
@@ -2366,6 +2390,13 @@ def build_production_claim_audit(args: argparse.Namespace, gates: list[Gate], me
             else PRODUCTION_AUDIT_MISSING_STATUS,
             "detail": "Requires a saved stable GitHub release verifier report bound to the final repo and tag.",
         },
+        {
+            "name": "production_evidence_readiness_audit",
+            "status": production_audit_status(gates, "Verify saved production evidence audit report")
+            if args.production_evidence_audit_report
+            else PRODUCTION_AUDIT_MISSING_STATUS,
+            "detail": "Requires a saved production evidence audit report rechecked with file hashing and readiness enforcement.",
+        },
     ]
     if [check["name"] for check in checks] != PRODUCTION_AUDIT_CHECK_NAMES:
         raise AssertionError("production audit check order drifted from PRODUCTION_AUDIT_CHECK_NAMES")
@@ -2436,6 +2467,13 @@ PRODUCTION_CHECKLIST_GUIDANCE = {
             "Save verify_github_release.py output outside the download dir, then recheck it with "
             "--verify-report-files --require-stable-report --verify-git-commit "
             "--expect-tag <final-tag> --expect-repo benngaihk/MorphoJet --expect-commit <final-commit>."
+        ),
+    },
+    "production_evidence_readiness_audit": {
+        "evidence": "A saved production-evidence-audit report rechecked with --verify-report-files --require-ready.",
+        "next_action": (
+            "Run audit_production_evidence.py after external L4, workflow, and stable-release verifier reports are saved, "
+            "then supply --production-evidence-audit-report and recheck it before final signoff."
         ),
     },
 }
@@ -2598,6 +2636,7 @@ def build_metadata(args: argparse.Namespace, git_status_lines: list[str]) -> dic
         ),
         "github_release_verification_report": optional_absolute_path(args.github_release_verification_report),
         "github_workflow_verification_report": optional_absolute_path(args.github_workflow_verification_report),
+        "production_evidence_audit_report": optional_absolute_path(args.production_evidence_audit_report),
     }
 
 
@@ -2684,6 +2723,11 @@ def main() -> int:
         "--github-workflow-verification-report",
         type=Path,
         help="Re-check a saved GitHub Actions workflow verifier JSON report for the final commit",
+    )
+    parser.add_argument(
+        "--production-evidence-audit-report",
+        type=Path,
+        help="Re-check a saved production evidence audit JSON report before final production signoff",
     )
     args = parser.parse_args()
     production_claim_failures = production_claim_contract_failures(args)
@@ -2860,6 +2904,13 @@ def main() -> int:
                     args.github_workflow_verification_report,
                     expected_commit=metadata["git_commit"],
                 ),
+            )
+        )
+    if args.production_evidence_audit_report:
+        gates.append(
+            run_command(
+                "Verify saved production evidence audit report",
+                saved_production_evidence_audit_report_command(args.production_evidence_audit_report),
             )
         )
 

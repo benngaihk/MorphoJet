@@ -307,6 +307,7 @@ class ReleaseGateTest(unittest.TestCase):
             "github_release_kind": "prerelease",
             "github_release_verification_report": None,
             "github_workflow_verification_report": None,
+            "production_evidence_audit_report": None,
             "require_production_claim": False,
             "run_l3": False,
             "build_release_artifact": False,
@@ -326,6 +327,7 @@ class ReleaseGateTest(unittest.TestCase):
             "github_release_kind": "stable",
             "github_release_verification_report": Path("github-release-verification.json"),
             "github_workflow_verification_report": Path("github-workflow-verification.json"),
+            "production_evidence_audit_report": Path("production-evidence-audit.json"),
             "external_trial_json": Path("handoff_trial.json"),
             "external_trial_root": Path("external-trial"),
             "external_evidence_package_dir": Path("external-l4-package"),
@@ -434,6 +436,7 @@ class ReleaseGateTest(unittest.TestCase):
             "github_release_kind_stable",
             "github_release_verification_report",
             "github_workflow_verification_report",
+            "production_evidence_audit_report",
             "external_trial_json",
             "external_trial_root",
             "external_evidence_package_dir",
@@ -452,6 +455,7 @@ class ReleaseGateTest(unittest.TestCase):
                 "github_release_kind": "prerelease",
                 "github_release_verification_report": None,
                 "github_workflow_verification_report": None,
+                "production_evidence_audit_report": None,
                 "external_trial_json": None,
                 "external_trial_root": None,
                 "external_evidence_package_dir": None,
@@ -473,6 +477,8 @@ class ReleaseGateTest(unittest.TestCase):
                 overrides["github_release_verification_report"] = Path("github-release-verification.json")
             if "github_workflow_verification_report" in present:
                 overrides["github_workflow_verification_report"] = Path("github-workflow-verification.json")
+            if "production_evidence_audit_report" in present:
+                overrides["production_evidence_audit_report"] = Path("production-evidence-audit.json")
             for field in [
                 "external_trial_json",
                 "external_trial_root",
@@ -573,6 +579,7 @@ class ReleaseGateTest(unittest.TestCase):
                 github_release_kind="stable",
                 github_release_verification_report=Path("github-release-verification.json"),
                 github_workflow_verification_report=Path("github-workflow-verification.json"),
+                production_evidence_audit_report=Path("production-evidence-audit.json"),
                 external_trial_verification_report=Path("trial-verification.json"),
             )
         )
@@ -595,6 +602,7 @@ class ReleaseGateTest(unittest.TestCase):
                 github_release_kind="stable",
                 github_release_verification_report=Path("github-release-verification.json"),
                 github_workflow_verification_report=Path("github-workflow-verification.json"),
+                production_evidence_audit_report=Path("production-evidence-audit.json"),
                 external_evidence_package_verification_report=Path("package-verification.json"),
             )
         )
@@ -617,6 +625,7 @@ class ReleaseGateTest(unittest.TestCase):
                 github_release_kind="stable",
                 github_release_verification_report=Path("github-release-verification.json"),
                 github_workflow_verification_report=Path("github-workflow-verification.json"),
+                production_evidence_audit_report=Path("production-evidence-audit.json"),
                 external_trial_json=Path("handoff_trial.json"),
             )
         )
@@ -651,6 +660,7 @@ class ReleaseGateTest(unittest.TestCase):
                 github_release_kind="stable",
                 github_release_verification_report=Path("github-release-verification.json"),
                 github_workflow_verification_report=Path("github-workflow-verification.json"),
+                production_evidence_audit_report=Path("production-evidence-audit.json"),
                 external_evidence_package_dir=Path("external-l4-package"),
             )
         )
@@ -670,6 +680,7 @@ class ReleaseGateTest(unittest.TestCase):
                 github_release_kind="stable",
                 github_release_verification_report=Path("github-release-verification.json"),
                 github_workflow_verification_report=Path("github-workflow-verification.json"),
+                production_evidence_audit_report=Path("production-evidence-audit.json"),
                 external_trial_json=Path("handoff_trial.json"),
                 external_trial_root=Path("external-trial"),
             )
@@ -690,6 +701,7 @@ class ReleaseGateTest(unittest.TestCase):
                 github_release_kind="stable",
                 github_release_verification_report=Path("github-release-verification.json"),
                 github_workflow_verification_report=Path("github-workflow-verification.json"),
+                production_evidence_audit_report=Path("production-evidence-audit.json"),
                 external_trial_json=Path("handoff_trial.json"),
                 external_trial_root=Path("external-trial"),
                 external_evidence_package_dir=Path("external-l4-package"),
@@ -715,6 +727,7 @@ class ReleaseGateTest(unittest.TestCase):
                 github_release_kind="stable",
                 github_release_verification_report=Path("github-release-verification.json"),
                 github_workflow_verification_report=Path("github-workflow-verification.json"),
+                production_evidence_audit_report=Path("production-evidence-audit.json"),
                 external_trial_json=Path("handoff_trial.json"),
                 external_trial_root=Path("external-trial"),
                 external_evidence_package_dir=Path("external-l4-package"),
@@ -735,6 +748,7 @@ class ReleaseGateTest(unittest.TestCase):
                 github_release_kind="stable",
                 github_release_verification_report=Path("github-release-verification.json"),
                 github_workflow_verification_report=Path("github-workflow-verification.json"),
+                production_evidence_audit_report=Path("production-evidence-audit.json"),
                 external_trial_json=Path("handoff_trial.json"),
                 external_trial_root=Path("external-trial"),
                 external_evidence_package_dir=Path("external-l4-package"),
@@ -762,6 +776,7 @@ class ReleaseGateTest(unittest.TestCase):
                 github_release_kind="stable",
                 github_release_verification_report=Path("github-release-verification.json"),
                 github_workflow_verification_report=Path("github-workflow-verification.json"),
+                production_evidence_audit_report=Path("production-evidence-audit.json"),
                 external_trial_json=Path("handoff_trial.json"),
                 external_trial_root=Path("external-trial"),
                 external_evidence_package_dir=Path("external-l4-package"),
@@ -813,6 +828,7 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertEqual("MISSING", statuses["external_l4_saved_reviewer_reports"])
         self.assertEqual("MISSING", statuses["stable_github_release"])
         self.assertEqual("MISSING", statuses["stable_github_release_saved_report"])
+        self.assertEqual("MISSING", statuses["production_evidence_readiness_audit"])
         self.assertEqual(
             [
                 "clean_git_worktree",
@@ -823,6 +839,7 @@ class ReleaseGateTest(unittest.TestCase):
                 "external_l4_saved_reviewer_reports",
                 "stable_github_release",
                 "stable_github_release_saved_report",
+                "production_evidence_readiness_audit",
             ],
             audit["missing_or_failed_checks"],
         )
@@ -852,6 +869,7 @@ class ReleaseGateTest(unittest.TestCase):
                 "Verify saved external L4 reviewer report pair",
                 "Verify GitHub release assets",
                 "Verify saved stable GitHub release report",
+                "Verify saved production evidence audit report",
                 "Verify saved GitHub Actions workflow report",
             ]
         )
@@ -868,6 +886,7 @@ class ReleaseGateTest(unittest.TestCase):
                 github_release_kind="stable",
                 github_release_verification_report=Path("github-release-verification.json"),
                 github_workflow_verification_report=Path("github-workflow-verification.json"),
+                production_evidence_audit_report=Path("production-evidence-audit.json"),
             ),
             gates,
             {"git_commit": "abc123"},
@@ -923,6 +942,7 @@ class ReleaseGateTest(unittest.TestCase):
                 "external_l4_saved_reviewer_reports",
                 "stable_github_release",
                 "stable_github_release_saved_report",
+                "production_evidence_readiness_audit",
             ],
             payload["production_claim_audit"]["missing_or_failed_checks"],
         )
@@ -990,7 +1010,7 @@ class ReleaseGateTest(unittest.TestCase):
             "l3_provenance_hashes, "
             "external_l4_workflow_trial, external_l4_evidence_package, "
             "external_l4_saved_reviewer_reports, stable_github_release, "
-            "stable_github_release_saved_report`.",
+            "stable_github_release_saved_report, production_evidence_readiness_audit`.",
             markdown,
         )
         self.assertIn("| external_l4_workflow_trial | MISSING |", markdown)
@@ -1004,6 +1024,8 @@ class ReleaseGateTest(unittest.TestCase):
             "--expect-tag <final-tag> --expect-repo benngaihk/MorphoJet --expect-commit <final-commit>",
             markdown,
         )
+        self.assertIn("| production_evidence_readiness_audit | MISSING |", markdown)
+        self.assertIn("--verify-report-files --require-ready", markdown)
 
     def test_markdown_report_uses_json_production_claim_checklist(self) -> None:
         gates = self.production_gates(
@@ -1059,6 +1081,7 @@ class ReleaseGateTest(unittest.TestCase):
                 "Verify saved external L4 reviewer report pair",
                 "Verify GitHub release assets",
                 "Verify saved stable GitHub release report",
+                "Verify saved production evidence audit report",
                 "Verify saved GitHub Actions workflow report",
             ]
         )
@@ -1078,6 +1101,7 @@ class ReleaseGateTest(unittest.TestCase):
                     github_release_kind="stable",
                     github_release_verification_report=Path("github-release-verification.json"),
                     github_workflow_verification_report=Path("github-workflow-verification.json"),
+                    production_evidence_audit_report=Path("production-evidence-audit.json"),
                     out_json=root / "report.json",
                     out_md=root / "report.md",
                 ),

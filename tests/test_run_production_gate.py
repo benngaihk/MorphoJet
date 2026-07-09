@@ -243,7 +243,11 @@ class RunProductionGateTest(unittest.TestCase):
             "github/workflows.json",
             command[command.index("--github-workflow-verification-report") + 1],
         )
-        self.assertNotIn("--production-evidence-audit-report", command)
+        self.assertIn("--production-evidence-audit-report", command)
+        self.assertEqual(
+            "reports/production-evidence-audit.json",
+            command[command.index("--production-evidence-audit-report") + 1],
+        )
         self.assertIn("--verify-github-release", command)
         self.assertIn("v0.1.0", command)
         self.assertIn("--github-release-kind", command)

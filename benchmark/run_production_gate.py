@@ -395,6 +395,13 @@ def build_release_gate_command(args: argparse.Namespace) -> list[str]:
                 str(args.github_workflow_verification_report),
             ]
         )
+    if args.production_evidence_audit_report:
+        command.extend(
+            [
+                "--production-evidence-audit-report",
+                str(args.production_evidence_audit_report),
+            ]
+        )
     if args.run_l3:
         command.append("--run-l3")
     if args.build_release_artifact:
