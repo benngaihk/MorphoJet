@@ -419,6 +419,43 @@ def saved_production_evidence_audit_report_command(report: Path) -> list[str]:
     ]
 
 
+def final_preflight_verification_commands(args: argparse.Namespace) -> list[list[str]]:
+    expected_commit = release_gate.git_commit()
+    commands = []
+    if args.external_trial_verification_report:
+        commands.append(
+            release_gate.saved_external_trial_report_command(
+                args.external_trial_verification_report,
+                expected_commit=expected_commit,
+            )
+        )
+    if args.external_evidence_package_verification_report:
+        commands.append(
+            release_gate.saved_external_package_report_command(
+                args.external_evidence_package_verification_report,
+                expected_commit=expected_commit,
+            )
+        )
+    if args.github_release_verification_report:
+        commands.append(
+            release_gate.saved_github_release_report_command(
+                args.github_release_verification_report,
+                expected_tag=args.github_release_tag,
+                expected_commit=expected_commit,
+            )
+        )
+    if args.github_workflow_verification_report:
+        commands.append(
+            release_gate.saved_github_workflow_report_command(
+                args.github_workflow_verification_report,
+                expected_commit=expected_commit,
+            )
+        )
+    if args.production_evidence_audit_report:
+        commands.append(saved_production_evidence_audit_report_command(args.production_evidence_audit_report))
+    return commands
+
+
 def saved_production_evidence_audit_gate(args: argparse.Namespace) -> release_gate.Gate:
     command = saved_production_evidence_audit_report_command(args.production_evidence_audit_report)
     started = datetime.now(timezone.utc)
@@ -1204,6 +1241,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if args.dry_run:
+        for preflight_command in final_preflight_verification_commands(args):
+            print(shlex.join(preflight_command))
         print(shlex.join(command))
         print(shlex.join(build_final_report_verification_command(args)))
         return 0

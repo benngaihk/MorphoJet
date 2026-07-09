@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## Final Wrapper Dry-Run Command Chain Snapshot
+
+This snapshot records the hardening that makes `benchmark/run_production_gate.py --dry-run` print the saved preflight verifier commands before the assembled final release-gate command. Dry-run output now includes the saved external trial report verifier, saved evidence-package verifier, saved stable-release verifier, saved GitHub workflow verifier, saved production-evidence-audit verifier with `--verify-report-files --require-ready`, the final `release_gate.py --require-production-claim` command, and the final saved report verifier. This gives reviewers an executable view of every command the final wrapper will require before a production claim can be considered.
+
+This is not a production claim. It improves final-wrapper command-chain review; the real external L4 workflow trial, matching evidence package, saved external reviewer reports, live stable GitHub release, and saved stable-release verifier report are still required before final production signoff.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/run_production_gate.py tests/test_run_production_gate.py` | PASS |
+| `python3 -m unittest discover -s tests -p test_run_production_gate.py` | PASS, 100 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths including the bilingual README contract |
+| `git diff --check` | PASS |
+| `python3 -m unittest discover -s tests` | PASS, 599 tests |
+| `python3 benchmark/release_gate.py --out-json /tmp/morphojet-final-wrapper-dry-run-command-chain-release-gate.json --out-md /tmp/morphojet-final-wrapper-dry-run-command-chain-release-gate.md` | PASS; non-final precommit report |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-final-wrapper-dry-run-command-chain-release-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+
 ## External Workspace Audit V2 README Anchor Snapshot
 
 This snapshot records the hardening that carries the production evidence audit v2 directory-input contract into generated external L4 workspace instructions. `benchmark/prepare_external_l4_trial.py` now renders `schema_version=2`, `input_artifacts`, `external_trial_root`, and `external_evidence_package_dir` in both generated `README.md` and `README.zh-CN.md`; the shared-anchor guard used by `--verify-plan-files` also requires those strings in both languages. This keeps English and Chinese external reviewers on the same saved-audit contract before final wrapper signoff.

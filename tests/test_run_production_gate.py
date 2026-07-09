@@ -469,6 +469,47 @@ class RunProductionGateTest(unittest.TestCase):
         self.assertIn("benchmark/release_gate.py", stdout.getvalue())
         self.assertIn("benchmark/verify_release_gate_report.py", stdout.getvalue())
 
+    def test_dry_run_prints_saved_preflight_verifier_commands(self) -> None:
+        with contextlib.redirect_stdout(io.StringIO()) as stdout:
+            status = run_production_gate.main(
+                [
+                    "--external-trial-json",
+                    "missing/handoff_trial.json",
+                    "--external-trial-root",
+                    "missing/root",
+                    "--external-evidence-package-dir",
+                    "missing/package",
+                    "--external-trial-verification-report",
+                    "missing/trial-verification.json",
+                    "--external-evidence-package-verification-report",
+                    "missing/package-verification.json",
+                    "--github-release-verification-report",
+                    "missing/github-release-verification.json",
+                    "--github-workflow-verification-report",
+                    "missing/github-workflow-verification.json",
+                    "--production-evidence-audit-report",
+                    "missing/production-evidence-audit.json",
+                    "--github-release-tag",
+                    "v0.1.0",
+                    "--dry-run",
+                ]
+            )
+
+        output = stdout.getvalue()
+        self.assertEqual(0, status)
+        self.assertIn("benchmark/verify_external_trial_report.py", output)
+        self.assertIn("benchmark/verify_external_evidence_package.py", output)
+        self.assertIn("benchmark/verify_github_release.py", output)
+        self.assertIn("benchmark/verify_github_workflows.py", output)
+        self.assertIn("benchmark/audit_production_evidence.py", output)
+        self.assertIn("--require-stable-report", output)
+        self.assertIn("--expect-repo benngaihk/MorphoJet", output)
+        self.assertIn("--expect-workflow ci.yml", output)
+        self.assertIn("--expect-workflow external-l4-rehearsal.yml", output)
+        self.assertIn("--verify-report missing/production-evidence-audit.json", output)
+        self.assertIn("--verify-report-files --require-ready", output)
+        self.assertLess(output.index("benchmark/audit_production_evidence.py"), output.index("benchmark/release_gate.py"))
+
     def test_final_run_requires_saved_verifier_reports(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
