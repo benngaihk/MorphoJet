@@ -300,6 +300,23 @@ def file_summary(name: str, path: Path | None) -> dict[str, Any]:
     return summary
 
 
+def directory_summary(name: str, path: Path | None) -> dict[str, Any]:
+    if path is None:
+        return {
+            "name": name,
+            "path": None,
+            "exists": False,
+            "is_dir": False,
+        }
+    artifact_path = Path(absolute_path_text(path))
+    return {
+        "name": name,
+        "path": str(artifact_path),
+        "exists": artifact_path.exists(),
+        "is_dir": artifact_path.is_dir(),
+    }
+
+
 def input_file_summaries(args: argparse.Namespace) -> list[dict[str, Any]]:
     return [
         file_summary("external_trial_json", args.external_trial_json),
@@ -310,6 +327,13 @@ def input_file_summaries(args: argparse.Namespace) -> list[dict[str, Any]]:
         ),
         file_summary("github_release_verification_report", args.github_release_verification_report),
         file_summary("github_workflow_verification_report", args.github_workflow_verification_report),
+    ]
+
+
+def input_artifact_summaries(args: argparse.Namespace) -> list[dict[str, Any]]:
+    return [
+        directory_summary("external_trial_root", args.external_trial_root),
+        directory_summary("external_evidence_package_dir", args.external_evidence_package_dir),
     ]
 
 
@@ -373,6 +397,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         "checks": checks,
         "gates": [asdict(item) for item in gates],
         "input_files": input_file_summaries(args),
+        "input_artifacts": input_artifact_summaries(args),
         "metadata": {
             "git_commit": release_gate.git_commit(),
             "git_dirty": bool(release_gate.git_status_porcelain()),
@@ -442,6 +467,23 @@ def render_markdown(payload: dict[str, Any], out_json: Path) -> str:
             f"{markdown_cell(item.get('exists'))} | "
             f"{markdown_cell(item.get('size_bytes') if item.get('size_bytes') is not None else '')} | "
             f"{markdown_cell(item.get('sha256') or '')} | "
+            f"{markdown_cell(item.get('path') or '')} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Input Artifact Summaries",
+            "",
+            "| Name | Exists | Is Directory | Path |",
+            "|---|---:|---:|---|",
+        ]
+    )
+    for item in payload.get("input_artifacts", []):
+        lines.append(
+            "| "
+            f"{markdown_cell(item.get('name'))} | "
+            f"{markdown_cell(item.get('exists'))} | "
+            f"{markdown_cell(item.get('is_dir'))} | "
             f"{markdown_cell(item.get('path') or '')} |"
         )
     command = metadata.get("final_wrapper_command")
@@ -599,6 +641,8 @@ def compare_recomputed_payload(payload: dict[str, Any], recomputed: dict[str, An
             failures.append(f"{key} changed after recomputing audit evidence")
     if payload.get("input_files") != recomputed.get("input_files"):
         failures.append("input_files changed after recomputing audit evidence")
+    if payload.get("input_artifacts") != recomputed.get("input_artifacts"):
+        failures.append("input_artifacts changed after recomputing audit evidence")
     metadata = payload.get("metadata")
     recomputed_metadata = recomputed.get("metadata")
     if isinstance(metadata, dict) and isinstance(recomputed_metadata, dict):
@@ -625,6 +669,57 @@ def compare_recomputed_payload(payload: dict[str, Any], recomputed: dict[str, An
             failures.append("check statuses changed after recomputing audit evidence")
     else:
         failures.append("checks must be lists before recomputing audit evidence")
+    return failures
+
+
+def validate_input_artifact_summaries(payload: dict[str, Any], require_ready: bool) -> list[str]:
+    failures: list[str] = []
+    expected_names = ["external_trial_root", "external_evidence_package_dir"]
+    input_artifacts = payload.get("input_artifacts")
+    metadata = payload.get("metadata")
+    metadata_inputs = metadata.get("inputs") if isinstance(metadata, dict) else {}
+    if not isinstance(metadata_inputs, dict):
+        metadata_inputs = {}
+    if not isinstance(input_artifacts, list):
+        return ["input_artifacts must be a list"]
+    observed_names = [item.get("name") for item in input_artifacts if isinstance(item, dict)]
+    if observed_names != expected_names:
+        failures.append(f"input_artifacts names={observed_names}")
+    by_name = {item.get("name"): item for item in input_artifacts if isinstance(item, dict)}
+    for name in expected_names:
+        item = by_name.get(name)
+        if not isinstance(item, dict):
+            failures.append(f"input_artifacts.{name} must be an object")
+            continue
+        path = item.get("path")
+        expected_path = metadata_inputs.get(name)
+        if path is None:
+            if expected_path is not None:
+                failures.append(f"input_artifacts.{name}.path must match metadata.inputs.{name}")
+        elif not isinstance(path, str) or not path.strip():
+            failures.append(f"input_artifacts.{name}.path must be a non-empty string or null")
+        else:
+            if not Path(path).is_absolute():
+                failures.append(f"input_artifacts.{name}.path must be absolute")
+            if isinstance(expected_path, str) and normalized_path(Path(path)) != normalized_path(
+                Path(expected_path)
+            ):
+                failures.append(f"input_artifacts.{name}.path must match metadata.inputs.{name}")
+        exists = item.get("exists")
+        is_dir = item.get("is_dir")
+        if not isinstance(exists, bool):
+            failures.append(f"input_artifacts.{name}.exists must be boolean")
+            continue
+        if not isinstance(is_dir, bool):
+            failures.append(f"input_artifacts.{name}.is_dir must be boolean")
+            continue
+        if not exists and is_dir:
+            failures.append(f"input_artifacts.{name}.is_dir must be false when missing")
+        if require_ready and expected_path is not None:
+            if exists is not True:
+                failures.append(f"input_artifacts.{name}.exists must be true for ready audit reports")
+            if is_dir is not True:
+                failures.append(f"input_artifacts.{name}.is_dir must be true for ready audit reports")
     return failures
 
 
@@ -746,6 +841,12 @@ def verify_saved_files(payload: dict[str, Any], report_path: Path | None = None)
             require_ready=payload.get("production_claim_status") == READY_STATUS,
         )
     )
+    failures.extend(
+        validate_input_artifact_summaries(
+            payload,
+            require_ready=payload.get("production_claim_status") == READY_STATUS,
+        )
+    )
     if failures:
         return failures
     replay_args = replay_args_from_metadata(metadata)
@@ -803,6 +904,7 @@ def validate_payload(
     if payload.get("missing_or_failed_checks") != observed_missing:
         failures.append("missing_or_failed_checks do not match checks")
     failures.extend(validate_input_file_summaries(payload, require_ready=require_ready))
+    failures.extend(validate_input_artifact_summaries(payload, require_ready=require_ready))
     failures.extend(validate_external_saved_reviewer_gate_entries(payload))
     for check in checks:
         if not isinstance(check, dict):

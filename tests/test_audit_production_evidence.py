@@ -79,6 +79,7 @@ class AuditProductionEvidenceTest(unittest.TestCase):
             for path in final_input_files:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(f"{path.name}\n", encoding="utf-8")
+            (root / "evidence" / "external-l4-trial").mkdir(parents=True)
             expected_trial_sha = release_gate.sha256_file(root / "external" / "handoff_trial.json")
             args = audit_production_evidence.parse_args(
                 [
@@ -169,6 +170,9 @@ class AuditProductionEvidenceTest(unittest.TestCase):
             input_file_by_name["external_trial_json"]["sha256"],
         )
         self.assertTrue(input_file_by_name["github_workflow_verification_report"]["exists"])
+        input_artifact_by_name = {item["name"]: item for item in payload["input_artifacts"]}
+        self.assertTrue(input_artifact_by_name["external_trial_root"]["is_dir"])
+        self.assertTrue(input_artifact_by_name["external_evidence_package_dir"]["is_dir"])
         self.assertEqual([], failures)
 
     def test_saved_reviewer_reports_require_pair_gate(self) -> None:
@@ -402,6 +406,46 @@ class AuditProductionEvidenceTest(unittest.TestCase):
                 )
 
         self.assertIn("input_files changed after recomputing audit evidence", failures)
+
+    def test_file_recheck_rejects_input_artifact_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            trial_json = root / "external" / "handoff_trial.json"
+            trial_json.parent.mkdir(parents=True, exist_ok=True)
+            trial_json.write_text("{}\n", encoding="utf-8")
+            package_dir = root / "evidence" / "external-l4-trial"
+            package_dir.mkdir(parents=True)
+            report = root / "production-evidence-audit.json"
+            args = audit_production_evidence.parse_args(
+                [
+                    "--external-trial-json",
+                    str(trial_json),
+                    "--external-trial-root",
+                    str(trial_json.parent),
+                    "--external-evidence-package-dir",
+                    str(package_dir),
+                    "--out-json",
+                    str(report),
+                    "--out-md",
+                    str(root / "production-evidence-audit.md"),
+                ]
+            )
+
+            with (
+                self.patch_repo_state()[0],
+                self.patch_repo_state()[1],
+                self.patch_repo_state()[2],
+                self.patch_repo_state()[3],
+            ):
+                payload = audit_production_evidence.build_payload(args)
+                payload["input_artifacts"][1]["is_dir"] = False
+                failures = audit_production_evidence.validate_payload(
+                    payload,
+                    verify_files=True,
+                    report_path=report,
+                )
+
+        self.assertIn("input_artifacts changed after recomputing audit evidence", failures)
 
     def test_saved_report_verifier_rejects_final_signoff_claim(self) -> None:
         payload = {

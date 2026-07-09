@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## Production Evidence Audit Directory Input Snapshot
+
+This snapshot records the hardening that makes `benchmark/audit_production_evidence.py` record directory input summaries for final-wrapper evidence paths. Production evidence audit JSON now includes `input_artifacts` entries for `external_trial_root` and `external_evidence_package_dir`, and saved audit verification rechecks that those paths still match metadata and remain directories before `--require-ready` can pass. The Markdown audit report also renders these directory summaries so reviewers can see file evidence and directory evidence together.
+
+This is not a production claim. It protects final-input path binding; the real external L4 workflow trial, matching evidence package, saved external reviewer reports, live stable GitHub release, and saved stable-release verifier report are still required before final production signoff.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/audit_production_evidence.py tests/test_audit_production_evidence.py` | PASS |
+| `python3 -m unittest discover -s tests -p test_audit_production_evidence.py` | PASS, 11 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths including the bilingual README contract |
+| `git diff --check` | PASS |
+| `python3 -m unittest discover -s tests` | PASS, 598 tests |
+| `python3 benchmark/release_gate.py --out-json /tmp/morphojet-audit-directory-inputs-release-gate.json --out-md /tmp/morphojet-audit-directory-inputs-release-gate.md` | PASS; non-final precommit report |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-audit-directory-inputs-release-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+
 ## Stable Saved-Report Bilingual Anchor Snapshot
 
 This snapshot records the hardening that promotes stable GitHub release saved-report signoff flags into the root bilingual README and production-readiness documentation contracts. `benchmark/validate_claim_language.py` now requires both `README.md` and `README.zh-CN.md` to keep `--require-stable-report`, `--expect-tag`, `--expect-repo`, and `--expect-commit`, and also requires `docs/PRODUCTION_READINESS.md` to keep the concrete signoff shape `--require-stable-report --expect-tag v0.1.0 --expect-repo benngaihk/MorphoJet --expect-commit <final-commit>`. This keeps Chinese-community and English reviewers pointed at the same stable-release saved-report proof, not a weaker saved JSON review.
