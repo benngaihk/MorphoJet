@@ -114,6 +114,18 @@ def workflow_runs(
     attempts: int = GH_RUN_LIST_ATTEMPTS,
     retry_seconds: float = GH_RUN_LIST_RETRY_SECONDS,
 ) -> list[dict[str, Any]]:
+    runs, _query = workflow_runs_with_query_metadata(repo, branch, commit, workflow, attempts, retry_seconds)
+    return runs
+
+
+def workflow_runs_with_query_metadata(
+    repo: str,
+    branch: str,
+    commit: str,
+    workflow: str,
+    attempts: int = GH_RUN_LIST_ATTEMPTS,
+    retry_seconds: float = GH_RUN_LIST_RETRY_SECONDS,
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
     command = gh_run_list_command(repo, branch, commit, workflow)
     last_error: BaseException | None = None
     for attempt in range(1, attempts + 1):
@@ -122,7 +134,10 @@ def workflow_runs(
             payload = json.loads(output)
             if not isinstance(payload, list):
                 raise ValueError(f"gh run list returned non-list payload for {workflow}")
-            return [run for run in payload if isinstance(run, dict)]
+            return [run for run in payload if isinstance(run, dict)], {
+                "query_attempts": attempt,
+                "query_max_attempts": attempts,
+            }
         except (subprocess.CalledProcessError, JSONDecodeError, ValueError) as exc:
             last_error = exc
             if attempt < attempts:
@@ -133,7 +148,8 @@ def workflow_runs(
 
 def summarize_workflow(repo: str, branch: str, commit: str, workflow: str) -> dict[str, Any]:
     try:
-        runs = [run for run in workflow_runs(repo, branch, commit, workflow) if run.get("headSha") == commit]
+        query_runs, query_metadata = workflow_runs_with_query_metadata(repo, branch, commit, workflow)
+        runs = [run for run in query_runs if run.get("headSha") == commit]
     except RuntimeError as exc:
         return {
             "workflow": workflow,
@@ -145,6 +161,8 @@ def summarize_workflow(repo: str, branch: str, commit: str, workflow: str) -> di
             "run_id": None,
             "url": None,
             "event": None,
+            "query_attempts": GH_RUN_LIST_ATTEMPTS,
+            "query_max_attempts": GH_RUN_LIST_ATTEMPTS,
             "detail": str(exc),
         }
     if not runs:
@@ -155,6 +173,7 @@ def summarize_workflow(repo: str, branch: str, commit: str, workflow: str) -> di
             "head_sha": commit,
             "run_id": None,
             "url": None,
+            **query_metadata,
             "detail": f"no GitHub Actions run found for {workflow} at {commit}",
         }
     latest = runs[0]
@@ -174,6 +193,7 @@ def summarize_workflow(repo: str, branch: str, commit: str, workflow: str) -> di
         "display_title": latest.get("displayTitle"),
         "created_at": latest.get("createdAt"),
         "updated_at": latest.get("updatedAt"),
+        **query_metadata,
         "detail": "workflow completed successfully" if passed else f"workflow status={status} conclusion={conclusion}",
     }
 

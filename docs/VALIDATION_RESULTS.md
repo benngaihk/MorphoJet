@@ -2,9 +2,9 @@
 
 Updated: 2026-07-09
 
-## GitHub Workflow Query Retry Snapshot
+## GitHub Workflow Query Retry Metadata Snapshot
 
-This snapshot records the hardening that makes live GitHub Actions workflow rechecks tolerate short `gh run list` failures. `benchmark/verify_github_workflows.py` now retries transient GitHub CLI/API query failures before marking a workflow query failed, and persistent query failures are recorded as readable `FAIL` workflow summaries instead of tracebacks. This keeps saved workflow live-run evidence strict while reducing false release-gate failures caused by momentary GitHub query errors.
+This snapshot records the hardening that makes live GitHub Actions workflow rechecks tolerate and audit short `gh run list` failures. `benchmark/verify_github_workflows.py` now retries transient GitHub CLI/API query failures before marking a workflow query failed, records `query_attempts` and `query_max_attempts` in each workflow summary, and records persistent query failures as readable `FAIL` workflow summaries instead of tracebacks. This keeps saved workflow live-run evidence strict while reducing false release-gate failures caused by momentary GitHub query errors.
 
 This is not a production claim. It only stabilizes the remote workflow evidence verifier; the real external L4 workflow trial, matching evidence package, saved external reviewer reports, live stable GitHub release, saved stable-release verifier report, ready saved production evidence audit, and final production release-gate report are still required before final production signoff.
 
@@ -13,12 +13,12 @@ Verification:
 | Gate | Result |
 |---|---:|
 | `python3 -m py_compile benchmark/verify_github_workflows.py tests/test_verify_github_workflows.py` | PASS |
-| `python3 -m unittest discover -s tests -p test_verify_github_workflows.py` | PASS, 10 tests |
+| `python3 -m unittest discover -s tests -p test_verify_github_workflows.py` | PASS, 11 tests |
 | `python3 benchmark/validate_claim_language.py` | PASS, 16 paths including the bilingual README contract |
 | `git diff --check` | PASS |
-| `python3 -m unittest discover -s tests` | PASS, 612 tests |
-| `python3 benchmark/release_gate.py --out-json /tmp/morphojet-workflow-query-retry-release-gate.json --out-md /tmp/morphojet-workflow-query-retry-release-gate.md` | PASS; non-final precommit report |
-| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-workflow-query-retry-release-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report,production_evidence_readiness_audit` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+| `python3 -m unittest discover -s tests` | PASS, 613 tests |
+| `python3 benchmark/release_gate.py --out-json /tmp/morphojet-workflow-query-metadata-release-gate.json --out-md /tmp/morphojet-workflow-query-metadata-release-gate.md` | PASS; non-final precommit report |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-workflow-query-metadata-release-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report,production_evidence_readiness_audit` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
 
 ## Saved GitHub Workflow Live-Run Recheck Snapshot
 

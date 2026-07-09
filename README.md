@@ -300,7 +300,7 @@ python3 benchmark/verify_github_workflows.py \
 
 Generated external L4 trial plans use the same explicit commit binding and live-run recheck: `verify_github_workflows` writes the saved report with `--commit <trial_plan git_commit>`, and `verify_github_workflows_report` rechecks it with `--expect-commit <trial_plan git_commit>` plus `--verify-live-runs`. This prevents a later `main` branch movement or stale saved workflow JSON from silently replacing the remote-CI evidence intended for final review.
 
-The live-run recheck retries short `gh run list` failures before marking the workflow evidence failed, and if GitHub CLI/API access remains unavailable it records a readable `FAIL` summary instead of a traceback.
+The live-run recheck retries short `gh run list` failures before marking the workflow evidence failed, records `query_attempts` and `query_max_attempts` for each workflow summary, and if GitHub CLI/API access remains unavailable it records a readable `FAIL` summary instead of a traceback.
 
 The external L4 template declares `required_object_metadata_columns` for `Plate`, `Well`, and `Site`. Readiness checks enforce those columns on MorphoJet `Objects.csv`, so real handoff workspaces should generate `Objects.csv` with `measure --include-object-metadata` or intentionally update the manifest contract before review.
 

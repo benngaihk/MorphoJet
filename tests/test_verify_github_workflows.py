@@ -46,6 +46,27 @@ class VerifyGithubWorkflowsTest(unittest.TestCase):
             }
         ]
 
+    def workflow_summary(self, workflow: str, status: str = "completed", conclusion: str = "success") -> dict:
+        latest = self.workflow_payload(workflow, status=status, conclusion=conclusion)[0]
+        passed = status == "completed" and conclusion == "success"
+        return {
+            "workflow": workflow,
+            "status": "PASS" if passed else "FAIL",
+            "conclusion": conclusion,
+            "run_status": status,
+            "head_sha": latest["headSha"],
+            "head_branch": latest["headBranch"],
+            "run_id": latest["databaseId"],
+            "url": latest["url"],
+            "event": latest["event"],
+            "display_title": latest["displayTitle"],
+            "created_at": latest["createdAt"],
+            "updated_at": latest["updatedAt"],
+            "query_attempts": 1,
+            "query_max_attempts": 3,
+            "detail": "workflow completed successfully" if passed else f"workflow status={status} conclusion={conclusion}",
+        }
+
     def valid_saved_report_payload(self, report: Path) -> dict:
         return {
             "schema_version": 1,
@@ -75,13 +96,8 @@ class VerifyGithubWorkflowsTest(unittest.TestCase):
                 str(report),
             ],
             "workflow_runs": [
-                verify_github_workflows.summarize_workflow("benngaihk/MorphoJet", "main", self.COMMIT, "ci.yml"),
-                verify_github_workflows.summarize_workflow(
-                    "benngaihk/MorphoJet",
-                    "main",
-                    self.COMMIT,
-                    "external-l4-rehearsal.yml",
-                ),
+                self.workflow_summary("ci.yml"),
+                self.workflow_summary("external-l4-rehearsal.yml"),
             ],
         }
 
@@ -109,6 +125,8 @@ class VerifyGithubWorkflowsTest(unittest.TestCase):
         self.assertFalse(payload["final_production_signoff"])
         self.assertEqual(["ci.yml", "external-l4-rehearsal.yml"], payload["workflows"])
         self.assertTrue(all(run["status"] == "PASS" for run in payload["workflow_runs"]))
+        self.assertTrue(all(run["query_attempts"] == 1 for run in payload["workflow_runs"]))
+        self.assertTrue(all(run["query_max_attempts"] == 3 for run in payload["workflow_runs"]))
 
     def test_marks_failed_workflow_report_fail(self) -> None:
         def fake_run(command: list[str]) -> str:
@@ -162,6 +180,22 @@ class VerifyGithubWorkflowsTest(unittest.TestCase):
         self.assertEqual(2, run.call_count)
         sleep.assert_called_once_with(0.01)
 
+    def test_summarize_workflow_records_query_attempts(self) -> None:
+        transient = subprocess.CalledProcessError(1, ["gh", "run", "list"], stderr="temporary API failure")
+        with (
+            patch.object(
+                verify_github_workflows,
+                "run",
+                side_effect=[transient, json.dumps(self.workflow_payload("ci.yml"))],
+            ),
+            patch.object(verify_github_workflows.time, "sleep"),
+        ):
+            summary = verify_github_workflows.summarize_workflow("benngaihk/MorphoJet", "main", self.COMMIT, "ci.yml")
+
+        self.assertEqual("PASS", summary["status"])
+        self.assertEqual(2, summary["query_attempts"])
+        self.assertEqual(3, summary["query_max_attempts"])
+
     def test_summarize_workflow_reports_readable_query_failure(self) -> None:
         failure = subprocess.CalledProcessError(1, ["gh", "run", "list"], stderr="temporary API failure")
         with (
@@ -171,15 +205,15 @@ class VerifyGithubWorkflowsTest(unittest.TestCase):
             summary = verify_github_workflows.summarize_workflow("benngaihk/MorphoJet", "main", self.COMMIT, "ci.yml")
 
         self.assertEqual("FAIL", summary["status"])
+        self.assertEqual(3, summary["query_attempts"])
+        self.assertEqual(3, summary["query_max_attempts"])
         self.assertIn("gh run list failed for ci.yml after", summary["detail"])
         self.assertIn("temporary API failure", summary["detail"])
 
     def test_saved_report_requires_pass_and_expected_workflows(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = Path(tmp) / "workflows.json"
-            with patch.object(verify_github_workflows, "workflow_runs") as workflow_runs:
-                workflow_runs.side_effect = lambda _repo, _branch, _commit, workflow: self.workflow_payload(workflow)
-                payload = self.valid_saved_report_payload(report)
+            payload = self.valid_saved_report_payload(report)
             report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
             with contextlib.redirect_stdout(io.StringIO()) as stdout:
                 status = verify_github_workflows.verify_saved_report(
@@ -195,15 +229,16 @@ class VerifyGithubWorkflowsTest(unittest.TestCase):
     def test_saved_report_live_recheck_accepts_matching_runs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = Path(tmp) / "workflows.json"
-            with patch.object(verify_github_workflows, "workflow_runs") as workflow_runs:
-                workflow_runs.side_effect = lambda _repo, _branch, _commit, workflow: self.workflow_payload(workflow)
-                payload = self.valid_saved_report_payload(report)
+            payload = self.valid_saved_report_payload(report)
             report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
             with (
-                patch.object(verify_github_workflows, "workflow_runs") as workflow_runs,
+                patch.object(verify_github_workflows, "workflow_runs_with_query_metadata") as workflow_runs,
                 contextlib.redirect_stdout(io.StringIO()) as stdout,
             ):
-                workflow_runs.side_effect = lambda _repo, _branch, _commit, workflow: self.workflow_payload(workflow)
+                workflow_runs.side_effect = lambda _repo, _branch, _commit, workflow: (
+                    self.workflow_payload(workflow),
+                    {"query_attempts": 1, "query_max_attempts": 3},
+                )
                 status = verify_github_workflows.verify_saved_report(report, require_report_pass=True, verify_live_runs=True)
 
         self.assertEqual(0, status)
@@ -212,17 +247,18 @@ class VerifyGithubWorkflowsTest(unittest.TestCase):
     def test_saved_report_live_recheck_rejects_changed_run_signature(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = Path(tmp) / "workflows.json"
-            with patch.object(verify_github_workflows, "workflow_runs") as workflow_runs:
-                workflow_runs.side_effect = lambda _repo, _branch, _commit, workflow: self.workflow_payload(workflow)
-                payload = self.valid_saved_report_payload(report)
+            payload = self.valid_saved_report_payload(report)
             report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
             with (
-                patch.object(verify_github_workflows, "workflow_runs") as workflow_runs,
+                patch.object(verify_github_workflows, "workflow_runs_with_query_metadata") as workflow_runs,
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
             ):
-                workflow_runs.side_effect = lambda _repo, _branch, _commit, workflow: self.workflow_payload(
-                    workflow,
-                    conclusion="failure" if workflow == "ci.yml" else "success",
+                workflow_runs.side_effect = lambda _repo, _branch, _commit, workflow: (
+                    self.workflow_payload(
+                        workflow,
+                        conclusion="failure" if workflow == "ci.yml" else "success",
+                    ),
+                    {"query_attempts": 1, "query_max_attempts": 3},
                 )
                 status = verify_github_workflows.verify_saved_report(report, require_report_pass=True, verify_live_runs=True)
 
