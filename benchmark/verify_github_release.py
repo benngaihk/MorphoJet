@@ -11,7 +11,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tarfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -19,6 +18,7 @@ from typing import Any
 import release_gate
 from verify_release_archive import REQUIRED_FILES as REQUIRED_PACKAGE_FILES
 from verify_release_archive import SOURCE_MATCH_FILES as SOURCE_MATCH_PACKAGE_FILES
+from verify_release_archive import inspect_package_contents
 from verify_release_archive import verify
 
 
@@ -82,11 +82,6 @@ def checksum_issues(path: Path, archive_name: str) -> list[str]:
     elif Path(parts[1]).name != archive_name:
         issues.append(f"checksum file target mismatch for {archive_name}: {parts[1]}")
     return issues
-
-
-def archive_members(path: Path) -> set[str]:
-    with tarfile.open(path, "r:gz") as handle:
-        return {Path(name).name for name in handle.getnames()}
 
 
 def release_json(repo: str, tag: str) -> dict:
@@ -185,12 +180,6 @@ def download_release(repo: str, tag: str, out_dir: Path) -> None:
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     run(["gh", "release", "download", tag, "--repo", repo, "--dir", str(out_dir)])
-
-
-def verify_archive_shape(archive: Path) -> list[str]:
-    members = archive_members(archive)
-    missing = sorted(REQUIRED_PACKAGE_FILES - members)
-    return [f"{archive.name} missing package files: {','.join(missing)}"] if missing else []
 
 
 def compatible_archive(archive: Path) -> bool:
@@ -522,29 +511,30 @@ def doctor_run_issues(archive_summaries: list[dict]) -> list[str]:
     return ["no compatible release archive was doctor-verified on this machine"]
 
 
-def doctor_package_file_issues(archive_name: Any, doctor: dict[str, Any], status: Any) -> list[str]:
+def package_file_summary_issues(
+    archive_name: Any, package_files: Any, status: Any, field_prefix: str
+) -> list[str]:
     failures = []
-    package_files = doctor.get("package_files")
     if not isinstance(package_files, dict):
-        failures.append(f"archive doctor package_files must be an object: {archive_name}")
+        failures.append(f"{field_prefix} package_files must be an object: {archive_name}")
         return failures
     for filename in SOURCE_MATCH_PACKAGE_FILES:
         summary = package_files.get(filename)
         if not isinstance(summary, dict):
-            failures.append(f"archive doctor package_files missing {filename}: {archive_name}")
+            failures.append(f"{field_prefix} package_files missing {filename}: {archive_name}")
             continue
         for key in ["package_exists", "source_exists", "matches_source"]:
             if not isinstance(summary.get(key), bool):
-                failures.append(f"archive doctor package_files.{filename}.{key} must be boolean: {archive_name}")
+                failures.append(f"{field_prefix} package_files.{filename}.{key} must be boolean: {archive_name}")
         for key in ["package_sha256", "source_sha256"]:
             value = summary.get(key)
             if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
-                failures.append(f"archive doctor package_files.{filename}.{key} must be a sha256: {archive_name}")
+                failures.append(f"{field_prefix} package_files.{filename}.{key} must be a sha256: {archive_name}")
         package_sha = summary.get("package_sha256")
         source_sha = summary.get("source_sha256")
         if summary.get("matches_source") is True and package_sha != source_sha:
             failures.append(
-                f"archive doctor package_files.{filename}.matches_source conflicts with sha256 values: {archive_name}"
+                f"{field_prefix} package_files.{filename}.matches_source conflicts with sha256 values: {archive_name}"
             )
         if status == "PASS":
             if summary.get("package_exists") is not True:
@@ -554,6 +544,13 @@ def doctor_package_file_issues(archive_name: Any, doctor: dict[str, Any], status
             if summary.get("matches_source") is not True:
                 failures.append(f"passing github release archive {filename} must match repository source: {archive_name}")
     return failures
+
+
+def doctor_package_file_issues(archive_name: Any, doctor: dict[str, Any], status: Any) -> list[str]:
+    package_files = doctor.get("package_files")
+    if package_files is None:
+        return []
+    return package_file_summary_issues(archive_name, package_files, status, "archive doctor")
 
 
 def expected_commit_issues(expected_commit: Any, expected_doctor_commit: Any) -> list[str]:
@@ -794,6 +791,7 @@ def validate_verification_report_payload(
                     f"passing github release verification report archive checksum_match must be true: "
                     f"{archive.get('archive')}"
                 )
+            failures.extend(package_file_summary_issues(archive.get("archive"), archive.get("package_files"), status, "archive"))
             doctor = archive.get("doctor")
             if doctor is not None:
                 if not isinstance(doctor, dict):
@@ -1051,7 +1049,8 @@ def main() -> int:
         issues.extend(checksum_issues(checksum, archive.name))
         if actual != expected:
             issues.append(f"checksum mismatch for {archive.name}")
-        issues.extend(verify_archive_shape(archive))
+        package_inspection = inspect_package_contents(archive)
+        issues.extend(f"{archive.name}: {issue}" for issue in package_inspection["issues"])
 
         doctor_summary = None
         if compatible_archive(archive):
@@ -1062,6 +1061,7 @@ def main() -> int:
                 "archive": archive.name,
                 "sha256": actual,
                 "checksum_match": actual == expected,
+                "package_files": package_inspection["package_files"],
                 "doctor": doctor_summary,
             }
         )

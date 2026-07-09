@@ -362,6 +362,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
                     "archive": archive.name,
                     "sha256": digest,
                     "checksum_match": True,
+                    "package_files": self.valid_doctor_package_files(),
                     "doctor": {
                         "status": "PASS",
                         "issues": [],
@@ -814,16 +815,16 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         )
         self.assertIn("archive doctor has issues: morphojet-v0.1.0-linux-x86_64.tar.gz", failures)
 
-    def test_saved_release_report_rejects_missing_doctor_package_files(self) -> None:
+    def test_saved_release_report_rejects_missing_archive_package_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = self.valid_report(Path(tmp))
             payload = json.loads(report.read_text(encoding="utf-8"))
-            del payload["archives"][0]["doctor"]["package_files"]
+            del payload["archives"][0]["package_files"]
 
             failures = verify_github_release.validate_verification_report_payload(payload)
 
         self.assertIn(
-            "archive doctor package_files must be an object: morphojet-v0.1.0-linux-x86_64.tar.gz",
+            "archive package_files must be an object: morphojet-v0.1.0-linux-x86_64.tar.gz",
             failures,
         )
 
@@ -831,7 +832,7 @@ class VerifyGithubReleaseTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             report = self.valid_report(Path(tmp))
             payload = json.loads(report.read_text(encoding="utf-8"))
-            readme_summary = payload["archives"][0]["doctor"]["package_files"]["README.zh-CN.md"]
+            readme_summary = payload["archives"][0]["package_files"]["README.zh-CN.md"]
             readme_summary["package_sha256"] = "c" * 64
             readme_summary["matches_source"] = False
 
@@ -843,17 +844,34 @@ class VerifyGithubReleaseTest(unittest.TestCase):
             failures,
         )
 
+    def test_saved_release_report_rejects_stale_chinese_readme_in_non_doctored_archive(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = self.valid_report(Path(tmp))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            non_doctored_archive = next(archive for archive in payload["archives"] if archive["doctor"] is None)
+            readme_summary = non_doctored_archive["package_files"]["README.zh-CN.md"]
+            readme_summary["package_sha256"] = "c" * 64
+            readme_summary["matches_source"] = False
+
+            failures = verify_github_release.validate_verification_report_payload(payload)
+
+        self.assertIn(
+            "passing github release archive README.zh-CN.md must match repository source: "
+            f"{non_doctored_archive['archive']}",
+            failures,
+        )
+
     def test_saved_release_report_rejects_package_file_match_flag_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = self.valid_report(Path(tmp))
             payload = json.loads(report.read_text(encoding="utf-8"))
-            readme_summary = payload["archives"][0]["doctor"]["package_files"]["README.md"]
+            readme_summary = payload["archives"][0]["package_files"]["README.md"]
             readme_summary["package_sha256"] = "c" * 64
 
             failures = verify_github_release.validate_verification_report_payload(payload)
 
         self.assertIn(
-            "archive doctor package_files.README.md.matches_source conflicts with sha256 values: "
+            "archive package_files.README.md.matches_source conflicts with sha256 values: "
             "morphojet-v0.1.0-linux-x86_64.tar.gz",
             failures,
         )

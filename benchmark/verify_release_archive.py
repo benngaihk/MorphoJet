@@ -105,6 +105,29 @@ def package_file_issues(summaries: dict[str, dict[str, object]]) -> list[str]:
     return issues
 
 
+def extracted_package_dir(extract_root: Path, issues: list[str]) -> Path:
+    roots = [path for path in extract_root.iterdir() if path.is_dir()]
+    if len(roots) != 1:
+        issues.append(f"expected one top-level directory, found {len(roots)}")
+        return roots[0] if roots else extract_root
+    return roots[0]
+
+
+def inspect_package_contents(archive: Path) -> dict[str, object]:
+    issues: list[str] = []
+    with tempfile.TemporaryDirectory(prefix="morphojet-release-") as tmp:
+        tmp_path = Path(tmp)
+        safe_extract(archive, tmp_path)
+        package_dir = extracted_package_dir(tmp_path, issues)
+        found = {path.name for path in package_dir.iterdir()} if package_dir.exists() else set()
+        missing = sorted(REQUIRED_FILES - found)
+        if missing:
+            issues.append(f"missing files={','.join(missing)}")
+        file_summaries = package_file_summaries(package_dir)
+        issues.extend(package_file_issues(file_summaries))
+    return {"issues": issues, "package_files": file_summaries}
+
+
 def validate_json_out_path(json_out: Path | None, archive: Path, checksum: Path) -> None:
     if json_out is None:
         return
@@ -128,13 +151,7 @@ def verify(archive: Path, checksum: Path, expect_commit: str | None) -> dict[str
     with tempfile.TemporaryDirectory(prefix="morphojet-release-") as tmp:
         tmp_path = Path(tmp)
         safe_extract(archive, tmp_path)
-        roots = [path for path in tmp_path.iterdir() if path.is_dir()]
-        if len(roots) != 1:
-            issues.append(f"expected one top-level directory, found {len(roots)}")
-            package_dir = roots[0] if roots else tmp_path
-        else:
-            package_dir = roots[0]
-
+        package_dir = extracted_package_dir(tmp_path, issues)
         found = {path.name for path in package_dir.iterdir()} if package_dir.exists() else set()
         missing = sorted(REQUIRED_FILES - found)
         if missing:

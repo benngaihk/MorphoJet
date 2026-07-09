@@ -90,6 +90,7 @@ class RunProductionGateTest(unittest.TestCase):
                     "archive": archive.name,
                     "sha256": digest,
                     "checksum_match": True,
+                    "package_files": self.valid_doctor_package_files(),
                     "doctor": {
                         "status": "PASS",
                         "issues": [],
