@@ -73,6 +73,7 @@ ROOT_README_SHARED_ANCHORS = [
     "--github-release-verification-report",
     "--github-workflow-verification-report",
     "--production-evidence-audit-report",
+    "Verify saved external L4 reviewer report pair",
     "README.md",
     "README.zh-CN.md",
 ]

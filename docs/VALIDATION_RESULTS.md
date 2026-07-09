@@ -2,6 +2,24 @@
 
 Updated: 2026-07-09
 
+## Root Bilingual README Pair-Gate Anchor Snapshot
+
+This snapshot records the hardening that promotes `Verify saved external L4 reviewer report pair` into the root bilingual README shared-anchor contract. `benchmark/validate_claim_language.py` now requires both `README.md` and `README.zh-CN.md` to retain that gate name alongside the non-final claim labels, final wrapper report flags, and bilingual README paths, so the release gate rejects a root README update that leaves Chinese-community reviewers without the reviewer-report pair-gate cue.
+
+This is not a production claim. It protects documentation parity for the existing evidence chain; the real external L4 workflow trial, matching evidence package, saved external reviewer reports, live stable GitHub release, and saved stable-release verifier report are still required before final production signoff.
+
+Verification:
+
+| Gate | Result |
+|---|---:|
+| `python3 -m py_compile benchmark/validate_claim_language.py tests/test_validate_claim_language.py` | PASS |
+| `python3 -m unittest discover -s tests -p test_validate_claim_language.py` | PASS, 13 tests |
+| `python3 benchmark/validate_claim_language.py` | PASS, 16 paths including the bilingual README contract |
+| `git diff --check` | PASS |
+| `python3 -m unittest discover -s tests` | PASS, 597 tests |
+| `python3 benchmark/release_gate.py --out-json /tmp/morphojet-root-bilingual-pair-anchor-release-gate.json --out-md /tmp/morphojet-root-bilingual-pair-anchor-release-gate.md` | PASS; non-final precommit report |
+| `python3 benchmark/verify_release_gate_report.py /tmp/morphojet-root-bilingual-pair-anchor-release-gate.json --require-report-pass --verify-git-commit --expect-missing-checks clean_git_worktree,github_actions_workflow_verification,l3_provenance_hashes,external_l4_workflow_trial,external_l4_evidence_package,external_l4_saved_reviewer_reports,stable_github_release,stable_github_release_saved_report` | PASS; `claim_status=NOT_PRODUCTION_CLAIM`, `production_claim_status=INCOMPLETE` |
+
 ## External Workspace Audit Pair-Gate README Snapshot
 
 This snapshot records the hardening that carries the production-evidence-audit reviewer pair-gate requirement into generated external L4 workspace instructions. `benchmark/prepare_external_l4_trial.py` now renders the requirement in both generated `README.md` and `README.zh-CN.md`: when both saved external reviewer reports are present, the saved production evidence audit must retain the saved trial verifier, saved package verifier, and `Verify saved external L4 reviewer report pair` gate entries. The generated workspace README shared-anchor guard also requires that pair-gate text in both languages during `--verify-plan-files`, so saved trial-plan review rejects weakened external instructions.

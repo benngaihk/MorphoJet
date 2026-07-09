@@ -29,6 +29,10 @@ class ValidateClaimLanguageTest(unittest.TestCase):
         failures = validate_claim_language.validate_root_readme_contract()
 
         self.assertEqual([], failures)
+        self.assertIn(
+            "Verify saved external L4 reviewer report pair",
+            validate_claim_language.ROOT_README_SHARED_ANCHORS,
+        )
 
     def test_root_readme_contract_rejects_missing_chinese_l4_guidance(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
