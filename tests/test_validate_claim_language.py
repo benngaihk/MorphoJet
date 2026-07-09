@@ -136,6 +136,10 @@ class ValidateClaimLanguageTest(unittest.TestCase):
                 "--expect-tag v0.1.0\n"
                 "--expect-repo benngaihk/MorphoJet\n"
                 "--expect-commit <final-commit>\n"
+                "schema_version=2\n"
+                "input_artifacts\n"
+                "external_trial_root\n"
+                "external_evidence_package_dir\n"
                 "five saved final-input report arguments\n"
                 "reruns that signoff-mode recheck before invoking the release gate\n",
                 encoding="utf-8",
