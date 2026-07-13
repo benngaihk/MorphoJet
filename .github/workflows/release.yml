@@ -11,6 +11,7 @@ permissions:
 jobs:
   build:
     name: Build release assets
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -18,21 +19,37 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-l3.txt
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1a3a6d54512beeaffd394f8d516ca16f2c506a20 # 1.97.0
         with:
           components: rustfmt, clippy
+
+      - name: Install Python image dependencies
+        run: python3 -m pip install --disable-pip-version-check --requirement requirements-l3.txt
 
       - name: Verify
         run: |
           cargo fmt -- --check
-          cargo test
-          cargo clippy --all-targets -- -D warnings
+          cargo test --locked --workspace --all-targets
+          cargo clippy --locked --workspace --all-targets -- -D warnings
+          python3 -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Audit Rust dependencies
+        run: |
+          cargo install cargo-audit --version 0.22.2 --locked
+          cargo audit --file Cargo.lock
 
       - name: Build binary
-        run: cargo build --release -p morphojet
+        run: cargo build --locked --release -p morphojet
 
       - name: Package binary
         shell: bash
@@ -49,8 +66,15 @@ jobs:
           shasum -a 256 "dist/${name}.tar.gz" > "dist/${name}.tar.gz.sha256"
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/*.tar.gz
-            dist/*.sha256
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          files=(dist/*.tar.gz dist/*.sha256)
+          if gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release upload "${tag}" "${files[@]}" --clobber --repo "${GITHUB_REPOSITORY}"
+          else
+            gh release create "${tag}" "${files[@]}" --verify-tag --generate-notes --repo "${GITHUB_REPOSITORY}"
+          fi

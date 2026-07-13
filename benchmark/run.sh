@@ -24,7 +24,7 @@ fi
 mkdir -p "$OUT_DIR"
 
 echo "== MorphoJet =="
-time "$CARGO_BIN" run --release -p morphojet -- measure \
+time "$CARGO_BIN" run --locked --release -p morphojet -- measure \
   --images "$IMAGE_TABLE" \
   --out "$OUT_DIR" \
   --threads "$THREADS" \

@@ -163,7 +163,7 @@ def main() -> int:
 
     root = Path(__file__).resolve().parents[1]
     cargo = cargo_bin()
-    run([cargo, "build", "--release", "-p", "morphojet"], root)
+    run([cargo, "build", "--locked", "--release", "-p", "morphojet"], root)
     release_binary = root / "target" / "release" / "morphojet"
 
     image_counts = [int(value.strip()) for value in args.cases.split(",") if value.strip()]

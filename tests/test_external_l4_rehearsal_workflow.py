@@ -54,7 +54,7 @@ class ExternalL4RehearsalWorkflowTest(unittest.TestCase):
             "evidence-package/**",
         ]
 
-        self.assertIn("actions/upload-artifact@v4", self.workflow_text)
+        self.assertIn("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", self.workflow_text)
         self.assertIn("if-no-files-found: error", self.workflow_text)
         self.assertIn("retention-days: 30", self.workflow_text)
         for artifact in required_artifacts:

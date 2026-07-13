@@ -38,6 +38,23 @@ def parse_memory_mb(value: str) -> float:
     return amount * UNIT_TO_MB[unit]
 
 
+def build_docker_command(args: argparse.Namespace, command: list[str]) -> list[str]:
+    docker_command = ["docker", "run", "--rm", "--name", args.container_name]
+    if args.platform:
+        docker_command.extend(["--platform", args.platform])
+    if args.user:
+        docker_command.extend(["--user", args.user])
+    for environment in args.env:
+        docker_command.extend(["--env", environment])
+    for volume in args.volume:
+        docker_command.extend(["-v", volume])
+    if args.workdir:
+        docker_command.extend(["-w", args.workdir])
+    docker_command.append(args.image)
+    docker_command.extend(command)
+    return docker_command
+
+
 def sample_stats(container_name: str, interval: float, samples: list[dict[str, float]], stop: threading.Event) -> None:
     while not stop.is_set():
         completed = subprocess.run(
@@ -73,6 +90,8 @@ def main() -> int:
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--platform")
+    parser.add_argument("--user")
+    parser.add_argument("--env", action="append", default=[])
     parser.add_argument("--volume", action="append", default=[])
     parser.add_argument("--workdir")
     parser.add_argument("--sample-interval", type=float, default=0.25)
@@ -88,15 +107,7 @@ def main() -> int:
 
     args.out.mkdir(parents=True, exist_ok=True)
     subprocess.run(["docker", "rm", "-f", args.container_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    docker_command = ["docker", "run", "--rm", "--name", args.container_name]
-    if args.platform:
-        docker_command.extend(["--platform", args.platform])
-    for volume in args.volume:
-        docker_command.extend(["-v", volume])
-    if args.workdir:
-        docker_command.extend(["-w", args.workdir])
-    docker_command.append(args.image)
-    docker_command.extend(command)
+    docker_command = build_docker_command(args, command)
 
     samples: list[dict[str, float]] = []
     stop = threading.Event()

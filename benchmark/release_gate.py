@@ -2759,8 +2759,11 @@ def main() -> int:
     gates.extend(
         [
             run_command("Rust formatting", [cargo, "fmt", "--", "--check"]),
-            run_command("Rust tests", [cargo, "test"]),
-            run_command("Rust clippy", [cargo, "clippy", "--all-targets", "--", "-D", "warnings"]),
+            run_command("Rust tests", [cargo, "test", "--locked", "--workspace", "--all-targets"]),
+            run_command(
+                "Rust clippy",
+                [cargo, "clippy", "--locked", "--workspace", "--all-targets", "--", "-D", "warnings"],
+            ),
             run_command("Python helper compilation", ["python3", "-m", "py_compile", *python_files]),
             run_command("Python helper tests", ["python3", "-m", "unittest", "discover", "-s", "tests"]),
             run_command("Validate claim language", ["python3", "benchmark/validate_claim_language.py"]),

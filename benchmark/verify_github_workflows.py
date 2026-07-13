@@ -250,6 +250,10 @@ def argv_values(argv: list[str], flag: str) -> list[str | None]:
     return values
 
 
+def is_positive_int(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
 def validate_report_payload(
     payload: Any,
     report_path: Path | None = None,
@@ -326,6 +330,14 @@ def validate_report_payload(
                 failures.append(f"unexpected workflow run entry: {workflow}")
             if run_status not in {"PASS", "FAIL", "MISSING"}:
                 failures.append(f"workflow_runs.{workflow}.status={run_status}")
+            query_attempts = run_summary.get("query_attempts")
+            query_max_attempts = run_summary.get("query_max_attempts")
+            if not is_positive_int(query_attempts):
+                failures.append(f"workflow {workflow} query_attempts must be a positive integer")
+            if query_max_attempts != GH_RUN_LIST_ATTEMPTS:
+                failures.append(f"workflow {workflow} query_max_attempts must be {GH_RUN_LIST_ATTEMPTS}")
+            if is_positive_int(query_attempts) and is_positive_int(query_max_attempts) and query_attempts > query_max_attempts:
+                failures.append(f"workflow {workflow} query_attempts cannot exceed query_max_attempts")
             if require_report_pass and run_status != "PASS":
                 failures.append(f"workflow {workflow} is not PASS: {run_status}")
             if run_status == "PASS":

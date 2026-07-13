@@ -98,7 +98,11 @@ def main() -> int:
     args = parser.parse_args()
 
     if not args.skip_build:
-        subprocess.run([cargo_bin(), "build", "--release", "-p", "morphojet"], cwd=ROOT, check=True)
+        subprocess.run(
+            [cargo_bin(), "build", "--locked", "--release", "-p", "morphojet"],
+            cwd=ROOT,
+            check=True,
+        )
 
     binary = ROOT / "target/release/morphojet"
     if not binary.is_file():

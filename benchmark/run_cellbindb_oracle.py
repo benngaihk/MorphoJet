@@ -173,6 +173,10 @@ def main() -> int:
                 CP_IMAGE,
                 "--platform",
                 CP_PLATFORM,
+                "--user",
+                f"{os.getuid()}:{os.getgid()}",
+                "--env",
+                "HOME=/tmp",
                 "--volume",
                 f"{ROOT}:/work",
                 "--workdir",
@@ -193,7 +197,7 @@ def main() -> int:
             ]
         )
 
-    run([cargo_bin(), "build", "--release", "-p", "morphojet"])
+    run([cargo_bin(), "build", "--locked", "--release", "-p", "morphojet"])
     remove(mj_dir)
     run(
         [
