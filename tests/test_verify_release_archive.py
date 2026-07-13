@@ -87,6 +87,26 @@ class VerifyReleaseArchiveTest(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "--json-out must not overwrite checksum"):
                 verify_release_archive.validate_json_out_path(checksum, archive, checksum)
 
+    def test_doctor_commit_matches_full_expected_commit_by_prefix(self) -> None:
+        full_commit = "0123456789abcdef0123456789abcdef01234567"
+        doctor_output = "morphojet.version=0.1.0\nmorphojet.commit=0123456789ab\n"
+
+        self.assertTrue(verify_release_archive.doctor_commit_matches(doctor_output, full_commit))
+
+    def test_doctor_commit_rejects_invalid_or_mismatched_prefix(self) -> None:
+        full_commit = "0123456789abcdef0123456789abcdef01234567"
+
+        for prefix, expected_commit in [
+            ("unknown", full_commit),
+            ("0123456789ac", full_commit),
+            ("0123456789a", full_commit),
+            ("0123456789ab", "0123456789ab"),
+            ("0123456789ab", "0123456789ab" + "z" * 28),
+        ]:
+            with self.subTest(prefix=prefix, expected_commit=expected_commit):
+                doctor_output = f"morphojet.commit={prefix}\n"
+                self.assertFalse(verify_release_archive.doctor_commit_matches(doctor_output, expected_commit))
+
     def test_package_file_issues_rejects_stale_chinese_readme(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

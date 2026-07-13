@@ -7,10 +7,12 @@ on:
 
 permissions:
   contents: write
+  checks: write
 
 jobs:
   build:
     name: Build release assets
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -18,21 +20,37 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-l3.txt
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1a3a6d54512beeaffd394f8d516ca16f2c506a20 # 1.97.0
         with:
           components: rustfmt, clippy
+
+      - name: Install Python image dependencies
+        run: python3 -m pip install --disable-pip-version-check --requirement requirements-l3.txt
 
       - name: Verify
         run: |
           cargo fmt -- --check
-          cargo test
-          cargo clippy --all-targets -- -D warnings
+          cargo test --locked --workspace --all-targets
+          cargo clippy --locked --workspace --all-targets -- -D warnings
+          python3 -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Audit Rust dependencies
+        uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build binary
-        run: cargo build --release -p morphojet
+        run: cargo build --locked --release -p morphojet
 
       - name: Package binary
         shell: bash
@@ -49,7 +67,7 @@ jobs:
           shasum -a 256 "dist/${name}.tar.gz" > "dist/${name}.tar.gz.sha256"
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: |
             dist/*.tar.gz

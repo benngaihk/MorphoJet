@@ -109,7 +109,7 @@ def main() -> int:
         ],
         root,
     )
-    run([cargo_bin(), "build", "--release", "-p", "morphojet"], root)
+    run([cargo_bin(), "build", "--locked", "--release", "-p", "morphojet"], root)
 
     metrics_dir = "benchmark/results/metrics"
     run(metric_command("cellprofiler", metrics_dir, cellprofiler_command(manifest, root)), root)

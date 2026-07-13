@@ -226,6 +226,21 @@ class VerifyGithubWorkflowsTest(unittest.TestCase):
         self.assertEqual(0, status)
         self.assertIn("status=PASS", stdout.getvalue())
 
+    def test_saved_report_rejects_invalid_query_attempt_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "workflows.json"
+            for field, value, expected_message in [
+                ("query_attempts", 0, "query_attempts must be a positive integer"),
+                ("query_attempts", True, "query_attempts must be a positive integer"),
+                ("query_attempts", 4, "query_attempts cannot exceed query_max_attempts"),
+                ("query_max_attempts", 2, "query_max_attempts must be 3"),
+            ]:
+                payload = self.valid_saved_report_payload(report)
+                payload["workflow_runs"][0][field] = value
+                with self.subTest(field=field, value=value):
+                    failures = verify_github_workflows.validate_report_payload(payload, report_path=report)
+                    self.assertTrue(any(expected_message in failure for failure in failures), failures)
+
     def test_saved_report_live_recheck_accepts_matching_runs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = Path(tmp) / "workflows.json"

@@ -140,6 +140,26 @@ def validate_json_out_path(json_out: Path | None, archive: Path, checksum: Path)
         raise SystemExit(f"--json-out must not overwrite {protected_label}")
 
 
+def doctor_commit_prefix(doctor_output: str) -> str | None:
+    for line in doctor_output.splitlines():
+        if line.startswith("morphojet.commit="):
+            value = line.removeprefix("morphojet.commit=").strip()
+            return value or None
+    return None
+
+
+def doctor_commit_matches(doctor_output: str, expected_commit: str) -> bool:
+    prefix = doctor_commit_prefix(doctor_output)
+    return (
+        prefix is not None
+        and len(prefix) == 12
+        and all(character in "0123456789abcdef" for character in prefix)
+        and len(expected_commit) == 40
+        and all(character in "0123456789abcdef" for character in expected_commit)
+        and expected_commit.startswith(prefix)
+    )
+
+
 def verify(archive: Path, checksum: Path, expect_commit: str | None) -> dict[str, object]:
     actual = sha256(archive)
     expected = expected_sha(checksum)
@@ -171,8 +191,8 @@ def verify(archive: Path, checksum: Path, expect_commit: str | None) -> dict[str
             for required in ["morphojet.version=", "morphojet.commit=", "platform.os=", "platform.arch="]:
                 if required not in doctor_output:
                     issues.append(f"doctor output missing {required}")
-            if expect_commit and f"morphojet.commit={expect_commit}" not in doctor_output:
-                issues.append(f"doctor output does not contain expected commit {expect_commit}")
+            if expect_commit and not doctor_commit_matches(doctor_output, expect_commit):
+                issues.append(f"doctor output does not match expected commit prefix for {expect_commit}")
 
     return {
         "status": "PASS" if not issues else "FAIL",

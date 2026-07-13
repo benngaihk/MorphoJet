@@ -2,7 +2,7 @@
 
 ## Toolchain
 
-This repository uses stable Rust. On this workstation, Cargo is available at:
+This repository pins Rust 1.97.0 in `rust-toolchain.toml`. Cargo commands that resolve dependencies use `--locked`, so a stale `Cargo.lock` fails instead of silently changing the build. On this workstation, Cargo is available at:
 
 ```bash
 $HOME/.cargo/bin/cargo
@@ -12,14 +12,16 @@ $HOME/.cargo/bin/cargo
 
 ```bash
 $HOME/.cargo/bin/cargo fmt -- --check
-$HOME/.cargo/bin/cargo test
-$HOME/.cargo/bin/cargo clippy --all-targets -- -D warnings
+$HOME/.cargo/bin/cargo test --locked --workspace --all-targets
+$HOME/.cargo/bin/cargo clippy --locked --workspace --all-targets -- -D warnings
+python3 -m pip install --requirement requirements-l3.txt
 python3 -m py_compile benchmark/*.py corpus/generate_smoke.py tests/*.py tests/parity/*.py
 python3 -m unittest discover -s tests
 git diff --check
 ```
 
 CI runs the same core path on GitHub Actions: Rust formatting, Rust tests, Clippy, Python helper compilation, Python helper tests, smoke benchmark, and parity self-check.
+CI and release builds also run RustSec `cargo-audit` against the committed `Cargo.lock`; known vulnerable dependencies fail before packaging.
 
 ## CLI Safety Rules
 
